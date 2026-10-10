@@ -120,8 +120,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: nextMessages.slice(-20) })
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "AURORA couldn't answer right now.");
+      const rawResponse = await response.text();
+      let data = {};
+      try { data = rawResponse ? JSON.parse(rawResponse) : {}; } catch { data = {}; }
+      if (!response.ok) {
+        const detail = typeof data.error === "string" ? data.error : rawResponse.slice(0, 180);
+        throw new Error(detail ? `Chat API HTTP ${response.status}: ${detail}` : `Chat API HTTP ${response.status}. Check the Vercel deployment logs.`);
+      }
       const reply = String(data.reply || "").trim();
       if (!reply) throw new Error("AURORA returned an empty response.");
       setMessages((current) => [...current, { role: "assistant", content: reply }]);
