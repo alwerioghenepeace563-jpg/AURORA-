@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
     const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
