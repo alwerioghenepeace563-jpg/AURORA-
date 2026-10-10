@@ -1,0 +1,27 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.vite/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Android / Gradle local output
+.gradle/
+local.properties
+android/.gradle/
+android/local.properties
