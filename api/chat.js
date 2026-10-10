@@ -2,9 +2,7 @@ export default async function handler(req, res) {
   const allowedOrigin = process.env.AURORA_ALLOWED_ORIGIN;
   const origin = req.headers.origin;
 
-  if (allowedOrigin && origin && origin !== allowedOrigin) {
-    return res.status(403).json({ error: "Origin not allowed." });
-  }
+  if (allowedOrigin && origin && origin !== allowedOrigin) return res.status(403).json({ error: "Origin not allowed." });
   if (allowedOrigin) res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Vary", "Origin");
   res.setHeader("Cache-Control", "no-store");
@@ -38,39 +36,52 @@ export default async function handler(req, res) {
     contents.push({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] });
   }
 
+  const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
+  const candidates = [...new Set([configuredModel, "gemini-2.5-flash", "gemini-flash-latest"])];
+  const payload = {
+    systemInstruction: { parts: [{ text: "You are AURORA, a thoughtful personal AI assistant. Be warm, capable, clear, and honest about your limitations." }] },
+    contents,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
+  };
+
   try {
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-    const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: "POST",
-      headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: "You are AURORA, a thoughtful personal AI assistant. Be warm, capable, clear, and honest about your limitations." }] },
-        contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
-      })
-    });
-    const data = await upstream.json().catch(() => ({}));
+    let upstream;
+    let data = {};
+    let usedModel = configuredModel;
+
+    for (const model of candidates) {
+      usedModel = model;
+      upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: "POST",
+        headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      data = await upstream.json().catch(() => ({}));
+      if (upstream.ok || upstream.status !== 404) break;
+      console.warn("Gemini model not found; trying fallback model:", model);
+    }
+
     if (!upstream.ok) {
       const providerMessage = typeof data?.error?.message === "string" ? data.error.message : "";
-      console.error("Gemini provider request failed:", upstream.status, providerMessage);
-      let message = "Gemini request failed. Check the model, API key, quota, and deployment logs.";
-      if (upstream.status === 400) message = "Gemini rejected the request or model setting. Check GEMINI_MODEL.";
+      console.error("Gemini provider request failed:", upstream.status, providerMessage, "Model:", usedModel);
+      let message = "Gemini request failed. Check the API key, model access, quota, and deployment logs.";
+      if (upstream.status === 400) message = "Gemini rejected the request. Check the request format.";
       if (upstream.status === 401) message = "Gemini rejected the API key. Check GEMINI_API_KEY in Vercel.";
-      if (upstream.status === 403) message = "Gemini access is forbidden. Check the API key and enable the Generative Language API in its Google project.";
-      if (upstream.status === 404) message = "The Gemini model was not found. Set GEMINI_MODEL to gemini-2.5-flash.";
+      if (upstream.status === 403) message = "Gemini access is forbidden. Check the API key and Generative Language API access.";
+      if (upstream.status === 404) message = "None of the available Gemini fallback models could be found for this API key.";
       if (upstream.status === 429) message = "Gemini quota or rate limit reached. Check the API quota.";
-      if (upstream.status >= 500 && providerMessage) message = `Gemini service error (${upstream.status}): ${providerMessage.slice(0, 180)}`;
       return res.status(upstream.status === 429 ? 429 : 502).json({
         error: message,
-        diagnostic: { providerStatus: upstream.status, providerMessage: providerMessage.slice(0, 240) }
+        diagnostic: { model: usedModel, providerStatus: upstream.status, providerMessage: providerMessage.slice(0, 240) }
       });
     }
+
     const reply = data?.candidates?.[0]?.content?.parts
       ?.map((part) => typeof part.text === "string" ? part.text : "")
       .join("")
       .trim();
     if (typeof reply !== "string" || !reply) return res.status(502).json({ error: "AI returned an empty response." });
-    return res.status(200).json({ reply });
+    return res.status(200).json({ reply, model: usedModel });
   } catch (error) {
     console.error("AURORA chat function error:", error);
     return res.status(502).json({ error: "Could not reach the AI service." });
