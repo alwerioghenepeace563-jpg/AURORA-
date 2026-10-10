@@ -55,9 +55,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      console.error("Gemini provider request failed, status:", upstream.status);
+      const providerMessage = typeof data?.error?.message === "string" ? data.error.message : "";
+      console.error("Gemini provider request failed:", upstream.status, providerMessage);
+      let message = "Gemini couldn't complete the request. Check the deployment logs.";
+      if (upstream.status === 400) message = "Gemini rejected the request or model setting. Check GEMINI_MODEL.";
+      if (upstream.status === 401) message = "Gemini rejected the API key. Check GEMINI_API_KEY in Vercel.";
+      if (upstream.status === 403) message = "Gemini access is forbidden. Check that the API key is valid and the Generative Language API is enabled for its Google project.";
+      if (upstream.status === 404) message = "The Gemini model was not found. Check GEMINI_MODEL.";
+      if (upstream.status === 429) message = "Gemini quota or rate limit reached. Check the API quota and billing limits.";
       return res.status(upstream.status === 429 ? 429 : 502).json({
-        error: upstream.status === 429 ? "AI usage limit reached. Try again later." : "AI service could not complete the request."
+        error: message,
+        diagnostic: { providerStatus: upstream.status, providerMessage: providerMessage.slice(0, 240) }
       });
     }
     const reply = data?.candidates?.[0]?.content?.parts
