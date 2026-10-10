@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
@@ -53,12 +53,13 @@ export default async function handler(req, res) {
     if (!upstream.ok) {
       const providerMessage = typeof data?.error?.message === "string" ? data.error.message : "";
       console.error("Gemini provider request failed:", upstream.status, providerMessage);
-      let message = "Gemini couldn't complete the request. Check the deployment logs.";
+      let message = "Gemini request failed. Check the model, API key, quota, and deployment logs.";
       if (upstream.status === 400) message = "Gemini rejected the request or model setting. Check GEMINI_MODEL.";
       if (upstream.status === 401) message = "Gemini rejected the API key. Check GEMINI_API_KEY in Vercel.";
-      if (upstream.status === 403) message = "Gemini access is forbidden. Check that the API key is valid and the Generative Language API is enabled for its Google project.";
-      if (upstream.status === 404) message = "The Gemini model was not found. Check GEMINI_MODEL.";
-      if (upstream.status === 429) message = "Gemini quota or rate limit reached. Check the API quota and billing limits.";
+      if (upstream.status === 403) message = "Gemini access is forbidden. Check the API key and enable the Generative Language API in its Google project.";
+      if (upstream.status === 404) message = "The Gemini model was not found. Set GEMINI_MODEL to gemini-2.5-flash.";
+      if (upstream.status === 429) message = "Gemini quota or rate limit reached. Check the API quota.";
+      if (upstream.status >= 500 && providerMessage) message = `Gemini service error (${upstream.status}): ${providerMessage.slice(0, 180)}`;
       return res.status(upstream.status === 429 ? 429 : 502).json({
         error: message,
         diagnostic: { providerStatus: upstream.status, providerMessage: providerMessage.slice(0, 240) }
