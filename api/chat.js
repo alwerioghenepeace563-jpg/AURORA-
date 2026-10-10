@@ -70,8 +70,9 @@ export default async function handler(req, res) {
       if (upstream.status === 403) message = "Gemini access is forbidden. Check the API key and Generative Language API access.";
       if (upstream.status === 404) message = "None of the available Gemini fallback models could be found for this API key.";
       if (upstream.status === 429) message = "Gemini quota or rate limit reached. Check the API quota.";
+      const diagnosticText = providerMessage ? ` (HTTP ${upstream.status}: ${providerMessage.slice(0, 180)})` : ` (HTTP ${upstream.status})`;
       return res.status(upstream.status === 429 ? 429 : 502).json({
-        error: message,
+        error: message + diagnosticText,
         diagnostic: { model: usedModel, providerStatus: upstream.status, providerMessage: providerMessage.slice(0, 240) }
       });
     }
