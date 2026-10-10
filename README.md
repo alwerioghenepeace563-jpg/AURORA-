@@ -1,26 +1,41 @@
 # AURORA
 
-AURORA is a personal AI assistant concept for web and Android, with a futuristic animated orb, intelligent chat, natural voice interaction, personalized daily planning, and a premium sci-fi interface.
+AURORA is a personal AI assistant with a luminous animated energy orb, an uncluttered main screen, chat and voice controls, daily activity shortcuts, and a responsive dark sci-fi interface.
 
-## Security first
+## Stack
 
-- Never commit API keys, passwords, tokens, or private environment files.
-- Keep OpenAI and ElevenLabs keys on the server/backend only.
-- Frontend code must call our own backend endpoint; it must never call a provider using a secret key.
-- Use deployment-platform secret/environment settings for production keys.
-- If a key is exposed, revoke it and create a replacement immediately.
+- React + Vite
+- Framer Motion for interface motion
+- Lucide React icons
+- Vercel serverless routes for Gemini chat and ElevenLabs voice
 
-## Environment variables
+## Local development
 
-See [`.env.example`](.env.example) for variable names only. Do not put real values in that file.
+1. Install Node.js 20 or newer.
+2. Run `npm install`.
+3. Copy `.env.example` to `.env` and add your own local provider keys if you want to test the API routes locally.
+4. Run `npm run dev` for the frontend.
+5. Run `npm run build` to verify the production frontend build.
 
-## Planned integrations
+The frontend can be deployed on Vercel. The `api/chat.ts` and `api/voice.ts` routes are server-side only and require the environment variables below.
 
-- OpenAI API: assistant responses.
-- ElevenLabs API: optional AURORA voice output.
-- Browser speech recognition: optional speech input, depending on browser support.
-- Responsive web interface and Android packaging.
+## Vercel environment variables
 
-## Development status
+- `GEMINI_API_KEY` — your Gemini API key.
+- `GEMINI_MODEL` — optional; defaults to `gemini-2.5-flash`.
+- `ELEVENLABS_API_KEY` — your ElevenLabs API key.
+- `ELEVENLABS_VOICE_ID` — the selected voice's ID from ElevenLabs.
+- `ELEVENLABS_MODEL_ID` — optional; defaults to `eleven_multilingual_v2`.
+- `AURORA_ALLOWED_ORIGIN` — optional exact site origin, such as `https://aurora-ten-gold.vercel.app`.
 
-This repository is the clean AURORA project starting point. UI, backend routes, tests, and Android packaging should be added in separate, testable steps.
+Never commit real keys or put them in frontend variables. Add them in Vercel Project Settings → Environment Variables, then redeploy.
+
+## Current UI
+
+The home screen keeps the glowing orb as the centrepiece, with a greeting and prompt composer. The AURORA tab opens the full chat interface with an optional right-hand settings panel on desktop. Activities and Profile are included as initial navigable screens.
+
+File attachments currently select a file but do not upload or analyse it. Microphone input depends on browser speech-recognition support and permissions. API voice responses require ElevenLabs to be configured.
+
+## Security note
+
+Origin checks are not authentication or rate limiting. Before sharing the app publicly, add user authentication, request limits, and abuse monitoring to protect API usage.
