@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID,
     bella: process.env.ELEVENLABS_BELLA_VOICE_ID,
     laura: process.env.ELEVENLABS_LAURA_VOICE_ID,
-    lucian: process.env.ELEVENLABS_LUCIAN_VOICE_ID
+    lucian: process.env.ELEVENLAB_LUCIAN_VOICE_ID || process.env.ELEVENLABS_LUCIAN_VOICE_ID
   };
   if (!Object.prototype.hasOwnProperty.call(voiceIds, voiceName)) {
     return res.status(400).json({ error: "Choose Jessica, Bella, Laura, or Lucian." });
@@ -57,10 +57,14 @@ export default async function handler(req, res) {
     });
 
     if (!upstream.ok) {
-      console.error("Voice provider request failed, status:", upstream.status);
-      return res.status(upstream.status === 429 ? 429 : 502).json({
-        error: upstream.status === 429 ? "Voice usage limit reached. Try again later." : "Voice service could not generate audio."
-      });
+      const providerDetails = await upstream.text().catch(() => "");
+      console.error("Voice provider request failed, status:", upstream.status, providerDetails.slice(0, 500));
+      let message = "Voice service could not generate audio.";
+      if (upstream.status === 401 || upstream.status === 403) message = "ElevenLabs rejected the API key or this voice is not accessible to the account.";
+      else if (upstream.status === 404) message = "ElevenLabs could not find this voice ID. Check the Lucian Voice ID in Vercel.";
+      else if (upstream.status === 429) message = "Voice usage limit reached. Try again later.";
+      else if (upstream.status === 400) message = "ElevenLabs rejected the voice request. Check the voice ID and model settings.";
+      return res.status(upstream.status === 429 ? 429 : 502).json({ error: message });
     }
     const audio = Buffer.from(await upstream.arrayBuffer());
     res.setHeader("Content-Type", "audio/mpeg");
