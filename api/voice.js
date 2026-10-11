@@ -34,10 +34,11 @@ export default async function handler(req, res) {
   const voiceIds = {
     jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID,
     bella: process.env.ELEVENLABS_BELLA_VOICE_ID,
-    laura: process.env.ELEVENLABS_LAURA_VOICE_ID
+    laura: process.env.ELEVENLABS_LAURA_VOICE_ID,
+    lucian: process.env.ELEVENLABS_LUCIAN_VOICE_ID
   };
   if (!Object.prototype.hasOwnProperty.call(voiceIds, voiceName)) {
-    return res.status(400).json({ error: "Choose Jessica, Bella, or Laura." });
+    return res.status(400).json({ error: "Choose Jessica, Bella, Laura, or Lucian." });
   }
   const voiceId = voiceIds[voiceName];
   if (!voiceId) {
