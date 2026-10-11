@@ -17,9 +17,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST." });
   }
 
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(503).json({ error: "AI service is not configured." });
-
   let body = req.body;
   if (typeof body === "string") {
     try { body = JSON.parse(body); } catch { body = null; }
@@ -82,7 +79,39 @@ export default async function handler(req, res) {
     generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
   };
 
+  const groqKey = process.env.GROQ_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const hasAttachments = body.messages.some((m) => m && (m.document || m.image));
+
   try {
+    // Use Groq for ordinary chat first. Keep Gemini for files/images and as a text fallback.
+    if (groqKey && !hasAttachments) {
+      try {
+        const groqMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
+        const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: (process.env.GROQ_MODEL || "openai/gpt-oss-20b").trim(), messages: groqMessages, temperature: 0.7, max_completion_tokens: 1200 }),
+          signal: AbortSignal.timeout(18000)
+        });
+        const groqData = await groqResponse.json().catch(() => ({}));
+        const groqReply = groqData?.choices?.[0]?.message?.content;
+        if (groqResponse.ok && typeof groqReply === "string" && groqReply.trim()) {
+          return res.status(200).json({ reply: groqReply.trim(), model: groqData?.model || process.env.GROQ_MODEL || "openai/gpt-oss-20b", provider: "groq" });
+        }
+        console.warn("Groq request failed; trying Gemini fallback:", groqResponse.status, groqData?.error?.message || "");
+      } catch (groqError) {
+        console.warn("Groq request failed; trying Gemini fallback:", groqError?.message || "Unknown error");
+      }
+    }
+
+    if (!geminiKey) {
+      return res.status(groqKey ? 502 : 503).json({
+        error: groqKey
+          ? "AURORA couldn't get a response from Groq. Check the Groq API key, model, and quota."
+          : "AI service is not configured. Add GROQ_API_KEY in Vercel to enable AURORA chat."
+      });
+    }
     let upstream;
     let data = {};
     let usedModel = configuredModel;
@@ -91,7 +120,7 @@ export default async function handler(req, res) {
       usedModel = model;
       upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: "POST",
-        headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+        headers: { "x-goog-api-key": geminiKey, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(18000)
       });
