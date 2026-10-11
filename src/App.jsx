@@ -112,6 +112,31 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-chat-history", JSON.stringify(messages.slice(-40))); } catch {}
   }, [messages]);
+  useEffect(() => { try { localStorage.setItem("aurora-tasks", JSON.stringify(tasks)); } catch {} }, [tasks]);
+  useEffect(() => { try { localStorage.setItem("aurora-notes", JSON.stringify(notes)); } catch {} }, [notes]);
+  useEffect(() => { try { localStorage.setItem("aurora-reminders", JSON.stringify(reminders)); } catch {} }, [reminders]);
+  useEffect(() => { try { localStorage.setItem("aurora-calendar-events", JSON.stringify(events)); } catch {} }, [events]);
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = window.setInterval(() => setTimerSecondsLeft((seconds) => {
+      if (seconds <= 1) { window.clearInterval(id); setTimerRunning(false); setNotice(timerLabel + " finished."); return 0; }
+      return seconds - 1;
+    }), 1000);
+    return () => window.clearInterval(id);
+  }, [timerRunning, timerLabel]);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setReminders((current) => current.map((item) => {
+        if (!item.done && !item.notified && new Date(item.at).getTime() <= Date.now()) {
+          setNotice("Reminder: " + item.title);
+          if ("Notification" in window && Notification.permission === "granted") new Notification("AURORA reminder", { body: item.title });
+          return { ...item, notified: true };
+        }
+        return item;
+      }));
+    }, 15000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
