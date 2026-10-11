@@ -176,7 +176,7 @@ export default async function handler(req, res) {
   query = query.trim().slice(0, 240);
   if (query.length < 2) return res.status(400).json({error:"Enter a search query."});
 
-  const looksLikeNews = /\\b(latest|breaking|current|today'?s|recent)\\b.{0,35}\\b(news|headlines|updates)\\b|\\b(news|headlines|updates)\\b.{0,35}\\b(today|latest|Nigeria)\\b/i.test(query);
+  const looksLikeNews = /\b(latest|breaking|current|today'?s|recent)\b.{0,35}\b(news|headlines|updates)\b|\b(news|headlines|updates)\b.{0,35}\b(today|latest|Nigeria)\b/i.test(query);
   const errors = [];
   const attemptGroup = async (attempts) => {
     try { return await Promise.any(attempts); }
@@ -221,7 +221,6 @@ export default async function handler(req, res) {
     parseDuckApi(query).then(results => ({query,results,source:"DuckDuckGo Instant Answers"}))
   ]);
   if (fallbackResult) return res.status(200).json(fallbackResult);
-  if (result) return res.status(200).json(result);
   console.error("AURORA search providers failed:", errors.join("; "));
   return res.status(502).json({error:"Search is temporarily unavailable. Please try again shortly.",details:errors});
 }
