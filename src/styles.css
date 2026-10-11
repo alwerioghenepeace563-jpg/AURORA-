@@ -192,3 +192,12 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .aurora-card-link{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid rgba(99,212,255,.23);border-radius:10px;color:#aeeeff;text-decoration:none;font-size:11px;font-weight:650;background:rgba(46,140,183,.1)}
 .aurora-card-link:hover{background:rgba(46,140,183,.2)}
 @media(max-width:600px){.aurora-flow-card,.aurora-info-card{padding:11px}.aurora-flow-step{padding:10px}.aurora-visual-title{font-size:11px}}
+
+.message-table-wrap{width:100%;max-width:100%;overflow-x:auto;border:1px solid rgba(125,183,231,.15);border-radius:12px;background:rgba(7,14,27,.5)}
+.message-table{width:100%;border-collapse:collapse;min-width:300px;font-size:11px;line-height:1.6;color:#d8e6f7}
+.message-table th,.message-table td{padding:9px 10px;text-align:left;vertical-align:top;border-bottom:1px solid rgba(125,183,231,.12);overflow-wrap:anywhere}
+.message-table th{font-weight:700;color:#eaf8ff;background:rgba(71,143,196,.12)}
+.message-table tr:last-child td{border-bottom:0}
+.message-code-block{max-width:100%;overflow-x:auto;margin:0;padding:12px;border:1px solid rgba(125,183,231,.16);border-radius:12px;background:rgba(3,8,17,.72);color:#bfeaff;font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}
+.message-code-block code{font:inherit;color:inherit;background:none;padding:0}
+.message-divider{width:100%;border:0;border-top:1px solid rgba(125,183,231,.16);margin:4px 0}
