@@ -67,6 +67,8 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
+  const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
+  const [profileSaved, setProfileSaved] = useState(false);
   const [showSettings, setShowSettings] = useState(true);
   const [notice, setNotice] = useState("");
   const chatEndRef = useRef(null);
@@ -81,6 +83,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-selected-voice", selectedVoice); } catch {}
   }, [selectedVoice]);
+
+  useEffect(() => {
+    try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
+  }, [profile]);
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
@@ -131,7 +137,7 @@ export default function App() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages.slice(-20) })
+        body: JSON.stringify({ messages: nextMessages.slice(-20), profile })
       });
       const rawResponse = await response.text();
       let data = {};
@@ -288,9 +294,22 @@ export default function App() {
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
-              <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>Your profile</h2><p>Personal details and preferences</p></div><span className="coming-pill">SETUP NEXT</span></div>
-              <div className="profile-options"><div><span className="setting-icon"><Clock3 size={18} /></span><div><strong>Daily routine</strong><small>Wake-up time, sleep time and priorities</small></div><ChevronRight /></div><div><span className="setting-icon"><Sparkles size={18} /></span><div><strong>Assistant style</strong><small>Choose how AURORA communicates</small></div><ChevronRight /></div><div><span className="setting-icon"><ShieldCheck size={18} /></span><div><strong>Privacy & security</strong><small>Keep your account and API access safe</small></div><ChevronRight /></div></div>
-              <button className="primary-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
+              <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>{profile.nickname || profile.name || "Your profile"}</h2><p>Personal details and preferences</p></div><span className="coming-pill">ON THIS DEVICE</span></div>
+              <form className="profile-form" onSubmit={(event) => { event.preventDefault(); setProfileSaved(true); setTimeout(() => setProfileSaved(false), 2400); }}>
+                <div className="profile-form-heading"><div><h2>Personalise AURORA</h2><p>These details stay saved on this device and help tailor replies when you chat.</p></div></div>
+                <div className="profile-field-grid">
+                  <label className="profile-field"><span>Name</span><input value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} placeholder="Your name" autoComplete="given-name" /></label>
+                  <label className="profile-field"><span>Preferred name</span><input value={profile.nickname} onChange={(e) => setProfile((p) => ({ ...p, nickname: e.target.value }))} placeholder="What should AURORA call you?" /></label>
+                  <label className="profile-field"><span>Usual wake-up time</span><input type="time" value={profile.wakeTime} onChange={(e) => setProfile((p) => ({ ...p, wakeTime: e.target.value }))} /></label>
+                  <label className="profile-field"><span>Usual sleep time</span><input type="time" value={profile.sleepTime} onChange={(e) => setProfile((p) => ({ ...p, sleepTime: e.target.value }))} /></label>
+                  <label className="profile-field profile-field-wide"><span>Daily priorities</span><textarea value={profile.priorities} onChange={(e) => setProfile((p) => ({ ...p, priorities: e.target.value }))} placeholder="School, projects, reminders, goals..." rows={2} /></label>
+                  <label className="profile-field profile-field-wide"><span>Food preferences (optional)</span><input value={profile.foodPreferences} onChange={(e) => setProfile((p) => ({ ...p, foodPreferences: e.target.value }))} placeholder="Foods you enjoy or prefer to avoid" /></label>
+                  <label className="profile-field profile-field-wide"><span>Dietary restrictions (optional)</span><input value={profile.dietaryRestrictions} onChange={(e) => setProfile((p) => ({ ...p, dietaryRestrictions: e.target.value }))} placeholder="Allergies or dietary needs, if any" /></label>
+                  <label className="profile-field profile-field-wide"><span>How should AURORA communicate?</span><select value={profile.assistantStyle} onChange={(e) => setProfile((p) => ({ ...p, assistantStyle: e.target.value }))}><option value="warm">Warm, direct and encouraging</option><option value="concise">Short and direct</option><option value="teacher">Detailed teacher</option><option value="calm">Calm and structured</option></select></label>
+                </div>
+                <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved ✓" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
+              </form>
+              <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
             </motion.section>
           )}
         </AnimatePresence>
