@@ -161,6 +161,7 @@ function BottomNav({ active, onNavigate }) {
   const items = [
     { id: "home", label: "Home", Icon: House },
     { id: "activities", label: "Activities", Icon: CalendarDays },
+    { id: "tools", label: "Tools", Icon: Sparkles },
     { id: "chat", label: "AURORA", Icon: AudioLines },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
@@ -197,6 +198,14 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(true);
   const [notice, setNotice] = useState("");
   const [activityTab, setActivityTab] = useState("tasks");
+  const [toolKind, setToolKind] = useState("search");
+  const [toolQuery, setToolQuery] = useState("");
+  const [toolText, setToolText] = useState("");
+  const [toolLanguage, setToolLanguage] = useState("English");
+  const [toolMode, setToolMode] = useState("Improve and polish");
+  const [toolSubject, setToolSubject] = useState("General");
+  const [toolResult, setToolResult] = useState(null);
+  const [toolBusy, setToolBusy] = useState(false);
   const [tasks, setTasks] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-tasks") || "[]"); } catch { return []; } });
   const [notes, setNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-notes") || "[]"); } catch { return []; } });
   const [reminders, setReminders] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-reminders") || "[]"); } catch { return []; } });
@@ -365,6 +374,49 @@ export default function App() {
       setNotice(error.message || "Couldn't reach AURORA's AI service. Check the Vercel environment variables.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function openTool(kind) {
+    setToolKind(kind);
+    setToolResult(null);
+    setNotice("");
+    setAttachmentOpen(false);
+    setPage("tools");
+  }
+
+  async function runTool(event) {
+    event?.preventDefault?.();
+    if (toolBusy) return;
+    const kind = toolKind;
+    const value = kind === "search" ? toolQuery.trim() : toolText.trim();
+    if (!value) { setNotice(kind === "search" ? "Enter something to search for." : "Add some text or a topic first."); return; }
+    setToolBusy(true);
+    setToolResult(null);
+    setNotice("");
+    try {
+      if (kind === "search") {
+        const response = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: value }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Web search could not complete.");
+        setToolResult({ kind, query: value, results: Array.isArray(data.results) ? data.results : [] });
+        return;
+      }
+      const prompts = {
+        translate: "Act as AURORA's translation tool. Translate the user's text into " + toolLanguage + ". Preserve the meaning, tone, names and formatting. If the input is already in that language, say so and offer a natural polish. Return only the translation first, then a short note only if genuinely needed.\n\nTEXT:\n" + value,
+        writing: "Act as AURORA's writing studio. Task: " + toolMode + ". Keep the user's intended meaning, improve clarity and grammar, and match the likely audience. Return the finished writing first; briefly explain key edits only if useful.\n\nTEXT / BRIEF:\n" + value,
+        study: "Act as AURORA's study tutor. Subject: " + toolSubject + ". Teach the user's topic step by step, explain the core idea clearly, include one worked example where appropriate, then give one short practice question and wait for the learner to answer before revealing its solution. Avoid overwhelming them.\n\nTOPIC / QUESTION:\n" + value
+      };
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: prompts[kind] || value }], profile }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "This tool could not reach AURORA's AI service.");
+      const reply = String(data.reply || "").trim();
+      if (!reply) throw new Error("AURORA returned an empty result.");
+      setToolResult({ kind, input: value, reply });
+    } catch (error) {
+      setNotice(error.message || "The tool couldn't complete. Please try again.");
+    } finally {
+      setToolBusy(false);
     }
   }
 
@@ -581,6 +633,47 @@ export default function App() {
           )}
 
 
+          {page === "tools" && (
+            <motion.section key="tools" className="utility-page aurora-tools-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <div className="tools-page-heading">
+                <p className="panel-eyebrow">AURORA WORKSPACE</p>
+                <h1>Tools<span>.</span></h1>
+                <p className="utility-intro">Each tool has its own workspace. Choose one, add your input, and run it here.</p>
+              </div>
+              <div className="tool-launch-grid">
+                {[
+                  { id: "search", icon: <Sparkles size={20}/>, title: "Web Search", desc: "Find web results with source links" },
+                  { id: "translate", icon: <WandSparkles size={20}/>, title: "Translate", desc: "Translate text into your chosen language" },
+                  { id: "writing", icon: <NotebookPen size={20}/>, title: "Writing Assistant", desc: "Draft, rewrite, proofread and summarise" },
+                  { id: "study", icon: <FileText size={20}/>, title: "Study Tools", desc: "Learn a topic and practise step by step" }
+                ].map((item) => <button type="button" key={item.id} className={toolKind === item.id ? "tool-launch-card tool-launch-active" : "tool-launch-card"} onClick={() => { setToolKind(item.id); setToolResult(null); setNotice(""); }}>
+                  <span className="tool-launch-icon">{item.icon}</span><span className="tool-launch-copy"><strong>{item.title}</strong><small>{item.desc}</small></span><ChevronRight size={17}/>
+                </button>)}
+                <button type="button" className="tool-launch-card" onClick={() => { setAttachmentOpen(true); }}><span className="tool-launch-icon"><Paperclip size={20}/></span><span className="tool-launch-copy"><strong>Document Reader</strong><small>Upload and ask AURORA about a PDF or text file</small></span><ChevronRight size={17}/></button>
+                <button type="button" className="tool-launch-card" onClick={() => { setAttachmentOpen(true); }}><span className="tool-launch-icon"><Camera size={20}/></span><span className="tool-launch-copy"><strong>Image Understanding</strong><small>Use a photo or gallery image and ask questions</small></span><ChevronRight size={17}/></button>
+              </div>
+              <div className="tool-workspace glass-panel">
+                <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <WandSparkles size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <FileText size={19}/>}</span><div><h2>{toolKind === "search" ? "Web Search" : toolKind === "translate" ? "Translate" : toolKind === "writing" ? "Writing Assistant" : "Study Tools"}</h2><p>{toolKind === "search" ? "Search results open from their original sources." : toolKind === "translate" ? "Choose the output language and add the text." : toolKind === "writing" ? "Choose the writing task and provide your draft or brief." : "Choose a subject and enter the topic you want to understand."}</p></div></div>
+                <form className="tool-run-form" onSubmit={runTool}>
+                  {toolKind === "search" ? <label className="tool-field"><span>What do you want to find?</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder="Search a topic, question, or latest news…" required/></label> : <>
+                    {toolKind === "translate" && <label className="tool-field"><span>Translate into</span><select value={toolLanguage} onChange={(e) => setToolLanguage(e.target.value)}>{["English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label>}
+                    {toolKind === "writing" && <label className="tool-field"><span>Writing task</span><select value={toolMode} onChange={(e) => setToolMode(e.target.value)}>{["Improve and polish","Draft from my brief","Proofread grammar","Summarise","Make it formal","Make it simpler","Create an outline"].map((mode) => <option key={mode}>{mode}</option>)}</select></label>}
+                    {toolKind === "study" && <label className="tool-field"><span>Subject</span><select value={toolSubject} onChange={(e) => setToolSubject(e.target.value)}>{["General","Mathematics","English","Biology","Chemistry","Physics","Agricultural Science","Geography","Civic Education","Computer Science"].map((subject) => <option key={subject}>{subject}</option>)}</select></label>}
+                    <label className="tool-field"><span>{toolKind === "study" ? "Topic or question" : toolKind === "writing" ? "Your text or brief" : "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={5} placeholder={toolKind === "study" ? "e.g. Explain quadratic equations from the basics…" : toolKind === "writing" ? "Paste your draft or describe what you need…" : "Paste the text you want translated…"} required/></label>
+                  </>}
+                  <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> Run {toolKind === "search" ? "search" : toolKind === "translate" ? "translation" : toolKind === "writing" ? "writing assistant" : "study lesson"}</>}</button>
+                </form>
+                {notice && <div className="tool-notice" role="status">{notice}</div>}
+                {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
+                {toolResult && <div className="tool-result-panel">
+                  <div className="tool-result-heading"><div><span className="panel-eyebrow">RESULT</span><h3>{toolResult.kind === "search" ? "Search results" : toolResult.kind === "translate" ? "Translation" : toolResult.kind === "writing" ? "Your writing result" : "Your study session"}</h3></div><button type="button" className="outline-action" onClick={() => { const text = toolResult.reply || (toolResult.results || []).map((item) => item.title + "\n" + item.url).join("\n\n"); if (text) { navigator.clipboard?.writeText(text).then(() => setNotice("Result copied.")).catch(() => setNotice("Copy is unavailable in this browser.")); } }}>Copy result</button></div>
+                  {toolResult.kind === "search" ? <div className="tool-search-results">{toolResult.results.length ? toolResult.results.map((item,index) => <article className="tool-search-result" key={item.url || index}><span className="tool-result-index">{String(index+1).padStart(2,"0")}</span><div><a href={item.url} target="_blank" rel="noreferrer">{item.title || item.url}</a><p>{item.snippet || "Open the source for more information."}</p><small>{item.url}</small></div><a className="tool-open-source" href={item.url} target="_blank" rel="noreferrer" aria-label="Open source"><ChevronRight size={17}/></a></article>) : <p className="activity-muted">No matching results found. Try another search phrase.</p>}</div> : <div className="tool-ai-result"><FormattedMessage content={toolResult.reply}/><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div>}
+                </div>}
+              </div>
+              <div className="tool-workspace-foot"><Sparkles size={15}/><span>Tools use AURORA’s configured AI services; availability depends on the service and its current limits.</span></div>
+            </motion.section>
+          )}
+
           {page === "activities" && (
             <motion.section key="activities" className="utility-page aurora-activities-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Activities<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer — all saved inside AURORA on this device.</p>
@@ -631,14 +724,15 @@ export default function App() {
           <motion.div className="aurora-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAttachmentOpen(false)}>
             <motion.div className="aurora-attachment-menu" role="dialog" aria-label="AURORA attachments" initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} onClick={(event) => event.stopPropagation()}>
               <div className="aurora-menu-heading"><span className="aurora-menu-mark"><Plus size={17} /></span><div><strong>AURORA tools</strong><small>Choose what you want to add</small></div><button type="button" onClick={() => setAttachmentOpen(false)} aria-label="Close attachment menu"><X size={17} /></button></div>
+              <button type="button" className="aurora-tool-option aurora-tool-hub-option" onClick={() => { setAttachmentOpen(false); navigate("tools"); }}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Open Tools Workspace</strong><small>Dedicated interfaces for every tool</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("camera")}><span className="aurora-tool-icon"><Camera size={21} /></span><span><strong>Camera</strong><small>Take a new photo</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("gallery")}><span className="aurora-tool-icon"><ImageIcon size={21} /></span><span><strong>Gallery</strong><small>Choose photos from your device</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("files")}><span className="aurora-tool-icon"><Paperclip size={21} /></span><span><strong>Files</strong><small>Add a supported document</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option aurora-tuner-option" onClick={() => openAttachment("tuner")}><span className="aurora-tool-icon"><SlidersHorizontal size={21} /></span><span><strong>AI Tuner</strong><small>Choose AURORA’s personality</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => v ? "Search the web for " + v : "Search the web for "); }}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Web Search</strong><small>Find current information with sources</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => "Translate the following text. Ask me for the target language if I have not specified one, preserve the meaning and tone, and return a natural translation:\\n" + v); }}><span className="aurora-tool-icon"><WandSparkles size={21} /></span><span><strong>Translate</strong><small>Translate text into another language</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => "Writing Assistant: help me draft, rewrite, proofread, or summarise the text below. Keep my intended meaning and use a clear, natural style. Ask a brief question if a key detail is missing:\\n" + v); }}><span className="aurora-tool-icon"><NotebookPen size={21} /></span><span><strong>Writing Assistant</strong><small>Draft, rewrite or summarise text</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => "Study Tools: teach this topic step by step from the basics, explain the key ideas with one worked example, then give me a short practice question and wait for my answer before showing the solution:\\n" + v); }}><span className="aurora-tool-icon"><FileText size={21} /></span><span><strong>Study Tools</strong><small>Learn concepts and practise questions</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => openTool("search")}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Web Search</strong><small>Find current information with sources</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => openTool("translate")}><span className="aurora-tool-icon"><WandSparkles size={21} /></span><span><strong>Translate</strong><small>Translate text into another language</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => openTool("writing")}><span className="aurora-tool-icon"><NotebookPen size={21} /></span><span><strong>Writing Assistant</strong><small>Draft, rewrite or summarise text</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => openTool("study")}><span className="aurora-tool-icon"><FileText size={21} /></span><span><strong>Study Tools</strong><small>Learn concepts and practise questions</small></span><ChevronRight size={16} /></button>
               <p className="aurora-menu-footnote">Your tools, inside AURORA.</p>
             </motion.div>
           </motion.div>
