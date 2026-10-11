@@ -192,7 +192,7 @@ export default function App() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (documentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], document: documentOverride }; return items; })(), profile })
+        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (documentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], document: documentOverride }; return items; })(), profile, preferredProvider: localStorage.getItem("aurora-active-ai-provider") || undefined })
       });
       const rawResponse = await response.text();
       let data = {};
@@ -203,6 +203,7 @@ export default function App() {
       }
       const reply = String(data.reply || "").trim();
       if (!reply) throw new Error("AURORA returned an empty response.");
+      if (["groq", "openrouter", "gemini"].includes(data.provider)) localStorage.setItem("aurora-active-ai-provider", data.provider);
       setMessages((current) => [...current, { role: "assistant", content: reply }]);
       if (soundOn) speak(reply);
     } catch (error) {
