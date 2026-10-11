@@ -70,6 +70,7 @@ export default async function handler(req, res) {
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
     contents,
+    tools: [{ google_search: {} }],
     generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
   };
 
