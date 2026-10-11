@@ -38,8 +38,28 @@ export default async function handler(req, res) {
 
   const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
   const candidates = [...new Set([configuredModel, "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash"])];
+  const profile = body.profile && typeof body.profile === "object" ? body.profile : {};
+  const clean = (value, max = 300) => typeof value === "string" ? value.trim().slice(0, max) : "";
+  const styleGuidance = {
+    warm: "Use a warm, direct, encouraging style.",
+    concise: "Keep answers short and direct unless more detail is requested.",
+    teacher: "Teach clearly and step by step, with examples when useful.",
+    calm: "Use a calm, structured style with clear next steps."
+  };
+  const profileContext = [
+    clean(profile.nickname || profile.name, 80) ? "Preferred name: " + clean(profile.nickname || profile.name, 80) : "",
+    clean(profile.wakeTime, 10) ? "Usual wake-up time: " + clean(profile.wakeTime, 10) : "",
+    clean(profile.sleepTime, 10) ? "Usual sleep time: " + clean(profile.sleepTime, 10) : "",
+    clean(profile.priorities, 500) ? "Daily priorities: " + clean(profile.priorities, 500) : "",
+    clean(profile.foodPreferences, 250) ? "Food preferences: " + clean(profile.foodPreferences, 250) : "",
+    clean(profile.dietaryRestrictions, 250) ? "Dietary restrictions: " + clean(profile.dietaryRestrictions, 250) : ""
+  ].filter(Boolean).join("\n");
+  const style = styleGuidance[clean(profile.assistantStyle, 20)] || styleGuidance.warm;
+  const systemText = "You are AURORA, a thoughtful personal AI assistant. Be capable, clear, and honest about your limitations. " + style +
+    (profileContext ? "\nUse these user-provided preferences when relevant, without awkwardly repeating them:\n" + profileContext : "") +
+    "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request.";
   const payload = {
-    systemInstruction: { parts: [{ text: "You are AURORA, a thoughtful personal AI assistant. Be warm, capable, clear, and honest about your limitations." }] },
+    systemInstruction: { parts: [{ text: systemText }] },
     contents,
     generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
   };
