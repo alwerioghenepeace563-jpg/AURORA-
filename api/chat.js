@@ -34,6 +34,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Messages must contain a valid role and text up to 6000 characters." });
     }
     const parts = [{ text: m.content }];
+    if (m.role === "user" && m.document && typeof m.document === "object") {
+      const mimeType = typeof m.document.mimeType === "string" ? m.document.mimeType : "";
+      const data = typeof m.document.data === "string" ? m.document.data : "";
+      if (mimeType !== "application/pdf" || !data || data.length > 9000000 || !/^[A-Za-z0-9+/=]+$/.test(data)) {
+        return res.status(400).json({ error: "PDF must be a valid document under the upload limit." });
+      }
+      parts.push({ inlineData: { mimeType, data } });
+    }
     if (m.role === "user" && m.image && typeof m.image === "object") {
       const mimeType = typeof m.image.mimeType === "string" ? m.image.mimeType : "";
       const data = typeof m.image.data === "string" ? m.image.data : "";
