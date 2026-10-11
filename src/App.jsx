@@ -363,7 +363,7 @@ export default function App() {
     }
     try {
       const redirectTo = window.location.origin;
-      window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo);
+      window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
     } catch { setAuthMessage("Could not start " + provider + " sign-in. Please try again."); }
   }
 
