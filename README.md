@@ -1,40 +1,51 @@
 # AURORA
 
-AURORA is a personal AI assistant with a luminous animated energy orb, an uncluttered main screen, chat and voice controls, daily activity shortcuts, and a responsive dark sci-fi interface.
+AURORA is a personal AI assistant with a luminous animated energy orb, chat and voice controls, daily activity shortcuts, and a responsive dark sci-fi interface.
 
 ## Stack
 
 - React + Vite
 - Framer Motion for interface motion
 - Lucide React icons
-- Vercel serverless routes for Gemini chat and ElevenLabs voice
+- Vercel serverless routes for AI chat and ElevenLabs voice
 
 ## Local development
 
 1. Install Node.js 20 or newer.
 2. Run `npm install`.
-3. Copy `.env.example` to `.env` and add your own local provider keys if you want to test the API routes locally.
-4. Run `npm run dev` for the frontend.
+3. Copy `.env.example` to `.env` and add provider keys for local API testing.
+4. Run `npm run dev`.
 5. Run `npm run build` to verify the production frontend build.
 
-The frontend can be deployed on Vercel. The `api/chat.ts` and `api/voice.ts` routes are server-side only and require the environment variables below.
+## AI provider fallback
+
+All text-based assistant tools use the central `/api/chat` route. It tries the currently preferred configured provider first and automatically moves to the next available provider when a request fails:
+
+1. Groq
+2. OpenRouter's free-model router
+3. Gemini
+
+When a provider succeeds, AURORA remembers it as the preferred provider for subsequent requests. Image and PDF analysis uses Gemini because the other configured text providers are not used for those attachment requests in this implementation. ElevenLabs speech generation is separate from text AI.
+
+For shared provider preference across Vercel serverless instances, configure both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel. Without shared Redis, provider preference is best-effort instance-local memory and may not be consistent between separate serverless instances.
 
 ## Vercel environment variables
 
-- `GEMINI_API_KEY` — your Gemini API key.
+- `GROQ_API_KEY` — Groq API key.
+- `GROQ_MODEL` — optional; defaults to `openai/gpt-oss-20b`.
+- `OPENROUTER_API_KEY` — OpenRouter API key for the free-model fallback.
+- `GEMINI_API_KEY` — Gemini API key, including image/PDF requests and final text fallback.
 - `GEMINI_MODEL` — optional; defaults to `gemini-2.5-flash`.
-- `ELEVENLABS_API_KEY` — your ElevenLabs API key.
-- `ELEVENLABS_VOICE_ID` — the selected voice's ID from ElevenLabs.
-- `ELEVENLABS_MODEL_ID` — optional; defaults to `eleven_multilingual_v2`.
-- `AURORA_ALLOWED_ORIGIN` — optional exact site origin, such as `https://aurora-ten-gold.vercel.app`.
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — optional shared provider state across serverless instances.
+- `ELEVENLABS_API_KEY` — ElevenLabs API key for voice output.
+- `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` — optional voice configuration.
+- `AURORA_ALLOWED_ORIGIN` — optional exact site origin.
 
 Never commit real keys or put them in frontend variables. Add them in Vercel Project Settings → Environment Variables, then redeploy.
 
-## Current UI
+## Health check
 
-The home screen keeps the glowing orb as the centrepiece, with a greeting and prompt composer. The AURORA tab opens the full chat interface with an optional right-hand settings panel on desktop. Activities and Profile are included as initial navigable screens.
-
-File attachments currently select a file but do not upload or analyse it. Microphone input depends on browser speech-recognition support and permissions. API voice responses require ElevenLabs to be configured.
+The `/api/health` route reports which providers are configured and whether shared provider-state storage is configured. It does not reveal API keys.
 
 ## Security note
 
