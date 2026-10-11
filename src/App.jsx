@@ -8,6 +8,49 @@ import {
   SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X
 } from "lucide-react";
 
+
+function renderInlineText(text, keyPrefix) {
+  const parts = String(text || "").split(/(\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
+  return parts.map((part, index) => {
+    const key = keyPrefix + "-" + index;
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={key}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("\x60") && part.endsWith("\x60")) return <code key={key}>{part.slice(1, -1)}</code>;
+    if (part.startsWith("*") && part.endsWith("*")) return <em key={key}>{part.slice(1, -1)}</em>;
+    return part;
+  });
+}
+function FormattedMessage({ content, onChoice }) {
+  const lines = String(content || "").split("\n");
+  const choiceLine = lines.find((line) => /^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
+  const choices = choiceLine ? (choiceLine.match(/^\s*\[\[CHOICES:\s*(.*?)\]\]\s*$/)?.[1] || "").split("|").map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
+  const visibleLines = lines.filter((line) => !/^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
+  const blocks = [];
+  let listItems = [], listType = "";
+  const flushList = () => {
+    if (!listItems.length) return;
+    const ListTag = listType === "number" ? "ol" : "ul";
+    blocks.push(<ListTag className="message-list" key={"list-" + blocks.length}>{listItems.map((item, index) => <li key={index}>{renderInlineText(item, "li-" + blocks.length + "-" + index)}</li>)}</ListTag>);
+    listItems = []; listType = "";
+  };
+  visibleLines.forEach((line, index) => {
+    const trimmed = line.trim();
+    const bullet = trimmed.match(/^[-*]\s+(.+)/), numbered = trimmed.match(/^\d+[.)]\s+(.+)/);
+    if (bullet || numbered) {
+      const nextType = numbered ? "number" : "bullet";
+      if (listType && listType !== nextType) flushList();
+      listType = nextType; listItems.push((bullet || numbered)[1]); return;
+    }
+    flushList();
+    if (!trimmed) return;
+    const heading = trimmed.match(/^#{1,3}\s+(.+)/);
+    if (heading) blocks.push(<h4 className="message-heading" key={"heading-" + index}>{renderInlineText(heading[1], "heading-" + index)}</h4>);
+    else if (/^>\s?/.test(trimmed)) blocks.push(<blockquote className="message-quote" key={"quote-" + index}>{renderInlineText(trimmed.replace(/^>\s?/, ""), "quote-" + index)}</blockquote>);
+    else blocks.push(<p className="message-paragraph" key={"paragraph-" + index}>{renderInlineText(trimmed, "p-" + index)}</p>);
+  });
+  flushList();
+  return <div className="message-rich-content">{blocks}{choices.length > 0 && <div className="message-choice-group" aria-label="Suggested replies">{choices.map((choice, index) => <button type="button" className="message-choice" key={choice + index} onClick={() => onChoice(choice)}>{choice}<span>↗</span></button>)}</div>}</div>;
+}
+
 function Orb({ compact = false, speaking = false }) {
   return (
     <motion.div
@@ -417,7 +460,7 @@ export default function App() {
                   {messages.map((message, index) => (
                     <div key={index} className={`message-row ${message.role === "user" ? "message-user" : "message-assistant"}`}>
                       {message.role === "assistant" && <span className="message-avatar"><Sparkles size={15} /></span>}
-                      <div className="message-bubble"><div className="message-label">{message.role === "user" ? "YOU" : "AURORA"}</div><p>{message.content}</p>{message.role === "assistant" && <button className="speak-message" onClick={() => speak(message.content)}><Volume2 size={14} /> Read aloud</button>}</div>
+                      <div className="message-bubble"><div className="message-label">{message.role === "user" ? "YOU" : "AURORA"}</div>{message.role === "assistant" ? <FormattedMessage content={message.content} onChoice={(choice) => sendMessage(choice)} /> : <p className="message-paragraph">{message.content}</p>}{message.role === "assistant" && <button className="speak-message" onClick={() => speak(message.content.replace(/\[\[CHOICES:[\s\S]*?\]\]/g, ""))}><Volume2 size={14} /> Read aloud</button>}</div>
                     </div>
                   ))}
                   {busy && <div className="message-row message-assistant"><span className="message-avatar"><Sparkles size={15} /></span><div className="message-bubble"><div className="message-label">AURORA</div><div className="typing-indicator"><i /><i /><i /></div></div></div>}
