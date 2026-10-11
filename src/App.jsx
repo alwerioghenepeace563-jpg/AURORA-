@@ -261,14 +261,6 @@ export default function App() {
                 <input ref={fileRef} type="file" className="visually-hidden" onChange={onFileSelected} />
                 <p className="composer-footnote">AURORA can make mistakes. Check important information.</p>
               </div>
-              <section className="orb-stage" aria-label="AURORA assistant status">
-                <div className="stage-topline"><span className="stage-overline">NEURAL INTERFACE</span><span className="stage-status"><i /> SYSTEM ONLINE</span></div>
-                <div className="stage-orb"><Orb speaking={speaking} /></div>
-                <div className="stage-identity"><p>{speaking ? "VOICE TRANSMISSION ACTIVE" : listening ? "VOICE INPUT ACTIVE" : busy ? "PROCESSING YOUR REQUEST" : "PERSONAL INTELLIGENCE SYSTEM"}</p><h2>{speaking ? "Speaking to you" : listening ? "I'm listening." : busy ? "One moment." : "AURORA is here."}</h2><span>{speaking ? "Your assistant is responding aloud" : listening ? "Go ahead — I'm ready to hear you" : busy ? "Connecting your thoughts to intelligence" : "Ready when you are. Let's make it happen."}</span></div>
-                <div className="stage-metrics"><div><span className="metric-dot" /><strong>CORE</strong><small>ACTIVE</small></div><div><span className="metric-dot metric-dot-blue" /><strong>VOICE</strong><small>{soundOn ? "ENABLED" : "MUTED"}</small></div><div><span className="metric-dot metric-dot-violet" /><strong>LINK</strong><small>SECURE</small></div></div>
-                <div className="stage-actions"><button onClick={() => setSoundOn((v) => !v)}><span>{soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}</span>{soundOn ? "Sound on" : "Sound off"}</button><button onClick={toggleMic} className={listening ? "stage-listening" : ""}><span><Mic size={16} /></span>{listening ? "Listening..." : "Talk to AURORA"}</button></div>
-                <div className="stage-footnote"><span>AU / CORE-01</span><span>ADAPTIVE INTELLIGENCE <i /></span></div>
-              </section>
               {showSettings && <aside className="settings-panel">
                 <div className="settings-header"><div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div><button className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button></div>
                 <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
