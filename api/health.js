@@ -15,7 +15,7 @@ export default function handler(req, res) {
     method: req.method,
     configuredProviders,
     providerOrder: ["groq", "openrouter", "gemini"].filter((provider) => configuredProviders.includes(provider)),
-    providerState: sharedStateConfigured ? "shared-kv" : "instance-local-fallback",
+    providerState: sharedStateConfigured ? "shared-kv-and-client-sticky" : "client-sticky-plus-instance-fallback",
     voiceConfigured: Boolean(process.env.ELEVENLABS_API_KEY || process.env.ELEVENLAB_API_KEY)
   });
 }
