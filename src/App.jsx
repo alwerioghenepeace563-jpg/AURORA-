@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowUp, AudioLines, CalendarDays,
@@ -365,6 +366,7 @@ export default function App() {
         </AnimatePresence>
       </main>
 
+      {typeof document !== "undefined" && createPortal(
       <AnimatePresence>
         {attachmentOpen && (
           <motion.div className="aurora-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAttachmentOpen(false)}>
@@ -387,7 +389,9 @@ export default function App() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
       <BottomNav active={page} onNavigate={navigate} />
       <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>
     </div>
