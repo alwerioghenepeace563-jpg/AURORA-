@@ -276,6 +276,7 @@ export default function App() {
   }, []);
 
   function navigate(next) {
+    if (next === "tools") setToolScreen("home");
     setPage(next);
     setNotice("");
   }
