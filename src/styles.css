@@ -269,3 +269,16 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .tool-translation-result-label{display:flex;align-items:center;gap:8px;color:#bdaaff;font-size:12px;font-weight:700;letter-spacing:.02em;margin-bottom:12px}
 .tool-result-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 @media(max-width:460px){.tool-language-row{grid-template-columns:minmax(0,1fr) 36px minmax(0,1fr);gap:6px}.tool-language-row .tool-field select{font-size:11px;padding-left:8px;padding-right:6px}.tool-swap-languages{height:42px}}
+
+/* Web search result cards */
+.tool-search-results{display:grid;gap:0}
+.tool-search-summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:0 0 13px;color:#b7cce0;font-size:12px;border-bottom:1px solid rgba(157,190,226,.13)}
+.tool-search-summary small{color:#8da7bd}
+.tool-search-result{padding:16px 2px;border-bottom:1px solid rgba(157,190,226,.13);min-width:0}
+.tool-search-result:last-child{border-bottom:0}
+.tool-search-result h4{font-size:15px;line-height:1.45;margin:0 0 7px;font-weight:650}
+.tool-search-result h4 a{color:#9bdcff;text-decoration:none}
+.tool-search-result h4 a:hover{text-decoration:underline;color:#c9f0ff}
+.tool-search-result p{margin:0 0 8px;color:#c1d0df;font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+.tool-search-url{display:block;color:#8fa6ba;font-size:11px;line-height:1.5;overflow-wrap:anywhere;text-decoration:none}
+.tool-search-url:hover{color:#bdaaff;text-decoration:underline}
