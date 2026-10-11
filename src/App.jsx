@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowUp, AudioLines, CalendarDays,
-  Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
-  Mic, MoreHorizontal, Paperclip, Pause, Plus, Send, Settings2, ShieldCheck,
-  Sparkles, SquarePen, UserRound, Volume2, VolumeX, WandSparkles, X
+  Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
+  Image as ImageIcon, Mic, MoreHorizontal, Paperclip, Pause, Plus, Send, Settings2, ShieldCheck,
+  SlidersHorizontal, Sparkles, SquarePen, UserRound, Volume2, VolumeX, WandSparkles, X
 } from "lucide-react";
 
 function Orb({ compact = false, speaking = false }) {
@@ -69,12 +69,16 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [tunerOpen, setTunerOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(true);
   const [notice, setNotice] = useState("");
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const audioRef = useRef(null);
   const fileRef = useRef(null);
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -195,15 +199,20 @@ export default function App() {
   async function onFileSelected(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
+    setAttachmentOpen(false);
     if (!file) return;
+    if (file.type.startsWith("image/")) {
+      setNotice("Image selected: " + file.name + ". Image understanding is not connected yet, so choose a text file for analysis for now.");
+      return;
+    }
     const allowedTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
-    const allowedExtensions = /\.(txt|md|csv|json)$/i;
+    const allowedExtensions = /\\.(txt|md|csv|json)$/i;
     if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
-      setNotice("For now, AURORA can read .txt, .md, .csv and .json files. PDF and image reading is not enabled yet.");
+      setNotice("AURORA can currently read .txt, .md, .csv and .json files. Other file analysis is coming next.");
       return;
     }
     if (file.size > 60000) {
-      setNotice("That file is too large for this quick attachment reader. Please choose a text file under 60 KB.");
+      setNotice("That file is too large for the current reader. Please choose a text file under 60 KB.");
       return;
     }
     try {
@@ -212,12 +221,28 @@ export default function App() {
         setNotice("That file appears to be empty.");
         return;
       }
-      setDraft((current) => (current.trim() ? current + "\n\n" : "") + "Please help me analyse this attached file: " + file.name + "\n\n--- FILE CONTENT ---\n" + contents.slice(0, 12000));
+      setDraft((current) => (current.trim() ? current + "\\n\\n" : "") + "Please help me analyse this attached file: " + file.name + "\\n\\n--- FILE CONTENT ---\\n" + contents.slice(0, 12000));
       setNotice("Attached “" + file.name + "”. Review the message and tap send when you're ready.");
     } catch {
-      setNotice("I couldn't read that file. Please try a plain-text, Markdown, CSV or JSON file.");
+      setNotice("I couldn't read that file. Please try a text, Markdown, CSV or JSON file.");
     }
   }
+
+  function openAttachment(kind) {
+    setAttachmentOpen(false);
+    if (kind === "camera") cameraRef.current?.click();
+    if (kind === "gallery") galleryRef.current?.click();
+    if (kind === "files") fileRef.current?.click();
+    if (kind === "tuner") setTunerOpen(true);
+  }
+
+  const personalityOptions = [
+    { id: "warm", title: "Friendly", description: "Warm, supportive and encouraging", Icon: Sparkles },
+    { id: "strict", title: "Strict", description: "Firm, focused and accountable", Icon: ShieldCheck },
+    { id: "calm", title: "Calm", description: "Steady, patient and organised", Icon: Volume2 },
+    { id: "teacher", title: "Teacher", description: "Detailed, step-by-step explanations", Icon: FileText },
+    { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
+  ];
 
   return (
     <div className="app-shell">
@@ -247,12 +272,12 @@ export default function App() {
                 <div className="availability"><span className="live-dot" /> AURORA IS READY WHEN YOU ARE</div>
               </div>
               <form className="home-composer glass-panel" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
-                <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => fileRef.current?.click()}><Plus size={20} /></button>
+                <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => setAttachmentOpen((v) => !v)} aria-expanded={attachmentOpen}><Plus size={20} /></button>
                 <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask AURORA anything..." aria-label="Ask AURORA anything" />
                 <button type="button" className={`composer-tool mic-tool ${listening ? "is-listening" : ""}`} aria-label="Use microphone" onClick={toggleMic}><Mic size={19} /></button>
                 <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send message">{busy ? <span className="mini-loader" /> : <ArrowUp size={20} />}</button>
               </form>
-              <input ref={fileRef} type="file" className="visually-hidden" onChange={onFileSelected} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={onFileSelected} /><input ref={galleryRef} type="file" accept="image/*" multiple className="visually-hidden" onChange={onFileSelected} /><input ref={fileRef} type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" className="visually-hidden" onChange={onFileSelected} />
               {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
               <div className="suggestion-row">
                 <button onClick={() => sendMessage("Help me plan my day.")}><CalendarDays size={15} /> Plan my day</button>
@@ -284,12 +309,12 @@ export default function App() {
                 </div>
                 {notice && <div className="notice chat-notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
                 <form className="chat-composer glass-panel" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
-                  <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => fileRef.current?.click()}><Paperclip size={18} /></button>
+                  <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => setAttachmentOpen((v) => !v)} aria-expanded={attachmentOpen}><Paperclip size={18} /></button>
                   <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message AURORA..." aria-label="Message AURORA" />
                   <button type="button" className={`composer-tool mic-tool ${listening ? "is-listening" : ""}`} onClick={toggleMic} aria-label="Use microphone"><Mic size={18} /></button>
                   <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send message">{busy ? <span className="mini-loader" /> : <ArrowUp size={20} />}</button>
                 </form>
-                <input ref={fileRef} type="file" className="visually-hidden" onChange={onFileSelected} />
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={onFileSelected} /><input ref={galleryRef} type="file" accept="image/*" multiple className="visually-hidden" onChange={onFileSelected} /><input ref={fileRef} type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" className="visually-hidden" onChange={onFileSelected} />
                 <p className="composer-footnote">AURORA can make mistakes. Check important information.</p>
               </div>
               {showSettings && <aside className="settings-panel">
@@ -330,7 +355,7 @@ export default function App() {
                   <label className="profile-field profile-field-wide"><span>Daily priorities</span><textarea value={profile.priorities} onChange={(e) => setProfile((p) => ({ ...p, priorities: e.target.value }))} placeholder="School, projects, reminders, goals..." rows={2} /></label>
                   <label className="profile-field profile-field-wide"><span>Food preferences (optional)</span><input value={profile.foodPreferences} onChange={(e) => setProfile((p) => ({ ...p, foodPreferences: e.target.value }))} placeholder="Foods you enjoy or prefer to avoid" /></label>
                   <label className="profile-field profile-field-wide"><span>Dietary restrictions (optional)</span><input value={profile.dietaryRestrictions} onChange={(e) => setProfile((p) => ({ ...p, dietaryRestrictions: e.target.value }))} placeholder="Allergies or dietary needs, if any" /></label>
-                  <label className="profile-field profile-field-wide"><span>How should AURORA communicate?</span><select value={profile.assistantStyle} onChange={(e) => setProfile((p) => ({ ...p, assistantStyle: e.target.value }))}><option value="warm">Warm, direct and encouraging</option><option value="concise">Short and direct</option><option value="teacher">Detailed teacher</option><option value="calm">Calm and structured</option></select></label>
+                  <label className="profile-field profile-field-wide"><span>How should AURORA communicate?</span><select value={profile.assistantStyle} onChange={(e) => setProfile((p) => ({ ...p, assistantStyle: e.target.value }))}><option value="warm">Friendly — warm and encouraging</option><option value="strict">Strict — firm and focused</option><option value="concise">Short and direct</option><option value="teacher">Teacher — detailed step-by-step</option><option value="calm">Calm and structured</option></select></label>
                 </div>
                 <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved ✓" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
               </form>
@@ -340,6 +365,29 @@ export default function App() {
         </AnimatePresence>
       </main>
 
+      <AnimatePresence>
+        {attachmentOpen && (
+          <motion.div className="aurora-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAttachmentOpen(false)}>
+            <motion.div className="aurora-attachment-menu" role="dialog" aria-label="AURORA attachments" initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+              <div className="aurora-menu-heading"><span className="aurora-menu-mark"><Plus size={17} /></span><div><strong>AURORA tools</strong><small>Choose what you want to add</small></div><button type="button" onClick={() => setAttachmentOpen(false)} aria-label="Close attachment menu"><X size={17} /></button></div>
+              <button type="button" className="aurora-tool-option" onClick={() => openAttachment("camera")}><span className="aurora-tool-icon"><Camera size={21} /></span><span><strong>Camera</strong><small>Take a new photo</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => openAttachment("gallery")}><span className="aurora-tool-icon"><ImageIcon size={21} /></span><span><strong>Gallery</strong><small>Choose photos from your device</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => openAttachment("files")}><span className="aurora-tool-icon"><Paperclip size={21} /></span><span><strong>Files</strong><small>Add a supported document</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option aurora-tuner-option" onClick={() => openAttachment("tuner")}><span className="aurora-tool-icon"><SlidersHorizontal size={21} /></span><span><strong>AI Tuner</strong><small>Choose AURORA’s personality</small></span><ChevronRight size={16} /></button>
+              <p className="aurora-menu-footnote">Your tools, inside AURORA.</p>
+            </motion.div>
+          </motion.div>
+        )}
+        {tunerOpen && (
+          <motion.div className="aurora-menu-backdrop tuner-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setTunerOpen(false)}>
+            <motion.div className="aurora-tuner-panel" role="dialog" aria-modal="true" aria-label="AURORA AI Tuner" initial={{ opacity: 0, y: 16, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} onClick={(event) => event.stopPropagation()}>
+              <div className="aurora-menu-heading"><span className="aurora-menu-mark"><SlidersHorizontal size={18} /></span><div><strong>AI Tuner</strong><small>Set AURORA’s response style</small></div><button type="button" onClick={() => setTunerOpen(false)} aria-label="Close AI tuner"><X size={17} /></button></div>
+              <div className="tuner-options">{personalityOptions.map(({ id, title, description, Icon }) => <button type="button" key={id} className={profile.assistantStyle === id ? "tuner-choice tuner-choice-active" : "tuner-choice"} onClick={() => { setProfile((p) => ({ ...p, assistantStyle: id })); setTunerOpen(false); setNotice("AURORA style changed to " + title + "."); }}><span className="aurora-tool-icon"><Icon size={19} /></span><span><strong>{title}</strong><small>{description}</small></span><span className="tuner-radio">{profile.assistantStyle === id ? <Check size={13} /> : null}</span></button>)}</div>
+              <p className="aurora-menu-footnote">Your choice is saved on this device.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <BottomNav active={page} onNavigate={navigate} />
       <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>
     </div>
