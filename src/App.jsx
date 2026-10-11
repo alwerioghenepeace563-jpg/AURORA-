@@ -179,7 +179,7 @@ export default function App() {
     }
   }
 
-  async function sendMessage(textOverride, documentOverride = null) {
+  async function sendMessage(textOverride, attachmentOverride = null) {
     const text = (textOverride ?? draft).trim();
     if (!text || busy) return;
     const nextMessages = [...messages, { role: "user", content: text }];
@@ -194,7 +194,7 @@ export default function App() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (documentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], document: documentOverride }; return items; })(), profile, preferredProvider })
+        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile, preferredProvider })
       });
       const rawResponse = await response.text();
       let data = {};
@@ -252,7 +252,14 @@ export default function App() {
     setAttachmentOpen(false);
     if (!file) return;
     if (file.type.startsWith("image/")) {
-      setNotice("Image selected: " + file.name + ". Image understanding is not connected yet, so choose a text file for analysis for now.");
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setNotice("Please choose a JPEG, PNG, or WebP image."); return; }
+      if (file.size > 3200000) { setNotice("Please choose an image smaller than 3.2 MB."); return; }
+      try {
+        const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = reject; reader.readAsDataURL(file); });
+        const encoded = String(dataUrl).split(",")[1] || "";
+        if (!encoded) throw new Error("empty image");
+        sendMessage("Please examine this image and describe what is important. Read any visible text and help me understand it. Image: " + file.name, { mimeType: file.type, data: encoded });
+      } catch { setNotice("I couldn't prepare that image. Please try another JPEG, PNG, or WebP file."); }
       return;
     }
     if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
@@ -306,16 +313,19 @@ export default function App() {
   function captureCameraPhoto() {
     const video = cameraVideoRef.current;
     if (!video || !video.videoWidth) { setCameraError("Camera is still starting. Try again in a moment."); return; }
-    const canvas = document.createElement("canvas"); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas"); canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale);
     canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setCapturedPhoto(canvas.toDataURL("image/jpeg", .88));
+    setCapturedPhoto(canvas.toDataURL("image/jpeg", .82));
     liveCameraStreamRef.current?.getTracks().forEach((track) => track.stop()); liveCameraStreamRef.current = null;
   }
   function retakeCameraPhoto() { setCapturedPhoto(""); openCameraScreen(); }
   function useCameraPhoto() {
     if (!capturedPhoto) return;
+    const encoded = capturedPhoto.split(",")[1] || "";
     closeCameraScreen();
-    setNotice("Photo captured inside AURORA. Image understanding still needs to be connected before AURORA can explain the picture.");
+    if (!encoded) { setNotice("I couldn't prepare that photo. Please take it again."); return; }
+    sendMessage("Please examine this photo carefully. Describe the important details, read any visible text, and help me understand what it shows.", { mimeType: "image/jpeg", data: encoded });
   }
   function openAttachment(kind) {
     setAttachmentOpen(false);
