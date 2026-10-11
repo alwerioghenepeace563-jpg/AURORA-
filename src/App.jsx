@@ -5,7 +5,7 @@ import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
-  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History
+  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff
 } from "lucide-react";
 
 
@@ -178,6 +178,16 @@ function BottomNav({ active, onNavigate }) {
 }
 
 export default function App() {
+  const [authMode, setAuthMode] = useState("signin");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authShowPassword, setAuthShowPassword] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
+  const authUrl = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+  const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+  const authConfigured = Boolean(authUrl && authKey);
   const [page, setPage] = useState("home");
   const [draft, setDraft] = useState("");
   const [chatSessions, setChatSessions] = useState(() => {
@@ -311,6 +321,99 @@ export default function App() {
     recognitionRef.current?.stop();
     audioRef.current?.pause();
   }, []);
+
+  async function handleEmailAuth(event) {
+    event.preventDefault();
+    setAuthMessage("");
+    if (!authConfigured) {
+      setAuthMessage("Login setup is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
+      return;
+    }
+    if (!authEmail.trim() || !authPassword) { setAuthMessage("Enter your email and password to continue."); return; }
+    setAuthBusy(true);
+    try {
+      const isSignup = authMode === "signup";
+      const endpoint = isSignup ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+      const response = await fetch(authUrl + endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: authKey },
+        body: JSON.stringify({ email: authEmail.trim(), password: authPassword, ...(isSignup ? { data: { app: "AURORA" } } : {}) })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.msg || data.message || data.error_description || data.error || "Authentication failed. Check your details and try again.");
+      if (data.access_token) {
+        const session = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at || (Math.floor(Date.now()/1000) + (data.expires_in || 3600)), user: data.user };
+        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        setAuthSession(session);
+        setAuthMessage("");
+      } else {
+        setAuthMode("signin");
+        setAuthMessage("Account created. If email confirmation is enabled, verify your email before signing in.");
+      }
+    } catch (error) {
+      setAuthMessage(error.message || "Could not sign in. Please try again.");
+    } finally { setAuthBusy(false); }
+  }
+
+  async function handleOAuth(provider) {
+    setAuthMessage("");
+    if (!authConfigured) {
+      setAuthMessage("Login setup is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
+      return;
+    }
+    try {
+      const redirectTo = window.location.origin;
+      window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo);
+    } catch { setAuthMessage("Could not start " + provider + " sign-in. Please try again."); }
+  }
+
+  function handleSignOut() {
+    try { localStorage.removeItem("aurora-auth-session"); } catch {}
+    setAuthSession(null);
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthMessage("");
+  }
+
+  useEffect(() => {
+    if (!authConfigured) return;
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (!accessToken) return;
+    let cancelled = false;
+    fetch(authUrl + "/auth/v1/user", { headers: { apikey: authKey, Authorization: "Bearer " + accessToken } })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not verify sign-in session.");
+        return response.json();
+      })
+      .then((user) => {
+        if (cancelled) return;
+        const session = { access_token: accessToken, refresh_token: refreshToken, expires_at: Number(hash.get("expires_at")) || Math.floor(Date.now()/1000)+3600, user };
+        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        setAuthSession(session);
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      })
+      .catch(() => { if (!cancelled) setAuthMessage("Sign-in could not be verified. Please try again."); });
+    return () => { cancelled = true; };
+  }, [authConfigured, authUrl, authKey]);
+
+  useEffect(() => {
+    if (!authSession?.access_token || !authConfigured) return;
+    if (authSession.expires_at && authSession.expires_at < Math.floor(Date.now()/1000) + 60 && authSession.refresh_token) {
+      fetch(authUrl + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: authKey },
+        body: JSON.stringify({ refresh_token: authSession.refresh_token })
+      }).then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.access_token) throw new Error("Session expired");
+        const session = { ...authSession, ...data, expires_at: data.expires_at || Math.floor(Date.now()/1000)+(data.expires_in || 3600) };
+        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        setAuthSession(session);
+      }).catch(() => handleSignOut());
+    }
+  }, [authSession, authConfigured, authUrl, authKey]);
 
   function navigate(next) {
     if (next === "tools") setToolScreen("home");
@@ -629,6 +732,31 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
+  if (!authSession?.access_token) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
+        <section className="auth-card">
+          <div className="auth-brand"><div className="auth-brand-orb"><Orb compact /></div><span>AURORA</span><small>YOUR SPACE. YOUR INTELLIGENCE.</small></div>
+          <div className="auth-heading"><p className="panel-eyebrow">{authMode === "signup" ? "START YOUR JOURNEY" : "WELCOME BACK"}</p><h1>{authMode === "signup" ? "Create your account" : "Your world, in focus."}</h1><p>{authMode === "signup" ? "Create a private space for your ideas, plans and conversations." : "Sign in to continue with your personal AI companion."}</p></div>
+          <button className="auth-provider-button" type="button" onClick={() => handleOAuth("google")}><span className="auth-google-mark">G</span> Continue with Google</button>
+          <button className="auth-provider-button" type="button" onClick={() => handleOAuth("apple")}><span className="auth-apple-mark"><Apple size={19}/></span> Continue with Apple</button>
+          <div className="auth-divider"><span /> <small>OR CONTINUE WITH EMAIL</small> <span /></div>
+          <form className="auth-form" onSubmit={handleEmailAuth}>
+            <label>Email address<div className="auth-input-wrap"><Mail size={17}/><input type="email" autoComplete="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} placeholder="you@example.com" required/></div></label>
+            <label>Password<div className="auth-input-wrap"><LockKeyhole size={17}/><input type={authShowPassword ? "text" : "password"} autoComplete={authMode === "signup" ? "new-password" : "current-password"} minLength={6} value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} placeholder="At least 6 characters" required/><button type="button" onClick={()=>setAuthShowPassword(v=>!v)} aria-label={authShowPassword ? "Hide password" : "Show password"}>{authShowPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></label>
+            {authMessage && <p className="auth-message" role="status">{authMessage}</p>}
+            {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Secure sign-in needs Supabase project keys in Vercel before login can work.</p>}
+            <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUp size={17}/></button>
+          </form>
+          <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"} <button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>
+          <p className="auth-legal"><ShieldCheck size={13}/> Your account is protected by secure authentication.</p>
+        </section>
+        <p className="auth-footer">AURORA · YOUR SPACE, YOUR INTELLIGENCE</p>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-left" />
@@ -641,6 +769,7 @@ export default function App() {
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
+          <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>
         </div>
       </header>
 
