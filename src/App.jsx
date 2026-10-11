@@ -18,6 +18,14 @@ function Orb({ compact = false, speaking = false }) {
       <div className="orb-halo" />
       <div className="orb-ring orb-ring-one" />
       <div className="orb-ring orb-ring-two" />
+      <div className="orb-orbit orb-orbit-a"><span /></div>
+      <div className="orb-orbit orb-orbit-b"><span /></div>
+      <div className="orb-axis orb-axis-vertical" />
+      <div className="orb-axis orb-axis-horizontal" />
+      <div className="orb-node orb-node-top" />
+      <div className="orb-node orb-node-right" />
+      <div className="orb-node orb-node-bottom" />
+      <div className="orb-node orb-node-left" />
       <div className="orb-core">
         <div className="orb-shine" />
         <div className="orb-current orb-current-one" />
