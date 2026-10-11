@@ -332,3 +332,15 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .tool-image-preview{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid rgba(145,160,205,.18);border-radius:15px;background:rgba(9,14,29,.4)}
 .tool-image-preview img{display:block;width:94px;height:82px;object-fit:cover;border-radius:10px}
 .tool-image-preview button{border:1px solid rgba(180,190,220,.22);background:rgba(255,255,255,.04);color:#dce5fa;border-radius:10px;padding:8px 11px;cursor:pointer}
+
+
+/* Chat history */
+.chat-heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.chat-history-panel{position:relative;z-index:4;margin:0 0 12px;padding:14px;border:1px solid rgba(120,185,255,.18);border-radius:16px;background:rgba(7,15,29,.97);box-shadow:0 18px 45px rgba(0,0,0,.28);max-height:260px;overflow:auto}
+.chat-history-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;color:#eaf6ff;font-size:13px}
+.chat-history-title span,.chat-history-item small{color:#8298b4;font-size:11px}
+.chat-history-empty{margin:8px 0;color:#93a7c2;font-size:12px;line-height:1.5}
+.chat-history-item{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;margin-top:6px;border:1px solid rgba(125,170,225,.1);border-radius:11px;background:rgba(30,51,78,.32);color:#e5f2ff;text-align:left;font-size:12px}
+.chat-history-item:hover,.chat-history-item-active{border-color:rgba(102,218,255,.42);background:rgba(31,83,112,.35)}
+.chat-history-item small{white-space:nowrap}
+@media(max-width:640px){.chat-heading-actions{gap:4px}.chat-history-panel{padding:11px}.chat-history-item{align-items:flex-start;flex-direction:column;gap:4px}}
