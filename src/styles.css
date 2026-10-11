@@ -81,3 +81,23 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 @keyframes orbitTurn{to{rotate:360deg}}
 @media(max-width:600px){.orb-orbit{inset:10% 1%}.orb-orbit-b{inset:2% 14%}.orb-axis{opacity:.28}.orb-node{width:3px;height:3px}}
 @media(prefers-reduced-motion:reduce){.orb-orbit{animation:none}}
+
+
+/* Functional profile setup */
+.profile-form{margin-top:18px;padding:clamp(16px,3vw,25px);border:1px solid rgba(131,174,223,.13);border-radius:22px;background:linear-gradient(150deg,rgba(12,21,38,.86),rgba(7,13,25,.78))}
+.profile-form-heading h2{font:600 17px 'Manrope',sans-serif;margin:0 0 7px;letter-spacing:-.03em}
+.profile-form-heading p{font-size:11px;line-height:1.65;color:#8093ae;margin:0;max-width:520px}
+.profile-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}
+.profile-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.profile-field>span{font-size:10px;color:#9eb4ce}
+.profile-field input,.profile-field textarea,.profile-field select{width:100%;min-width:0;box-sizing:border-box;border:1px solid rgba(123,171,222,.17);border-radius:12px;background:rgba(5,12,24,.72);color:#e6f3ff;padding:12px;font:inherit;font-size:12px;outline:none}
+.profile-field input:focus,.profile-field textarea:focus,.profile-field select:focus{border-color:rgba(105,213,255,.62);box-shadow:0 0 0 3px rgba(63,169,235,.08)}
+.profile-field input::placeholder,.profile-field textarea::placeholder{color:#526680}
+.profile-field textarea{resize:vertical;line-height:1.55}
+.profile-field select option{background:#101e30;color:#eaf7ff}
+.profile-field-wide{grid-column:1/-1}
+.profile-form-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:19px;padding-top:16px;border-top:1px solid rgba(131,174,223,.1)}
+.profile-form-actions>span{font-size:10px;color:#6f91a8;line-height:1.5}
+.profile-form-actions .primary-action{margin:0;white-space:nowrap}
+.profile-chat-action{margin-top:14px}
+@media(max-width:600px){.profile-field-grid{grid-template-columns:1fr;gap:12px}.profile-field-wide{grid-column:auto}.profile-form{padding:15px}.profile-form-actions{align-items:stretch;flex-direction:column}.profile-form-actions .primary-action{width:100%;justify-content:center}.profile-card{flex-wrap:wrap}.profile-chat-action{width:100%;justify-content:center}}
