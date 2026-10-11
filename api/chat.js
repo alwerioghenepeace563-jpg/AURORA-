@@ -105,11 +105,33 @@ export default async function handler(req, res) {
       }
     }
 
+    // If Groq is unavailable or rate-limited, try OpenRouter's free-model router.
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (openRouterKey && !hasAttachments) {
+      try {
+        const openRouterMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
+        const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + openRouterKey, "Content-Type": "application/json", "X-Title": "AURORA" },
+          body: JSON.stringify({ model: "openrouter/free", messages: openRouterMessages, temperature: 0.7, max_tokens: 1200 }),
+          signal: AbortSignal.timeout(18000)
+        });
+        const openRouterData = await openRouterResponse.json().catch(() => ({}));
+        const openRouterReply = openRouterData?.choices?.[0]?.message?.content;
+        if (openRouterResponse.ok && typeof openRouterReply === "string" && openRouterReply.trim()) {
+          return res.status(200).json({ reply: openRouterReply.trim(), model: openRouterData?.model || "openrouter/free", provider: "openrouter" });
+        }
+        console.warn("OpenRouter request failed; trying Gemini fallback:", openRouterResponse.status, openRouterData?.error?.message || "");
+      } catch (openRouterError) {
+        console.warn("OpenRouter request failed; trying Gemini fallback:", openRouterError?.message || "Unknown error");
+      }
+    }
+
     if (!geminiKey) {
-      return res.status(groqKey ? 502 : 503).json({
-        error: groqKey
-          ? "AURORA couldn't get a response from Groq. Check the Groq API key, model, and quota."
-          : "AI service is not configured. Add GROQ_API_KEY in Vercel to enable AURORA chat."
+      return res.status(groqKey || openRouterKey ? 502 : 503).json({
+        error: groqKey || openRouterKey
+          ? "AURORA couldn't get a response from Groq or OpenRouter. Check provider API keys, model availability, and quotas."
+          : "AI service is not configured. Add GROQ_API_KEY or OPENROUTER_API_KEY in Vercel to enable AURORA chat."
       });
     }
     let upstream;
