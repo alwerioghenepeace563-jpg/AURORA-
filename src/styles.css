@@ -81,3 +81,65 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 @keyframes orbitTurn{to{rotate:360deg}}
 @media(max-width:600px){.orb-orbit{inset:10% 1%}.orb-orbit-b{inset:2% 14%}.orb-axis{opacity:.28}.orb-node{width:3px;height:3px}}
 @media(prefers-reduced-motion:reduce){.orb-orbit{animation:none}}
+
+
+/* AURORA workspace layout: chat left, living orb centre, controls right */
+.chat-screen{grid-template-columns:minmax(320px,1.15fr) minmax(260px,.9fr) minmax(270px,300px);grid-template-areas:"chat orb settings";gap:18px;align-items:stretch;padding-left:clamp(18px,2.8vw,42px);padding-right:clamp(18px,2.8vw,42px)}
+.chat-column{grid-area:chat}
+.settings-panel{grid-area:settings}
+.orb-stage{grid-area:orb;position:relative;min-width:0;min-height:590px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px 12px 18px;overflow:hidden;border:1px solid rgba(110,195,246,.13);border-radius:25px;background:radial-gradient(ellipse at 50% 37%,rgba(18,100,186,.17),transparent 48%),linear-gradient(160deg,rgba(10,20,37,.72),rgba(5,11,23,.64))}
+.orb-stage:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.42;background:linear-gradient(rgba(112,185,238,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(112,185,238,.035) 1px,transparent 1px);background-size:28px 28px;mask-image:radial-gradient(ellipse at center,#000,transparent 78%)}
+.orb-stage:after{content:"";position:absolute;inset:12px;border:1px solid rgba(111,193,241,.075);border-radius:18px;pointer-events:none}
+.stage-topline,.stage-footnote{position:relative;z-index:1;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stage-topline{position:absolute;top:25px;left:22px;width:calc(100% - 44px)}
+.stage-overline,.stage-status,.stage-footnote{font-size:7px;letter-spacing:.16em;color:#66849f}
+.stage-status{display:flex;align-items:center;gap:6px;color:#80c9d9}
+.stage-status i,.stage-footnote i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#69efc0;box-shadow:0 0 9px rgba(105,239,192,.65)}
+.stage-orb{position:relative;z-index:1;display:grid;place-items:center;width:100%;margin-top:10px}
+.stage-orb .orb-wrap{width:clamp(225px,20vw,290px);height:clamp(225px,20vw,290px)}
+.stage-identity{position:relative;z-index:1;text-align:center;margin-top:5px;max-width:100%}
+.stage-identity p{margin:0 0 9px;font-size:7px;letter-spacing:.19em;color:#6eb8d5}
+.stage-identity h2{margin:0;font:600 clamp(20px,2vw,27px)/1.2 'Manrope',sans-serif;letter-spacing:-.045em;color:#eaf7ff}
+.stage-identity>span{display:block;margin-top:9px;font-size:10px;line-height:1.6;color:#8198b4}
+.stage-metrics{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:7px;margin-top:25px}
+.stage-metrics>div{min-width:0;display:grid;grid-template-columns:7px 1fr;column-gap:6px;align-items:center;padding:10px 7px;border:1px solid rgba(113,174,222,.1);border-radius:11px;background:rgba(12,28,47,.48)}
+.metric-dot{width:5px;height:5px;border-radius:50%;background:#76e9cb;box-shadow:0 0 7px rgba(118,233,203,.5);grid-row:span 2}
+.metric-dot-blue{background:#64cfff;box-shadow:0 0 7px rgba(100,207,255,.5)}
+.metric-dot-violet{background:#a6a0ff;box-shadow:0 0 7px rgba(166,160,255,.5)}
+.stage-metrics strong{font-size:7px;letter-spacing:.1em;color:#b6cce0;font-weight:600}
+.stage-metrics small{font-size:6px;letter-spacing:.08em;color:#637f9c;margin-top:3px}
+.stage-actions{position:relative;z-index:1;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:15px;width:100%}
+.stage-actions button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 10px;border:1px solid rgba(111,190,235,.16);border-radius:11px;background:rgba(17,37,60,.56);color:#9bbbd1;font-size:9px;transition:.2s}
+.stage-actions button:hover,.stage-actions button.stage-listening{border-color:rgba(108,225,255,.45);color:#e3fbff;background:rgba(29,104,150,.24);box-shadow:0 0 18px rgba(56,171,230,.08)}
+.stage-actions button>span{display:grid;place-items:center;color:#78d7f5}
+.stage-footnote{position:absolute;z-index:1;bottom:23px;left:22px;width:calc(100% - 44px);font-size:6px;letter-spacing:.11em;color:#4f6c88}
+.stage-footnote span:last-child{display:flex;align-items:center;gap:7px}
+.stage-footnote i{width:4px;height:4px}
+@media(max-width:1150px){
+ .chat-screen{grid-template-columns:minmax(0,1fr) minmax(250px,.75fr);grid-template-areas:"orb settings" "chat settings";gap:14px;padding:18px 18px 24px}
+ .orb-stage{min-height:400px;padding:30px 15px 18px}
+ .stage-topline{top:18px;left:17px;width:calc(100% - 34px)}
+ .stage-orb .orb-wrap{width:clamp(200px,27vw,255px);height:clamp(200px,27vw,255px)}
+ .stage-metrics{margin-top:18px}
+ .chat-column{height:530px;min-height:530px;max-height:none}
+ .settings-panel{grid-row:1 / span 2}
+}
+@media(max-width:700px){
+ .chat-screen{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"orb" "chat" "settings";gap:12px;padding:12px 11px 20px}
+ .orb-stage{min-height:0;padding:35px 14px 42px;border-radius:20px}
+ .orb-stage:after{inset:8px;border-radius:14px}
+ .stage-topline{top:15px;left:15px;width:calc(100% - 30px)}
+ .stage-overline,.stage-status{font-size:6px}
+ .stage-orb{margin-top:0}
+ .stage-orb .orb-wrap{width:clamp(190px,58vw,235px);height:clamp(190px,58vw,235px)}
+ .stage-identity{margin-top:-3px}
+ .stage-identity p{font-size:6px}
+ .stage-identity h2{font-size:22px}
+ .stage-identity>span{font-size:9px}
+ .stage-metrics{max-width:340px;margin-top:16px}
+ .stage-metrics>div{padding:8px 6px}
+ .stage-actions{margin-top:11px}
+ .stage-footnote{bottom:15px;left:15px;width:calc(100% - 30px)}
+ .chat-column{height:calc(100svh - 175px);min-height:480px}
+ .settings-panel{grid-row:auto}
+}
