@@ -99,10 +99,20 @@ function parseGoogleNews(xml) {
     const item = m[1];
     const title = stripTags(field(item, "title"));
     const url = safeUrl(field(item, "link"), "https://news.google.com");
-    const description = stripTags(field(item, "description"));
+    const descriptionRaw = field(item, "description");
+    const description = stripTags(descriptionRaw);
     const pubDate = stripTags(field(item, "pubDate"));
+    const imageMatch = item.match(/<(?:media:content|media:thumbnail|enclosure)[^>]+(?:url|href)=["']([^"']+)["'][^>]*>/i)
+      || descriptionRaw.match(/<img[^>]+src=["']([^"']+)["']/i);
+    let image = "";
+    if (imageMatch?.[1]) {
+      try {
+        const candidate = new URL(decodeHtml(imageMatch[1]), "https://news.google.com");
+        if (candidate.protocol === "https:") image = candidate.href;
+      } catch {}
+    }
     if (title && url && !items.some(x => x.url === url)) {
-      items.push({ title, url, snippet: [description, pubDate ? "Published: " + pubDate : ""].filter(Boolean).join(" · ") });
+      items.push({ title, url, snippet: [description, pubDate ? "Published: " + pubDate : ""].filter(Boolean).join(" · "), ...(image ? {image} : {}) });
     }
   }
   return items;
