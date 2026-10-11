@@ -206,7 +206,7 @@ export default async function handler(req, res) {
     const detail = lastFailure?.message ? " " + String(lastFailure.message).slice(0, 180) : "";
     return res.status(rateLimited ? 429 : timeout ? 504 : 502).json({
       error: hasAttachments
-        ? "AURORA couldn't process that file or image with Gemini. Check Gemini access and quota." + detail
+        ? "AURORA couldn't process that file or image with the available AI providers. Check provider access and quota, or try again shortly." + detail
         : "AURORA couldn't get a response from any configured AI provider." + detail,
       diagnostic: { providersTried: failures.map((failure) => failure.provider), failures: failures.map(({ provider, status }) => ({ provider, status })) }
     });
