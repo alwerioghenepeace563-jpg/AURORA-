@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
-  const candidates = [...new Set([configuredModel, "gemini-2.5-flash", "gemini-flash-latest"])];
+  const candidates = [...new Set([configuredModel, "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash"])];
   const payload = {
     systemInstruction: { parts: [{ text: "You are AURORA, a thoughtful personal AI assistant. Be warm, capable, clear, and honest about your limitations." }] },
     contents,
@@ -58,8 +58,9 @@ export default async function handler(req, res) {
         signal: AbortSignal.timeout(18000)
       });
       data = await upstream.json().catch(() => ({}));
-      if (upstream.ok || upstream.status !== 404) break;
-      console.warn("Gemini model not found; trying fallback model:", model);
+      if (upstream.ok) break;
+      if (![404, 429, 503].includes(upstream.status)) break;
+      console.warn("Gemini model unavailable; trying fallback model:", model, "HTTP", upstream.status);
     }
 
     if (!upstream.ok) {
