@@ -54,7 +54,8 @@ export default async function handler(req, res) {
       upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: "POST",
         headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(18000)
       });
       data = await upstream.json().catch(() => ({}));
       if (upstream.ok || upstream.status !== 404) break;
@@ -85,6 +86,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply, model: usedModel });
   } catch (error) {
     console.error("AURORA chat function error:", error);
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      return res.status(504).json({ error: "Gemini took too long to respond. Please try again in a moment." });
+    }
     return res.status(502).json({ error: "Could not reach the AI service." });
   }
 }
