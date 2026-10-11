@@ -202,6 +202,8 @@ export default function App() {
   const [toolScreen, setToolScreen] = useState("home");
   const [toolQuery, setToolQuery] = useState("");
   const [toolText, setToolText] = useState("");
+  const [toolImage, setToolImage] = useState(null);
+  const [toolImagePreview, setToolImagePreview] = useState("");
   const [toolLanguage, setToolLanguage] = useState("English");
   const [toolSourceLanguage, setToolSourceLanguage] = useState("Auto-detect");
   const [toolMode, setToolMode] = useState("Improve and polish");
@@ -401,7 +403,7 @@ export default function App() {
     if (toolBusy) return;
     const kind = toolKind;
     const value = kind === "search" ? toolQuery.trim() : toolText.trim();
-    if (!value) { setNotice(kind === "search" ? "Enter something to search for." : "Add some text or a topic first."); return; }
+    if (!value && !(kind === "image" && toolImage)) { setNotice(kind === "search" ? "Enter something to search for." : "Add some text or a topic first."); return; }
     setToolBusy(true);
     setToolResult(null);
     setNotice("");
@@ -422,7 +424,9 @@ export default function App() {
         brainstorm: "Act as AURORA's Idea Studio. Help develop the user's idea with practical, distinct options. Start by clarifying the goal in one sentence, then give 8 varied ideas with a short explanation and one concrete next step. Avoid generic repetition.\n\nIDEA / CHALLENGE:\n" + value,
         image: "Act as AURORA's image understanding assistant. The user wants to understand an image, but this workspace accepts text only right now. Ask them to describe the image or use the attachment button in the main AURORA chat to upload it, then explain what you can help inspect.\n\nREQUEST:\n" + value
       };
-      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: prompts[kind] || value }], profile }) });
+      const userMessage = { role: "user", content: kind === "image" ? (value || "Please describe this image and explain its important details.") : (prompts[kind] || value) };
+      if (kind === "image" && toolImage) userMessage.image = toolImage;
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [userMessage], profile }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "This tool could not reach AURORA's AI service.");
       const reply = String(data.reply || "").trim();
@@ -432,6 +436,30 @@ export default function App() {
       setNotice(error.message || "The tool couldn't complete. Please try again.");
     } finally {
       setToolBusy(false);
+    }
+  }
+
+  async function onToolImageSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setNotice("Choose a JPEG, PNG, or WebP image."); return; }
+    if (file.size > 3200000) { setNotice("Choose an image smaller than 3.2 MB."); return; }
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const data = String(dataUrl).split(",")[1] || "";
+      if (!data) throw new Error("Could not read that image.");
+      setToolImage({ mimeType: file.type, data });
+      setToolImagePreview(String(dataUrl));
+      setNotice("");
+      setToolResult(null);
+    } catch {
+      setNotice("Could not read that image. Please try another file.");
     }
   }
 
@@ -694,7 +722,8 @@ export default function App() {
                       {toolKind === "translate" && <div className="tool-language-row"><label className="tool-field"><span>From</span><select value={toolSourceLanguage} onChange={(e) => setToolSourceLanguage(e.target.value)}>{["Auto-detect","English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label><button type="button" className="tool-swap-languages" aria-label="Swap source and target languages" onClick={() => { if (toolSourceLanguage === "Auto-detect") { setNotice("Choose a source language first to swap languages."); return; } setToolSourceLanguage(toolLanguage); setToolLanguage(toolSourceLanguage); setToolResult(null); setNotice("Languages swapped. Translate again to refresh the result."); }}><ArrowLeftRight size={17}/></button><label className="tool-field"><span>To</span><select value={toolLanguage} onChange={(e) => setToolLanguage(e.target.value)}>{["English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label></div>}
                       {toolKind === "writing" && <label className="tool-field"><span>What should I do?</span><select value={toolMode} onChange={(e) => setToolMode(e.target.value)}>{["Improve and polish","Draft from my brief","Proofread grammar","Summarise","Make it formal","Make it simpler","Create an outline"].map((mode) => <option key={mode}>{mode}</option>)}</select></label>}
                       {toolKind === "study" && <label className="tool-field"><span>Choose a subject</span><select value={toolSubject} onChange={(e) => setToolSubject(e.target.value)}>{["General","Mathematics","English","Biology","Chemistry","Physics","Agricultural Science","Geography","Civic Education","Computer Science"].map((subject) => <option key={subject}>{subject}</option>)}</select></label>}
-                      <label className="tool-field"><span>{({study:"Topic or question",writing:"Your text or brief",summarize:"Text to summarize",quiz:"Topic or source text",brainstorm:"Idea or challenge",image:"Your question about the image"})[toolKind] || "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={({study:"Tell me what you want to understand…",writing:"Paste a draft or describe what you need…",summarize:"Paste the text you want summarized…",quiz:"e.g. Cell biology, photosynthesis, or paste your notes…",brainstorm:"e.g. Help me plan a school project or name a brand…",image:"e.g. Explain the picture I uploaded in the main chat…"})[toolKind] || "Paste the text you want to translate…"} required/></label>
+                      {toolKind === "image" && <div className="tool-image-upload"><label className="tool-image-pick"><ImageIcon size={18}/><span>{toolImage ? "Choose a different image" : "Upload an image"}</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={onToolImageSelected}/></label>{toolImagePreview && <div className="tool-image-preview"><img src={toolImagePreview} alt="Selected image preview"/><button type="button" onClick={() => {setToolImage(null);setToolImagePreview("");}}>Remove image</button></div>}</div>}
+                      <label className="tool-field"><span>{({study:"Topic or question",writing:"Your text or brief",summarize:"Text to summarize",quiz:"Topic or source text",brainstorm:"Idea or challenge",image:"What should I look for? (optional if an image is attached)"})[toolKind] || "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={({study:"Tell me what you want to understand…",writing:"Paste a draft or describe what you need…",summarize:"Paste the text you want summarized…",quiz:"e.g. Cell biology, photosynthesis, or paste your notes…",brainstorm:"e.g. Help me plan a school project or name a brand…",image:"Ask about objects, text, details, or what is happening in the image…"})[toolKind] || "Paste the text you want translated…"} required={toolKind !== "image"}/></label>
                     </>}
                     <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> {({search:"Search the web",translate:"Translate text",writing:"Improve my writing",study:"Start learning",summarize:"Summarize text",quiz:"Create my quiz",brainstorm:"Generate ideas",image:"Get guidance"})[toolKind] || "Run tool"}</>}</button>
                   </form>
