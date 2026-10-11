@@ -1,3 +1,5 @@
+import { getPreferredProvider, setPreferredProvider, providerOrder } from "./_ai-provider.js";
+
 export default async function handler(req, res) {
   const allowedOrigin = process.env.AURORA_ALLOWED_ORIGIN;
   const origin = req.headers.origin;
@@ -80,100 +82,112 @@ export default async function handler(req, res) {
   };
 
   const groqKey = process.env.GROQ_API_KEY;
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
   const hasAttachments = body.messages.some((m) => m && (m.document || m.image));
+  const configuredProviders = [
+    groqKey ? "groq" : null,
+    openRouterKey ? "openrouter" : null,
+    geminiKey ? "gemini" : null
+  ].filter(Boolean);
 
   try {
-    // Use Groq for ordinary chat first. Keep Gemini for files/images and as a text fallback.
-    if (groqKey && !hasAttachments) {
+    const preferredProvider = await getPreferredProvider();
+    const availableProviders = hasAttachments
+      ? (geminiKey ? ["gemini"] : [])
+      : providerOrder(preferredProvider, configuredProviders);
+    const failures = [];
+
+    for (const provider of availableProviders) {
       try {
-        const groqMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
-        const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: (process.env.GROQ_MODEL || "openai/gpt-oss-20b").trim(), messages: groqMessages, temperature: 0.7, max_completion_tokens: 1200 }),
-          signal: AbortSignal.timeout(18000)
-        });
-        const groqData = await groqResponse.json().catch(() => ({}));
-        const groqReply = groqData?.choices?.[0]?.message?.content;
-        if (groqResponse.ok && typeof groqReply === "string" && groqReply.trim()) {
-          return res.status(200).json({ reply: groqReply.trim(), model: groqData?.model || process.env.GROQ_MODEL || "openai/gpt-oss-20b", provider: "groq" });
+        if (provider === "groq") {
+          const groqMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: (process.env.GROQ_MODEL || "openai/gpt-oss-20b").trim(), messages: groqMessages, temperature: 0.7, max_completion_tokens: 1200 }),
+            signal: AbortSignal.timeout(18000)
+          });
+          const data = await response.json().catch(() => ({}));
+          const reply = data?.choices?.[0]?.message?.content;
+          if (response.ok && typeof reply === "string" && reply.trim()) {
+            await setPreferredProvider("groq");
+            return res.status(200).json({ reply: reply.trim(), model: data?.model || process.env.GROQ_MODEL || "openai/gpt-oss-20b", provider: "groq" });
+          }
+          failures.push({ provider, status: response.status, message: data?.error?.message || "Provider returned no reply" });
+          console.warn("AURORA Groq failed; trying next provider:", response.status, data?.error?.message || "");
+          continue;
         }
-        console.warn("Groq request failed; trying Gemini fallback:", groqResponse.status, groqData?.error?.message || "");
-      } catch (groqError) {
-        console.warn("Groq request failed; trying Gemini fallback:", groqError?.message || "Unknown error");
+
+        if (provider === "openrouter") {
+          const openRouterMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
+          const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: "Bearer " + openRouterKey, "Content-Type": "application/json", "X-Title": "AURORA" },
+            body: JSON.stringify({ model: "openrouter/free", messages: openRouterMessages, temperature: 0.7, max_tokens: 1200 }),
+            signal: AbortSignal.timeout(18000)
+          });
+          const data = await response.json().catch(() => ({}));
+          const reply = data?.choices?.[0]?.message?.content;
+          if (response.ok && typeof reply === "string" && reply.trim()) {
+            await setPreferredProvider("openrouter");
+            return res.status(200).json({ reply: reply.trim(), model: data?.model || "openrouter/free", provider: "openrouter" });
+          }
+          failures.push({ provider, status: response.status, message: data?.error?.message || "Provider returned no reply" });
+          console.warn("AURORA OpenRouter failed; trying next provider:", response.status, data?.error?.message || "");
+          continue;
+        }
+
+        if (provider === "gemini") {
+          let upstream;
+          let data = {};
+          let usedModel = configuredModel;
+          for (const model of candidates) {
+            usedModel = model;
+            upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+              method: "POST",
+              headers: { "x-goog-api-key": geminiKey, "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(18000)
+            });
+            data = await upstream.json().catch(() => ({}));
+            if (upstream.ok) break;
+            if (![404, 429, 503].includes(upstream.status)) break;
+            console.warn("Gemini model unavailable; trying fallback model:", model, "HTTP", upstream.status);
+          }
+
+          if (upstream?.ok) {
+            const reply = data?.candidates?.[0]?.content?.parts?.map((part) => typeof part.text === "string" ? part.text : "").join("").trim();
+            if (typeof reply === "string" && reply) {
+              await setPreferredProvider("gemini");
+              return res.status(200).json({ reply, model: usedModel, provider: "gemini" });
+            }
+            failures.push({ provider, status: 502, message: "AI returned an empty response." });
+          } else {
+            const providerMessage = typeof data?.error?.message === "string" ? data.error.message : "";
+            failures.push({ provider, status: upstream?.status || 502, message: providerMessage || "Gemini request failed" });
+            console.error("Gemini provider request failed:", upstream?.status, providerMessage, "Model:", usedModel);
+          }
+        }
+      } catch (providerError) {
+        failures.push({ provider, status: 0, message: providerError?.message || "Provider request failed" });
+        console.warn("AURORA provider threw an error; trying next provider:", provider, providerError?.message || "Unknown error");
       }
     }
 
-    // If Groq is unavailable or rate-limited, try OpenRouter's free-model router.
-    const openRouterKey = process.env.OPENROUTER_API_KEY;
-    if (openRouterKey && !hasAttachments) {
-      try {
-        const openRouterMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
-        const openRouterResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: "Bearer " + openRouterKey, "Content-Type": "application/json", "X-Title": "AURORA" },
-          body: JSON.stringify({ model: "openrouter/free", messages: openRouterMessages, temperature: 0.7, max_tokens: 1200 }),
-          signal: AbortSignal.timeout(18000)
-        });
-        const openRouterData = await openRouterResponse.json().catch(() => ({}));
-        const openRouterReply = openRouterData?.choices?.[0]?.message?.content;
-        if (openRouterResponse.ok && typeof openRouterReply === "string" && openRouterReply.trim()) {
-          return res.status(200).json({ reply: openRouterReply.trim(), model: openRouterData?.model || "openrouter/free", provider: "openrouter" });
-        }
-        console.warn("OpenRouter request failed; trying Gemini fallback:", openRouterResponse.status, openRouterData?.error?.message || "");
-      } catch (openRouterError) {
-        console.warn("OpenRouter request failed; trying Gemini fallback:", openRouterError?.message || "Unknown error");
-      }
+    if (!configuredProviders.length) {
+      return res.status(503).json({ error: "AI service is not configured. Add GROQ_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY in Vercel." });
     }
-
-    if (!geminiKey) {
-      return res.status(groqKey || openRouterKey ? 502 : 503).json({
-        error: groqKey || openRouterKey
-          ? "AURORA couldn't get a response from Groq or OpenRouter. Check provider API keys, model availability, and quotas."
-          : "AI service is not configured. Add GROQ_API_KEY or OPENROUTER_API_KEY in Vercel to enable AURORA chat."
-      });
-    }
-    let upstream;
-    let data = {};
-    let usedModel = configuredModel;
-
-    for (const model of candidates) {
-      usedModel = model;
-      upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: "POST",
-        headers: { "x-goog-api-key": geminiKey, "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(18000)
-      });
-      data = await upstream.json().catch(() => ({}));
-      if (upstream.ok) break;
-      if (![404, 429, 503].includes(upstream.status)) break;
-      console.warn("Gemini model unavailable; trying fallback model:", model, "HTTP", upstream.status);
-    }
-
-    if (!upstream.ok) {
-      const providerMessage = typeof data?.error?.message === "string" ? data.error.message : "";
-      console.error("Gemini provider request failed:", upstream.status, providerMessage, "Model:", usedModel);
-      let message = "Gemini request failed. Check the API key, model access, quota, and deployment logs.";
-      if (upstream.status === 400) message = "Gemini rejected the request. Check the request format.";
-      if (upstream.status === 401) message = "Gemini rejected the API key. Check GEMINI_API_KEY in Vercel.";
-      if (upstream.status === 403) message = "Gemini access is forbidden. Check the API key and Generative Language API access.";
-      if (upstream.status === 404) message = "None of the available Gemini fallback models could be found for this API key.";
-      if (upstream.status === 429) message = "Gemini quota or rate limit reached. Check the API quota.";
-      const diagnosticText = providerMessage ? ` (HTTP ${upstream.status}: ${providerMessage.slice(0, 180)})` : ` (HTTP ${upstream.status})`;
-      return res.status(upstream.status === 429 ? 429 : 502).json({
-        error: message + diagnosticText,
-        diagnostic: { model: usedModel, providerStatus: upstream.status, providerMessage: providerMessage.slice(0, 240) }
-      });
-    }
-
-    const reply = data?.candidates?.[0]?.content?.parts
-      ?.map((part) => typeof part.text === "string" ? part.text : "")
-      .join("")
-      .trim();
-    if (typeof reply !== "string" || !reply) return res.status(502).json({ error: "AI returned an empty response." });
-    return res.status(200).json({ reply, model: usedModel });
+    const lastFailure = failures[failures.length - 1];
+    const rateLimited = failures.some((failure) => failure.status === 429);
+    const timeout = failures.some((failure) => failure.status === 0);
+    const detail = lastFailure?.message ? " " + String(lastFailure.message).slice(0, 180) : "";
+    return res.status(rateLimited ? 429 : timeout ? 504 : 502).json({
+      error: hasAttachments
+        ? "AURORA couldn't process that file or image with Gemini. Check Gemini access and quota." + detail
+        : "AURORA couldn't get a response from any configured AI provider." + detail,
+      diagnostic: { providersTried: failures.map((failure) => failure.provider), failures: failures.map(({ provider, status }) => ({ provider, status })) }
+    });
   } catch (error) {
     console.error("AURORA chat function error:", error);
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
