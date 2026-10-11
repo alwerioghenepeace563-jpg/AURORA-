@@ -218,3 +218,45 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .tool-result-panel{margin-top:25px;padding-top:22px;border-top:1px solid var(--line)}.tool-result-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}.tool-result-heading h3{margin:5px 0 0;font:700 19px 'Manrope',sans-serif}.tool-search-results{display:grid;gap:10px}.tool-search-result{display:flex;align-items:flex-start;gap:13px;padding:15px;border:1px solid rgba(150,190,255,.1);border-radius:15px;background:rgba(14,23,40,.65)}.tool-result-index{font:700 11px 'Manrope',sans-serif;color:#72dfff;padding-top:3px}.tool-search-result>div{min-width:0;flex:1}.tool-search-result a{color:#b7eaff;text-decoration:none;font-weight:700;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.tool-search-result a:hover{text-decoration:underline}.tool-search-result p{margin:7px 0;color:#a4b3ca;font-size:12px;line-height:1.65}.tool-search-result small{display:block;color:#6e829e;font-size:10px;overflow-wrap:anywhere}.tool-open-source{display:grid;place-items:center;flex:none;width:30px;height:30px;border:1px solid var(--line);border-radius:10px}.tool-ai-result{color:#dce8f8;font-size:14px;line-height:1.8;overflow-wrap:anywhere}.tool-ai-result .outline-action{display:flex;align-items:center;gap:7px;margin-top:15px}.tool-workspace-foot{display:flex;gap:9px;align-items:flex-start;margin-top:18px;color:#73849e;font-size:11px;line-height:1.6}.tool-workspace-foot svg{flex:none;color:#73dfff;margin-top:1px}
 .aurora-tool-hub-option{border-color:rgba(110,231,255,.22);background:rgba(35,94,130,.12)}
 @media(max-width:600px){.aurora-tools-page{padding:28px 16px 118px}.tool-launch-grid{grid-template-columns:1fr;gap:9px}.tool-launch-card{padding:14px}.tool-workspace{padding:17px;border-radius:18px}.tool-result-heading{align-items:flex-start;flex-direction:column}.tool-search-result{padding:12px;gap:9px}.tool-search-result small{font-size:9px}}
+
+
+/* Aurora glass interface: translucent panels, subtle light bloom, and dedicated tool pages */
+.aurora-tools-page{position:relative;isolation:isolate;overflow:hidden}
+.aurora-tools-page:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 12% 8%,rgba(119,83,255,.13),transparent 36%),radial-gradient(ellipse at 92% 28%,rgba(73,205,255,.10),transparent 34%)}
+.tools-page-heading .panel-eyebrow{display:flex;align-items:center;gap:7px;color:#a5a9ff;letter-spacing:.16em}
+.tools-page-heading h1,.tool-detail-hero h1{color:#f4f7ff}
+.tools-category-heading{display:flex;align-items:center;gap:13px;margin:29px 0 14px}
+.tools-category-heading>span{display:grid;place-items:center;width:32px;height:32px;border-radius:11px;color:#9b9aff;border:1px solid rgba(174,151,255,.25);background:rgba(135,104,255,.1);font-size:11px;font-weight:800}
+.tools-category-heading h2{margin:0;font-size:16px;letter-spacing:-.02em}.tools-category-heading p{margin:4px 0 0;color:#8e9cb5;font-size:11px;line-height:1.5}
+.tool-launch-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin:0}
+.tool-launch-card{position:relative;min-height:106px;padding:17px;border:1px solid rgba(190,207,255,.14);border-radius:20px;background:linear-gradient(140deg,rgba(255,255,255,.075),rgba(255,255,255,.018));backdrop-filter:blur(22px) saturate(145%);-webkit-backdrop-filter:blur(22px) saturate(145%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 12px 34px rgba(0,0,0,.13);transition:transform .22s,border-color .22s,background .22s,box-shadow .22s}
+.tool-launch-card:hover,.tool-launch-active{transform:translateY(-2px);border-color:rgba(155,190,255,.42);background:linear-gradient(140deg,rgba(255,255,255,.105),rgba(255,255,255,.035));box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 16px 40px rgba(0,0,0,.2)}
+.tool-launch-icon{width:44px;height:44px;border-radius:15px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045)}
+.tool-tint-cyan .tool-launch-icon,.tool-tint-cyan .tool-detail-orb{color:#82eaff;background:linear-gradient(145deg,rgba(79,211,255,.18),rgba(86,119,255,.08));border-color:rgba(100,220,255,.24)}
+.tool-tint-violet .tool-launch-icon,.tool-tint-violet .tool-detail-orb{color:#c2a1ff;background:linear-gradient(145deg,rgba(165,105,255,.2),rgba(105,92,255,.08));border-color:rgba(186,146,255,.25)}
+.tool-tint-blue .tool-launch-icon,.tool-tint-blue .tool-detail-orb{color:#8ebaff;background:linear-gradient(145deg,rgba(86,153,255,.2),rgba(85,102,255,.08));border-color:rgba(118,167,255,.24)}
+.tool-tint-purple .tool-launch-icon,.tool-tint-purple .tool-detail-orb{color:#d2a2ff;background:linear-gradient(145deg,rgba(173,100,255,.2),rgba(111,90,255,.08));border-color:rgba(186,146,255,.25)}
+.tool-tint-pink .tool-launch-icon{color:#ff9bd9;background:linear-gradient(145deg,rgba(255,117,195,.18),rgba(155,90,255,.08))}
+.tool-card-arrow{display:grid;place-items:center;align-self:flex-start;flex:none;width:29px;height:29px;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#9daec8;background:rgba(255,255,255,.035)}
+.tool-launch-copy strong{font-size:14px;color:#f0f4ff}.tool-launch-copy small{font-size:11px;color:#95a4bd;line-height:1.55}
+.tools-note{display:flex;align-items:flex-start;gap:13px;margin-top:23px;padding:17px 18px;border:1px solid rgba(176,159,255,.16);border-radius:18px;background:linear-gradient(120deg,rgba(137,105,255,.09),rgba(86,196,255,.035),rgba(255,255,255,.025));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.tools-note-icon{display:grid;place-items:center;flex:none;width:34px;height:34px;border:1px solid rgba(180,155,255,.22);border-radius:12px;color:#bca4ff;background:rgba(146,111,255,.1)}
+.tools-note strong{font-size:12px}.tools-note p{margin:5px 0 0;color:#8d9bb4;font-size:11px;line-height:1.6}
+.aurora-tool-detail-page{max-width:860px}
+.tool-detail-topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:28px}
+.tool-back-button{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid rgba(180,202,255,.16);border-radius:12px;color:#dce7fa;background:rgba(255,255,255,.045);font-size:12px;backdrop-filter:blur(16px)}
+.tool-detail-breadcrumb{color:#72849f;font-size:9px;letter-spacing:.14em}
+.tool-detail-hero{display:flex;align-items:center;gap:18px;margin:8px 0 26px}
+.tool-detail-orb{display:grid;place-items:center;flex:none;width:70px;height:70px;border:1px solid rgba(255,255,255,.15);border-radius:23px;box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 12px 35px rgba(0,0,0,.2)}
+.tool-detail-hero h1{margin:5px 0 6px;font:700 clamp(28px,5vw,39px) 'Manrope',sans-serif;letter-spacing:-.045em}.tool-detail-hero h1 span{color:#9b91ff}.tool-detail-hero p:last-child{margin:0;color:#94a3bc;font-size:12px;line-height:1.6}
+.tool-workspace{border:1px solid rgba(190,207,255,.16);border-radius:25px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025));backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(140%);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 24px 70px rgba(0,0,0,.2)}
+.tool-workspace-header{border-bottom-color:rgba(200,215,255,.12)}
+.tool-workspace-symbol{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12)}
+.tool-field{color:#bdcbe1}.tool-field input,.tool-field select,.tool-field textarea{border:1px solid rgba(200,215,255,.15);border-radius:15px;background:rgba(4,8,20,.48);box-shadow:inset 0 1px 0 rgba(255,255,255,.025);backdrop-filter:blur(10px)}
+.tool-field input:focus,.tool-field select:focus,.tool-field textarea:focus{border-color:rgba(147,168,255,.6);box-shadow:0 0 0 3px rgba(133,125,255,.09)}
+.tool-run-button{border-radius:13px}
+.tool-search-result{border-color:rgba(200,215,255,.13);background:linear-gradient(130deg,rgba(255,255,255,.065),rgba(255,255,255,.018));backdrop-filter:blur(14px);border-radius:17px}
+.tool-notice{backdrop-filter:blur(14px)}
+.tool-workspace-foot{margin-bottom:8px}
+@media(max-width:600px){.aurora-tools-page{padding:27px 16px 118px}.tool-launch-grid{grid-template-columns:1fr;gap:10px}.tool-launch-card{min-height:88px;padding:14px;border-radius:17px}.tools-category-heading{margin-top:25px}.tool-detail-hero{align-items:flex-start;gap:13px}.tool-detail-orb{width:55px;height:55px;border-radius:18px}.tool-detail-hero h1{font-size:27px}.tool-detail-topline{margin-bottom:22px}.tool-workspace{padding:17px;border-radius:20px}}
+@media(prefers-reduced-motion:reduce){.tool-launch-card{transition:none}}
