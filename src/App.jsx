@@ -5,7 +5,7 @@ import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
-  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages
+  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History
 } from "lucide-react";
 
 
@@ -180,7 +180,27 @@ function BottomNav({ active, onNavigate }) {
 export default function App() {
   const [page, setPage] = useState("home");
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState(() => { try { const saved = JSON.parse(localStorage.getItem("aurora-chat-history") || "[]"); return Array.isArray(saved) ? saved.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40) : []; } catch { return []; } });
+  const [chatSessions, setChatSessions] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]");
+      if (Array.isArray(saved) && saved.length) return saved.filter((s) => s && typeof s.id === "string" && Array.isArray(s.messages));
+      const legacy = JSON.parse(localStorage.getItem("aurora-chat-history") || "[]");
+      if (Array.isArray(legacy) && legacy.length) return [{ id: "chat-" + Date.now(), title: String(legacy.find((m) => m?.role === "user")?.content || "Previous conversation").slice(0, 48), messages: legacy.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40), updatedAt: Date.now() }];
+    } catch {}
+    return [];
+  });
+  const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || ""; } catch { return ""; } });
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const sessions = JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]");
+      const activeId = localStorage.getItem("aurora-active-chat-id");
+      const active = Array.isArray(sessions) ? sessions.find((s) => s.id === activeId) : null;
+      if (active && Array.isArray(active.messages)) return active.messages.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40);
+      const legacy = JSON.parse(localStorage.getItem("aurora-chat-history") || "[]");
+      return Array.isArray(legacy) ? legacy.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40) : [];
+    } catch { return []; }
+  });
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -245,8 +265,22 @@ export default function App() {
   }, [profile]);
 
   useEffect(() => {
-    try { localStorage.setItem("aurora-chat-history", JSON.stringify(messages.slice(-40))); } catch {}
-  }, [messages]);
+    const safeMessages = messages.slice(-40);
+    try { localStorage.setItem("aurora-chat-history", JSON.stringify(safeMessages)); } catch {}
+    setChatSessions((current) => {
+      const id = activeChatId || ("chat-" + Date.now());
+      const firstUserMessage = safeMessages.find((message) => message.role === "user")?.content || "New conversation";
+      const existing = current.find((session) => session.id === id);
+      const updated = { id, title: String(firstUserMessage).replace(/\s+/g, " ").slice(0, 48), messages: safeMessages, updatedAt: Date.now() };
+      return existing ? current.map((session) => session.id === id ? updated : session).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30) : [updated, ...current].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30);
+    });
+  }, [messages, activeChatId]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("aurora-chat-sessions", JSON.stringify(chatSessions));
+      if (activeChatId) localStorage.setItem("aurora-active-chat-id", activeChatId);
+    } catch {}
+  }, [chatSessions, activeChatId]);
   useEffect(() => { try { localStorage.setItem("aurora-tasks", JSON.stringify(tasks)); } catch {} }, [tasks]);
   useEffect(() => { try { localStorage.setItem("aurora-notes", JSON.stringify(notes)); } catch {} }, [notes]);
   useEffect(() => { try { localStorage.setItem("aurora-reminders", JSON.stringify(reminders)); } catch {} }, [reminders]);
@@ -385,6 +419,10 @@ export default function App() {
   function openTool(kind) {
     setToolKind(kind);
     setToolScreen("detail");
+    setToolQuery("");
+    setToolText("");
+    setToolImage(null);
+    setToolImagePreview("");
     setToolResult(null);
     setNotice("");
     setAttachmentOpen(false);
@@ -641,8 +679,12 @@ export default function App() {
                 <div className="chat-heading">
                   <button className="back-button" onClick={() => navigate("home")}><ArrowLeft size={17} /> Home</button>
                   <div className="chat-title-wrap"><span className="mini-orb"><Orb compact speaking={speaking} /></span><div><h1>AURORA <span>CHAT</span></h1><p><span className="live-dot" /> Your assistant is here</p></div></div>
-                  <button className="icon-button" onClick={() => setMessages([])} aria-label="New conversation"><SquarePen size={18} /></button>
+                  <div className="chat-heading-actions">
+                    <button className="icon-button" onClick={() => setHistoryOpen((open) => !open)} aria-label="Chat history" title="Chat history"><History size={18} /></button>
+                    <button className="icon-button" onClick={() => { const id = "chat-" + Date.now(); setActiveChatId(id); setMessages([]); setDraft(""); setHistoryOpen(false); setNotice(""); }} aria-label="New conversation" title="New conversation"><SquarePen size={18} /></button>
+                  </div>
                 </div>
+                {historyOpen && <div className="chat-history-panel"><div className="chat-history-title"><strong>Previous chats</strong><span>{chatSessions.length} saved</span></div>{chatSessions.length === 0 ? <p className="chat-history-empty">Your conversations will appear here as you chat.</p> : chatSessions.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).map((session) => <button type="button" className={"chat-history-item " + (session.id === activeChatId ? "chat-history-item-active" : "")} key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); setDraft(""); setHistoryOpen(false); setNotice(""); }}>{session.title || "Conversation"}<small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></button>)}</div>}
                 <div className="messages-area">
                   {messages.length === 0 && <div className="empty-chat"><Orb compact /><h2>Let's make something happen.</h2><p>Ask a question, work through an idea, or plan your next move.</p></div>}
                   {messages.map((message, index) => (
