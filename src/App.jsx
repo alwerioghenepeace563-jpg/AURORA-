@@ -189,7 +189,7 @@ export default function App() {
     } catch {}
     return [];
   });
-  const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || ""; } catch { return ""; } });
+  const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || (JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]")[0]?.id) || ("chat-" + Date.now()); } catch { return "chat-" + Date.now(); } });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [messages, setMessages] = useState(() => {
     try {
