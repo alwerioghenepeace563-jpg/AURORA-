@@ -260,3 +260,12 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .tool-workspace-foot{margin-bottom:8px}
 @media(max-width:600px){.aurora-tools-page{padding:27px 16px 118px}.tool-launch-grid{grid-template-columns:1fr;gap:10px}.tool-launch-card{min-height:88px;padding:14px;border-radius:17px}.tools-category-heading{margin-top:25px}.tool-detail-hero{align-items:flex-start;gap:13px}.tool-detail-orb{width:55px;height:55px;border-radius:18px}.tool-detail-hero h1{font-size:27px}.tool-detail-topline{margin-bottom:22px}.tool-workspace{padding:17px;border-radius:20px}}
 @media(prefers-reduced-motion:reduce){.tool-launch-card{transition:none}}
+
+
+/* Translation tool controls */
+.tool-language-row{display:grid;grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);align-items:end;gap:10px}
+.tool-swap-languages{height:44px;margin-bottom:1px;display:grid;place-items:center;border:1px solid rgba(180,202,255,.2);border-radius:13px;color:#bbaaff;background:rgba(153,125,255,.09);backdrop-filter:blur(14px)}
+.tool-swap-languages:hover{background:rgba(153,125,255,.16);border-color:rgba(180,160,255,.42)}
+.tool-translation-result-label{display:flex;align-items:center;gap:8px;color:#bdaaff;font-size:12px;font-weight:700;letter-spacing:.02em;margin-bottom:12px}
+.tool-result-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+@media(max-width:460px){.tool-language-row{grid-template-columns:minmax(0,1fr) 36px minmax(0,1fr);gap:6px}.tool-language-row .tool-field select{font-size:11px;padding-left:8px;padding-right:6px}.tool-swap-languages{height:42px}}
