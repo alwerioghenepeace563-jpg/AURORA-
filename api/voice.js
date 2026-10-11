@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST." });
   }
 
-  const key = process.env.ELEVENLABS_API_KEY;
+  const key = process.env.ELEVENLAB_API_KEY || process.env.ELEVENLABS_API_KEY;
   if (!key) return res.status(503).json({ error: "Voice service is not configured." });
 
   let body = req.body;
