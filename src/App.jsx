@@ -20,7 +20,26 @@ function renderInlineText(text, keyPrefix) {
   });
 }
 function FormattedMessage({ content, onChoice }) {
-  const lines = String(content || "").split("\n");
+  const sourceLines = String(content || "").split("\n");
+  // Some models explain a flow in plain text instead of emitting the structured JSON.
+  // Convert that common fallback format into the same visual flow cards.
+  const flowTitleIndex = sourceLines.findIndex((line) => /AURORA AI Fallback Flow|AI Fallback Flow|Fallback Flow/i.test(line.trim()));
+  const stageNames = ["Primary Provider", "Rate-Limit Detection", "Backup Providers", "Final Response"];
+  let inferredFlow = null, flowStart = -1, flowEnd = -1;
+  if (flowTitleIndex >= 0) {
+    const found = stageNames.map((name) => ({ name, index: sourceLines.findIndex((line, i) => i > flowTitleIndex && new RegExp("^\\s*" + name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\function FormattedMessage({ content, onChoice }) {
+  const lines = String(content || "").split("\n");") + "\\s*$", "i").test(line.trim())) })).filter((stage) => stage.index >= 0);
+    if (found.length >= 3) {
+      inferredFlow = { type: "flow", title: sourceLines[flowTitleIndex].replace(/^#+\\s*/, "").trim(), steps: found.map((stage, index) => {
+        const nextIndex = found[index + 1]?.index ?? sourceLines.length;
+        const description = sourceLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\\s*[↓↘→]+\\s*$/.test(line.trim()) && !/^\\s*Feel free to click/i.test(line.trim())).join(" ").trim();
+        return { title: stage.name, text: description, color: ["#142d46", "#183747", "#20334b", "#153b36"][index] };
+      }) };
+      flowStart = flowTitleIndex;
+      flowEnd = found[found.length - 1].index;
+    }
+  }
+  const lines = sourceLines;
   const choiceLine = lines.find((line) => /^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
   const choices = choiceLine ? (choiceLine.match(/^\s*\[\[CHOICES:\s*(.*?)\]\]\s*$/)?.[1] || "").split("|").map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
   const visibleLines = lines.filter((line) => !/^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
@@ -49,7 +68,16 @@ function FormattedMessage({ content, onChoice }) {
     tableRows = [];
   };
   const parseTableRow = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+  let skipInferredFlow = false;
   visibleLines.forEach((line, index) => {
+    if (inferredFlow && index === flowStart) {
+      flushList(); flushTable();
+      blocks.push(<StructuredVisual data={inferredFlow} key={"inferred-flow-" + index} />);
+      skipInferredFlow = true;
+      return;
+    }
+    if (skipInferredFlow && index > flowStart && index <= flowEnd) return;
+    if (skipInferredFlow && index > flowEnd) skipInferredFlow = false;
     if (/^\s*\x60{3}/.test(line)) {
       flushList(); flushTable();
       if (inCode) { flushCode(); inCode = false; }
@@ -271,6 +299,25 @@ export default function App() {
       audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); };
       await audio.play();
     } catch (error) {
+      // Keep Read Aloud usable when the hosted voice service is unavailable.
+      // Browser speech is a fallback only; the selected cloud voice remains preferred.
+      try {
+        if ("speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function") {
+          window.speechSynthesis.cancel();
+          const utterance = new window.SpeechSynthesisUtterance(String(text).slice(0, 2400));
+          utterance.rate = 0.96;
+          utterance.pitch = 0.92;
+          const availableVoices = window.speechSynthesis.getVoices();
+          const preferredVoice = availableVoices.find((voice) => /female|samantha|victoria|karen|zira|aria|jenny|serena/i.test(voice.name) && /^en/i.test(voice.lang))
+            || availableVoices.find((voice) => /^en/i.test(voice.lang));
+          if (preferredVoice) utterance.voice = preferredVoice;
+          utterance.onend = () => setSpeaking(false);
+          utterance.onerror = () => { setSpeaking(false); setNotice("Read aloud is unavailable on this device right now."); };
+          window.speechSynthesis.speak(utterance);
+          setNotice("Cloud voice unavailable; using this device’s voice for now.");
+          return;
+        }
+      } catch {}
       setSpeaking(false);
       setNotice(error.message || "Voice could not play. Check the voice settings.");
     }
