@@ -185,11 +185,11 @@ export default function App() {
       const saved = JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]");
       if (Array.isArray(saved) && saved.length) return saved.filter((s) => s && typeof s.id === "string" && Array.isArray(s.messages));
       const legacy = JSON.parse(localStorage.getItem("aurora-chat-history") || "[]");
-      if (Array.isArray(legacy) && legacy.length) return [{ id: "chat-" + Date.now(), title: String(legacy.find((m) => m?.role === "user")?.content || "Previous conversation").slice(0, 48), messages: legacy.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40), updatedAt: Date.now() }];
+      if (Array.isArray(legacy) && legacy.length) return [{ id: "chat-legacy", title: String(legacy.find((m) => m?.role === "user")?.content || "Previous conversation").slice(0, 48), messages: legacy.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40), updatedAt: Date.now() }];
     } catch {}
     return [];
   });
-  const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || (JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]")[0]?.id) || ("chat-" + Date.now()); } catch { return "chat-" + Date.now(); } });
+  const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || (JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]")[0]?.id) || (JSON.parse(localStorage.getItem("aurora-chat-history") || "[]").length ? "chat-legacy" : ("chat-" + Date.now())); } catch { return "chat-" + Date.now(); } });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [messages, setMessages] = useState(() => {
     try {
