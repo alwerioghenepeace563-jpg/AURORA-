@@ -25,15 +25,46 @@ function FormattedMessage({ content, onChoice }) {
   const choices = choiceLine ? (choiceLine.match(/^\s*\[\[CHOICES:\s*(.*?)\]\]\s*$/)?.[1] || "").split("|").map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
   const visibleLines = lines.filter((line) => !/^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
   const blocks = [];
-  let listItems = [], listType = "";
+  let listItems = [], listType = "", codeLines = [], inCode = false, tableRows = [];
   const flushList = () => {
     if (!listItems.length) return;
     const ListTag = listType === "number" ? "ol" : "ul";
     blocks.push(<ListTag className="message-list" key={"list-" + blocks.length}>{listItems.map((item, index) => <li key={index}>{renderInlineText(item, "li-" + blocks.length + "-" + index)}</li>)}</ListTag>);
     listItems = []; listType = "";
   };
+  const flushCode = () => {
+    if (!codeLines.length) return;
+    const raw = codeLines.join("\n");
+    const structured = findStructuredBlock(raw.trim());
+    if (structured) blocks.push(<StructuredVisual data={structured} key={"visual-" + blocks.length} />);
+    else blocks.push(<pre className="message-code-block" key={"code-" + blocks.length}><code>{raw}</code></pre>);
+    codeLines = [];
+  };
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    const rows = tableRows.filter((row) => !row.every((cell) => /^:?-{3,}:?$/.test(cell)));
+    const header = rows[0] || [];
+    const body = rows.slice(1);
+    blocks.push(<div className="message-table-wrap" key={"table-" + blocks.length}><table className="message-table"><thead><tr>{header.map((cell, i) => <th key={i}>{renderInlineText(cell, "th-" + i)}</th>)}</tr></thead><tbody>{body.map((row, ri) => <tr key={ri}>{header.map((_, ci) => <td key={ci}>{renderInlineText(row[ci] || "", "td-" + ri + "-" + ci)}</td>)}</tr>)}</tbody></table></div>);
+    tableRows = [];
+  };
+  const parseTableRow = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
   visibleLines.forEach((line, index) => {
+    if (/^\s*\x60{3}/.test(line)) {
+      flushList(); flushTable();
+      if (inCode) { flushCode(); inCode = false; }
+      else { inCode = true; codeLines = []; }
+      return;
+    }
+    if (inCode) { codeLines.push(line); return; }
     const trimmed = line.trim();
+    const isTableRow = trimmed.includes("|") && /^\|?.+\|.+\|?$/.test(trimmed);
+    if (isTableRow) {
+      flushList();
+      tableRows.push(parseTableRow(trimmed));
+      return;
+    }
+    flushTable();
     const structured = findStructuredBlock(trimmed);
     if (structured) { flushList(); blocks.push(<StructuredVisual data={structured} key={"visual-" + index} />); return; }
     const bullet = trimmed.match(/^[-*]\s+(.+)/), numbered = trimmed.match(/^\d+[.)]\s+(.+)/);
@@ -44,15 +75,16 @@ function FormattedMessage({ content, onChoice }) {
     }
     flushList();
     if (!trimmed) return;
+    if (/^(---+|\*\*\*+|___+)$/.test(trimmed)) { blocks.push(<hr className="message-divider" key={"hr-" + index} />); return; }
     const heading = trimmed.match(/^#{1,3}\s+(.+)/);
     if (heading) blocks.push(<h4 className="message-heading" key={"heading-" + index}>{renderInlineText(heading[1], "heading-" + index)}</h4>);
     else if (/^>\s?/.test(trimmed)) blocks.push(<blockquote className="message-quote" key={"quote-" + index}>{renderInlineText(trimmed.replace(/^>\s?/, ""), "quote-" + index)}</blockquote>);
     else blocks.push(<p className="message-paragraph" key={"paragraph-" + index}>{renderInlineText(trimmed, "p-" + index)}</p>);
   });
-  flushList();
+  if (inCode) flushCode();
+  flushList(); flushTable();
   return <div className="message-rich-content">{blocks}{choices.length > 0 && <div className="message-choice-group" aria-label="Suggested replies">{choices.map((choice, index) => <button type="button" className="message-choice" key={choice + index} onClick={() => onChoice(choice)}>{choice}<span>↗</span></button>)}</div>}</div>;
 }
-
 function StructuredVisual({ data }) {
   const safeColor = (value, fallback) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
   if (data && data.type === "flow" && Array.isArray(data.steps) && data.steps.length) {
