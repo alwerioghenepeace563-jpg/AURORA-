@@ -85,6 +85,8 @@ export default async function handler(req, res) {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
   const hasAttachments = body.messages.some((m) => m && (m.document || m.image));
+  const hasImages = body.messages.some((m) => m && m.image);
+  const hasPdfs = body.messages.some((m) => m && m.document);
   const configuredProviders = [
     groqKey ? "groq" : null,
     openRouterKey ? "openrouter" : null,
@@ -96,26 +98,35 @@ export default async function handler(req, res) {
     const requestedProvider = ["groq", "openrouter", "gemini"].includes(body.preferredProvider) && configuredProviders.includes(body.preferredProvider)
       ? body.preferredProvider
       : storedProvider;
-    const availableProviders = hasAttachments
-      ? (geminiKey ? ["gemini"] : [])
-      : providerOrder(requestedProvider, configuredProviders);
+    const orderedProviders = providerOrder(requestedProvider, configuredProviders);
+    // Images can use any configured vision-capable provider. PDFs use OpenRouter file input or Gemini native PDF input.
+    const availableProviders = hasPdfs
+      ? orderedProviders.filter((provider) => provider === "openrouter" || provider === "gemini")
+      : orderedProviders;
     const failures = [];
 
     for (const provider of availableProviders) {
       try {
         if (provider === "groq") {
-          const groqMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
+          const groqMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => {
+            if (m.image) return { role: m.role, content: [
+              { type: "text", text: m.content },
+              { type: "image_url", image_url: { url: "data:" + m.image.mimeType + ";base64," + m.image.data } }
+            ] };
+            return { role: m.role, content: m.content };
+          })];
+          const groqModel = hasImages ? (process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b").trim() : (process.env.GROQ_MODEL || "openai/gpt-oss-20b").trim();
           const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: "Bearer " + groqKey, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: (process.env.GROQ_MODEL || "openai/gpt-oss-20b").trim(), messages: groqMessages, temperature: 0.7, max_completion_tokens: 1200 }),
+            body: JSON.stringify({ model: groqModel, messages: groqMessages, temperature: 0.7, max_completion_tokens: 1200 }),
             signal: AbortSignal.timeout(18000)
           });
           const data = await response.json().catch(() => ({}));
           const reply = data?.choices?.[0]?.message?.content;
           if (response.ok && typeof reply === "string" && reply.trim()) {
             await setPreferredProvider("groq");
-            return res.status(200).json({ reply: reply.trim(), model: data?.model || process.env.GROQ_MODEL || "openai/gpt-oss-20b", provider: "groq" });
+            return res.status(200).json({ reply: reply.trim(), model: data?.model || groqModel, provider: "groq" });
           }
           failures.push({ provider, status: response.status, message: data?.error?.message || "Provider returned no reply" });
           console.warn("AURORA Groq failed; trying next provider:", response.status, data?.error?.message || "");
@@ -123,7 +134,15 @@ export default async function handler(req, res) {
         }
 
         if (provider === "openrouter") {
-          const openRouterMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => ({ role: m.role, content: m.content }))];
+          const openRouterMessages = [{ role: "system", content: systemText }, ...body.messages.map((m) => {
+            if (m.image || m.document) {
+              const parts = [{ type: "text", text: m.content }];
+              if (m.image) parts.push({ type: "image_url", image_url: { url: "data:" + m.image.mimeType + ";base64," + m.image.data } });
+              if (m.document) parts.push({ type: "file", file: { filename: "aurora-upload.pdf", file_data: "data:application/pdf;base64," + m.document.data } });
+              return { role: m.role, content: parts };
+            }
+            return { role: m.role, content: m.content };
+          })];
           const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: "Bearer " + openRouterKey, "Content-Type": "application/json", "X-Title": "AURORA" },
