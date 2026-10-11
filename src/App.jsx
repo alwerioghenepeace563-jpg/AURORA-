@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowUp, AudioLines, CalendarDays,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
-  Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck,
+  Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
   SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X
 } from "lucide-react";
 
@@ -71,6 +71,11 @@ export default function App() {
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [capturedPhoto, setCapturedPhoto] = useState("");
+  const cameraVideoRef = useRef(null);
+  const liveCameraStreamRef = useRef(null);
   const [tunerOpen, setTunerOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(true);
   const [notice, setNotice] = useState("");
@@ -270,9 +275,38 @@ export default function App() {
     }
   }
 
+  async function openCameraScreen() {
+    setAttachmentOpen(false); setCameraError(""); setCapturedPhoto(""); setCameraOpen(true);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("In-app camera needs a secure HTTPS connection and a supported browser.");
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      liveCameraStreamRef.current = stream;
+      if (cameraVideoRef.current) { cameraVideoRef.current.srcObject = stream; await cameraVideoRef.current.play().catch(() => {}); }
+    } catch (error) {
+      setCameraError(error.name === "NotAllowedError" ? "Camera permission was denied. Allow camera access in your browser settings, then try again." : error.message || "Could not open the camera.");
+    }
+  }
+  function closeCameraScreen() {
+    liveCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    liveCameraStreamRef.current = null; setCameraOpen(false);
+  }
+  function captureCameraPhoto() {
+    const video = cameraVideoRef.current;
+    if (!video || !video.videoWidth) { setCameraError("Camera is still starting. Try again in a moment."); return; }
+    const canvas = document.createElement("canvas"); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setCapturedPhoto(canvas.toDataURL("image/jpeg", .88));
+    liveCameraStreamRef.current?.getTracks().forEach((track) => track.stop()); liveCameraStreamRef.current = null;
+  }
+  function retakeCameraPhoto() { setCapturedPhoto(""); openCameraScreen(); }
+  function useCameraPhoto() {
+    if (!capturedPhoto) return;
+    closeCameraScreen();
+    setNotice("Photo captured inside AURORA. Image understanding still needs to be connected before AURORA can explain the picture.");
+  }
   function openAttachment(kind) {
     setAttachmentOpen(false);
-    if (kind === "camera") cameraRef.current?.click();
+    if (kind === "camera") openCameraScreen();
     if (kind === "gallery") galleryRef.current?.click();
     if (kind === "files") fileRef.current?.click();
     if (kind === "tuner") setTunerOpen(true);
@@ -427,6 +461,15 @@ export default function App() {
               <button type="button" className="aurora-tool-option aurora-tuner-option" onClick={() => openAttachment("tuner")}><span className="aurora-tool-icon"><SlidersHorizontal size={21} /></span><span><strong>AI Tuner</strong><small>Choose AURORA’s personality</small></span><ChevronRight size={16} /></button>
               <p className="aurora-menu-footnote">Your tools, inside AURORA.</p>
             </motion.div>
+          </motion.div>
+        )}
+        {cameraOpen && (
+          <motion.div className="aurora-camera-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeCameraScreen}>
+            <motion.section className="aurora-camera-screen" role="dialog" aria-modal="true" aria-label="AURORA camera" initial={{ opacity: 0, scale: .98, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={(event) => event.stopPropagation()}>
+              <header className="aurora-camera-header"><button type="button" onClick={closeCameraScreen} aria-label="Close camera"><ArrowLeft size={20}/></button><div><strong>AURORA CAMERA</strong><small>CAPTURE • REVIEW • CONTINUE</small></div><span className="camera-live-pill"><i/> {capturedPhoto ? "PHOTO READY" : "CAMERA"}</span></header>
+              <div className="aurora-camera-view">{capturedPhoto ? <img src={capturedPhoto} alt="Captured preview"/> : <><video ref={cameraVideoRef} autoPlay playsInline muted/><div className="camera-crosshair camera-crosshair-a"/><div className="camera-crosshair camera-crosshair-b"/><span className="camera-view-label">AURORA / OPTICAL INPUT</span>{cameraError && <div className="camera-error"><Camera size={24}/><p>{cameraError}</p><button type="button" onClick={openCameraScreen}>Try camera again</button></div>}</>}</div>
+              <div className="aurora-camera-controls">{capturedPhoto ? <><button type="button" className="camera-secondary-action" onClick={retakeCameraPhoto}><RotateCcw size={17}/> Retake</button><button type="button" className="camera-confirm-action" onClick={useCameraPhoto}><Check size={18}/> Use photo</button></> : <><span className="camera-control-hint">Hold steady for a clear image</span><button type="button" className="camera-shutter" onClick={captureCameraPhoto} aria-label="Take photo"><span/></button><span className="camera-control-hint">REAR CAMERA</span></>}</div>
+            </motion.section>
           </motion.div>
         )}
         {tunerOpen && (
