@@ -179,7 +179,7 @@ export default function App() {
     }
   }
 
-  async function sendMessage(textOverride) {
+  async function sendMessage(textOverride, documentOverride = null) {
     const text = (textOverride ?? draft).trim();
     if (!text || busy) return;
     const nextMessages = [...messages, { role: "user", content: text }];
@@ -192,7 +192,7 @@ export default function App() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages.slice(-20), profile })
+        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (documentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], document: documentOverride }; return items; })(), profile })
       });
       const rawResponse = await response.text();
       let data = {};
@@ -252,10 +252,10 @@ export default function App() {
       setNotice("Image selected: " + file.name + ". Image understanding is not connected yet, so choose a text file for analysis for now.");
       return;
     }
-    const allowedTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
+    if (file.type === "application/pdf" || /\\.pdf$/i.test(file.name)) {\n      if (file.size > 6500000) { setNotice("Please choose a PDF smaller than 6.5 MB."); return; }\n      try {\n        const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = reject; reader.readAsDataURL(file); });\n        const encoded = String(dataUrl).split(",")[1] || "";\n        if (!encoded) throw new Error("empty PDF");\n        sendMessage("Please read this PDF document: " + file.name + ". Summarise its key points, explain difficult parts, and answer questions using the document.", { mimeType: "application/pdf", data: encoded });\n      } catch { setNotice("I couldn't prepare that PDF. Please try another file."); }\n      return;\n    }\n    const allowedTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
     const allowedExtensions = /\\.(txt|md|csv|json)$/i;
     if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
-      setNotice("AURORA can currently read .txt, .md, .csv and .json files. Other file analysis is coming next.");
+      setNotice("AURORA can read PDF, TXT, Markdown, CSV and JSON files.");
       return;
     }
     if (file.size > 60000) {
@@ -353,7 +353,7 @@ export default function App() {
                 <button type="button" className={`composer-tool mic-tool ${listening ? "is-listening" : ""}`} aria-label="Use microphone" onClick={toggleMic}><Mic size={19} /></button>
                 <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send message">{busy ? <span className="mini-loader" /> : <ArrowUp size={20} />}</button>
               </form>
-              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={onFileSelected} /><input ref={galleryRef} type="file" accept="image/*" multiple className="visually-hidden" onChange={onFileSelected} /><input ref={fileRef} type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" className="visually-hidden" onChange={onFileSelected} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={onFileSelected} /><input ref={galleryRef} type="file" accept="image/*" multiple className="visually-hidden" onChange={onFileSelected} /><input ref={fileRef} type="file" accept=".txt,.md,.csv,.json,.pdf,text/plain,text/markdown,text/csv,application/json,application/pdf" className="visually-hidden" onChange={onFileSelected} />
               {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
               <div className="suggestion-row">
                 <button onClick={() => sendMessage("Help me plan my day.")}><CalendarDays size={15} /> Plan my day</button>
