@@ -92,10 +92,13 @@ export default async function handler(req, res) {
   ].filter(Boolean);
 
   try {
-    const preferredProvider = await getPreferredProvider();
+    const storedProvider = await getPreferredProvider();
+    const requestedProvider = ["groq", "openrouter", "gemini"].includes(body.preferredProvider) && configuredProviders.includes(body.preferredProvider)
+      ? body.preferredProvider
+      : storedProvider;
     const availableProviders = hasAttachments
       ? (geminiKey ? ["gemini"] : [])
-      : providerOrder(preferredProvider, configuredProviders);
+      : providerOrder(requestedProvider, configuredProviders);
     const failures = [];
 
     for (const provider of availableProviders) {
