@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
   const voiceName = typeof body?.voice === "string" ? body.voice.toLowerCase() : "jessica";
   const voiceIds = {
-    jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID,
+    jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID,
     bella: process.env.ELEVENLABS_BELLA_VOICE_ID,
     laura: process.env.ELEVENLABS_LAURA_VOICE_ID,
     lucian: process.env.ELEVENLAB_LUCIAN_VOICE_ID || process.env.ELEVENLABS_LUCIAN_VOICE_ID
