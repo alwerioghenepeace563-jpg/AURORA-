@@ -34,6 +34,8 @@ function FormattedMessage({ content, onChoice }) {
   };
   visibleLines.forEach((line, index) => {
     const trimmed = line.trim();
+    const structured = findStructuredBlock(trimmed);
+    if (structured) { flushList(); blocks.push(<StructuredVisual data={structured} key={"visual-" + index} />); return; }
     const bullet = trimmed.match(/^[-*]\s+(.+)/), numbered = trimmed.match(/^\d+[.)]\s+(.+)/);
     if (bullet || numbered) {
       const nextType = numbered ? "number" : "bullet";
@@ -49,6 +51,26 @@ function FormattedMessage({ content, onChoice }) {
   });
   flushList();
   return <div className="message-rich-content">{blocks}{choices.length > 0 && <div className="message-choice-group" aria-label="Suggested replies">{choices.map((choice, index) => <button type="button" className="message-choice" key={choice + index} onClick={() => onChoice(choice)}>{choice}<span>↗</span></button>)}</div>}</div>;
+}
+
+function StructuredVisual({ data }) {
+  const safeColor = (value, fallback) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+  if (data && data.type === "flow" && Array.isArray(data.steps) && data.steps.length) {
+    const steps = data.steps.slice(0, 8);
+    return <div className="aurora-flow-card">{data.title && <div className="aurora-visual-title">{data.title}</div>}{steps.map((step, index) => <div className="aurora-flow-step-wrap" key={index}><div className="aurora-flow-step" style={{ background: safeColor(step.color, "#14233a") }}><div className="aurora-flow-step-title">{String(step.title || "Step " + (index + 1))}</div>{step.text && <div className="aurora-flow-step-text">{String(step.text)}</div>}</div>{index < steps.length - 1 && <div className="aurora-flow-arrow" aria-hidden="true">↓</div>}</div>)}</div>;
+  }
+  if (data && data.type === "card" && typeof data.title === "string") {
+    const items = Array.isArray(data.items) ? data.items.slice(0, 8) : [];
+    const url = typeof data.buttonUrl === "string" && /^https?:\/\//i.test(data.buttonUrl) ? data.buttonUrl : "";
+    return <div className="aurora-info-card"><div className="aurora-info-card-accent"><Sparkles size={16}/></div><div className="aurora-visual-title">{data.title}</div>{data.description && <p className="message-paragraph">{String(data.description)}</p>}{items.length > 0 && <ul className="aurora-info-items">{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : String(item && (item.text || item.title) || "")}</li>)}</ul>}{url && <a className="aurora-card-link" href={url} target="_blank" rel="noreferrer">{String(data.buttonLabel || "Open link")} <span>↗</span></a>}</div>;
+  }
+  return null;
+}
+function findStructuredBlock(line) {
+  const candidate = line.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
+  try { const parsed = JSON.parse(candidate); if (parsed && (parsed.type === "flow" || parsed.type === "card")) return parsed; } catch {}
+  return null;
 }
 
 function Orb({ compact = false, speaking = false }) {
