@@ -189,6 +189,23 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
+      if (!attachmentOverride && /^Search the web for\\s+/i.test(text)) {
+        const query = text.replace(/^Search the web for\\s+/i, "").trim();
+        const searchResponse = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+        const searchData = await searchResponse.json().catch(() => ({}));
+        if (!searchResponse.ok) throw new Error(searchData.error || "Web search could not complete.");
+        const results = Array.isArray(searchData.results) ? searchData.results : [];
+        const searchReply = results.length
+          ? "Web results for: " + query + "\\n\\n" + results.map((item, index) => (index + 1) + ". " + item.title + "\\n" + (item.snippet || "Open the source to read more.") + "\\nSource: " + item.url).join("\\n\\n") + "\\n\\nThese are search results, so check the linked sources for full context."
+          : "I couldn't find matching results for “" + query + "”. Try a more specific search.";
+        setMessages((current) => [...current, { role: "assistant", content: searchReply }]);
+        if (soundOn) speak(searchReply);
+        return;
+      }
       let preferredProvider;
       try { preferredProvider = localStorage.getItem("aurora-active-ai-provider") || undefined; } catch {}
       const response = await fetch("/api/chat", {
@@ -482,10 +499,10 @@ export default function App() {
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("gallery")}><span className="aurora-tool-icon"><ImageIcon size={21} /></span><span><strong>Gallery</strong><small>Choose photos from your device</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("files")}><span className="aurora-tool-icon"><Paperclip size={21} /></span><span><strong>Files</strong><small>Add a supported document</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option aurora-tuner-option" onClick={() => openAttachment("tuner")}><span className="aurora-tool-icon"><SlidersHorizontal size={21} /></span><span><strong>AI Tuner</strong><small>Choose AURORA’s personality</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => v ? v + " " : "Search the web for "); }}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Web Search</strong><small>Find current information with sources</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => v ? v + " Translate this: " : "Translate this: "); }}><span className="aurora-tool-icon"><WandSparkles size={21} /></span><span><strong>Translate</strong><small>Translate text into another language</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => v ? v + " Help me write or improve this: " : "Help me write or improve this: "); }}><span className="aurora-tool-icon"><NotebookPen size={21} /></span><span><strong>Writing Assistant</strong><small>Draft, rewrite or summarise text</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => v ? v + " Teach me this step by step and quiz me: " : "Teach me this step by step and quiz me: "); }}><span className="aurora-tool-icon"><FileText size={21} /></span><span><strong>Study Tools</strong><small>Learn concepts and practise questions</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => v ? "Search the web for " + v : "Search the web for "); }}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Web Search</strong><small>Find current information with sources</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => "Translate the following text. Ask me for the target language if I have not specified one, preserve the meaning and tone, and return a natural translation:\\n" + v); }}><span className="aurora-tool-icon"><WandSparkles size={21} /></span><span><strong>Translate</strong><small>Translate text into another language</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => "Writing Assistant: help me draft, rewrite, proofread, or summarise the text below. Keep my intended meaning and use a clear, natural style. Ask a brief question if a key detail is missing:\\n" + v); }}><span className="aurora-tool-icon"><NotebookPen size={21} /></span><span><strong>Writing Assistant</strong><small>Draft, rewrite or summarise text</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option" onClick={() => { setAttachmentOpen(false); setDraft((v) => "Study Tools: teach this topic step by step from the basics, explain the key ideas with one worked example, then give me a short practice question and wait for my answer before showing the solution:\\n" + v); }}><span className="aurora-tool-icon"><FileText size={21} /></span><span><strong>Study Tools</strong><small>Learn concepts and practise questions</small></span><ChevronRight size={16} /></button>
               <p className="aurora-menu-footnote">Your tools, inside AURORA.</p>
             </motion.div>
           </motion.div>
