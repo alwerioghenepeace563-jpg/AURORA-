@@ -87,6 +87,34 @@ async function parseDuckApi(query) {
   if (!results.length) throw new Error("DuckDuckGo API returned no instant results");
   return results.slice(0, 6);
 }
+function parseGoogleNews(xml) {
+  const items = [];
+  const re = /<item>([\\s\\S]*?)<\\/item>/gi;
+  let m;
+  const field = (block, name) => {
+    const found = block.match(new RegExp("<" + name + "(?:\\\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + ">", "i"));
+    return found ? found[1].replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim() : "";
+  };
+  while ((m = re.exec(xml)) && items.length < 8) {
+    const block = m[1];
+    const title = stripTags(field(block, "title"));
+    const url = safeUrl(field(block, "link"), "https://news.google.com");
+    const description = stripTags(field(block, "description"));
+    const pubDate = stripTags(field(block, "pubDate"));
+    if (title && url && !items.some(x => x.url === url)) {
+      items.push({ title, url, snippet: [description, pubDate ? "Published: " + pubDate : ""].filter(Boolean).join(" · ") });
+    }
+  }
+  return items;
+}
+async function parseGoogleNewsSearch(query) {
+  const url = "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=en-NG&gl=NG&ceid=NG:en";
+  const response = await fetch(url, {headers:{"Accept":"application/rss+xml, application/xml, text/xml"},signal:AbortSignal.timeout(6500)});
+  if (!response.ok) throw new Error("Google News HTTP " + response.status);
+  const results = parseGoogleNews(await response.text());
+  if (!results.length) throw new Error("Google News returned no parseable results");
+  return results;
+}
 async function parseWikipedia(query) {
   const url = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=6&format=json&origin=*";
   const response = await fetch(url, {headers:{"Accept":"application/json","User-Agent":"AURORA assistant search/1.0"},signal:AbortSignal.timeout(4500)});
@@ -110,13 +138,30 @@ export default async function handler(req, res) {
   query = query.trim().slice(0, 240);
   if (query.length < 2) return res.status(400).json({error:"Enter a search query."});
 
-  const apiAttempt = parseDuckApi(query).then(results => ({query,results,source:"DuckDuckGo Instant Answers"}));
+  const looksLikeNews = /\\b(latest|breaking|current|today'?s|recent)\\b.{0,35}\\b(news|headlines|updates)\\b|\\b(news|headlines|updates)\\b.{0,35}\\b(today|latest|Nigeria)\\b/i.test(query);
+  const errors = [];
+  const attemptGroup = async (attempts) => {
+    try { return await Promise.any(attempts); }
+    catch (error) {
+      for (const item of (error?.errors || [])) errors.push(item?.message || "Provider failed");
+      return null;
+    }
+  };
+
+  // For current-news queries, use a news feed first so dated articles outrank encyclopedia pages.
+  if (looksLikeNews) {
+    const newsResult = await attemptGroup([
+      parseGoogleNewsSearch(query).then(results => ({query,results,source:"Google News"}))
+    ]);
+    if (newsResult) return res.status(200).json(newsResult);
+  }
+
   const providers = [
     {name:"DuckDuckGo",url:"https://html.duckduckgo.com/html/?q="+encodeURIComponent(query),parse:parseDuck},
     {name:"DuckDuckGo Lite",url:"https://lite.duckduckgo.com/lite/?q="+encodeURIComponent(query),parse:parseDuckLite},
     {name:"Bing",url:"https://www.bing.com/search?q="+encodeURIComponent(query),parse:parseBing}
   ];
-  const attempts = providers.map(async provider => {
+  const webAttempts = providers.map(async provider => {
     const response = await fetch(provider.url, {
       headers:{"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml"},
       signal:AbortSignal.timeout(4500)
@@ -126,16 +171,18 @@ export default async function handler(req, res) {
     if (!results.length) throw new Error(provider.name+" returned no parseable results");
     return {query,results,source:provider.name};
   });
-  const wikiAttempt = parseWikipedia(query).then(results => {
-    if (!results.length) throw new Error("Wikipedia returned no results");
-    return {query,results,source:"Wikipedia"};
-  });
-  const errors = [];
-  const allAttempts = [...attempts, wikiAttempt, apiAttempt];
-  const result = await Promise.any(allAttempts).catch(error => {
-    for (const item of (error?.errors || [])) errors.push(item?.message || "Provider failed");
-    return null;
-  });
+  const webResult = await attemptGroup(webAttempts);
+  if (webResult) return res.status(200).json(webResult);
+
+  // Encyclopedia/instant-answer providers are fallbacks only, never allowed to beat real web results.
+  const fallbackResult = await attemptGroup([
+    parseWikipedia(query).then(results => {
+      if (!results.length) throw new Error("Wikipedia returned no results");
+      return {query,results,source:"Wikipedia"};
+    }),
+    parseDuckApi(query).then(results => ({query,results,source:"DuckDuckGo Instant Answers"}))
+  ]);
+  if (fallbackResult) return res.status(200).json(fallbackResult);
   if (result) return res.status(200).json(result);
   console.error("AURORA search providers failed:", errors.join("; "));
   return res.status(502).json({error:"Search is temporarily unavailable. Please try again shortly.",details:errors});
