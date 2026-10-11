@@ -186,7 +186,7 @@ export default async function handler(req, res) {
   query = query.trim().slice(0, 240);
   if (query.length < 2) return res.status(400).json({error:"Enter a search query."});
 
-  const looksLikeNews = /\b(latest|breaking|current|today'?s|recent)\b.{0,35}\b(news|headlines|updates)\b|\b(news|headlines|updates)\b.{0,35}\b(today|latest|Nigeria)\b/i.test(query);
+  const looksLikeNews = /\b(news|headlines|breaking news|current affairs)\b|\b(latest|breaking|current|today'?s|recent)\b.{0,50}\b(naija|Nigeria|world|tech|sports|politics|updates)\b/i.test(query);
   const errors = [];
   const attemptGroup = async (attempts) => {
     try { return await Promise.any(attempts); }
