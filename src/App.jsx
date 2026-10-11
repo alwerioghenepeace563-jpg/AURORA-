@@ -61,7 +61,7 @@ function BottomNav({ active, onNavigate }) {
 export default function App() {
   const [page, setPage] = useState("home");
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => { try { const saved = JSON.parse(localStorage.getItem("aurora-chat-history") || "[]"); return Array.isArray(saved) ? saved.filter((m) => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-40) : []; } catch { return []; } });
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -87,6 +87,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
+
+  useEffect(() => {
+    try { localStorage.setItem("aurora-chat-history", JSON.stringify(messages.slice(-40))); } catch {}
+  }, [messages]);
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
@@ -188,10 +192,31 @@ export default function App() {
     catch { setListening(false); setNotice("Microphone is already active. Try again in a moment."); }
   }
 
-  function onFileSelected(event) {
+  async function onFileSelected(event) {
     const file = event.target.files?.[0];
-    if (file) setNotice(`“${file.name}” selected. File analysis will be added after the core chat is verified.`);
     event.target.value = "";
+    if (!file) return;
+    const allowedTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
+    const allowedExtensions = /\.(txt|md|csv|json)$/i;
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
+      setNotice("For now, AURORA can read .txt, .md, .csv and .json files. PDF and image reading is not enabled yet.");
+      return;
+    }
+    if (file.size > 60000) {
+      setNotice("That file is too large for this quick attachment reader. Please choose a text file under 60 KB.");
+      return;
+    }
+    try {
+      const contents = await file.text();
+      if (!contents.trim()) {
+        setNotice("That file appears to be empty.");
+        return;
+      }
+      setDraft((current) => (current.trim() ? current + "\n\n" : "") + "Please help me analyse this attached file: " + file.name + "\n\n--- FILE CONTENT ---\n" + contents.slice(0, 12000));
+      setNotice("Attached “" + file.name + "”. Review the message and tap send when you're ready.");
+    } catch {
+      setNotice("I couldn't read that file. Please try a plain-text, Markdown, CSV or JSON file.");
+    }
   }
 
   return (
