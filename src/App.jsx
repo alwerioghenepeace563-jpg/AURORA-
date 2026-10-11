@@ -252,8 +252,18 @@ export default function App() {
       setNotice("Image selected: " + file.name + ". Image understanding is not connected yet, so choose a text file for analysis for now.");
       return;
     }
-    if (file.type === "application/pdf" || /\\.pdf$/i.test(file.name)) {\n      if (file.size > 6500000) { setNotice("Please choose a PDF smaller than 6.5 MB."); return; }\n      try {\n        const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = reject; reader.readAsDataURL(file); });\n        const encoded = String(dataUrl).split(",")[1] || "";\n        if (!encoded) throw new Error("empty PDF");\n        sendMessage("Please read this PDF document: " + file.name + ". Summarise its key points, explain difficult parts, and answer questions using the document.", { mimeType: "application/pdf", data: encoded });\n      } catch { setNotice("I couldn't prepare that PDF. Please try another file."); }\n      return;\n    }\n    const allowedTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
-    const allowedExtensions = /\\.(txt|md|csv|json)$/i;
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+      if (file.size > 6500000) { setNotice("Please choose a PDF smaller than 6.5 MB."); return; }
+      try {
+        const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = reject; reader.readAsDataURL(file); });
+        const encoded = String(dataUrl).split(",")[1] || "";
+        if (!encoded) throw new Error("empty PDF");
+        sendMessage("Please read this PDF document: " + file.name + ". Summarise its key points, explain difficult parts, and answer questions using the document.", { mimeType: "application/pdf", data: encoded });
+      } catch { setNotice("I couldn't prepare that PDF. Please try another file."); }
+      return;
+    }
+    const allowedTypes = ["text/plain", "text/markdown", "text/csv", "application/json"];
+    const allowedExtensions = /\.(txt|md|csv|json)$/i;
     if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
       setNotice("AURORA can read PDF, TXT, Markdown, CSV and JSON files.");
       return;
