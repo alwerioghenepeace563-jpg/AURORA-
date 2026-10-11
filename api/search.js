@@ -67,6 +67,26 @@ function parseBing(html) {
   }
   return results;
 }
+async function parseDuckApi(query) {
+  const url = "https://api.duckduckgo.com/?q="+encodeURIComponent(query)+"&format=json&no_html=1&skip_disambig=1";
+  const response = await fetch(url, {headers:{"Accept":"application/json"},signal:AbortSignal.timeout(6500)});
+  if (!response.ok) throw new Error("DuckDuckGo API HTTP "+response.status);
+  const data = await response.json();
+  const results = [];
+  const add = (title, target, snippet) => {
+    const safe = safeUrl(target, "https://duckduckgo.com");
+    if (safe && title && !results.some(x => x.url === safe)) results.push({title:stripTags(title),url:safe,snippet:stripTags(snippet || "")});
+  };
+  if (data.AbstractURL) add(data.Heading || query, data.AbstractURL, data.AbstractText);
+  for (const topic of (data.RelatedTopics || [])) {
+    if (topic.Topics) {
+      for (const nested of topic.Topics) if (nested.FirstURL) add(nested.Text?.split(" - ")[0] || nested.Text, nested.FirstURL, nested.Text);
+    } else if (topic.FirstURL) add(topic.Text?.split(" - ")[0] || topic.Text, topic.FirstURL, topic.Text);
+    if (results.length >= 6) break;
+  }
+  if (!results.length) throw new Error("DuckDuckGo API returned no instant results");
+  return results.slice(0, 6);
+}
 async function parseWikipedia(query) {
   const url = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=6&format=json&origin=*";
   const response = await fetch(url, {headers:{"Accept":"application/json","User-Agent":"AURORA assistant search/1.0"},signal:AbortSignal.timeout(4500)});
@@ -90,6 +110,7 @@ export default async function handler(req, res) {
   query = query.trim().slice(0, 240);
   if (query.length < 2) return res.status(400).json({error:"Enter a search query."});
 
+  const apiAttempt = parseDuckApi(query).then(results => ({query,results,source:"DuckDuckGo Instant Answers"}));
   const providers = [
     {name:"DuckDuckGo",url:"https://html.duckduckgo.com/html/?q="+encodeURIComponent(query),parse:parseDuck},
     {name:"DuckDuckGo Lite",url:"https://lite.duckduckgo.com/lite/?q="+encodeURIComponent(query),parse:parseDuckLite},
@@ -110,7 +131,7 @@ export default async function handler(req, res) {
     return {query,results,source:"Wikipedia"};
   });
   const errors = [];
-  const allAttempts = [...attempts, wikiAttempt];
+  const allAttempts = [...attempts, wikiAttempt, apiAttempt];
   const result = await Promise.any(allAttempts).catch(error => {
     for (const item of (error?.errors || [])) errors.push(item?.message || "Provider failed");
     return null;
