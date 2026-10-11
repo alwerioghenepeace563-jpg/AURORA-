@@ -199,6 +199,7 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [activityTab, setActivityTab] = useState("tasks");
   const [toolKind, setToolKind] = useState("search");
+  const [toolScreen, setToolScreen] = useState("home");
   const [toolQuery, setToolQuery] = useState("");
   const [toolText, setToolText] = useState("");
   const [toolLanguage, setToolLanguage] = useState("English");
@@ -379,9 +380,17 @@ export default function App() {
 
   function openTool(kind) {
     setToolKind(kind);
+    setToolScreen("detail");
     setToolResult(null);
     setNotice("");
     setAttachmentOpen(false);
+    setPage("tools");
+  }
+
+  function openToolsHome() {
+    setToolScreen("home");
+    setToolResult(null);
+    setNotice("");
     setPage("tools");
   }
 
@@ -634,43 +643,57 @@ export default function App() {
 
 
           {page === "tools" && (
-            <motion.section key="tools" className="utility-page aurora-tools-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <div className="tools-page-heading">
-                <p className="panel-eyebrow">AURORA WORKSPACE</p>
-                <h1>Tools<span>.</span></h1>
-                <p className="utility-intro">Each tool has its own workspace. Choose one, add your input, and run it here.</p>
-              </div>
-              <div className="tool-launch-grid">
-                {[
-                  { id: "search", icon: <Sparkles size={20}/>, title: "Web Search", desc: "Find web results with source links" },
-                  { id: "translate", icon: <WandSparkles size={20}/>, title: "Translate", desc: "Translate text into your chosen language" },
-                  { id: "writing", icon: <NotebookPen size={20}/>, title: "Writing Assistant", desc: "Draft, rewrite, proofread and summarise" },
-                  { id: "study", icon: <FileText size={20}/>, title: "Study Tools", desc: "Learn a topic and practise step by step" }
-                ].map((item) => <button type="button" key={item.id} className={toolKind === item.id ? "tool-launch-card tool-launch-active" : "tool-launch-card"} onClick={() => { setToolKind(item.id); setToolResult(null); setNotice(""); }}>
-                  <span className="tool-launch-icon">{item.icon}</span><span className="tool-launch-copy"><strong>{item.title}</strong><small>{item.desc}</small></span><ChevronRight size={17}/>
-                </button>)}
-                <button type="button" className="tool-launch-card" onClick={() => openAttachment("files")}><span className="tool-launch-icon"><Paperclip size={20}/></span><span className="tool-launch-copy"><strong>Document Reader</strong><small>Upload and ask AURORA about a PDF or text file</small></span><ChevronRight size={17}/></button>
-                <button type="button" className="tool-launch-card" onClick={() => openAttachment("gallery")}><span className="tool-launch-icon"><Camera size={20}/></span><span className="tool-launch-copy"><strong>Image Understanding</strong><small>Use a photo or gallery image and ask questions</small></span><ChevronRight size={17}/></button>
-              </div>
-              <div className="tool-workspace glass-panel">
-                <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <WandSparkles size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <FileText size={19}/>}</span><div><h2>{toolKind === "search" ? "Web Search" : toolKind === "translate" ? "Translate" : toolKind === "writing" ? "Writing Assistant" : "Study Tools"}</h2><p>{toolKind === "search" ? "Search results open from their original sources." : toolKind === "translate" ? "Choose the output language and add the text." : toolKind === "writing" ? "Choose the writing task and provide your draft or brief." : "Choose a subject and enter the topic you want to understand."}</p></div></div>
-                <form className="tool-run-form" onSubmit={runTool}>
-                  {toolKind === "search" ? <label className="tool-field"><span>What do you want to find?</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder="Search a topic, question, or latest news…" required/></label> : <>
-                    {toolKind === "translate" && <label className="tool-field"><span>Translate into</span><select value={toolLanguage} onChange={(e) => setToolLanguage(e.target.value)}>{["English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label>}
-                    {toolKind === "writing" && <label className="tool-field"><span>Writing task</span><select value={toolMode} onChange={(e) => setToolMode(e.target.value)}>{["Improve and polish","Draft from my brief","Proofread grammar","Summarise","Make it formal","Make it simpler","Create an outline"].map((mode) => <option key={mode}>{mode}</option>)}</select></label>}
-                    {toolKind === "study" && <label className="tool-field"><span>Subject</span><select value={toolSubject} onChange={(e) => setToolSubject(e.target.value)}>{["General","Mathematics","English","Biology","Chemistry","Physics","Agricultural Science","Geography","Civic Education","Computer Science"].map((subject) => <option key={subject}>{subject}</option>)}</select></label>}
-                    <label className="tool-field"><span>{toolKind === "study" ? "Topic or question" : toolKind === "writing" ? "Your text or brief" : "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={5} placeholder={toolKind === "study" ? "e.g. Explain quadratic equations from the basics…" : toolKind === "writing" ? "Paste your draft or describe what you need…" : "Paste the text you want translated…"} required/></label>
-                  </>}
-                  <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> Run {toolKind === "search" ? "search" : toolKind === "translate" ? "translation" : toolKind === "writing" ? "writing assistant" : "study lesson"}</>}</button>
-                </form>
-                {notice && <div className="tool-notice" role="status">{notice}</div>}
-                {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
-                {toolResult && <div className="tool-result-panel">
-                  <div className="tool-result-heading"><div><span className="panel-eyebrow">RESULT</span><h3>{toolResult.kind === "search" ? "Search results" : toolResult.kind === "translate" ? "Translation" : toolResult.kind === "writing" ? "Your writing result" : "Your study session"}</h3></div><button type="button" className="outline-action" onClick={async () => { const text = toolResult.reply || (toolResult.results || []).map((item) => item.title + "\n" + item.url).join("\n\n"); try { if (!text || !navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(text); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}>Copy result</button></div>
-                  {toolResult.kind === "search" ? <div className="tool-search-results">{toolResult.results.length ? toolResult.results.map((item,index) => <article className="tool-search-result" key={item.url || index}><span className="tool-result-index">{String(index+1).padStart(2,"0")}</span><div><a href={item.url} target="_blank" rel="noreferrer">{item.title || item.url}</a><p>{item.snippet || "Open the source for more information."}</p><small>{item.url}</small></div><a className="tool-open-source" href={item.url} target="_blank" rel="noreferrer" aria-label="Open source"><ChevronRight size={17}/></a></article>) : <p className="activity-muted">No matching results found. Try another search phrase.</p>}</div> : <div className="tool-ai-result"><FormattedMessage content={toolResult.reply}/><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div>}
-                </div>}
-              </div>
-              <div className="tool-workspace-foot"><Sparkles size={15}/><span>Tools use AURORA’s configured AI services; availability depends on the service and its current limits.</span></div>
+            <motion.section key={toolScreen === "home" ? "tools-home" : "tool-detail-" + toolKind} className={"utility-page aurora-tools-page " + (toolScreen === "detail" ? "aurora-tool-detail-page" : "aurora-tool-home-page")} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .22 }}>
+              {toolScreen === "home" ? <>
+                <div className="tools-page-heading">
+                  <p className="panel-eyebrow"><Sparkles size={13}/> AURORA TOOLKIT</p>
+                  <h1>Tools<span>.</span></h1>
+                  <p className="utility-intro">A space for thinking, creating, learning and getting things done.</p>
+                </div>
+                <div className="tools-category-heading"><span>01</span><div><h2>Search & create</h2><p>Find answers and turn ideas into something useful.</p></div></div>
+                <div className="tool-launch-grid">
+                  {[
+                    { id: "search", icon: <Sparkles size={21}/>, title: "Web Search", desc: "Explore the web with source links", tint: "cyan" },
+                    { id: "writing", icon: <NotebookPen size={21}/>, title: "Writing Assistant", desc: "Draft, polish and organise writing", tint: "violet" },
+                    { id: "translate", icon: <WandSparkles size={21}/>, title: "Translation", desc: "Translate into your chosen language", tint: "blue" },
+                    { id: "study", icon: <GraduationCap size={21}/>, title: "Study Assistant", desc: "Learn step by step and practise", tint: "purple" }
+                  ].map((item) => <button type="button" key={item.id} className={"tool-launch-card tool-tint-" + item.tint} onClick={() => openTool(item.id)}>
+                    <span className="tool-launch-icon">{item.icon}</span><span className="tool-launch-copy"><strong>{item.title}</strong><small>{item.desc}</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span>
+                  </button>)}
+                </div>
+                <div className="tools-category-heading"><span>02</span><div><h2>Read & understand</h2><p>Bring your documents and images into AURORA.</p></div></div>
+                <div className="tool-launch-grid">
+                  <button type="button" className="tool-launch-card tool-tint-blue" onClick={() => openAttachment("files")}><span className="tool-launch-icon"><FileText size={21}/></span><span className="tool-launch-copy"><strong>Document Reader</strong><small>Summarise and ask questions about files</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
+                  <button type="button" className="tool-launch-card tool-tint-pink" onClick={() => openAttachment("gallery")}><span className="tool-launch-icon"><ImageIcon size={21}/></span><span className="tool-launch-copy"><strong>Image Understanding</strong><small>Ask questions about a photo or image</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
+                </div>
+                <div className="tools-note glass-panel"><span className="tools-note-icon"><Sparkles size={17}/></span><div><strong>One toolkit. Many possibilities.</strong><p>Every tool has its own workspace, controls and results. Your main AURORA chat stays separate.</p></div></div>
+              </> : <>
+                <div className="tool-detail-topline"><button type="button" className="tool-back-button" onClick={openToolsHome}><ArrowLeft size={16}/> All tools</button><span className="tool-detail-breadcrumb">TOOLS <ChevronRight size={12}/> {toolKind.toUpperCase()}</span></div>
+                <div className="tool-detail-hero">
+                  <div className={"tool-detail-orb tool-tint-" + (toolKind === "search" ? "cyan" : toolKind === "translate" ? "blue" : toolKind === "writing" ? "violet" : "purple")}>
+                    {toolKind === "search" ? <Sparkles size={26}/> : toolKind === "translate" ? <Languages size={26}/> : toolKind === "writing" ? <NotebookPen size={26}/> : <GraduationCap size={26}/>}
+                  </div>
+                  <div><p className="panel-eyebrow">AURORA TOOL / WORKSPACE</p><h1>{toolKind === "search" ? "Web Search" : toolKind === "translate" ? "Translation" : toolKind === "writing" ? "Writing Assistant" : "Study Assistant"}<span>.</span></h1><p>{toolKind === "search" ? "Discover information and follow it back to its sources." : toolKind === "translate" ? "Carry your meaning across languages, naturally." : toolKind === "writing" ? "Shape a rough idea into clear, confident writing." : "Understand the idea first. Build confidence one step at a time."}</p></div>
+                </div>
+                <div className="tool-workspace glass-panel">
+                  <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{toolKind === "search" ? "What are we looking for?" : toolKind === "translate" ? "Your translation" : toolKind === "writing" ? "Let's work on your writing" : "What would you like to learn?"}</h2><p>{toolKind === "search" ? "Try a question, topic, or something you want to verify." : toolKind === "translate" ? "Choose the language, then enter the text below." : toolKind === "writing" ? "Pick a writing task and add your draft or brief." : "Choose a subject and enter a topic or question."}</p></div></div>
+                  <form className="tool-run-form" onSubmit={runTool}>
+                    {toolKind === "search" ? <label className="tool-field"><span>Search the web</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder="e.g. Latest UNIBEN admission updates…" required/></label> : <>
+                      {toolKind === "translate" && <label className="tool-field"><span>Translate into</span><select value={toolLanguage} onChange={(e) => setToolLanguage(e.target.value)}>{["English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label>}
+                      {toolKind === "writing" && <label className="tool-field"><span>What should I do?</span><select value={toolMode} onChange={(e) => setToolMode(e.target.value)}>{["Improve and polish","Draft from my brief","Proofread grammar","Summarise","Make it formal","Make it simpler","Create an outline"].map((mode) => <option key={mode}>{mode}</option>)}</select></label>}
+                      {toolKind === "study" && <label className="tool-field"><span>Choose a subject</span><select value={toolSubject} onChange={(e) => setToolSubject(e.target.value)}>{["General","Mathematics","English","Biology","Chemistry","Physics","Agricultural Science","Geography","Civic Education","Computer Science"].map((subject) => <option key={subject}>{subject}</option>)}</select></label>}
+                      <label className="tool-field"><span>{toolKind === "study" ? "Topic or question" : toolKind === "writing" ? "Your text or brief" : "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={toolKind === "study" ? "Tell me what you want to understand…" : toolKind === "writing" ? "Paste a draft or describe what you need…" : "Paste the text you want to translate…"} required/></label>
+                    </>}
+                    <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> {toolKind === "search" ? "Search the web" : toolKind === "translate" ? "Translate text" : toolKind === "writing" ? "Improve my writing" : "Start learning"}</>}</button>
+                  </form>
+                  {notice && <div className="tool-notice" role="status">{notice}</div>}
+                  {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
+                  {toolResult && <div className="tool-result-panel"><div className="tool-result-heading"><div><span className="panel-eyebrow">YOUR RESULT</span><h3>{toolResult.kind === "search" ? "Search results" : toolResult.kind === "translate" ? "Translation" : toolResult.kind === "writing" ? "Your writing" : "Study session"}</h3></div><button type="button" className="outline-action" onClick={async () => { const text = toolResult.reply || (toolResult.results || []).map((item) => item.title + "\n" + item.url).join("\n\n"); try { if (!text || !navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(text); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}>Copy result</button></div>
+                    {toolResult.kind === "search" ? <div className="tool-search-results">{toolResult.results.length ? toolResult.results.map((item,index) => <article className="tool-search-result" key={item.url || index}><span className="tool-result-index">{String(index+1).padStart(2,"0")}</span><div><a href={item.url} target="_blank" rel="noreferrer">{item.title || item.url}</a><p>{item.snippet || "Open the source for more information."}</p><small>{item.url}</small></div><a className="tool-open-source" href={item.url} target="_blank" rel="noreferrer" aria-label="Open source"><ChevronRight size={17}/></a></article>) : <p className="activity-muted">No matching results found. Try another search phrase.</p>}</div> : <div className="tool-ai-result"><FormattedMessage content={toolResult.reply}/><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div>}
+                  </div>}
+                </div>
+                <div className="tool-workspace-foot"><ShieldCheck size={15}/><span>Powered by AURORA's configured AI services. Results may vary with provider availability.</span></div>
+              </>}
             </motion.section>
           )}
 
