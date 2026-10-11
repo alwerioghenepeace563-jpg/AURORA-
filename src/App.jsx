@@ -20,29 +20,25 @@ function renderInlineText(text, keyPrefix) {
   });
 }
 function FormattedMessage({ content, onChoice }) {
-  const sourceLines = String(content || "").split("\n");
-  // Some models explain a flow in plain text instead of emitting the structured JSON.
-  // Convert that common fallback format into the same visual flow cards.
-  const flowTitleIndex = sourceLines.findIndex((line) => /AURORA AI Fallback Flow|AI Fallback Flow|Fallback Flow/i.test(line.trim()));
+  const lines = String(content || "").split("\n");
+  const choiceLine = lines.find((line) => /^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
+  const choices = choiceLine ? (choiceLine.match(/^\s*\[\[CHOICES:\s*(.*?)\]\]\s*$/)?.[1] || "").split("|").map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
+  const visibleLines = lines.filter((line) => !/^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
+  const flowTitleIndex = visibleLines.findIndex((line) => /AURORA AI Fallback Flow|AI Fallback Flow|Fallback Flow/i.test(line.trim()));
   const stageNames = ["Primary Provider", "Rate-Limit Detection", "Backup Providers", "Final Response"];
   let inferredFlow = null, flowStart = -1, flowEnd = -1;
   if (flowTitleIndex >= 0) {
-    const found = stageNames.map((name) => ({ name, index: sourceLines.findIndex((line, i) => i > flowTitleIndex && new RegExp("^\\s*" + name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\function FormattedMessage({ content, onChoice }) {
-  const lines = String(content || "").split("\n");") + "\\s*$", "i").test(line.trim())) })).filter((stage) => stage.index >= 0);
+    const found = stageNames.map((name) => ({ name, index: visibleLines.findIndex((line, i) => i > flowTitleIndex && line.trim().toLowerCase() === name.toLowerCase()) })).filter((stage) => stage.index >= 0);
     if (found.length >= 3) {
-      inferredFlow = { type: "flow", title: sourceLines[flowTitleIndex].replace(/^#+\\s*/, "").trim(), steps: found.map((stage, index) => {
-        const nextIndex = found[index + 1]?.index ?? sourceLines.length;
-        const description = sourceLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\\s*[↓↘→]+\\s*$/.test(line.trim()) && !/^\\s*Feel free to click/i.test(line.trim())).join(" ").trim();
+      inferredFlow = { type: "flow", title: visibleLines[flowTitleIndex].replace(/^#+\s*/, "").trim(), steps: found.map((stage, index) => {
+        const nextIndex = found[index + 1] ? found[index + 1].index : visibleLines.length;
+        const description = visibleLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\s*[↓↘→]+\s*$/.test(line.trim()) && !/^\s*Feel free to click/i.test(line.trim())).join(" ").trim();
         return { title: stage.name, text: description, color: ["#142d46", "#183747", "#20334b", "#153b36"][index] };
       }) };
       flowStart = flowTitleIndex;
       flowEnd = found[found.length - 1].index;
     }
   }
-  const lines = sourceLines;
-  const choiceLine = lines.find((line) => /^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
-  const choices = choiceLine ? (choiceLine.match(/^\s*\[\[CHOICES:\s*(.*?)\]\]\s*$/)?.[1] || "").split("|").map((item) => item.trim()).filter(Boolean).slice(0, 4) : [];
-  const visibleLines = lines.filter((line) => !/^\s*\[\[CHOICES:\s*.*\]\]\s*$/.test(line));
   const blocks = [];
   let listItems = [], listType = "", codeLines = [], inCode = false, tableRows = [];
   const flushList = () => {
@@ -68,16 +64,16 @@ function FormattedMessage({ content, onChoice }) {
     tableRows = [];
   };
   const parseTableRow = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
-  let skipInferredFlow = false;
+  let skipFlow = false;
   visibleLines.forEach((line, index) => {
     if (inferredFlow && index === flowStart) {
       flushList(); flushTable();
       blocks.push(<StructuredVisual data={inferredFlow} key={"inferred-flow-" + index} />);
-      skipInferredFlow = true;
+      skipFlow = true;
       return;
     }
-    if (skipInferredFlow && index > flowStart && index <= flowEnd) return;
-    if (skipInferredFlow && index > flowEnd) skipInferredFlow = false;
+    if (skipFlow && index > flowStart && index <= flowEnd) return;
+    if (skipFlow && index > flowEnd) skipFlow = false;
     if (/^\s*\x60{3}/.test(line)) {
       flushList(); flushTable();
       if (inCode) { flushCode(); inCode = false; }
@@ -87,11 +83,7 @@ function FormattedMessage({ content, onChoice }) {
     if (inCode) { codeLines.push(line); return; }
     const trimmed = line.trim();
     const isTableRow = trimmed.includes("|") && /^\|?.+\|.+\|?$/.test(trimmed);
-    if (isTableRow) {
-      flushList();
-      tableRows.push(parseTableRow(trimmed));
-      return;
-    }
+    if (isTableRow) { flushList(); tableRows.push(parseTableRow(trimmed)); return; }
     flushTable();
     const structured = findStructuredBlock(trimmed);
     if (structured) { flushList(); blocks.push(<StructuredVisual data={structured} key={"visual-" + index} />); return; }
