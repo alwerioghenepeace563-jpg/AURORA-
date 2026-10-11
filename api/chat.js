@@ -33,7 +33,16 @@ export default async function handler(req, res) {
     if (!m || !["user", "assistant"].includes(m.role) || typeof m.content !== "string" || !m.content.trim() || m.content.length > 6000) {
       return res.status(400).json({ error: "Messages must contain a valid role and text up to 6000 characters." });
     }
-    contents.push({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] });
+    const parts = [{ text: m.content }];
+    if (m.role === "user" && m.image && typeof m.image === "object") {
+      const mimeType = typeof m.image.mimeType === "string" ? m.image.mimeType : "";
+      const data = typeof m.image.data === "string" ? m.image.data : "";
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType) || !data || data.length > 4500000 || !/^[A-Za-z0-9+/=]+$/.test(data)) {
+        return res.status(400).json({ error: "Image must be a supported JPEG, PNG, or WebP file under the upload limit." });
+      }
+      parts.push({ inlineData: { mimeType, data } });
+    }
+    contents.push({ role: m.role === "assistant" ? "model" : "user", parts });
   }
 
   const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
