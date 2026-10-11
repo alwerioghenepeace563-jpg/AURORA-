@@ -89,18 +89,18 @@ async function parseDuckApi(query) {
 }
 function parseGoogleNews(xml) {
   const items = [];
-  const re = /<item>([\\s\\S]*?)<\\/item>/gi;
+  const re = /<item>([\s\S]*?)<\/item>/gi;
   let m;
-  const field = (block, name) => {
-    const found = block.match(new RegExp("<" + name + "(?:\\\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + ">", "i"));
-    return found ? found[1].replace(/<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim() : "";
+  const field = (html, name) => {
+    const found = html.match(new RegExp("<" + name + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + name + ">", "i"));
+    return found ? found[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim() : "";
   };
   while ((m = re.exec(xml)) && items.length < 8) {
-    const block = m[1];
-    const title = stripTags(field(block, "title"));
-    const url = safeUrl(field(block, "link"), "https://news.google.com");
-    const description = stripTags(field(block, "description"));
-    const pubDate = stripTags(field(block, "pubDate"));
+    const item = m[1];
+    const title = stripTags(field(item, "title"));
+    const url = safeUrl(field(item, "link"), "https://news.google.com");
+    const description = stripTags(field(item, "description"));
+    const pubDate = stripTags(field(item, "pubDate"));
     if (title && url && !items.some(x => x.url === url)) {
       items.push({ title, url, snippet: [description, pubDate ? "Published: " + pubDate : ""].filter(Boolean).join(" · ") });
     }
