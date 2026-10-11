@@ -1,4 +1,4 @@
-import { getPreferredProvider, setPreferredProvider, providerOrder } from "./_ai-provider.js";
+import { getPreferredProvider, setPreferredProvider, providerOrder } from "../lib/ai-provider.js";
 
 export default async function handler(req, res) {
   const allowedOrigin = process.env.AURORA_ALLOWED_ORIGIN;
