@@ -976,7 +976,7 @@ export default function App() {
               <div className="home-copy">
                 <p className="welcome-kicker">GOOD TO HAVE YOU HERE</p>
                 <h1>Hello<span>,</span> there.</h1>
-                <p className="hero-subtitle">Your intelligent world, connected.</p>
+                <p className="hero-subtitle">Your AI, your world.</p>
                 <div className="availability"><span className="live-dot" /> AURORA IS READY WHEN YOU ARE</div>
               </div>
               <form className="home-composer glass-panel" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
