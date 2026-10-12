@@ -427,7 +427,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .admin-panel-head p{margin:8px 0 0;color:#8498b4;font-size:11px;line-height:1.6;max-width:590px}
 .admin-panel-badge{color:#83ddff;border-color:rgba(97,193,255,.18);background:rgba(59,143,230,.08)}
 .admin-donut-row{display:flex;align-items:center;justify-content:center;gap:clamp(15px,3vw,34px);min-height:145px}
-.admin-donut{width:142px;height:142px;flex:0 0 142px;display:grid;place-items:center;border-radius:50%;background:conic-gradient(#68e4ff 0 var(--coverage),#b29aff var(--coverage) 75%,rgba(95,119,157,.2) 75% 100%);position:relative;box-shadow:0 0 28px rgba(58,167,255,.08)}
+.admin-donut{width:142px;height:142px;flex:0 0 142px;display:grid;place-items:center;border-radius:50%;background:conic-gradient(#68e4ff 0 var(--coverage),rgba(95,119,157,.2) var(--coverage) 100%);position:relative;box-shadow:0 0 28px rgba(58,167,255,.08)}
 .admin-donut:before{content:"";position:absolute;inset:9px;border-radius:50%;background:#0a1324;border:1px solid rgba(130,177,235,.12)}
 .admin-donut>div{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px}
 .admin-donut strong{font-family:Manrope,sans-serif;font-size:27px;color:#f1f9ff}
