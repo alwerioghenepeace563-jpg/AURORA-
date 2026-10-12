@@ -25,7 +25,7 @@ All text-based assistant tools use the central `/api/chat` route. It tries the c
 2. OpenRouter's free-model router
 3. Gemini
 
-When a provider succeeds, AURORA remembers it in the browser and uses it first on subsequent requests, so the same active provider is shared by all text-based assistant tools on that device. Image and PDF analysis uses Gemini because the other configured text providers are not used for those attachment requests in this implementation. ElevenLabs speech generation is separate from text AI.
+When a provider succeeds, AURORA remembers it in the browser and uses it first on subsequent requests, so the same active provider is shared by all text-based assistant tools on that device. Image requests can use configured vision-capable providers; PDF requests use providers that support PDF/file input (currently OpenRouter or Gemini). Capability and quota vary by provider. ElevenLabs speech generation is separate from text AI. The Tools workspace also includes a local calculator, common unit conversions, and a weather lookup using Open-Meteo.
 
 For provider preference shared across different devices and Vercel serverless instances, configure both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel. Without shared Redis, each browser keeps its own preference, while server-side memory is best-effort across serverless instances.
 
