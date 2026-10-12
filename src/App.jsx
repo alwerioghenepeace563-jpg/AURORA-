@@ -1258,6 +1258,16 @@ export default function App() {
                         setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening " + targetLabel + "." }]);
                         if (target === "schedules") { setActivityTab("schedules"); navigate("activities"); }
                         else navigate(target);
+                      } else if (/(change|edit|modify|redesign|restyle|update|add|remove|build|implement|fix|create|make|improve).*(code|ui|layout|theme|color|orb|page|component|feature|button|style|design|bug|app|screen|dashboard|font|spacing|animation|header|footer)|^(change|edit|redesign|restyle|fix|build|implement|create)\b/i.test(command)) {
+                        const response = await fetch("/api/admin-code", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
+                          body: JSON.stringify({ action: "edit_code", prompt })
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.error || "AURORA code editing could not complete.");
+                        const fileList = (data.filesChanged || []).map((path) => "- " + path).join("\n");
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "## Code Change Prepared\n\n**Status:** Review required\n\n### Summary\n" + (data.summary || "AURORA code changes prepared.") + "\n\n### Files changed\n" + (fileList || "- No file list returned.") + "\n\n### Pull request\n" + (data.pullRequest?.url ? "[" + (data.pullRequest.title || "Review code changes") + "](" + data.pullRequest.url + ")" : "Pull request link was not returned.") + "\n\n**Next step:** Review and merge the pull request before expecting the live app to change.\n\n" + (Array.isArray(data.checks) && data.checks.length ? "### Validation notes\n" + data.checks.map((item) => "- " + item).join("\n") : "") }]);
                       } else {
                         const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "You are AURORA's administrator-side AI Executor. The administrator asked: " + prompt + "\n\nRespond in polished, concise Markdown with a clear ## heading, short sections, bullets, and a clear status label such as **Completed**, **Plan**, or **Needs setup**. Start by answering the administrator directly. You may only claim a task was executed if the app has a direct supported action for it. Supported direct actions in this console are: live AI provider tests, refresh provider configuration diagnostics, and navigate to app workspaces. For all other requests, clearly label your answer as a proposed plan and explain which app integration or explicit confirmation is needed. Never claim to change app data, secrets, deployments, users, schedules, or settings without an actual tool that did so. Do not ask for or reveal API keys." }] }) });
                         const data = await response.json().catch(() => ({}));
