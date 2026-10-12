@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun AuroraNativeApp() {
-    var page by remember { mutableStateOf("AURORA") }
+    var page by remember { mutableStateOf("Home") }
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var releaseNotes by remember { mutableStateOf("") }
     var releaseUrl by remember { mutableStateOf("") }
@@ -80,46 +80,40 @@ private fun AuroraNativeApp() {
             ).padding(horizontal = 22.dp, vertical = 18.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.weight(1f)) {
-                    Text("A U R O R A", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
-                    Text("PERSONAL AI ASSISTANT", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
+                Box(Modifier.size(32.dp).border(1.dp, Cyan.copy(alpha = .7f), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(9.dp).clip(CircleShape).background(Cyan))
                 }
-                Text("NATIVE ANDROID", color = Cyan, fontSize = 9.sp,
-                    modifier = Modifier.border(1.dp, Cyan.copy(alpha = .45f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 7.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("AURORA", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
+                    Text("YOUR PERSONAL AI", color = Muted, fontSize = 8.sp, letterSpacing = 2.sp)
+                }
+                Text("◉", color = Cyan, fontSize = 16.sp, modifier = Modifier.clip(CircleShape).clickable { page = "Profile" }.padding(10.dp))
             }
-
-            Spacer(Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                NativeTab("Assistant", page == "AURORA") { page = "AURORA" }
-                NativeTab("Activities", page == "Activities") { page = "Activities" }
-                NativeTab("Settings", page == "Settings") { page = "Settings" }
-                NativeTab("Updates", page == "Updates") { page = "Updates" }
-            }
-            Spacer(Modifier.height(18.dp))
-
-            when (page) {
-                "Updates" -> {
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        Text("APP UPDATES", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Keep AURORA current", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(18.dp))
-                        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
-                            Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                                Text("Installed version", color = Muted, fontSize = 12.sp)
-                                Text("0.1.0 · Native preview", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-                                Spacer(Modifier.height(18.dp))
-                                Text("Latest release", color = Muted, fontSize = 12.sp)
-                                Text(latestVersion ?: "Not checked yet", color = Color.White, fontSize = 18.sp)
-                                if (releaseNotes.isNotBlank()) {
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("What's new", color = Cyan, fontWeight = FontWeight.SemiBold)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(releaseNotes, color = Muted, fontSize = 13.sp)
-                                }
-                                Spacer(Modifier.height(18.dp))
-                                Button(
-                                    onClick = {
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (page) {
+                    "Updates" -> {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            Text("APP UPDATES", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Keep AURORA current", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(18.dp))
+                            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                                    Text("Installed version", color = Muted, fontSize = 12.sp)
+                                    Text("0.1.0 · Native preview", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                    Spacer(Modifier.height(18.dp))
+                                    Text("Latest release", color = Muted, fontSize = 12.sp)
+                                    Text(latestVersion ?: "Not checked yet", color = Color.White, fontSize = 18.sp)
+                                    if (releaseNotes.isNotBlank()) {
+                                        Spacer(Modifier.height(12.dp))
+                                        Text("What's new", color = Cyan, fontWeight = FontWeight.SemiBold)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(releaseNotes, color = Muted, fontSize = 13.sp)
+                                    }
+                                    Spacer(Modifier.height(18.dp))
+                                    Button(onClick = {
                                         checking = true
                                         updateMessage = "Checking the official AURORA releases…"
                                         scope.launch {
@@ -127,42 +121,187 @@ private fun AuroraNativeApp() {
                                             latestVersion = result?.optString("tag_name")?.takeIf { it.isNotBlank() }
                                             releaseNotes = result?.optString("body")?.take(1400).orEmpty()
                                             releaseUrl = result?.optString("html_url").orEmpty()
-                                            updateMessage = if (result == null) {
-                                                "Couldn't reach the releases service. Check your connection and try again."
-                                            } else if ((result.optJSONArray("assets")?.length() ?: 0) > 0) {
-                                                "Release found. Open the release page to review its APK and installation notes."
-                                            } else {
-                                                "Release found, but no downloadable APK asset is attached yet."
-                                            }
+                                            updateMessage = if (result == null) "Couldn't reach the releases service. Check your connection and try again."
+                                            else if ((result.optJSONArray("assets")?.length() ?: 0) > 0) "Release found. Open the release page to review its APK and installation notes."
+                                            else "Release found, but no downloadable APK asset is attached yet."
                                             checking = false
                                         }
-                                    },
-                                    enabled = !checking,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)
-                                ) { Text(if (checking) "Checking…" else "Check for updates", fontWeight = FontWeight.Bold) }
-                                if (releaseUrl.isNotBlank()) {
+                                    }, enabled = !checking, modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
+                                        Text(if (checking) "Checking…" else "Check for updates", fontWeight = FontWeight.Bold)
+                                    }
+                                    if (releaseUrl.isNotBlank()) {
+                                        Spacer(Modifier.height(10.dp))
+                                        OutlinedButton(onClick = {
+                                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))) }
+                                                .onFailure { updateMessage = "Could not open the release page on this device." }
+                                        }, modifier = Modifier.fillMaxWidth()) { Text("Open release page") }
+                                    }
                                     Spacer(Modifier.height(10.dp))
-                                    OutlinedButton(
-                                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))) }.onFailure { updateMessage = "Could not open the release page on this device." } },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Release page available") }
+                                    Text(updateMessage, color = Muted, fontSize = 12.sp)
                                 }
-                                Spacer(Modifier.height(10.dp))
-                                Text(updateMessage, color = Muted, fontSize = 12.sp)
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Text("In-app APK installation is part of the release batch. Android will ask you to approve any installation.", color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                    "Activities" -> SimplePage("Activities", "Your activity history, saved tools and recent conversations will appear here as their native modules are ported.")
+                    "Profile" -> {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            Text("YOUR SPACE", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Profile & settings", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Configure the native connection now. The full profile fields will be ported from the web app in Batch 3.", color = Muted, fontSize = 13.sp)
+                            Spacer(Modifier.height(18.dp))
+                            NativeActionCard("AI connection", "Use the existing AURORA /api/chat backend") { page = "Settings" }
+                            Spacer(Modifier.height(10.dp))
+                            NativeActionCard("App updates", "Check releases and version notes") { page = "Updates" }
+                            Spacer(Modifier.height(10.dp))
+                            NativeActionCard("Activities", "Your activity and history workspace") { page = "Activities" }
+                        }
+                    }
+                    "Settings" -> {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            Text("CONNECTION", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Connect AURORA AI", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Enter the HTTPS address of your deployed AURORA web app. The native app will call its existing /api/chat endpoint; API secrets stay on the server.", color = Muted, fontSize = 13.sp)
+                            Spacer(Modifier.height(16.dp))
+                            OutlinedTextField(value = backendUrl, onValueChange = { backendUrl = it }, label = { Text("AURORA web app URL") }, placeholder = { Text("https://your-aurora-app.vercel.app") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                            Spacer(Modifier.height(12.dp))
+                            Button(onClick = {
+                                val normalized = backendUrl.trim().trimEnd('/')
+                                backendUrl = normalized
+                                prefs.edit().putString("backend_url", normalized).apply()
+                                chatError = "Connection address saved."
+                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
+                                Text("Save connection", fontWeight = FontWeight.Bold)
+                            }
+                            if (chatError.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(chatError, color = Muted, fontSize = 12.sp) }
+                            Spacer(Modifier.height(20.dp))
+                            Text("Do not enter API keys here. Keep provider secrets in the secure server environment.", color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                    "Jarvis" -> {
+                        Column(Modifier.fillMaxSize()) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                NativeOrb()
+                                Column(Modifier.weight(1f)) {
+                                    Text("AURORA", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Light, letterSpacing = 4.sp)
+                                    Text(if (backendUrl.isBlank()) "SET UP AI CONNECTION IN PROFILE" else "PERSONAL AI ASSISTANT", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (chatMessages.isEmpty()) item {
+                                    Text("Hi, I’m AURORA. Ask me anything. Connect your deployed web app in Profile → AI connection to use your existing AI backend.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(vertical = 10.dp))
+                                }
+                                items(chatMessages) { message ->
+                                    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (message.first == "user") Alignment.End else Alignment.Start) {
+                                        Text(if (message.first == "user") "YOU" else "AURORA", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
+                                        Spacer(Modifier.height(4.dp))
+                                        Surface(color = if (message.first == "user") Color(0xFF123044) else Panel, shape = RoundedCornerShape(16.dp)) {
+                                            Text(message.second, color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(12.dp))
+                                        }
+                                    }
+                                }
+                            }
+                            if (chatError.isNotBlank()) { Text(chatError, color = Color(0xFFFF9A9A), fontSize = 11.sp, modifier = Modifier.padding(vertical = 5.dp)) }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = draft, onValueChange = { draft = it }, placeholder = { Text("Message AURORA…") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp), maxLines = 4)
+                                Button(onClick = {
+                                    val prompt = draft.trim()
+                                    val base = backendUrl.trim().trimEnd('/')
+                                    if (prompt.isNotBlank() && !chatBusy) {
+                                        if (!base.startsWith("https://")) chatError = "Open Profile → AI connection and save your deployed HTTPS app URL first."
+                                        else {
+                                            val history = chatMessages + ("user" to prompt)
+                                            chatMessages = history; draft = ""; chatBusy = true; chatError = ""
+                                            scope.launch {
+                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history) }
+                                                chatBusy = false
+                                                if (result.first) chatMessages = chatMessages + ("assistant" to result.second) else chatError = result.second
+                                            }
+                                        }
+                                    }
+                                }, enabled = !chatBusy && draft.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night), shape = CircleShape, contentPadding = PaddingValues(horizontal = 15.dp, vertical = 14.dp)) {
+                                    Text(if (chatBusy) "…" else "Send", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Text("Updates are checked against the official GitHub Releases feed. Installation will require your approval.", color = Muted, fontSize = 12.sp)
+                    }
+                    else -> {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(Modifier.height(12.dp))
+                            Text("PERSONAL AI • READY WHEN YOU ARE", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(8.dp))
+                            NativeOrb()
+                            Spacer(Modifier.height(6.dp))
+                            Text("AURORA", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("INTELLIGENCE, AT YOUR COMMAND", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(24.dp))
+                            Card(colors = CardDefaults.cardColors(containerColor = Panel.copy(alpha = .92f)), shape = RoundedCornerShape(22.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                                    Text("What can I help with?", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                                    Spacer(Modifier.height(6.dp))
+                                    Text("Start a conversation with your personal AI assistant.", color = Muted, fontSize = 12.sp)
+                                    Spacer(Modifier.height(14.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        SuggestionChip("Ask anything") { page = "Jarvis"; draft = "" }
+                                        SuggestionChip("Open tools") { page = "Activities" }
+                                    }
+                                    Spacer(Modifier.height(10.dp))
+                                    Button(onClick = { page = "Jarvis" }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
+                                        Text("Talk to AURORA", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-NaN            }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Color(0xDD0A1120)).border(1.dp, Color(0x203E83B5), RoundedCornerShape(22.dp)).padding(horizontal = 5.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                BottomNavItem("Home", "⌂", page == "Home") { page = "Home" }
+                BottomNavItem("Activities", "◈", page == "Activities") { page = "Activities" }
+                BottomNavItem("Jarvis", "✧", page == "Jarvis") { page = "Jarvis" }
+                BottomNavItem("Profile", "◉", page == "Profile" || page == "Settings" || page == "Updates") { page = "Profile" }
+            }
             Spacer(Modifier.height(12.dp))
             Text("AURORA • ANDROID", color = Muted.copy(alpha = .7f), fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
     }
 }
 
+ 
+@Composable
+private fun NativeActionCard(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Panel).border(1.dp, Cyan.copy(alpha = .10f), RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(subtitle, color = Muted, fontSize = 12.sp)
+        }
+        Text("›", color = Cyan, fontSize = 24.sp)
+    }
+}
+
+@Composable
+private fun SuggestionChip(label: String, onClick: () -> Unit) {
+    Text(label, color = Cyan, fontSize = 11.sp, modifier = Modifier.clip(RoundedCornerShape(24.dp)).border(1.dp, Cyan.copy(alpha = .35f), RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(horizontal = 11.dp, vertical = 9.dp))
+}
+
+@Composable
+private fun BottomNavItem(label: String, glyph: String, selected: Boolean, onClick: () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(15.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp, vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(glyph, color = if (selected) Cyan else Muted, fontSize = 18.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(label, color = if (selected) Color.White else Muted, fontSize = 9.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+    }
+}
 @Composable
 private fun NativeTab(label: String, selected: Boolean, onClick: () -> Unit) {
     Text(
