@@ -53,7 +53,7 @@ export default async function handler(req, res) {
   }
 
   const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
-  const candidates = [...new Set(["gemini-3.8-flash", configuredModel, "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-2.5-flash"])];
+  const candidates = [...new Set([configuredModel, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"])];
   const profile = body.profile && typeof body.profile === "object" ? body.profile : {};
   const clean = (value, max = 300) => typeof value === "string" ? value.trim().slice(0, max) : "";
   const styleGuidance = {
@@ -181,7 +181,7 @@ export default async function handler(req, res) {
             });
             data = await upstream.json().catch(() => ({}));
             if (upstream.ok) break;
-            if (![404, 429, 503].includes(upstream.status)) break;
+            if (![400, 404].includes(upstream.status)) break;
             console.warn("Gemini model unavailable; trying fallback model:", model, "HTTP", upstream.status);
           }
 
