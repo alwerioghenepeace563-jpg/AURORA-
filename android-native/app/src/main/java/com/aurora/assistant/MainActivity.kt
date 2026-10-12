@@ -132,6 +132,7 @@ private fun AuroraNativeApp() {
     var updateMessage by remember { mutableStateOf("Save your deployed AURORA URL in Profile → AI connection to check the latest release.") }
     var checking by remember { mutableStateOf(false) }
     var apkAvailable by remember { mutableStateOf(false) }
+    var updateAvailable by remember { mutableStateOf(false) }
     var downloadBusy by remember { mutableStateOf(false) }
     var downloadMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -205,6 +206,10 @@ private fun AuroraNativeApp() {
                                     Spacer(Modifier.height(18.dp))
                                     Text("Latest release", color = Muted, fontSize = 12.sp)
                                     Text(latestVersion ?: "Not checked yet", color = Color.White, fontSize = 18.sp)
+                                    if (latestVersion != null) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(if (updateAvailable) "A newer version is available" else "You are up to date", color = if (updateAvailable) Cyan else Muted, fontSize = 12.sp)
+                                    }
                                     if (releaseNotes.isNotBlank()) {
                                         Spacer(Modifier.height(12.dp))
                                         Text("What's new", color = Cyan, fontWeight = FontWeight.SemiBold)
@@ -218,6 +223,7 @@ private fun AuroraNativeApp() {
                                         scope.launch {
                                             val result = withContext(Dispatchers.IO) { checkLatestRelease(backendUrl.trim().trimEnd('/')) }
                                             latestVersion = result?.optString("tag_name")?.takeIf { it.isNotBlank() }
+                                            updateAvailable = latestVersion?.let { isNewerNativeVersion(installedVersion, it) } ?: false
                                             releaseNotes = result?.optString("body")?.take(1400).orEmpty()
                                             releaseUrl = result?.optString("html_url").orEmpty()
                                             val assets = result?.optJSONArray("assets")
@@ -239,7 +245,7 @@ private fun AuroraNativeApp() {
                                                 .onFailure { updateMessage = "Could not open the release page on this device." }
                                         }, modifier = Modifier.fillMaxWidth()) { Text("Open release page") }
                                     }
-                                    if (apkAvailable) {
+                                    if (apkAvailable && updateAvailable) {
                                         Spacer(Modifier.height(10.dp))
                                         Button(onClick = {
                                             if (!downloadBusy) {
@@ -655,6 +661,21 @@ private fun SimplePage(title: String, description: String) {
         Spacer(Modifier.height(12.dp))
         Text(description, color = Muted, fontSize = 14.sp)
     }
+}
+
+
+private fun isNewerNativeVersion(installed: String, latestTag: String): Boolean {
+    fun parts(value: String): List<Int> = value.lowercase().removePrefix("aurora-").removePrefix("v")
+        .split(".", "-", "+").take(3).map { it.toIntOrNull() ?: 0 }
+    val current = parts(installed)
+    val latest = parts(latestTag)
+    for (i in 0 until 3) {
+        val a = current.getOrElse(i) { 0 }
+        val b = latest.getOrElse(i) { 0 }
+        if (b > a) return true
+        if (b < a) return false
+    }
+    return false
 }
 
 private fun checkLatestRelease(baseUrl: String): JSONObject? {
