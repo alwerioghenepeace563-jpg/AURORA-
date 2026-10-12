@@ -36,8 +36,12 @@ export default async function handler(req, res) {
       const lines = content.split("\n");
       if (path === "src/App.jsx") {
         const anchors = [];
+        // Include known UI anchors plus prompt-specific terms so requests can target more than the Home page.
+        const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
+        const promptPatterns = [...new Set(promptTerms)].slice(0, 18).map(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\        const anchors = [];
         // Include contiguous source windows, not isolated matching lines, so exact patches can be grounded.
-        const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i];
+        const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i];"), "i"));
+        const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i, ...promptPatterns];
         for (const pattern of patterns) {
           lines.forEach((line, index) => {
             if (pattern.test(line)) anchors.push([Math.max(0, index - 8), Math.min(lines.length, index + 14)]);
@@ -53,8 +57,12 @@ export default async function handler(req, res) {
       }
       if (path === "src/styles.css") {
         const anchors = [];
+        const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
+        const promptPatterns = [...new Set(promptTerms)].slice(0, 24).map(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\        const anchors = [];
         const pattern = /orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i;
-        lines.forEach((line, index) => { if (pattern.test(line)) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });
+        lines.forEach((line, index) => { if (pattern.test(line)) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });"), "i"));
+        const patterns = [/orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i, ...promptPatterns];
+        lines.forEach((line, index) => { if (patterns.some(pattern => pattern.test(line))) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });
         const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
           const last = acc[acc.length - 1];
           if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
@@ -72,14 +80,39 @@ export default async function handler(req, res) {
       { key: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", model: process.env.OPENROUTER_MODEL || "openrouter/free" }
     ];
     let patch = null;
+    const providerErrors = [];
     for (const provider of providers) {
       if (!process.env[provider.key]) continue;
-      const ai = await fetch(provider.url, { method: "POST", headers: { Authorization: "Bearer " + process.env[provider.key], "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, messages, temperature: 0.1, max_tokens: 5000 }) });
-      const data = await ai.json().catch(() => ({}));
-      if (!ai.ok) continue;
-      try { patch = JSON.parse(String(data.choices[0].message.content).replace(/^\s*```json\s*/i, "").replace(/\s*```\s*$/, "")); break; } catch {}
+      try {
+        const ai = await fetch(provider.url, { method: "POST", headers: { Authorization: "Bearer " + process.env[provider.key], "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, messages, temperature: 0.1, max_tokens: 5000 }) });
+        const data = await ai.json().catch(() => ({}));
+        if (!ai.ok) {
+          providerErrors.push(provider.key + " returned HTTP " + ai.status + (data.error?.message ? ": " + String(data.error.message).slice(0, 140) : ""));
+          continue;
+        }
+        const raw = String(data.choices?.[0]?.message?.content || "").trim();
+        const cleaned = raw.replace(/^\`\`\`(?:json)?\\s*/i, "").replace(/\\s*\`\`\`$/, "").trim();
+        const jsonStart = cleaned.indexOf("{");
+        const jsonEnd = cleaned.lastIndexOf("}");
+        if (jsonStart < 0 || jsonEnd <= jsonStart) {
+          providerErrors.push(provider.key + " returned a response that was not JSON");
+          continue;
+        }
+        try {
+          const candidate = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+          if (candidate && Array.isArray(candidate.changes)) { patch = candidate; break; }
+          providerErrors.push(provider.key + " returned JSON without a changes array");
+        } catch {
+          providerErrors.push(provider.key + " returned invalid JSON");
+        }
+      } catch (error) {
+        providerErrors.push(provider.key + " request failed: " + String(error.message || "network error").slice(0, 100));
+      }
     }
-    if (!patch || !Array.isArray(patch.changes) || !patch.changes.length) return res.status(422).json({ error: patch && patch.summary || "AI could not generate a safe code patch. Try a more specific request." });
+    if (!patch || !Array.isArray(patch.changes) || !patch.changes.length) {
+      const reason = patch && patch.summary ? String(patch.summary) : providerErrors.length ? providerErrors.join("; ") : "No AI provider is configured or available.";
+      return res.status(422).json({ error: "Executor could not prepare a safe patch. " + reason + " Try one small, specific change." });
+    }
     if (patch.changes.length > 6) return res.status(422).json({ error: "Too many edits in one request. Split the task into smaller changes." });
     const changed = [];
     for (const change of patch.changes) {
