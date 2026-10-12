@@ -49,7 +49,7 @@ export default async function handler(req, res) {
           else acc.push(range.slice());
           return acc;
         }, []);
-        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).map((line, i) => String(start + i + 1).padStart(4, " ") + ": " + line).join("\n")).join("\n...\n").slice(0, 24000);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).join("\n")).join("\n...\n").slice(0, 24000);
       }
       if (path === "src/styles.css") {
         const anchors = [];
