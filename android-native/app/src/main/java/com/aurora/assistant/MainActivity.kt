@@ -62,7 +62,7 @@ private fun AuroraNativeApp() {
     var updateMessage by remember { mutableStateOf("Check GitHub Releases for the latest AURORA build.") }
     var checking by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("aurora_native", MODE_PRIVATE) }
+    val prefs = remember { context.getSharedPreferences("aurora_native", android.content.Context.MODE_PRIVATE) }
     var backendUrl by remember { mutableStateOf(prefs.getString("backend_url", "") ?: "") }
     var draft by remember { mutableStateOf("") }
     var chatBusy by remember { mutableStateOf(false) }
