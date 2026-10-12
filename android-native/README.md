@@ -13,7 +13,7 @@ GitHub Actions workflow: `.github/workflows/android-native-apk.yml`
 The preview APK uses a separate debug package ID (`com.aurora.assistant.nativepreview`) so it won't overwrite an existing AURORA build.
 
 ## Important status
-The current project is a native UI foundation, not yet a complete port of every web screen or AI feature. The next work is to port the existing app screens and connect the native chat/voice flows to the same secure backend.
+The native project now includes the core home/orb/navigation shell, text chat using the existing backend, locally saved chat/profile data, hosted voice replies, Android speech input, image/PDF/text attachments, camera-photo capture, app-launch commands, local Activities, a focus timer, search/weather/calculator/conversion tools, and the first updater/download-install flow. It is still a partial port: wake phrase/background assistant service, full schedule notifications, complete authentication/admin screens, rich message rendering and one-to-one visual verification remain. The build and update flow still need verification on a real Android device.
 
 The Updates screen checks release metadata through /api/app-update. Once a signed APK is attached to a GitHub Release and AURORA_GITHUB_TOKEN is configured server-side, the native updater can request a short-lived download URL, download the APK, and hand it to Android's installer. Android requires user approval; the app cannot silently install itself. Never put the GitHub token in the APK or commit it to Git.
 
