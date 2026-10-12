@@ -1,8 +1,11 @@
 package com.aurora.assistant
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -55,6 +58,7 @@ private fun AuroraNativeApp() {
     var releaseUrl by remember { mutableStateOf("") }
     var updateMessage by remember { mutableStateOf("Check GitHub Releases for the latest AURORA build.") }
     var checking by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     MaterialTheme(colorScheme = darkColorScheme(
@@ -116,7 +120,7 @@ private fun AuroraNativeApp() {
                                             releaseUrl = result?.optString("html_url").orEmpty()
                                             updateMessage = if (result == null) {
                                                 "Couldn't reach the releases service. Check your connection and try again."
-                                            } else if (result.optJSONArray("assets")?.length() ?: 0 > 0) {
+                                            } else if ((result.optJSONArray("assets")?.length() ?: 0) > 0) {
                                                 "Release found. Open the release page to review its APK and installation notes."
                                             } else {
                                                 "Release found, but no downloadable APK asset is attached yet."
@@ -131,7 +135,7 @@ private fun AuroraNativeApp() {
                                 if (releaseUrl.isNotBlank()) {
                                     Spacer(Modifier.height(10.dp))
                                     OutlinedButton(
-                                        onClick = { updateMessage = "Release page: $releaseUrl" },
+                                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))) }.onFailure { updateMessage = "Could not open the release page on this device." } },
                                         modifier = Modifier.fillMaxWidth()
                                     ) { Text("Release page available") }
                                 }
