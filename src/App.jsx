@@ -255,6 +255,9 @@ export default function App() {
   const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   const authConfigured = Boolean(authUrl && authKey);
   const [page, setPage] = useState("home");
+  const [adminData, setAdminData] = useState(null);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState("");
   const [draft, setDraft] = useState("");
   const [chatSessions, setChatSessions] = useState(() => {
     try {
@@ -486,9 +489,31 @@ export default function App() {
 
   function navigate(next) {
     if (next === "tools") setToolScreen("home");
+    if (next === "admin" && String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com") {
+      setNotice("Admin access is restricted.");
+      setPage("home");
+      return;
+    }
     setPage(next);
     setNotice("");
   }
+
+  useEffect(() => {
+    if (page !== "admin") return;
+    let cancelled = false;
+    setAdminLoading(true);
+    setAdminError("");
+    fetch("/api/admin", { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Admin verification failed.");
+        return data;
+      })
+      .then((data) => { if (!cancelled) setAdminData(data); })
+      .catch((error) => { if (!cancelled) { setAdminData(null); setAdminError(error.message || "Could not load admin status."); } })
+      .finally(() => { if (!cancelled) setAdminLoading(false); });
+    return () => { cancelled = true; };
+  }, [page, authSession?.access_token]);
 
   async function speak(text) {
     if (!soundOn || !text) return;
@@ -880,6 +905,7 @@ export default function App() {
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
+          {String(authSession.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>
         </div>
       </header>
@@ -1097,6 +1123,26 @@ export default function App() {
           )}
 
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={onFileSelected} /><input ref={galleryRef} type="file" accept="image/*" multiple className="visually-hidden" onChange={onFileSelected} /><input ref={fileRef} type="file" accept=".txt,.md,.csv,.json,.pdf,text/plain,text/markdown,text/csv,application/json,application/pdf" className="visually-hidden" onChange={onFileSelected} />
+          {page === "admin" && (
+            <motion.section key="admin" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <p className="panel-eyebrow">RESTRICTED CONTROL SPACE</p><h1>Admin<span>.</span></h1>
+              <p className="utility-intro">Private system overview. Sensitive keys are never displayed here.</p>
+              <div className="profile-card"><div className="profile-avatar"><ShieldCheck size={30}/></div><div><h2>Administrator access</h2><p>{authSession?.user?.email || "Signed-in account"}</p></div><span className="coming-pill">RESTRICTED</span></div>
+              {adminLoading && <div className="activity-tool-panel"><p>Verifying administrator access…</p></div>}
+              {adminError && <div className="activity-tool-panel"><h2>Access check failed</h2><p>{adminError}</p><button className="primary-action" type="button" onClick={() => { setAdminData(null); setPage("home"); setTimeout(() => setPage("admin"), 0); }}>Try again <RotateCcw size={15}/></button></div>}
+              {adminData && !adminLoading && <>
+                <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>System status</h2><p>Configuration checks only; this does not expose secret values.</p></div><span className="coming-pill">AUTHORISED</span></div>
+                  <div className="activity-record-list">
+                    <div className="activity-record"><span className="record-main"><strong>Authentication</strong><small>Supabase token verified</small></span><span className="coming-pill">CONNECTED</span></div>
+                    {Object.entries(adminData.providers || {}).map(([provider, configured]) => <div className="activity-record" key={provider}><span className="record-main"><strong>{provider === "openrouter" ? "OpenRouter" : provider === "groq" ? "Groq" : "Gemini"}</strong><small>{configured ? "Server key is configured" : "Server key is missing"}</small></span><span className="coming-pill">{configured ? "CONFIGURED" : "NOT SET"}</span></div>)}
+                  </div>
+                </div>
+                <div className="activity-tool-panel"><h2>Next checks</h2><p>Use AURORA normally to verify chat, Quiz Maker, and provider fallback. Provider key presence is not the same as a successful API call.</p><button className="primary-action" type="button" onClick={() => navigate("tools")}>Open tools workspace <ArrowUpRight size={16}/></button></div>
+              </>}
+              <button className="outline-action" type="button" onClick={() => navigate("home")}><ArrowLeft size={16}/> Back to AURORA</button>
+            </motion.section>
+          )}
+
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
