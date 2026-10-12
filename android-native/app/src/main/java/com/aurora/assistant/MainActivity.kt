@@ -65,7 +65,7 @@ private fun AuroraNativeApp() {
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var releaseNotes by remember { mutableStateOf("") }
     var releaseUrl by remember { mutableStateOf("") }
-    var updateMessage by remember { mutableStateOf("Check GitHub Releases for the latest AURORA build.") }
+    var updateMessage by remember { mutableStateOf("Save your deployed AURORA URL in Profile → AI connection to check the latest release.") }
     var checking by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("aurora_native", android.content.Context.MODE_PRIVATE) }
@@ -146,7 +146,7 @@ private fun AuroraNativeApp() {
                                         checking = true
                                         updateMessage = "Checking the official AURORA releases…"
                                         scope.launch {
-                                            val result = withContext(Dispatchers.IO) { checkLatestRelease() }
+                                            val result = withContext(Dispatchers.IO) { checkLatestRelease(backendUrl.trim().trimEnd('/')) }
                                             latestVersion = result?.optString("tag_name")?.takeIf { it.isNotBlank() }
                                             releaseNotes = result?.optString("body")?.take(1400).orEmpty()
                                             releaseUrl = result?.optString("html_url").orEmpty()
@@ -542,9 +542,10 @@ private fun SimplePage(title: String, description: String) {
     }
 }
 
-private fun checkLatestRelease(): JSONObject? {
+private fun checkLatestRelease(baseUrl: String): JSONObject? {
+    if (!baseUrl.startsWith("https://")) return null
     return try {
-        val connection = (URL("https://api.github.com/repos/alwerioghenepeace563-jpg/AURORA-/releases/latest").openConnection() as HttpURLConnection)
+        val connection = (URL("$baseUrl/api/app-update").openConnection() as HttpURLConnection)
         connection.requestMethod = "GET"
         connection.setRequestProperty("Accept", "application/vnd.github+json")
         connection.setRequestProperty("User-Agent", "AURORA-Android")
