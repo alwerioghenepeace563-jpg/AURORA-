@@ -1,6 +1,11 @@
 package com.aurora.assistant
 
 import android.os.Bundle
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.os.Build
+import android.os.Environment
 import android.content.Intent
 import android.content.Context
 import android.provider.Settings
@@ -56,9 +61,65 @@ private val Cyan = Color(0xFF62E8FF)
 private val Muted = Color(0xFF8D9CB6)
 
 class MainActivity : ComponentActivity() {
+    private var pendingInstallUri: Uri? = null
+    private var downloadReceiver: BroadcastReceiver? = null
+    private val installPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val uri = pendingInstallUri
+        pendingInstallUri = null
+        if (uri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.canRequestPackageInstalls()) {
+            openApkInstaller(uri)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        downloadReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+                val completedId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                val prefs = getSharedPreferences("aurora_native", Context.MODE_PRIVATE)
+                if (completedId != prefs.getLong("download_id", -2L)) return
+                val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                val uri = manager.getUriForDownloadedFile(completedId)
+                if (uri != null) openApkInstaller(uri)
+            }
+        }
+        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(downloadReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else registerReceiver(downloadReceiver, filter)
         setContent { AuroraNativeApp() }
+    }
+
+    override fun onDestroy() {
+        downloadReceiver?.let { runCatching { unregisterReceiver(it) } }
+        downloadReceiver = null
+        super.onDestroy()
+    }
+
+    fun downloadAuroraUpdate(url: String): Boolean {
+        if (!url.startsWith("https://")) return false
+        return try {
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle("AURORA update")
+                .setDescription("Downloading the signed AURORA Android update")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, "AURORA-update.apk")
+            val id = (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
+            getSharedPreferences("aurora_native", Context.MODE_PRIVATE).edit().putLong("download_id", id).apply()
+            true
+        } catch (_: Exception) { false }
+    }
+
+    private fun openApkInstaller(uri: Uri) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            pendingInstallUri = uri
+            installPermissionLauncher.launch(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            return
+        }
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 }
 
