@@ -2,6 +2,9 @@ package com.aurora.assistant
 
 import android.os.Bundle
 import android.content.Intent
+import android.content.Context
+import android.provider.Settings
+import android.provider.MediaStore
 import android.net.Uri
 import android.media.MediaPlayer
 import android.speech.RecognizerIntent
@@ -411,7 +414,19 @@ private fun AuroraNativeApp() {
                                         if (!base.startsWith("https://")) chatError = "Open Profile → AI connection and save your deployed HTTPS app URL first."
                                         else {
                                             val history = chatMessages + ("user" to prompt)
-                                            chatMessages = history; draft = ""; chatBusy = true; chatError = ""
+                                        chatMessages = history; draft = ""; chatError = ""
+                                        val nativeReply = executeNativeCommand(context, prompt)
+                                        if (nativeReply != null) {
+                                            chatMessages = history + ("assistant" to nativeReply)
+                                            chatBusy = false
+                                            if (voiceRepliesEnabled && base.startsWith("https://")) {
+                                                scope.launch {
+                                                    val audioFile = withContext(Dispatchers.IO) { fetchNativeVoice(base, nativeReply, selectedVoice, context.cacheDir) }
+                                                    if (audioFile != null) playNativeVoice(audioFile)
+                                                }
+                                            }
+                                        } else {
+                                            chatBusy = true
                                             scope.launch {
                                                 val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider) }
                                                 chatBusy = false
@@ -423,6 +438,7 @@ private fun AuroraNativeApp() {
                                                     }
                                                 } else chatError = result.second
                                             }
+                                        }
                                         }
                                     }
                                 }, enabled = !chatBusy && draft.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night), shape = CircleShape, contentPadding = PaddingValues(horizontal = 15.dp, vertical = 14.dp)) {
@@ -572,6 +588,42 @@ private fun checkLatestRelease(baseUrl: String): JSONObject? {
 
 
 
+
+
+private fun executeNativeCommand(context: Context, text: String): String? {
+    val command = text.trim().lowercase()
+    if (command in listOf("open settings", "open phone settings", "open device settings")) {
+        return try { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening Android Settings." }
+        catch (_: Exception) { "I couldn't open Android Settings on this device." }
+    }
+    if (command in listOf("open camera", "take a photo", "open the camera")) {
+        return try { context.startActivity(Intent(MediaStore.ACTION_IMAGE_CAPTURE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening the camera." }
+        catch (_: Exception) { "I couldn't open the camera on this device." }
+    }
+    val match = Regex("""^(?:please\\s+)?open\\s+(whatsapp|youtube|chrome|calculator|clock|contacts|maps|gmail|phone|messages)$""").find(command)
+        ?: return null
+    val app = match.groupValues[1]
+    val packages = mapOf(
+        "whatsapp" to listOf("com.whatsapp", "com.whatsapp.w4b"),
+        "youtube" to listOf("com.google.android.youtube"),
+        "chrome" to listOf("com.android.chrome"),
+        "calculator" to listOf("com.google.android.calculator", "com.android.calculator2"),
+        "clock" to listOf("com.google.android.deskclock", "com.android.deskclock"),
+        "contacts" to listOf("com.google.android.contacts", "com.android.contacts"),
+        "maps" to listOf("com.google.android.apps.maps"),
+        "gmail" to listOf("com.google.android.gm"),
+        "phone" to listOf("com.google.android.dialer", "com.android.dialer"),
+        "messages" to listOf("com.google.android.apps.messaging", "com.android.messaging")
+    )
+    for (packageName in packages[app].orEmpty()) {
+        val launch = context.packageManager.getLaunchIntentForPackage(packageName)
+        if (launch != null) {
+            return try { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening $app." }
+            catch (_: Exception) { "I couldn't open $app on this device." }
+        }
+    }
+    return "I couldn't find $app on this phone. Make sure it is installed, then try again."
+}
 
 private fun runNativeTool(baseUrl: String, kind: String, query: String): String {
     if (kind == "Calculator") return try { "$query = ${NativeExpressionParser(query).parse()}" } catch (e: Exception) { e.message ?: "Invalid expression." }
