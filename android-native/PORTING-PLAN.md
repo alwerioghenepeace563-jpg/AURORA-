@@ -14,13 +14,13 @@ Source of truth: the existing React web app in `src/App.jsx` and `src/styles.css
 - [x] Initial text-chat request wired to the deployed web app's `/api/chat` endpoint
 - [x] Carry over the saved native profile and selected AI provider with chat requests; active schedules and attachment payloads remain to port
 - [x] Save native chat history locally; rich message rendering remains to port
-- [x] Add Android speech-to-text input and hosted voice-reply playback; wake phrase and background assistant service remain to port
+- [x] Add Android speech-to-text input, hosted voice replies, image/PDF/text attachments, camera-photo capture, and app-launch commands; wake phrase and background assistant service remain to port
 - [x] Native app-launch commands for supported apps and Android Settings/camera; wake phrase and background service remain to port
 
 ## Batch 3 — Remaining screens and tools
 - [x] Port core profile fields and local persistence; remaining web profile/settings fields still need to port
-- [x] Add native local Tasks, Notes, Reminders and Events; full web activity parity and schedules remain to port
-- [x] Add native search, weather and calculator plus common unit conversions; image/document attachments and camera flows remain to port
+- [x] Add native local Tasks, Notes, Reminders and Events plus a focus timer; full web activity parity, scheduled notifications and calendar integrations remain to port
+- [x] Add native search, weather, calculator and common unit conversions
 - [ ] Port authentication and admin-only features with secure session handling
 - [ ] Test each feature against its existing web counterpart
 
