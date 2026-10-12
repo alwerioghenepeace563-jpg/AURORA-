@@ -261,7 +261,8 @@ export default function App() {
   const [adminError, setAdminError] = useState("");
   const [executorPrompt, setExecutorPrompt] = useState("");
   const [executorBusy, setExecutorBusy] = useState(false);
-  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try “run system diagnostics” or “open tools workspace”." }]);
+  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try “run system diagnostics”, “test live AI providers”, or “open tools workspace”." }]);
+  const [providerTests, setProviderTests] = useState(null);
   const [draft, setDraft] = useState("");
   const [chatSessions, setChatSessions] = useState(() => {
     try {
@@ -1178,10 +1179,10 @@ export default function App() {
                     <div className="admin-visual-grid">
                       <div className="admin-panel admin-chart-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">01 / AVAILABILITY</span><h2>Provider coverage</h2></div><span className="admin-panel-badge">CONFIG</span></div>
                         <div className="admin-donut-row"><div className="admin-donut" style={{ "--coverage": percent + "%" }}><div><strong>{percent}%</strong><small>configured</small></div></div><div className="admin-legend">{providers.map(([provider, configured]) => <div className="admin-legend-row" key={provider}><i className={"admin-legend-dot " + provider} /><span>{providerName(provider)}</span><strong>{configured ? "READY" : "MISSING"}</strong></div>)}</div></div>
-                        <p className="admin-chart-note">This chart reports key presence, not live model health or quota.</p>
+                        <p className="admin-chart-note">{providerTests ? "Live status reflects the last test run. A successful test is a point-in-time check, not a quota guarantee." : "This chart reports key presence only. Ask the Executor to test live AI providers for a real connectivity check."}</p>
                       </div>
                       <div className="admin-panel admin-chart-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">02 / ROUTING</span><h2>Provider matrix</h2></div><Activity size={17}/></div>
-                        <div className="admin-bars">{providers.map(([provider, configured], index) => <div className="admin-bar-row" key={provider}><div><span>{providerName(provider)}</span><strong>{configured ? "Configured" : "Unavailable"}</strong></div><div className="admin-bar-track"><span className={configured ? "is-configured" : ""} style={{ width: configured ? "100%" : "5%", animationDelay: (index * 100) + "ms" }} /></div></div>)}</div>
+                        <div className="admin-bars">{providers.map(([provider, configured], index) => { const test = providerTests?.[provider]; const healthy = test?.status === "online"; const label = test ? (test.status === "online" ? "Live · " + test.latencyMs + " ms" : test.status === "missing" ? "Key missing" : "Test failed") : (configured ? "Configured · not tested" : "Unavailable"); const width = test ? (healthy ? "100%" : test.status === "missing" ? "5%" : "38%") : (configured ? "72%" : "5%"); return <div className="admin-bar-row" key={provider}><div><span>{providerName(provider)}</span><strong className={test && !healthy ? "admin-test-warning" : ""}>{label}</strong></div><div className="admin-bar-track"><span className={healthy || (!test && configured) ? "is-configured" : ""} style={{ width, animationDelay: (index * 100) + "ms" }} /></div></div>; })}</div>
                         <div className="admin-route-flow"><span>REQUEST</span><i>→</i><span>PRIMARY AI</span><i>→</i><span>FALLBACK</span></div>
                       </div>
                     </div>
@@ -1191,7 +1192,7 @@ export default function App() {
                     </div>
                   </>;
                 })()}
-                <div className="admin-panel admin-executor-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">04 / NATURAL-LANGUAGE CONTROL</span><h2><Sparkles size={20}/> AI Executor</h2><p>Describe the task. AURORA will run supported controls or return a plan for anything that needs a dedicated integration.</p></div><span className="admin-executor-pulse">EXECUTOR READY</span></div>
+                <div className="admin-panel admin-executor-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">04 / NATURAL-LANGUAGE CONTROL</span><h2><Sparkles size={20}/> AI Executor</h2><p>Describe a task. AURORA can run live provider checks, refresh diagnostics, open app workspaces, or prepare a plan for actions not yet connected.</p></div><span className="admin-executor-pulse">EXECUTOR READY</span></div>
                   <div className="admin-executor-log" aria-live="polite">{executorLog.slice(-5).map((entry, index) => <div className={"admin-executor-entry " + entry.role} key={index}><span>{entry.role === "user" ? "YOU" : entry.role === "system" ? "SYSTEM" : "AURORA"}</span><p>{entry.text}</p></div>)}</div>
                   <form className="admin-executor-form" onSubmit={async (event) => {
                     event.preventDefault();
@@ -1202,13 +1203,26 @@ export default function App() {
                     setExecutorBusy(true);
                     const command = prompt.toLowerCase();
                     try {
-                      if (/(run|start|check|refresh|inspect|diagnos).*(diagnostic|system|provider|status|health)|^(diagnostics|provider status|system status|check ai)$/i.test(command)) {
+                      if (/(test|probe|ping|check).*(live|all|provider|ai|model)|^(test providers|test ai providers|live provider test|live ai health|check live ai)$/i.test(command)) {
+                        const response = await fetch("/api/admin-execute", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
+                          body: JSON.stringify({ action: "test_providers" })
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.error || "Live provider test could not complete.");
+                        setProviderTests(data.providers || {});
+                        const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
+                        const report = Object.entries(data.providers || {}).map(([name, result]) => label(name) + ": " + String(result.status || "unknown").toUpperCase() + (Number.isFinite(result.latencyMs) ? " (" + result.latencyMs + " ms)" : "")).join("; ");
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "Live provider tests completed. " + report + ". This sent a tiny test request to each configured provider and may use a small amount of API quota." }]);
+                      } else if (/(run|start|check|refresh|inspect|diagnos).*(diagnostic|system|provider|status|health)|^(diagnostics|provider status|system status|check ai)$/i.test(command)) {
                         const response = await fetch("/api/admin", { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" });
                         const data = await response.json().catch(() => ({}));
                         if (!response.ok) throw new Error(data.error || "Diagnostics could not complete.");
                         setAdminData(data);
-                        const ready = Object.entries(data.providers || {}).filter(([, value]) => value).map(([name]) => providerName(name));
-                        setExecutorLog((items) => [...items, { role: "assistant", text: "Diagnostics completed. Authentication is verified. Configured provider keys detected: " + (ready.join(", ") || "none") + ". This check confirms configuration only; it does not spend quota or test live model responses." }]);
+                        const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
+                        const ready = Object.entries(data.providers || {}).filter(([, value]) => value).map(([name]) => label(name));
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "Diagnostics completed. Authentication is verified. Configured provider keys detected: " + (ready.join(", ") || "none") + ". This check confirms configuration only; it does not test live model responses." }]);
                       } else if (/(open|launch|go to).*(tools|tool workspace)/i.test(command)) {
                         setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening the AURORA tools workspace." }]);
                         navigate("tools");
