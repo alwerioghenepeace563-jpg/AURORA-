@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   if (!providerKey) return res.status(503).json({ error: "Configure GROQ_API_KEY or OPENROUTER_API_KEY before using code editing." });
   const repo = process.env.AURORA_GITHUB_REPO || "alwerioghenepeace563-jpg/AURORA-";
   const gh = async (path, options = {}) => {
-    const response = await fetch("https://api.github.com/repos/" + repo + path, { ...options, headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + githubToken, "X-GitHub-Api-Version": "2022-11-28", ...(options.body ? { "Content-Type": "application/json" } : {}) } });
+    const response = await fetch("https://api.github.com/repos/" + repo + path, { ...options, signal: AbortSignal.timeout(7000), headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + githubToken, "X-GitHub-Api-Version": "2022-11-28", ...(options.body ? { "Content-Type": "application/json" } : {}) } });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error("GitHub HTTP " + response.status + ": " + (data.message || "request failed"));
     return data;
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
     for (const provider of providers) {
       if (!process.env[provider.key]) continue;
       try {
-        const ai = await fetch(provider.url, { method: "POST", headers: { Authorization: "Bearer " + process.env[provider.key], "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, messages, temperature: 0.1, max_tokens: 5000 }) });
+        const ai = await fetch(provider.url, { method: "POST", headers: { Authorization: "Bearer " + process.env[provider.key], "Content-Type": "application/json" }, body: JSON.stringify({ model: provider.model, messages, temperature: 0.1, max_tokens: 2200 }), signal: AbortSignal.timeout(9000) });
         const data = await ai.json().catch(() => ({}));
         if (!ai.ok) {
           providerErrors.push(provider.key + " returned HTTP " + ai.status + (data.error?.message ? ": " + String(data.error.message).slice(0, 140) : ""));
