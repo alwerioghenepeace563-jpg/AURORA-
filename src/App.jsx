@@ -203,7 +203,7 @@ function parseQuizPayload(raw) {
     if (answerIndex < 0 && typeof item?.answer === "string") answerIndex = options.findIndex((option) => option.toLowerCase() === item.answer.trim().toLowerCase());
     if (answerIndex < 0 && typeof item?.correctAnswer === "string") answerIndex = options.findIndex((option) => option.toLowerCase() === item.correctAnswer.trim().toLowerCase());
     return { question: String(item?.question || item?.prompt || "").trim(), options, answerIndex, explanation: String(item?.explanation || item?.feedback || "").trim() };
-  }).filter((item) => item.question && item.options.length === 4 && item.answerIndex >= 0 && item.answerIndex < 4);
+  }).filter((item) => item.question && item.options.length === 4 && new Set(item.options.map((option) => option.toLocaleLowerCase())).size === 4 && item.answerIndex >= 0 && item.answerIndex < 4);
   if (cleaned.length < 2) throw new Error("AURORA did not return enough valid multiple-choice questions. Try a clearer topic or generate the quiz again.");
   return { title: String(parsed.title || "CBT Practice").trim(), questions: cleaned.slice(0, 20) };
 }
