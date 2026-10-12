@@ -235,10 +235,10 @@ private fun AuroraNativeApp() {
                             Text("Tools workspace", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                                listOf("Search", "Weather", "Calculator").forEach { kind -> SuggestionChip(kind, toolKind == kind) { toolKind = kind; toolResult = "" } }
+                                listOf("Search", "Weather", "Calculator", "Convert").forEach { kind -> SuggestionChip(kind, toolKind == kind) { toolKind = kind; toolResult = "" } }
                             }
                             Spacer(Modifier.height(12.dp))
-                            OutlinedTextField(value = toolInput, onValueChange = { toolInput = it }, label = { Text(when(toolKind) { "Search" -> "What should I search for?"; "Weather" -> "City or town"; else -> "Math expression (e.g. 12*(4+3))" }) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), minLines = if (toolKind == "Calculator") 1 else 2)
+                            OutlinedTextField(value = toolInput, onValueChange = { toolInput = it }, label = { Text(when(toolKind) { "Search" -> "What should I search for?"; "Weather" -> "City or town"; "Calculator" -> "Math expression (e.g. 12*(4+3))"; else -> "e.g. 10 km to miles or 32 f to c" }) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), minLines = if (toolKind == "Calculator") 1 else 2)
                             Spacer(Modifier.height(10.dp))
                             Button(onClick = {
                                 val query = toolInput.trim()
@@ -564,6 +564,7 @@ private fun checkLatestRelease(): JSONObject? {
 
 private fun runNativeTool(baseUrl: String, kind: String, query: String): String {
     if (kind == "Calculator") return try { "$query = ${NativeExpressionParser(query).parse()}" } catch (e: Exception) { e.message ?: "Invalid expression." }
+    if (kind == "Convert") return nativeConvertUnits(query)
     if (!baseUrl.startsWith("https://")) return "Open Profile → AI connection and save your deployed HTTPS app URL first."
     return try {
         val url = if (kind == "Weather") URL("$baseUrl/api/weather?city=${java.net.URLEncoder.encode(query, "UTF-8")}") else URL("$baseUrl/api/search")
@@ -595,6 +596,29 @@ private fun runNativeTool(baseUrl: String, kind: String, query: String): String 
             "Weather for ${json?.optString("location") ?: query}\nNow: ${current.optString("temperature", "—")}${units.optString("temperature", "°C")}\nConditions: ${current.optString("description", "Unavailable")}\nHumidity: ${current.optString("humidity", "—")}%\nWind: ${current.optString("windSpeed", "—")} ${units.optString("wind", "km/h")}"
         }
     } catch (e: Exception) { e.message ?: "The tool could not complete. Check the connection and try again." }
+}
+
+
+private fun nativeConvertUnits(query: String): String {
+    val match = Regex("""^\\s*(-?\\d+(?:\\.\\d+)?)\\s*([a-zA-Z°]+)\\s+(?:to|in)\\s+([a-zA-Z°]+)\\s*$""").find(query)
+        ?: return "Use a format like “10 km to miles”, “5 kg to lb”, or “32 F to C”."
+    val value = match.groupValues[1].toDouble()
+    val from = match.groupValues[2].lowercase()
+    val to = match.groupValues[3].lowercase()
+    val converted = when ("$from>$to") {
+        "km>mi", "km>mile", "km>miles" -> value * 0.621371
+        "mi>km", "mile>km", "miles>km" -> value / 0.621371
+        "m>ft", "meter>feet", "metre>feet" -> value * 3.28084
+        "ft>m", "feet>meter", "feet>metre" -> value / 3.28084
+        "kg>lb", "kg>lbs" -> value * 2.20462
+        "lb>kg", "lbs>kg" -> value / 2.20462
+        "c>f", "°c>°f" -> value * 9 / 5 + 32
+        "f>c", "°f>°c" -> (value - 32) * 5 / 9
+        "l>ml" -> value * 1000
+        "ml>l" -> value / 1000
+        else -> return "That unit pair isn't supported yet. Try km/miles, m/ft, kg/lb, C/F or L/mL."
+    }
+    return "$value $from = ${"%.6f".format(java.util.Locale.US, converted).trimEnd('0').trimEnd('.') } $to"
 }
 
 private class NativeExpressionParser(private val input: String) {
