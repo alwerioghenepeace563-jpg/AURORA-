@@ -40,7 +40,6 @@ export default async function handler(req, res) {
         const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
         const promptPatterns = [...new Set(promptTerms)].slice(0, 18).map(term => new RegExp(term, "i"));
         // Include contiguous source windows, not isolated matching lines, so exact patches can be grounded.
-        const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i];"), "i"));
         const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i, ...promptPatterns];
         for (const pattern of patterns) {
           lines.forEach((line, index) => {
@@ -59,8 +58,6 @@ export default async function handler(req, res) {
         const anchors = [];
         const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
         const promptPatterns = [...new Set(promptTerms)].slice(0, 24).map(term => new RegExp(term, "i"));
-        const pattern = /orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i;
-        lines.forEach((line, index) => { if (pattern.test(line)) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });"), "i"));
         const patterns = [/orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i, ...promptPatterns];
         lines.forEach((line, index) => { if (patterns.some(pattern => pattern.test(line))) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });
         const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
