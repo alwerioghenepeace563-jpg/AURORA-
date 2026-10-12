@@ -16,6 +16,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -59,6 +62,12 @@ private fun AuroraNativeApp() {
     var updateMessage by remember { mutableStateOf("Check GitHub Releases for the latest AURORA build.") }
     var checking by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("aurora_native", MODE_PRIVATE) }
+    var backendUrl by remember { mutableStateOf(prefs.getString("backend_url", "") ?: "") }
+    var draft by remember { mutableStateOf("") }
+    var chatBusy by remember { mutableStateOf(false) }
+    var chatError by remember { mutableStateOf("") }
+    var chatMessages by remember { mutableStateOf(listOf<Pair<String, String>>()) }
     val scope = rememberCoroutineScope()
 
     MaterialTheme(colorScheme = darkColorScheme(
@@ -147,26 +156,7 @@ private fun AuroraNativeApp() {
                         Text("Updates are checked against the official GitHub Releases feed. Installation will require your approval.", color = Muted, fontSize = 12.sp)
                     }
                 }
-                "Activities" -> SimplePage("Activities", "Your AURORA activity history will appear here.")
-                "Settings" -> SimplePage("Settings", "Native settings and assistant permissions.")
-                else -> {
-                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            NativeOrb()
-                            Spacer(Modifier.height(30.dp))
-                            Text("AURORA", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Text("YOUR PERSONAL AI ASSISTANT", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
-                            Spacer(Modifier.height(34.dp))
-                            Text("Native Android foundation", color = Cyan, fontSize = 14.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Text("This screen is rendered by Android Compose, not a website.", color = Muted, fontSize = 12.sp)
-                            Spacer(Modifier.height(22.dp))
-                            OutlinedButton(onClick = { page = "Updates" }) { Text("Manage app updates", color = Cyan) }
-                        }
-                    }
-                }
-            }
+NaN            }
             Spacer(Modifier.height(12.dp))
             Text("AURORA • ANDROID", color = Muted.copy(alpha = .7f), fontSize = 10.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         }
@@ -231,4 +221,27 @@ private fun checkLatestRelease(): JSONObject? {
             connection.disconnect()
         }
     } catch (_: Exception) { null }
+}
+
+private fun sendNativeMessage(baseUrl: String, history: List<Pair<String, String>>): Pair<Boolean, String> {
+    return try {
+        val messages = JSONArray()
+        history.takeLast(20).forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
+        val payload = JSONObject().put("messages", messages).put("profile", JSONObject())
+        val connection = (URL("$baseUrl/api/chat").openConnection() as HttpURLConnection)
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("Accept", "application/json")
+        connection.connectTimeout = 15000
+        connection.readTimeout = 60000
+        connection.doOutput = true
+        connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+        val status = connection.responseCode
+        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+        val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        connection.disconnect()
+        val json = runCatching { JSONObject(body) }.getOrNull()
+        if (status !in 200..299) false to (json?.optString("error")?.takeIf { it.isNotBlank() } ?: "AI service returned HTTP $status. Check the web deployment logs.")
+        else true to (json?.optString("reply")?.takeIf { it.isNotBlank() } ?: "AURORA returned an empty response.")
+    } catch (e: Exception) { false to (e.message ?: "Could not reach the AURORA AI service. Check your connection and URL.") }
 }
