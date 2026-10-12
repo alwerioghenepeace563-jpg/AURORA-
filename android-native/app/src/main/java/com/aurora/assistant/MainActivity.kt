@@ -601,7 +601,7 @@ private fun runNativeTool(baseUrl: String, kind: String, query: String): String 
 
 
 private fun nativeConvertUnits(query: String): String {
-    val match = Regex("""^\\s*(-?\\d+(?:\\.\\d+)?)\\s*([a-zA-Z°]+)\\s+(?:to|in)\\s+([a-zA-Z°]+)\\s*$""").find(query)
+    val match = Regex("""^\s*(-?\d+(?:\.\d+)?)\s*([a-zA-Z°]+)\s+(?:to|in)\s+([a-zA-Z°]+)\s*$""")).find(query)
         ?: return "Use a format like “10 km to miles”, “5 kg to lb”, or “32 F to C”."
     val value = match.groupValues[1].toDouble()
     val from = match.groupValues[2].lowercase()
