@@ -10,9 +10,11 @@ import {
 
 
 function renderInlineText(text, keyPrefix) {
-  const parts = String(text || "").split(/(\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
+  const parts = String(text || "").split(/(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
   return parts.map((part, index) => {
     const key = keyPrefix + "-" + index;
+    const markdownLink = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (markdownLink) return <a key={key} className="message-inline-link" href={markdownLink[2]} target="_blank" rel="noreferrer">{renderInlineText(markdownLink[1], key + "-label")}</a>;
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={key}>{part.slice(2, -2)}</strong>;
     if (part.startsWith("\x60") && part.endsWith("\x60")) return <code key={key}>{part.slice(1, -1)}</code>;
     if (part.startsWith("*") && part.endsWith("*")) return <em key={key}>{part.slice(1, -1)}</em>;
