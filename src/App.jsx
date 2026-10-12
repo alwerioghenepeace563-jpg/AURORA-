@@ -972,7 +972,7 @@ export default function App() {
           {page === "home" && (
             <motion.section key="home" className="home-screen" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
               <div className="home-eyebrow"><span className="eyebrow-line" /> YOUR SPACE. YOUR INTELLIGENCE. <span className="eyebrow-line" /></div>
-              <div className="hero-orb"><Orb speaking={speaking} /></div>
+              <div className="hero-orb"><Orb speaking={speaking} style={{animationDuration: '5s'}} /></div>
               <div className="home-copy">
                 <p className="welcome-kicker">GOOD TO HAVE YOU HERE</p>
                 <h1>Hello<span>,</span> there.</h1>
