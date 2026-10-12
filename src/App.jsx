@@ -251,6 +251,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
+  const [authVerified, setAuthVerified] = useState(false);
   const authUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   const authConfigured = Boolean(authUrl && authKey);
@@ -258,6 +259,9 @@ export default function App() {
   const [adminData, setAdminData] = useState(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
+  const [executorPrompt, setExecutorPrompt] = useState("");
+  const [executorBusy, setExecutorBusy] = useState(false);
+  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try “run system diagnostics” or “open tools workspace”." }]);
   const [draft, setDraft] = useState("");
   const [chatSessions, setChatSessions] = useState(() => {
     try {
@@ -442,6 +446,9 @@ export default function App() {
   function handleSignOut() {
     try { localStorage.removeItem("aurora-auth-session"); } catch {}
     setAuthSession(null);
+    setAuthVerified(false);
+    setAdminData(null);
+    setPage("home");
     setAuthEmail("");
     setAuthPassword("");
     setAuthMessage("");
@@ -471,6 +478,30 @@ export default function App() {
   }, [authConfigured, authUrl, authKey]);
 
   useEffect(() => {
+    if (!authConfigured || !authSession?.access_token) {
+      setAuthVerified(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(authUrl + "/auth/v1/user", {
+      headers: { apikey: authKey, Authorization: "Bearer " + authSession.access_token },
+      cache: "no-store"
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("Session is no longer valid.");
+      return response.json();
+    }).then((user) => {
+      if (cancelled) return;
+      const verifiedSession = { ...authSession, user };
+      localStorage.setItem("aurora-auth-session", JSON.stringify(verifiedSession));
+      setAuthSession(verifiedSession);
+      setAuthVerified(true);
+    }).catch(() => {
+      if (!cancelled) handleSignOut();
+    });
+    return () => { cancelled = true; };
+  }, [authSession?.access_token, authConfigured, authUrl, authKey]);
+
+  useEffect(() => {
     if (!authSession?.access_token || !authConfigured) return;
     if (authSession.expires_at && authSession.expires_at < Math.floor(Date.now()/1000) + 60 && authSession.refresh_token) {
       fetch(authUrl + "/auth/v1/token?grant_type=refresh_token", {
@@ -489,7 +520,7 @@ export default function App() {
 
   function navigate(next) {
     if (next === "tools") setToolScreen("home");
-    if (next === "admin" && String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com") {
+    if (next === "admin" && (!authVerified || !authSession?.access_token || String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com")) {
       setNotice("Admin access is restricted.");
       setPage("home");
       return;
@@ -905,8 +936,8 @@ export default function App() {
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
-          {String(authSession.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
-          <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>
+          {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
+          {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
         </div>
       </header>
 
@@ -1124,20 +1155,78 @@ export default function App() {
 
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="visually-hidden" onChange={onFileSelected} /><input ref={galleryRef} type="file" accept="image/*" multiple className="visually-hidden" onChange={onFileSelected} /><input ref={fileRef} type="file" accept=".txt,.md,.csv,.json,.pdf,text/plain,text/markdown,text/csv,application/json,application/pdf" className="visually-hidden" onChange={onFileSelected} />
           {page === "admin" && (
-            <motion.section key="admin" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <p className="panel-eyebrow">RESTRICTED CONTROL SPACE</p><h1>Admin<span>.</span></h1>
-              <p className="utility-intro">Private system overview. Sensitive keys are never displayed here.</p>
-              <div className="profile-card"><div className="profile-avatar"><ShieldCheck size={30}/></div><div><h2>Administrator access</h2><p>{authSession?.user?.email || "Signed-in account"}</p></div><span className="coming-pill">RESTRICTED</span></div>
-              {adminLoading && <div className="activity-tool-panel"><p>Verifying administrator access…</p></div>}
-              {adminError && <div className="activity-tool-panel"><h2>Access check failed</h2><p>{adminError}</p><button className="primary-action" type="button" onClick={() => { setAdminData(null); setPage("home"); setTimeout(() => setPage("admin"), 0); }}>Try again <RotateCcw size={15}/></button></div>}
+            <motion.section key="admin" className="utility-page admin-command-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <div className="admin-hero-head">
+                <div><p className="panel-eyebrow"><span className="admin-live-dot" /> AURORA // ROOT ACCESS</p><h1>Command<span> Centre.</span></h1><p className="utility-intro">System intelligence, provider telemetry and controlled app execution.</p></div>
+                <div className="admin-orbit-mark"><div className="admin-orbit-ring" /><div className="admin-orbit-core"><Sparkles size={24}/></div></div>
+              </div>
+              <div className="admin-session-strip"><div className="admin-session-icon"><ShieldCheck size={20}/></div><div><strong>Administrator session verified</strong><small>{authSession?.user?.email || "Verified administrator"} · private control channel</small></div><span className="admin-status-chip">{adminLoading ? "CHECKING" : adminError ? "ATTENTION" : "SECURE"}</span></div>
+              {adminLoading && <div className="admin-panel"><p>Establishing secure telemetry link…</p></div>}
+              {adminError && <div className="admin-panel admin-error-panel"><h2>Telemetry link failed</h2><p>{adminError}</p><button className="primary-action" type="button" onClick={() => { setAdminData(null); setPage("home"); setTimeout(() => setPage("admin"), 0); }}>Reconnect <RotateCcw size={15}/></button></div>}
               {adminData && !adminLoading && <>
-                <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>System status</h2><p>Configuration checks only; this does not expose secret values.</p></div><span className="coming-pill">AUTHORISED</span></div>
-                  <div className="activity-record-list">
-                    <div className="activity-record"><span className="record-main"><strong>Authentication</strong><small>Supabase token verified</small></span><span className="coming-pill">CONNECTED</span></div>
-                    {Object.entries(adminData.providers || {}).map(([provider, configured]) => <div className="activity-record" key={provider}><span className="record-main"><strong>{provider === "openrouter" ? "OpenRouter" : provider === "groq" ? "Groq" : "Gemini"}</strong><small>{configured ? "Server key is configured" : "Server key is missing"}</small></span><span className="coming-pill">{configured ? "CONFIGURED" : "NOT SET"}</span></div>)}
-                  </div>
+                {(() => {
+                  const providers = Object.entries(adminData.providers || {});
+                  const configuredCount = providers.filter(([, configured]) => configured).length;
+                  const providerName = (provider) => provider === "openrouter" ? "OpenRouter" : provider === "groq" ? "Groq" : "Gemini";
+                  const percent = providers.length ? Math.round(configuredCount / providers.length * 100) : 0;
+                  return <>
+                    <div className="admin-metric-grid">
+                      <div className="admin-metric-card"><span>AI PROVIDERS</span><strong>{configuredCount}<small> / {providers.length}</small></strong><div className="admin-metric-foot"><span className="admin-mini-dot" /> Keys detected</div></div>
+                      <div className="admin-metric-card"><span>FALLBACK ROUTES</span><strong>{configuredCount > 1 ? configuredCount - 1 : 0}<small> standby</small></strong><div className="admin-metric-foot">Provider presence only</div></div>
+                      <div className="admin-metric-card"><span>AUTH CHANNEL</span><strong className="admin-metric-word">ONLINE</strong><div className="admin-metric-foot"><span className="admin-mini-dot" /> Token verified</div></div>
+                    </div>
+                    <div className="admin-visual-grid">
+                      <div className="admin-panel admin-chart-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">01 / AVAILABILITY</span><h2>Provider coverage</h2></div><span className="admin-panel-badge">CONFIG</span></div>
+                        <div className="admin-donut-row"><div className="admin-donut" style={{ "--coverage": percent + "%" }}><div><strong>{percent}%</strong><small>configured</small></div></div><div className="admin-legend">{providers.map(([provider, configured]) => <div className="admin-legend-row" key={provider}><i className={"admin-legend-dot " + provider} /><span>{providerName(provider)}</span><strong>{configured ? "READY" : "MISSING"}</strong></div>)}</div></div>
+                        <p className="admin-chart-note">This chart reports key presence, not live model health or quota.</p>
+                      </div>
+                      <div className="admin-panel admin-chart-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">02 / ROUTING</span><h2>Provider matrix</h2></div><Activity size={17}/></div>
+                        <div className="admin-bars">{providers.map(([provider, configured], index) => <div className="admin-bar-row" key={provider}><div><span>{providerName(provider)}</span><strong>{configured ? "Configured" : "Unavailable"}</strong></div><div className="admin-bar-track"><span className={configured ? "is-configured" : ""} style={{ width: configured ? "100%" : "5%", animationDelay: (index * 100) + "ms" }} /></div></div>)}</div>
+                        <div className="admin-route-flow"><span>REQUEST</span><i>→</i><span>PRIMARY AI</span><i>→</i><span>FALLBACK</span></div>
+                      </div>
+                    </div>
+                    <div className="admin-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">03 / LIVE CONFIGURATION</span><h2>System services</h2></div><button className="admin-refresh-button" type="button" onClick={() => { setAdminData(null); setPage("home"); setTimeout(() => setPage("admin"), 0); }}><RotateCcw size={14}/> Refresh</button></div>
+                      <div className="admin-service-list"><div className="admin-service-row"><div className="admin-service-icon"><ShieldCheck size={17}/></div><div><strong>Supabase authentication</strong><small>Server verified the current access token</small></div><span className="admin-status-chip">SECURE</span></div>
+                      {providers.map(([provider, configured]) => <div className="admin-service-row" key={provider}><div className="admin-service-icon"><Activity size={17}/></div><div><strong>{providerName(provider)}</strong><small>{configured ? "Server credential detected" : "Credential not detected"}</small></div><span className={"admin-status-chip " + (configured ? "" : "is-warning")}>{configured ? "CONFIGURED" : "MISSING"}</span></div>)}</div>
+                    </div>
+                  </>;
+                })()}
+                <div className="admin-panel admin-executor-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">04 / NATURAL-LANGUAGE CONTROL</span><h2><Sparkles size={20}/> AI Executor</h2><p>Describe the task. AURORA will run supported controls or return a plan for anything that needs a dedicated integration.</p></div><span className="admin-executor-pulse">EXECUTOR READY</span></div>
+                  <div className="admin-executor-log" aria-live="polite">{executorLog.slice(-5).map((entry, index) => <div className={"admin-executor-entry " + entry.role} key={index}><span>{entry.role === "user" ? "YOU" : entry.role === "system" ? "SYSTEM" : "AURORA"}</span><p>{entry.text}</p></div>)}</div>
+                  <form className="admin-executor-form" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const prompt = executorPrompt.trim();
+                    if (!prompt || executorBusy) return;
+                    setExecutorLog((items) => [...items, { role: "user", text: prompt }]);
+                    setExecutorPrompt("");
+                    setExecutorBusy(true);
+                    const command = prompt.toLowerCase();
+                    try {
+                      if (/(run|start|check|refresh|inspect|diagnos).*(diagnostic|system|provider|status|health)|^(diagnostics|provider status|system status|check ai)$/i.test(command)) {
+                        const response = await fetch("/api/admin", { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.error || "Diagnostics could not complete.");
+                        setAdminData(data);
+                        const ready = Object.entries(data.providers || {}).filter(([, value]) => value).map(([name]) => providerName(name));
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "Diagnostics completed. Authentication is verified. Configured provider keys detected: " + (ready.join(", ") || "none") + ". This check confirms configuration only; it does not spend quota or test live model responses." }]);
+                      } else if (/(open|launch|go to).*(tools|tool workspace)/i.test(command)) {
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening the AURORA tools workspace." }]);
+                        navigate("tools");
+                      } else {
+                        const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "You are AURORA's administrator-side AI Executor. The administrator asked: " + prompt + "\n\nRespond with a concise execution plan. You may only claim a task was executed if the app has a direct supported action for it. Supported direct actions in this console are: refresh provider configuration diagnostics, and navigate to the tools workspace. For all other requests, clearly label your answer as a proposed plan and explain which app integration or explicit confirmation would be needed. Never claim to change app data, secrets, deployments, users, or settings without an actual tool that did so. Do not ask for or reveal API keys." }] }) });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.error || "The AI executor could not reach the AI service.");
+                        setExecutorLog((items) => [...items, { role: "assistant", text: data.reply || "I couldn't produce an execution plan." }]);
+                      }
+                    } catch (error) {
+                      setExecutorLog((items) => [...items, { role: "assistant", text: "Execution stopped: " + (error.message || "Unknown error") }]);
+                    } finally { setExecutorBusy(false); }
+                  }}>
+                    <input value={executorPrompt} onChange={(event) => setExecutorPrompt(event.target.value)} placeholder="Try: run system diagnostics or open tools workspace…" aria-label="AI Executor command" maxLength={1200} />
+                    <button type="submit" disabled={executorBusy || !executorPrompt.trim()}>{executorBusy ? <RotateCcw size={17} className="admin-spinning"/> : <ArrowUpRight size={17}/>}<span>{executorBusy ? "Working" : "Execute"}</span></button>
+                  </form>
+                  <div className="admin-executor-foot"><span><LockKeyhole size={13}/> Admin session required</span><span>Only verified actions are executed</span></div>
                 </div>
-                <div className="activity-tool-panel"><h2>Next checks</h2><p>Use AURORA normally to verify chat, Quiz Maker, and provider fallback. Provider key presence is not the same as a successful API call.</p><button className="primary-action" type="button" onClick={() => navigate("tools")}>Open tools workspace <ArrowUpRight size={16}/></button></div>
               </>}
               <button className="outline-action" type="button" onClick={() => navigate("home")}><ArrowLeft size={16}/> Back to AURORA</button>
             </motion.section>
