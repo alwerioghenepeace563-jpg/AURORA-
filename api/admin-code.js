@@ -53,7 +53,17 @@ export default async function handler(req, res) {
           else acc.push(range.slice());
           return acc;
         }, []);
-        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).join("\n")).join("\n...\n").slice(0, 5500);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).join("\n")).join("\n...\n");
+        // Keep the Home hero block first so broad prompt matches cannot crowd the target text out of the excerpt.
+        if (/home|subtitle|hero|welcome/i.test(prompt)) {
+          const homeIndex = lines.findIndex(line => /className="home-screen"/i.test(line));
+          if (homeIndex >= 0) {
+            const homeStart = Math.max(0, homeIndex - 5);
+            const homeEnd = Math.min(lines.length, homeIndex + 65);
+            const homeExcerpt = "[priority Home block: lines " + (homeStart + 1) + "-" + homeEnd + "]\n" + lines.slice(homeStart, homeEnd).join("\n");
+            excerpt = (homeExcerpt + "\n...\n" + excerpt).slice(0, 5500);
+          } else excerpt = excerpt.slice(0, 5500);
+        } else excerpt = excerpt.slice(0, 5500);
       }
       if (path === "src/styles.css") {
         const anchors = [];
