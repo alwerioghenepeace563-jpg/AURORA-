@@ -3,6 +3,7 @@ package com.aurora.assistant
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
+import android.media.MediaPlayer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.platform.LocalContext
@@ -76,6 +77,8 @@ private fun AuroraNativeApp() {
     var profileRestrictions by remember { mutableStateOf(prefs.getString("profile_restrictions", "") ?: "") }
     var assistantStyle by remember { mutableStateOf(prefs.getString("assistant_style", "warm") ?: "warm") }
     var preferredProvider by remember { mutableStateOf(prefs.getString("preferred_provider", "") ?: "") }
+    var voiceRepliesEnabled by remember { mutableStateOf(prefs.getBoolean("voice_replies", true)) }
+    var selectedVoice by remember { mutableStateOf(prefs.getString("selected_voice", "jessica") ?: "jessica") }
     val scope = rememberCoroutineScope()
     LaunchedEffect(chatMessages) { saveNativeHistory(prefs, chatMessages) }
 
@@ -180,6 +183,30 @@ private fun AuroraNativeApp() {
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Panel).clickable {
+                                voiceRepliesEnabled = !voiceRepliesEnabled
+                                prefs.edit().putBoolean("voice_replies", voiceRepliesEnabled).apply()
+                            }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Read replies aloud", color = Color.White, fontSize = 14.sp)
+                                    Text("Uses AURORA's hosted voice service when available", color = Muted, fontSize = 11.sp)
+                                }
+                                Checkbox(checked = voiceRepliesEnabled, onCheckedChange = {
+                                    voiceRepliesEnabled = it
+                                    prefs.edit().putBoolean("voice_replies", it).apply()
+                                })
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text("Voice", color = Muted, fontSize = 12.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("jessica", "aria", "roger").forEach { voice ->
+                                    SuggestionChip(voice.replaceFirstChar { it.uppercase() }, voice == selectedVoice) {
+                                        selectedVoice = voice
+                                        prefs.edit().putString("selected_voice", voice).apply()
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
                             Button(onClick = {
                                 prefs.edit().putString("profile_name", profileName).putString("profile_nickname", profileNickname)
                                     .putString("profile_priorities", profilePriorities).putString("profile_food", profileFood)
@@ -255,7 +282,13 @@ private fun AuroraNativeApp() {
                                             scope.launch {
                                                 val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider) }
                                                 chatBusy = false
-                                                if (result.first) chatMessages = chatMessages + ("assistant" to result.second) else chatError = result.second
+                                                if (result.first) {
+                                                    chatMessages = chatMessages + ("assistant" to result.second)
+                                                    if (voiceRepliesEnabled) {
+                                                        val audioFile = withContext(Dispatchers.IO) { fetchNativeVoice(base, result.second, selectedVoice, context.cacheDir) }
+                                                        if (audioFile != null) playNativeVoice(audioFile)
+                                                    }
+                                                } else chatError = result.second
                                             }
                                         }
                                     }
@@ -417,6 +450,40 @@ private fun saveNativeHistory(prefs: android.content.SharedPreferences, history:
     val array = JSONArray()
     history.takeLast(80).forEach { (role, content) -> array.put(JSONObject().put("role", role).put("content", content)) }
     prefs.edit().putString("chat_history", array.toString()).apply()
+}
+
+
+private fun fetchNativeVoice(baseUrl: String, text: String, voice: String, cacheDir: java.io.File): java.io.File? {
+    return try {
+        val connection = (URL("$baseUrl/api/voice").openConnection() as HttpURLConnection)
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("Accept", "audio/*")
+        connection.connectTimeout = 15000
+        connection.readTimeout = 60000
+        connection.doOutput = true
+        val payload = JSONObject().put("text", text.take(6000)).put("voice", voice)
+        connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+        if (connection.responseCode !in 200..299) {
+            connection.disconnect()
+            return null
+        }
+        val file = java.io.File.createTempFile("aurora-voice-", ".audio", cacheDir)
+        connection.inputStream.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
+        connection.disconnect()
+        if (file.length() > 0) file else null
+    } catch (_: Exception) { null }
+}
+
+private fun playNativeVoice(file: java.io.File) {
+    try {
+        val player = MediaPlayer()
+        player.setDataSource(file.absolutePath)
+        player.setOnPreparedListener { it.start() }
+        player.setOnCompletionListener { it.release(); file.delete() }
+        player.setOnErrorListener { mp, _, _ -> mp.release(); file.delete(); true }
+        player.prepareAsync()
+    } catch (_: Exception) { file.delete() }
 }
 
 private fun sendNativeMessage(baseUrl: String, history: List<Pair<String, String>>, profile: JSONObject, preferredProvider: String): Pair<Boolean, String> {
