@@ -28,7 +28,11 @@ export default async function handler(req, res) {
   try {
     const branchBase = process.env.AURORA_GITHUB_BASE_BRANCH || "main";
     const ref = await gh("/git/ref/heads/" + encodeURIComponent(branchBase));
-    const files = ["src/App.jsx", "src/styles.css", "api/chat.js"];
+    const lowerPromptForFiles = prompt.toLowerCase();
+    const files = ["src/App.jsx", "src/styles.css"];
+    // Only send the backend chat file when the request actually concerns AI responses,
+    // provider routing, API behavior, or voice/chat logic. UI-only edits need less context.
+    if (/\\b(api|provider|fallback|quota|chat|voice|speech|response|model|endpoint|gemini|groq|openrouter|brain)\\b/.test(lowerPromptForFiles)) files.push("api/chat.js");
     const contexts = [];
     for (const path of files) {
       const file = await gh("/contents/" + path + "?ref=" + encodeURIComponent(branchBase));
