@@ -209,10 +209,16 @@ export default async function handler(req, res) {
     const rateLimited = failures.some((failure) => failure.status === 429);
     const timeout = failures.some((failure) => failure.status === 0);
     const detail = lastFailure?.message ? " " + String(lastFailure.message).slice(0, 180) : "";
+    // Return short, provider-specific diagnostics so a failed fallback can be repaired without exposing credentials.
+    const providerDetails = failures.map(({ provider, status, message }) => {
+      const safeMessage = String(message || "No details").replace(/[\\r\\n]+/g, " ").slice(0, 140);
+      return provider + " HTTP " + status + ": " + safeMessage;
+    });
+    const troubleshooting = providerDetails.length ? " Provider checks: " + providerDetails.join(" | ").slice(0, 650) : "";
     return res.status(rateLimited ? 429 : timeout ? 504 : 502).json({
-      error: hasAttachments
-        ? "AURORA couldn't process that file or image with the available AI providers. Check provider access and quota, or try again shortly." + detail
-        : "AURORA couldn't get a response from any configured AI provider." + detail,
+      error: (hasAttachments
+        ? "AURORA couldn't process that file or image with the available AI providers. Check provider access and quota, or try again shortly."
+        : "AURORA couldn't get a response from any configured AI provider.") + detail + troubleshooting,
       diagnostic: { providersTried: failures.map((failure) => failure.provider), failures: failures.map(({ provider, status }) => ({ provider, status })) }
     });
   } catch (error) {
