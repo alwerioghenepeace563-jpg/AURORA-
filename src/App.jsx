@@ -12,17 +12,17 @@ import {
 function makeSpeechFriendly(value) {
   let text = String(value || "");
   text = text
-    .replace(/\\[\\[CHOICES:[\\s\\S]*?\\]\\]/g, "")
-    .replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, "$1")
-    .replace(/\\$([^$\\n]+)\\$/g, "$1")
-    .replace(/\\\\times\\b/g, " times ")
-    .replace(/\\\\cdot\\b/g, " times ")
-    .replace(/\\\\div\\b/g, " divided by ")
-    .replace(/\\\\sqrt\\s*\\{([^{}]+)\\}/g, " the square root of $1 ")
-    .replace(/\\\\frac\\s*\\{([^{}]+)\\}\\s*\\{([^{}]+)\\}/g, "$1 over $2")
-    .replace(/\\*\\*(.*?)\\*\\*/g, "$1")
-    .replace(/(^|\\s)#+\\s*/g, "$1")
-    .replace(/\\b([A-Za-z0-9]+)\\s*\\^\\s*\\{?([A-Za-z0-9+-]+)\\}?\\b/g, (_, base, power) => {
+    .replace(/\[\[CHOICES:[\s\S]*?\]\]/g, "")
+    .replace(/\$\$([\s\S]*?)\$\$/g, "$1")
+    .replace(/\$([^$\n]+)\$/g, "$1")
+    .replace(/\\times\b/g, " times ")
+    .replace(/\\cdot\b/g, " times ")
+    .replace(/\\div\b/g, " divided by ")
+    .replace(/\\sqrt\s*\{([^{}]+)\}/g, " the square root of $1 ")
+    .replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, "$1 over $2")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/(^|\s)#+\s*/g, "$1")
+    .replace(/\b([A-Za-z0-9]+)\s*\^\s*\{?([A-Za-z0-9+-]+)\}?\b/g, (_, base, power) => {
       if (power === "2") return base + " squared";
       if (power === "3") return base + " cubed";
       return base + " raised to the power of " + power;
@@ -31,18 +31,18 @@ function makeSpeechFriendly(value) {
     .replace(/([A-Za-z0-9]+)³/g, "$1 cubed")
     .replace(/([A-Za-z0-9]+)⁴/g, "$1 to the fourth power")
     .replace(/([A-Za-z0-9]+)⁵/g, "$1 to the fifth power")
-    .replace(/\\s*[×·]\\s*/g, " times ")
-    .replace(/\\s*÷\\s*/g, " divided by ")
-    .replace(/\\s*([=])\\s*/g, " equals ")
-    .replace(/\\s*√\\s*(\\d+(?:\\.\\d+)?)/g, " the square root of $1")
-    .replace(/\\s*→\\s*/g, " leads to ")
-    .replace(/\\s*≤\\s*/g, " is less than or equal to ")
-    .replace(/\\s*≥\\s*/g, " is greater than or equal to ")
-    .replace(/\\s*≠\\s*/g, " is not equal to ")
-    .replace(/\\s*\\*\\s*/g, " times ")
-    .replace(/\\s*\\n\\s*/g, ". ")
+    .replace(/\s*[×·]\s*/g, " times ")
+    .replace(/\s*÷\s*/g, " divided by ")
+    .replace(/\s*([=])\s*/g, " equals ")
+    .replace(/\s*√\s*(\d+(?:\.\d+)?)/g, " the square root of $1")
+    .replace(/\s*→\s*/g, " leads to ")
+    .replace(/\s*≤\s*/g, " is less than or equal to ")
+    .replace(/\s*≥\s*/g, " is greater than or equal to ")
+    .replace(/\s*≠\s*/g, " is not equal to ")
+    .replace(/\s*\*\s*/g, " times ")
+    .replace(/\s*\n\s*/g, ". ")
     .replace(/[*_#|]/g, " ")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
   return text.slice(0, 2400);
 }
