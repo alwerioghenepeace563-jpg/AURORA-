@@ -10,6 +10,8 @@ import android.content.Intent
 import android.content.Context
 import android.provider.Settings
 import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.util.Base64
 import android.net.Uri
 import android.media.MediaPlayer
 import android.speech.RecognizerIntent
@@ -143,6 +145,8 @@ private fun AuroraNativeApp() {
     var chatBusy by remember { mutableStateOf(false) }
     var chatError by remember { mutableStateOf("") }
     var chatMessages by remember { mutableStateOf(loadNativeHistory(prefs)) }
+    var pendingAttachment by remember { mutableStateOf<JSONObject?>(null) }
+    var attachmentLabel by remember { mutableStateOf("") }
     var activityKind by remember { mutableStateOf("Tasks") }
     var activityTitle by remember { mutableStateOf("") }
     var activityBody by remember { mutableStateOf("") }
@@ -163,6 +167,36 @@ private fun AuroraNativeApp() {
     var voiceRepliesEnabled by remember { mutableStateOf(prefs.getBoolean("voice_replies", true)) }
     var selectedVoice by remember { mutableStateOf(prefs.getString("selected_voice", "jessica") ?: "jessica") }
     val scope = rememberCoroutineScope()
+    val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = withContext(Dispatchers.IO) { readNativeAttachment(context, uri) }
+                if (result == null) {
+                    chatError = "Could not read that file, or it exceeds the current size limit."
+                } else if (result.mimeType.startsWith("image/")) {
+                    pendingAttachment = JSONObject().put("mimeType", result.mimeType).put("data", result.base64.orEmpty())
+                    attachmentLabel = result.name
+                    draft = "Please examine this image and describe what is important. Read any visible text and help me understand it. Image: ${result.name}"
+                    chatError = ""
+                    page = "Jarvis"
+                } else if (result.mimeType == "application/pdf") {
+                    pendingAttachment = JSONObject().put("mimeType", result.mimeType).put("data", result.base64.orEmpty())
+                    attachmentLabel = result.name
+                    draft = "Please read this PDF document: ${result.name}. Summarise its key points, explain difficult parts, and answer questions using the document."
+                    chatError = ""
+                    page = "Jarvis"
+                } else if (!result.text.isNullOrBlank()) {
+                    pendingAttachment = null
+                    attachmentLabel = result.name
+                    draft = "Please help me analyse this attached file: ${result.name}\n\n--- FILE CONTENT ---\n${result.text.take(12000)}"
+                    chatError = "Text file attached. Review the message and tap Send."
+                    page = "Jarvis"
+                } else {
+                    chatError = "AURORA supports JPEG, PNG, WebP, PDF, TXT, Markdown, CSV and JSON files."
+                }
+            }
+        }
+    }
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (!spoken.isNullOrBlank()) { draft = spoken; page = "Jarvis" }
@@ -492,7 +526,11 @@ private fun AuroraNativeApp() {
                                 }
                             }
                             if (chatError.isNotBlank()) { Text(chatError, color = Color(0xFFFF9A9A), fontSize = 11.sp, modifier = Modifier.padding(vertical = 5.dp)) }
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (attachmentLabel.isNotBlank()) {
+                                Text("Attached: $attachmentLabel", color = Cyan, fontSize = 11.sp, modifier = Modifier.padding(bottom = 5.dp))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain", "text/markdown", "text/csv", "application/json")) }, shape = CircleShape, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp)) { Text("+") }
                                 OutlinedTextField(value = draft, onValueChange = { draft = it }, placeholder = { Text("Message AURORA…") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp), maxLines = 4)
                                 OutlinedButton(onClick = {
                                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -523,7 +561,10 @@ private fun AuroraNativeApp() {
                                         } else {
                                             chatBusy = true
                                             scope.launch {
-                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider) }
+                                                val outgoingAttachment = pendingAttachment
+                                                pendingAttachment = null
+                                                attachmentLabel = ""
+                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider, outgoingAttachment) }
                                                 chatBusy = false
                                                 if (result.first) {
                                                     chatMessages = chatMessages + ("assistant" to result.second)
@@ -886,6 +927,43 @@ private fun saveActivityItems(prefs: android.content.SharedPreferences, items: L
     prefs.edit().putString("activity_items", array.toString()).apply()
 }
 
+
+private data class NativeAttachment(val name: String, val mimeType: String, val base64: String? = null, val text: String? = null)
+
+private fun readNativeAttachment(context: Context, uri: Uri): NativeAttachment? {
+    return try {
+        var name = "attachment"
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) name = cursor.getString(index) ?: name
+            }
+        }
+        var mime = context.contentResolver.getType(uri).orEmpty().lowercase()
+        if (mime.isBlank()) mime = when (name.substringAfterLast('.', "").lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "pdf" -> "application/pdf"
+            "md" -> "text/markdown"
+            "csv" -> "text/csv"
+            "json" -> "application/json"
+            else -> "text/plain"
+        }
+        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        if (mime.startsWith("image/")) {
+            if (mime !in listOf("image/jpeg", "image/png", "image/webp") || bytes.size > 3200000) return null
+            NativeAttachment(name, mime, base64 = Base64.encodeToString(bytes, Base64.NO_WRAP))
+        } else if (mime == "application/pdf" || name.endsWith(".pdf", true)) {
+            if (bytes.size > 6500000) return null
+            NativeAttachment(name, "application/pdf", base64 = Base64.encodeToString(bytes, Base64.NO_WRAP))
+        } else if (mime in listOf("text/plain", "text/markdown", "text/csv", "application/json") || name.matches(Regex(""".+\.(txt|md|csv|json)$""", RegexOption.IGNORE_CASE))) {
+            if (bytes.size > 60000) return null
+            NativeAttachment(name, mime, text = bytes.toString(Charsets.UTF_8))
+        } else null
+    } catch (_: Exception) { null }
+}
+
 private fun nativeProfileJson(name: String, nickname: String, wakeTime: String, sleepTime: String, priorities: String, food: String, restrictions: String, style: String): JSONObject {
     return JSONObject().put("name", name).put("nickname", nickname).put("wakeTime", wakeTime).put("sleepTime", sleepTime).put("priorities", priorities)
         .put("foodPreferences", food).put("dietaryRestrictions", restrictions).put("assistantStyle", style)
@@ -943,10 +1021,14 @@ private fun playNativeVoice(file: java.io.File) {
     } catch (_: Exception) { file.delete() }
 }
 
-private fun sendNativeMessage(baseUrl: String, history: List<Pair<String, String>>, profile: JSONObject, preferredProvider: String): Pair<Boolean, String> {
+private fun sendNativeMessage(baseUrl: String, history: List<Pair<String, String>>, profile: JSONObject, preferredProvider: String, attachment: JSONObject? = null): Pair<Boolean, String> {
     return try {
         val messages = JSONArray()
         history.takeLast(20).forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
+        if (attachment != null && messages.length() > 0) {
+            val last = messages.optJSONObject(messages.length() - 1)
+            if (last != null) last.put(if (attachment.optString("mimeType").startsWith("image/")) "image" else "document", attachment)
+        }
         val payload = JSONObject().put("messages", messages).put("profile", profile).apply { if (preferredProvider.isNotBlank()) put("preferredProvider", preferredProvider) }
         val connection = (URL("$baseUrl/api/chat").openConnection() as HttpURLConnection)
         connection.requestMethod = "POST"
