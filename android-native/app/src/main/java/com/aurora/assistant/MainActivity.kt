@@ -14,6 +14,8 @@ import android.provider.OpenableColumns
 import android.util.Base64
 import android.net.Uri
 import android.media.MediaPlayer
+import android.graphics.Bitmap
+import java.io.ByteArrayOutputStream
 import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -167,6 +169,18 @@ private fun AuroraNativeApp() {
     var voiceRepliesEnabled by remember { mutableStateOf(prefs.getBoolean("voice_replies", true)) }
     var selectedVoice by remember { mutableStateOf(prefs.getString("selected_voice", "jessica") ?: "jessica") }
     val scope = rememberCoroutineScope()
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) {
+            val output = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 88, output)
+            val encoded = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+            pendingAttachment = JSONObject().put("mimeType", "image/jpeg").put("data", encoded)
+            attachmentLabel = "camera-photo.jpg"
+            draft = "Please examine this photo and describe what is important. Read any visible text and help me understand it."
+            chatError = ""
+            page = "Jarvis"
+        } else chatError = "No photo was captured."
+    }
     val documentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
@@ -531,6 +545,7 @@ private fun AuroraNativeApp() {
                             }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                                 OutlinedButton(onClick = { documentLauncher.launch(arrayOf("image/jpeg", "image/png", "image/webp", "application/pdf", "text/plain", "text/markdown", "text/csv", "application/json")) }, shape = CircleShape, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp)) { Text("+") }
+                                OutlinedButton(onClick = { runCatching { cameraLauncher.launch(null) }.onFailure { chatError = "Camera isn't available on this device." } }, shape = CircleShape, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp)) { Text("📷") }
                                 OutlinedTextField(value = draft, onValueChange = { draft = it }, placeholder = { Text("Message AURORA…") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp), maxLines = 4)
                                 OutlinedButton(onClick = {
                                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
