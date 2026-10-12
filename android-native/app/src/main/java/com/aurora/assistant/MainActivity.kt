@@ -84,6 +84,8 @@ private fun AuroraNativeApp() {
     var toolBusy by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf(prefs.getString("profile_name", "") ?: "") }
     var profileNickname by remember { mutableStateOf(prefs.getString("profile_nickname", "") ?: "") }
+    var profileWakeTime by remember { mutableStateOf(prefs.getString("profile_wake_time", "") ?: "") }
+    var profileSleepTime by remember { mutableStateOf(prefs.getString("profile_sleep_time", "") ?: "") }
     var profilePriorities by remember { mutableStateOf(prefs.getString("profile_priorities", "") ?: "") }
     var profileFood by remember { mutableStateOf(prefs.getString("profile_food", "") ?: "") }
     var profileRestrictions by remember { mutableStateOf(prefs.getString("profile_restrictions", "") ?: "") }
@@ -277,6 +279,11 @@ private fun AuroraNativeApp() {
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(value = profileNickname, onValueChange = { profileNickname = it }, label = { Text("Preferred name / nickname") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
                             Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(value = profileWakeTime, onValueChange = { profileWakeTime = it }, label = { Text("Wake-up time") }, placeholder = { Text("07:00") }, singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp))
+                                OutlinedTextField(value = profileSleepTime, onValueChange = { profileSleepTime = it }, label = { Text("Sleep time") }, placeholder = { Text("22:30") }, singleLine = true, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp))
+                            }
+                            Spacer(Modifier.height(8.dp))
                             OutlinedTextField(value = profilePriorities, onValueChange = { profilePriorities = it }, label = { Text("Daily priorities") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), maxLines = 2)
                             Spacer(Modifier.height(8.dp))
                             OutlinedTextField(value = profileFood, onValueChange = { profileFood = it }, label = { Text("Food preferences") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), maxLines = 2)
@@ -326,6 +333,7 @@ private fun AuroraNativeApp() {
                             Spacer(Modifier.height(10.dp))
                             Button(onClick = {
                                 prefs.edit().putString("profile_name", profileName).putString("profile_nickname", profileNickname)
+                                    .putString("profile_wake_time", profileWakeTime).putString("profile_sleep_time", profileSleepTime)
                                     .putString("profile_priorities", profilePriorities).putString("profile_food", profileFood)
                                     .putString("profile_restrictions", profileRestrictions).putString("assistant_style", assistantStyle).apply()
                                 chatError = "Profile saved on this device."
@@ -405,7 +413,7 @@ private fun AuroraNativeApp() {
                                             val history = chatMessages + ("user" to prompt)
                                             chatMessages = history; draft = ""; chatBusy = true; chatError = ""
                                             scope.launch {
-                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider) }
+                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider) }
                                                 chatBusy = false
                                                 if (result.first) {
                                                     chatMessages = chatMessages + ("assistant" to result.second)
@@ -694,8 +702,8 @@ private fun saveActivityItems(prefs: android.content.SharedPreferences, items: L
     prefs.edit().putString("activity_items", array.toString()).apply()
 }
 
-private fun nativeProfileJson(name: String, nickname: String, priorities: String, food: String, restrictions: String, style: String): JSONObject {
-    return JSONObject().put("name", name).put("nickname", nickname).put("priorities", priorities)
+private fun nativeProfileJson(name: String, nickname: String, wakeTime: String, sleepTime: String, priorities: String, food: String, restrictions: String, style: String): JSONObject {
+    return JSONObject().put("name", name).put("nickname", nickname).put("wakeTime", wakeTime).put("sleepTime", sleepTime).put("priorities", priorities)
         .put("foodPreferences", food).put("dietaryRestrictions", restrictions).put("assistantStyle", style)
 }
 
