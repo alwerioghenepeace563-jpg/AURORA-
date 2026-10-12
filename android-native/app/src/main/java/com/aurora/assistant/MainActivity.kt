@@ -323,8 +323,8 @@ private fun NativeActionCard(title: String, subtitle: String, onClick: () -> Uni
 }
 
 @Composable
-private fun SuggestionChip(label: String, onClick: () -> Unit) {
-    Text(label, color = Cyan, fontSize = 11.sp, modifier = Modifier.clip(RoundedCornerShape(24.dp)).border(1.dp, Cyan.copy(alpha = .35f), RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(horizontal = 11.dp, vertical = 9.dp))
+private fun SuggestionChip(label: String, selected: Boolean = false, onClick: () -> Unit) {
+    Text(label, color = if (selected) Night else Cyan, fontSize = 11.sp, modifier = Modifier.clip(RoundedCornerShape(24.dp)).background(if (selected) Cyan else Color.Transparent).border(1.dp, Cyan.copy(alpha = .35f), RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(horizontal = 11.dp, vertical = 9.dp))
 }
 
 @Composable
