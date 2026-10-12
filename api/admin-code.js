@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  try {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST." });
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
@@ -129,4 +130,9 @@ export default async function handler(req, res) {
     const pr = await gh("/pulls", { method: "POST", body: JSON.stringify({ title: "AURORA Executor: " + String(patch.summary || "Code update").slice(0, 150), head: branch, base: branchBase, body: "Requested change: " + prompt + "\n\nSummary: " + String(patch.summary || "Code update") + "\n\nFiles: " + [...new Set(changed)].join(", ") + "\n\nPlease review and run the build before merging." }) });
     return res.status(200).json({ ok: true, summary: patch.summary || "Code changes prepared", filesChanged: [...new Set(changed)], pullRequest: { number: pr.number, url: pr.html_url, title: pr.title }, checks: patch.checks || [], message: "Changes are in a review pull request. Merge it to deploy." });
   } catch (error) { return res.status(500).json({ error: String(error.message || "Code editing failed").slice(0, 400) }); }
+  } catch (error) {
+    console.error("AURORA Executor handler failure:", error);
+    if (!res.headersSent) return res.status(500).json({ error: "Executor server failure: " + String(error?.message || "unexpected runtime error").slice(0, 240) });
+    return res.end();
+  }
 }
