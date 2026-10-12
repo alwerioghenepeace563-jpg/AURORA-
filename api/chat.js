@@ -58,6 +58,7 @@ export default async function handler(req, res) {
   const clean = (value, max = 300) => typeof value === "string" ? value.trim().slice(0, max) : "";
   const styleGuidance = {
     warm: "Use a warm, direct, encouraging style.",
+    strict: "Be firm, focused, and accountable without being rude or shaming. State the priority clearly, challenge avoidance constructively, and give practical next steps.",
     concise: "Keep answers short and direct unless more detail is requested.",
     teacher: "Teach clearly and step by step, with examples when useful.",
     calm: "Use a calm, structured style with clear next steps."
@@ -217,7 +218,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("AURORA chat function error:", error);
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
-      return res.status(504).json({ error: "Gemini took too long to respond. Please try again in a moment." });
+      return res.status(504).json({ error: "AURORA's AI providers took too long to respond. Please try again in a moment." });
     }
     return res.status(502).json({ error: "Could not reach the AI service." });
   }
