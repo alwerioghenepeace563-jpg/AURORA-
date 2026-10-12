@@ -904,7 +904,7 @@ private fun fetchNativeVoice(baseUrl: String, text: String, voice: String, cache
             connection.disconnect()
             return null
         }
-        val file = java.io.File.createTempFile("aurora-voice-", ".audio", cacheDir)
+        val file = java.io.File.createTempFile("aurora-voice-", ".mp3", cacheDir)
         connection.inputStream.use { input -> file.outputStream().use { output -> input.copyTo(output) } }
         connection.disconnect()
         if (file.length() > 0) file else null
