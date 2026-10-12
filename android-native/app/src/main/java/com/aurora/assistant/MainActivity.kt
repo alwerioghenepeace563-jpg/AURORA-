@@ -187,7 +187,7 @@ private fun AuroraNativeApp() {
                     "Jarvis" -> {
                         Column(Modifier.fillMaxSize()) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                NativeOrb()
+                                NativeOrb(100.dp)
                                 Column(Modifier.weight(1f)) {
                                     Text("AURORA", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Light, letterSpacing = 4.sp)
                                     Text(if (backendUrl.isBlank()) "SET UP AI CONNECTION IN PROFILE" else "PERSONAL AI ASSISTANT", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
@@ -317,14 +317,14 @@ private fun NativeTab(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NativeOrb() {
+private fun NativeOrb(size: androidx.compose.ui.unit.Dp = 238.dp) {
     val transition = rememberInfiniteTransition(label = "aurora-orb")
     val pulse by transition.animateFloat(
         initialValue = 0.92f, targetValue = 1.08f,
         animationSpec = infiniteRepeatable(tween(1900), RepeatMode.Reverse),
         label = "pulse"
     )
-    Canvas(Modifier.size(238.dp)) {
+    Canvas(Modifier.size(size)) {
         val c = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * .27f * pulse
         drawCircle(Brush.radialGradient(listOf(Cyan.copy(alpha = .23f), Color(0xFF3678FF).copy(alpha = .10f), Color.Transparent), c, size.minDimension * .49f), size.minDimension * .49f, c)
