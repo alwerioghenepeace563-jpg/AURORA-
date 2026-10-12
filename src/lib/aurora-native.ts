@@ -13,6 +13,8 @@ type AuroraNativePlugin = {
   stopAssistantService(): Promise<{ stopped: boolean }>;
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   openAccessibilitySettings(): Promise<void>;
+  readScreen(): Promise<{ text: string }>;
+  clickVisibleText(options: { text: string }): Promise<{ clicked: boolean }>;
   status(): Promise<AuroraNativeStatus>;
 };
 
@@ -41,5 +43,13 @@ export const auroraNative = {
   openAccessibilitySettings: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Accessibility settings are available only in the Android app.");
     return AuroraNative.openAccessibilitySettings();
+  },
+  readScreen: async () => {
+    if (!Capacitor.isNativePlatform()) throw new Error("Screen reading is available only in the Android app.");
+    return AuroraNative.readScreen();
+  },
+  clickVisibleText: async (text: string) => {
+    if (!Capacitor.isNativePlatform()) throw new Error("Screen actions are available only in the Android app.");
+    return AuroraNative.clickVisibleText({ text });
   },
 };
