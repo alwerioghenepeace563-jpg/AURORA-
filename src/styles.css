@@ -168,6 +168,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .message-rich-content .message-list{margin:0;padding-left:21px;display:flex;flex-direction:column;gap:5px;color:#d8e4f4;font-size:12px;line-height:1.72}
 .message-rich-content .message-list li{padding-left:2px;overflow-wrap:anywhere}
 .message-rich-content strong{font-weight:650;color:#f0f8ff}
+.message-rich-content .message-inline-link{color:#7bdcff;text-decoration:underline;text-decoration-color:rgba(123,220,255,.55);text-underline-offset:3px;overflow-wrap:anywhere;cursor:pointer}.message-rich-content .message-inline-link:hover{color:#c0f0ff;text-decoration-color:currentColor}
 .message-rich-content em{font-style:italic;color:#c8d8eb}
 .message-rich-content code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;color:#a8ecff;background:rgba(70,150,190,.12);padding:2px 5px;border-radius:5px}
 .message-rich-content .message-quote{margin:0;padding:9px 12px;border-left:2px solid rgba(98,213,255,.58);background:rgba(44,110,149,.09);border-radius:0 9px 9px 0;color:#b9d2e9;font-size:12px;line-height:1.7}
