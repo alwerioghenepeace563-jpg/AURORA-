@@ -5,7 +5,7 @@ on:
   push:
     branches: [main, feat/native-android-assistant]
     paths:
-      - "src/**"\n      - "scripts/**"
+      - "src/**"\n      - "scripts/**"\n      - "android-native/**"
       - "api/**"
       - "package.json"
       - "capacitor.config.json"
@@ -37,6 +37,10 @@ jobs:
         run: npx cap add android
       - name: Install native assistant foundation
         run: node scripts/patch-android-native.mjs
+      - name: Install native assistant foundation
+        run: node scripts/patch-android-native.mjs
+      - name: Install accessibility screen assistant
+        run: node scripts/patch-android-accessibility.mjs
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Build debug APK
