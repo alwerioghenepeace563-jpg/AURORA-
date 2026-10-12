@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -67,8 +68,16 @@ private fun AuroraNativeApp() {
     var draft by remember { mutableStateOf("") }
     var chatBusy by remember { mutableStateOf(false) }
     var chatError by remember { mutableStateOf("") }
-    var chatMessages by remember { mutableStateOf(listOf<Pair<String, String>>()) }
+    var chatMessages by remember { mutableStateOf(loadNativeHistory(prefs)) }
+    var profileName by remember { mutableStateOf(prefs.getString("profile_name", "") ?: "") }
+    var profileNickname by remember { mutableStateOf(prefs.getString("profile_nickname", "") ?: "") }
+    var profilePriorities by remember { mutableStateOf(prefs.getString("profile_priorities", "") ?: "") }
+    var profileFood by remember { mutableStateOf(prefs.getString("profile_food", "") ?: "") }
+    var profileRestrictions by remember { mutableStateOf(prefs.getString("profile_restrictions", "") ?: "") }
+    var assistantStyle by remember { mutableStateOf(prefs.getString("assistant_style", "warm") ?: "warm") }
+    var preferredProvider by remember { mutableStateOf(prefs.getString("preferred_provider", "") ?: "") }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(chatMessages) { saveNativeHistory(prefs, chatMessages) }
 
     MaterialTheme(colorScheme = darkColorScheme(
         background = Night, surface = Panel, primary = Cyan,
@@ -152,7 +161,31 @@ private fun AuroraNativeApp() {
                             Spacer(Modifier.height(8.dp))
                             Text("Profile & settings", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(8.dp))
-                            Text("Configure the native connection now. The full profile fields will be ported from the web app in Batch 3.", color = Muted, fontSize = 13.sp)
+                            Text("Your preferences are sent with AI requests and saved on this device.", color = Muted, fontSize = 13.sp)
+                            Spacer(Modifier.height(18.dp))
+                            OutlinedTextField(value = profileName, onValueChange = { profileName = it }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(value = profileNickname, onValueChange = { profileNickname = it }, label = { Text("Preferred name / nickname") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(value = profilePriorities, onValueChange = { profilePriorities = it }, label = { Text("Daily priorities") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), maxLines = 2)
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(value = profileFood, onValueChange = { profileFood = it }, label = { Text("Food preferences") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), maxLines = 2)
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(value = profileRestrictions, onValueChange = { profileRestrictions = it }, label = { Text("Dietary restrictions") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), maxLines = 2)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Assistant style", color = Muted, fontSize = 12.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("warm", "direct", "detailed", "calm").forEach { style ->
+                                    SuggestionChip(style.replaceFirstChar { it.uppercase() }, style == assistantStyle) { assistantStyle = style }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Button(onClick = {
+                                prefs.edit().putString("profile_name", profileName).putString("profile_nickname", profileNickname)
+                                    .putString("profile_priorities", profilePriorities).putString("profile_food", profileFood)
+                                    .putString("profile_restrictions", profileRestrictions).putString("assistant_style", assistantStyle).apply()
+                                chatError = "Profile saved on this device."
+                            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) { Text("Save profile", fontWeight = FontWeight.Bold) }
                             Spacer(Modifier.height(18.dp))
                             NativeActionCard("AI connection", "Use the existing AURORA /api/chat backend") { page = "Settings" }
                             Spacer(Modifier.height(10.dp))
@@ -220,7 +253,7 @@ private fun AuroraNativeApp() {
                                             val history = chatMessages + ("user" to prompt)
                                             chatMessages = history; draft = ""; chatBusy = true; chatError = ""
                                             scope.launch {
-                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history) }
+                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider) }
                                                 chatBusy = false
                                                 if (result.first) chatMessages = chatMessages + ("assistant" to result.second) else chatError = result.second
                                             }
@@ -362,11 +395,35 @@ private fun checkLatestRelease(): JSONObject? {
     } catch (_: Exception) { null }
 }
 
-private fun sendNativeMessage(baseUrl: String, history: List<Pair<String, String>>): Pair<Boolean, String> {
+
+private fun nativeProfileJson(name: String, nickname: String, priorities: String, food: String, restrictions: String, style: String): JSONObject {
+    return JSONObject().put("name", name).put("nickname", nickname).put("priorities", priorities)
+        .put("foodPreferences", food).put("dietaryRestrictions", restrictions).put("assistantStyle", style)
+}
+
+private fun loadNativeHistory(prefs: android.content.SharedPreferences): List<Pair<String, String>> {
+    return try {
+        val array = JSONArray(prefs.getString("chat_history", "[]") ?: "[]")
+        (0 until array.length()).mapNotNull { i ->
+            val item = array.optJSONObject(i) ?: return@mapNotNull null
+            val role = item.optString("role")
+            val content = item.optString("content")
+            if (role in listOf("user", "assistant") && content.isNotBlank()) role to content else null
+        }.takeLast(80)
+    } catch (_: Exception) { emptyList() }
+}
+
+private fun saveNativeHistory(prefs: android.content.SharedPreferences, history: List<Pair<String, String>>) {
+    val array = JSONArray()
+    history.takeLast(80).forEach { (role, content) -> array.put(JSONObject().put("role", role).put("content", content)) }
+    prefs.edit().putString("chat_history", array.toString()).apply()
+}
+
+private fun sendNativeMessage(baseUrl: String, history: List<Pair<String, String>>, profile: JSONObject, preferredProvider: String): Pair<Boolean, String> {
     return try {
         val messages = JSONArray()
         history.takeLast(20).forEach { (role, content) -> messages.put(JSONObject().put("role", role).put("content", content)) }
-        val payload = JSONObject().put("messages", messages).put("profile", JSONObject())
+        val payload = JSONObject().put("messages", messages).put("profile", profile).apply { if (preferredProvider.isNotBlank()) put("preferredProvider", preferredProvider) }
         val connection = (URL("$baseUrl/api/chat").openConnection() as HttpURLConnection)
         connection.requestMethod = "POST"
         connection.setRequestProperty("Content-Type", "application/json")
