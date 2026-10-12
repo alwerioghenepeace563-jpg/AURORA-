@@ -1,0 +1,13 @@
+{
+  "appId": "com.aurora.assistant",
+  "appName": "AURORA",
+  "webDir": "dist",
+  "server": {
+    "url": "https://aurora-ten-gold.vercel.app",
+    "cleartext": false,
+    "allowNavigation": ["aurora-ten-gold.vercel.app"]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
