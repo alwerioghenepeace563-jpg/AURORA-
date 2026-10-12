@@ -33,13 +33,42 @@ export default async function handler(req, res) {
       });
     }
 
+    const assets = Array.isArray(release.assets) ? release.assets : [];
+    if (String(req.query?.download || "") === "1") {
+      const apk = assets.find((asset) => typeof asset.name === "string" && asset.name.toLowerCase().endsWith(".apk"));
+      if (!apk) return res.status(404).json({ error: "The latest release does not include an APK yet." });
+      if (!token) return res.status(503).json({ error: "AURORA_GITHUB_TOKEN must be configured on the server to retrieve private release assets." });
+      const assetResponse = await fetch("https://api.github.com/repos/" + repository + "/releases/assets/" + encodeURIComponent(apk.id), {
+        method: "GET",
+        headers: {
+          Accept: "application/octet-stream",
+          Authorization: "Bearer " + token,
+          "X-GitHub-Api-Version": "2022-11-28",
+          "User-Agent": "AURORA-Android-Updater"
+        },
+        redirect: "manual",
+        cache: "no-store"
+      });
+      const temporaryUrl = assetResponse.headers.get("location");
+      if (assetResponse.status >= 300 && assetResponse.status < 400 && temporaryUrl) {
+        return res.status(200).json({
+          tag_name: release.tag_name || "",
+          asset_name: apk.name,
+          size: Number(apk.size || 0),
+          download_url: temporaryUrl
+        });
+      }
+      console.error("AURORA APK download URL request returned:", assetResponse.status);
+      return res.status(502).json({ error: "GitHub did not provide a temporary APK download link. Try opening the release page." });
+    }
+
     return res.status(200).json({
       tag_name: release.tag_name || "",
       name: release.name || release.tag_name || "AURORA release",
       body: typeof release.body === "string" ? release.body.slice(0, 5000) : "",
       html_url: release.html_url || "",
       published_at: release.published_at || null,
-      assets: Array.isArray(release.assets) ? release.assets.map((asset) => ({
+      assets: assets.map((asset) => ({
         name: asset.name || "",
         size: Number(asset.size || 0),
         browser_download_url: asset.browser_download_url || ""
