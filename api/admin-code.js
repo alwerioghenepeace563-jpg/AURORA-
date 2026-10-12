@@ -36,34 +36,35 @@ export default async function handler(req, res) {
       let excerpt = content;
       const lines = content.split("\n");
       if (path === "src/App.jsx") {
-        const anchors = [];
-        // Include known UI anchors plus prompt-specific terms so requests can target more than the Home page.
-        const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
-        const promptPatterns = [...new Set(promptTerms)].slice(0, 18).map(term => new RegExp(term, "i"));
-        // Include contiguous source windows, not isolated matching lines, so exact patches can be grounded.
-        const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i, ...promptPatterns];
-        for (const pattern of patterns) {
-          lines.forEach((line, index) => {
-            if (pattern.test(line)) anchors.push([Math.max(0, index - 8), Math.min(lines.length, index + 14)]);
-          });
+        const lowerPrompt = prompt.toLowerCase();
+        // Prioritize the actual Home JSX for Home/hero/subtitle edits. Generic words can
+        // match hundreds of lines and otherwise push the useful section out of the excerpt.
+        const homeIndex = lines.findIndex(line => /page === ["']home["']/.test(line));
+        const isHomeHeroRequest = /home|homepage|hero|subtitle|headline|tagline/.test(lowerPrompt);
+        if (homeIndex >= 0 && isHomeHeroRequest) {
+          const startLine = Math.max(0, homeIndex - 3);
+          const endLine = Math.min(lines.length, homeIndex + 38);
+          excerpt = "[lines " + (startLine + 1) + "-" + endLine + "]\\n" +
+            lines.slice(startLine, endLine).map((line, i) => String(startLine + i + 1).padStart(4, " ") + ": " + line).join("\\n");
+        } else {
+          const anchors = [];
+          const promptTerms = (lowerPrompt.match(/[a-z][a-z0-9_-]{5,}/g) || [])
+            .filter(term => !["change", "please", "update", "modify", "aurora", "current", "existing", "screen", "layout"].includes(term));
+          const promptPatterns = [...new Set(promptTerms)].slice(0, 12).map(term => new RegExp(term, "i"));
+          const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i, ...promptPatterns];
+          for (const pattern of patterns) {
+            lines.forEach((line, index) => {
+              if (pattern.test(line)) anchors.push([Math.max(0, index - 6), Math.min(lines.length, index + 12)]);
+            });
+          }
+          const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
+            const last = acc[acc.length - 1];
+            if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+            else acc.push(range.slice());
+            return acc;
+          }, []);
+          excerpt = ranges.map(([startLine, endLine]) => "[lines " + (startLine + 1) + "-" + endLine + "]\\n" + lines.slice(startLine, endLine).join("\\n")).join("\\n...\\n").slice(0, 5500);
         }
-        const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
-          const last = acc[acc.length - 1];
-          if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
-          else acc.push(range.slice());
-          return acc;
-        }, []);
-        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).join("\n")).join("\n...\n");
-        // Keep the Home hero block first so broad prompt matches cannot crowd the target text out of the excerpt.
-        if (/home|subtitle|hero|welcome/i.test(prompt)) {
-          const homeIndex = lines.findIndex(line => /className="home-screen"/i.test(line));
-          if (homeIndex >= 0) {
-            const homeStart = Math.max(0, homeIndex - 5);
-            const homeEnd = Math.min(lines.length, homeIndex + 65);
-            const homeExcerpt = "[priority Home block: lines " + (homeStart + 1) + "-" + homeEnd + "]\n" + lines.slice(homeStart, homeEnd).join("\n");
-            excerpt = (homeExcerpt + "\n...\n" + excerpt).slice(0, 5500);
-          } else excerpt = excerpt.slice(0, 5500);
-        } else excerpt = excerpt.slice(0, 5500);
       }
       if (path === "src/styles.css") {
         const anchors = [];
