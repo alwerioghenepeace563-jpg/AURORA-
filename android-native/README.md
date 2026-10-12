@@ -15,7 +15,24 @@ The preview APK uses a separate debug package ID (`com.aurora.assistant.nativepr
 ## Important status
 The current project is a native UI foundation, not yet a complete port of every web screen or AI feature. The next work is to port the existing app screens and connect the native chat/voice flows to the same secure backend.
 
-The Updates screen checks release metadata through the web backend route `/api/app-update` and opens a release page; it does not download or install updates yet. For this private repository, add `AURORA_GITHUB_TOKEN` as a server-side secret in the deployed web app environment (read-only access to repository releases is sufficient). Never put the token in the APK or commit it to Git. Before implementing in-app APK download/install, choose an APK hosting path that installed users can reach, use the final application ID, and sign every release with the same private signing key. Android must still ask the user to approve installation.
+The Updates screen checks release metadata through /api/app-update. Once a signed APK is attached to a GitHub Release and AURORA_GITHUB_TOKEN is configured server-side, the native updater can request a short-lived download URL, download the APK, and hand it to Android's installer. Android requires user approval; the app cannot silently install itself. Never put the GitHub token in the APK or commit it to Git.
+
+
+## Signed releases and updates
+
+The release workflow is .github/workflows/android-native-release.yml. It runs for tags like aurora-v0.1.1 or by manually running the workflow on a tag.
+
+Before creating the first release, create one long-lived Android signing keystore on a trusted computer and keep a secure backup. Never regenerate or lose it after publishing an APK, because updates must use the same signing key.
+
+Add these GitHub repository Actions secrets:
+- AURORA_KEYSTORE_BASE64 — the keystore file encoded as Base64
+- AURORA_KEYSTORE_PASSWORD
+- AURORA_KEY_ALIAS
+- AURORA_KEY_PASSWORD
+
+Add AURORA_GITHUB_TOKEN as a server-side secret in the deployed web app environment. Use a fine-grained token with read-only access to the AURORA repository contents/releases. Redeploy the web app after adding it. Do not name it with a VITE_ prefix.
+
+The debug preview package is com.aurora.assistant.nativepreview; the signed release package is com.aurora.assistant. The first release installs as a separate app from the debug preview. Later signed releases can update the release app only when the package ID and signing key remain unchanged.
 
 ## Keep the web app safe
 Continue native work only on `feat/true-native-android`. Do not replace or delete the existing web app as part of the native port.
