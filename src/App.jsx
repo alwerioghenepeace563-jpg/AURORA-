@@ -672,20 +672,6 @@ export default function App() {
       await auroraNative.stopAssistantService();
       return { handled: true, reply: "AURORA's background service has been stopped." };
     }
-    if (/^(?:open|enable|set up)\s+(?:aurora'?s?\s+)?(?:screen reading|accessibility)(?: settings)?[.!]?$/i.test(value)) {
-      await auroraNative.openAccessibilitySettings();
-      return { handled: true, reply: "Android Accessibility settings are open. Find AURORA Screen Assistant and enable it only if you want to allow screen reading and accessible actions." };
-    }
-    if (/^(?:read|what is on|what's on|describe)\s+(?:my\s+)?(?:phone\s+)?screen[.!?]?$/i.test(value)) {
-      const result = await auroraNative.readScreen();
-      if (!result.text.trim()) return { handled: true, reply: "I couldn't find readable text on the current screen. Some apps don't expose their screen content to accessibility." };
-      return { handled: false, context: result.text };
-    }
-    const clickMatch = value.match(/^(?:please\s+)?(?:tap|click|select)\s+["“]?(.+?)["”]?[.!]?$/i);
-    if (clickMatch && clickMatch[1] && clickMatch[1].length <= 100) {
-      await auroraNative.clickVisibleText(clickMatch[1]);
-      return { handled: true, reply: "Done. I activated the matching accessible control if it was available." };
-    }
     return null;
   }
 
