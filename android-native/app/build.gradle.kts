@@ -16,19 +16,22 @@ android {
         versionName = providers.gradleProperty("auroraVersionName").orNull ?: "0.1.0"
     }
 
-    signingConfigs {
-        create("release") {
-            storeFile = file(System.getenv("AURORA_KEYSTORE_PATH") ?: "release-key.jks")
-            storePassword = System.getenv("AURORA_KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("AURORA_KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("AURORA_KEY_PASSWORD") ?: ""
+    val releaseKeyPath = System.getenv("AURORA_KEYSTORE_PATH")
+    if (!releaseKeyPath.isNullOrBlank()) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeyPath)
+                storePassword = System.getenv("AURORA_KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("AURORA_KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("AURORA_KEY_PASSWORD") ?: ""
+            }
         }
     }
     buildTypes {
         debug { applicationIdSuffix = ".nativepreview" }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            if (!releaseKeyPath.isNullOrBlank()) signingConfig = signingConfigs.getByName("release")
         }
     }
 
