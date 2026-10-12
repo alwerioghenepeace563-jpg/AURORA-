@@ -15,7 +15,7 @@ The preview APK uses a separate debug package ID (`com.aurora.assistant.nativepr
 ## Important status
 The current project is a native UI foundation, not yet a complete port of every web screen or AI feature. The next work is to port the existing app screens and connect the native chat/voice flows to the same secure backend.
 
-The Updates screen currently checks GitHub's latest-release API and opens a release page; it does not download or install updates yet. The repository is private, so the unauthenticated GitHub release endpoint may not be accessible from the installed app. Do not put a GitHub token or other secret in the APK. Before implementing in-app APK download/install, configure a public update feed or a secure backend proxy, use the final application ID, and sign every release with the same private signing key. Android must still ask the user to approve installation.
+The Updates screen checks release metadata through the web backend route `/api/app-update` and opens a release page; it does not download or install updates yet. For this private repository, add `AURORA_GITHUB_TOKEN` as a server-side secret in the deployed web app environment (read-only access to repository releases is sufficient). Never put the token in the APK or commit it to Git. Before implementing in-app APK download/install, choose an APK hosting path that installed users can reach, use the final application ID, and sign every release with the same private signing key. Android must still ask the user to approve installation.
 
 ## Keep the web app safe
 Continue native work only on `feat/true-native-android`. Do not replace or delete the existing web app as part of the native port.
