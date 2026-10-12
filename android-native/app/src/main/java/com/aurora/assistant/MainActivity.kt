@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -407,10 +408,18 @@ private fun NativeOrb(size: androidx.compose.ui.unit.Dp = 238.dp) {
     Canvas(Modifier.size(size)) {
         val c = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * .27f * pulse
-        drawCircle(Brush.radialGradient(listOf(Cyan.copy(alpha = .23f), Color(0xFF3678FF).copy(alpha = .10f), Color.Transparent), c, size.minDimension * .49f), size.minDimension * .49f, c)
-        drawCircle(Brush.radialGradient(listOf(Color(0xFFBDF9FF), Cyan, Color(0xFF1455A8), Color(0xFF07152B)), c, radius * 1.5f), radius * 1.5f, c)
-        drawCircle(Cyan.copy(alpha = .55f), radius * 1.68f, c, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.2.dp.toPx()))
-        drawCircle(Color.White.copy(alpha = .75f), radius * .32f, Offset(c.x - radius * .35f, c.y - radius * .4f))
+        drawCircle(Brush.radialGradient(listOf(Cyan.copy(alpha = .28f), Color(0xFF3678FF).copy(alpha = .12f), Color.Transparent), c, size.minDimension * .49f), size.minDimension * .49f, c)
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFECFEFF), Color(0xFF9AF1FF), Cyan, Color(0xFF1455A8), Color(0xFF07152B)), c, radius * 1.5f), radius * 1.5f, c)
+        drawCircle(Cyan.copy(alpha = .62f), radius * 1.68f, c, style = Stroke(width = 1.2.dp.toPx()))
+        rotate(32f, c) {
+            drawOval(Cyan.copy(alpha = .46f), topLeft = Offset(c.x - radius * 2.15f, c.y - radius * .72f), size = androidx.compose.ui.geometry.Size(radius * 4.3f, radius * 1.44f), style = Stroke(width = 1.1.dp.toPx()))
+        }
+        rotate(-32f, c) {
+            drawOval(Color(0xFF4B8DFF).copy(alpha = .42f), topLeft = Offset(c.x - radius * 1.9f, c.y - radius * .58f), size = androidx.compose.ui.geometry.Size(radius * 3.8f, radius * 1.16f), style = Stroke(width = 1.dp.toPx()))
+        }
+        drawCircle(Color.White.copy(alpha = .86f), radius * .32f, Offset(c.x - radius * .35f, c.y - radius * .4f))
+        drawCircle(Cyan, radius * .055f, Offset(c.x + radius * 1.48f, c.y - radius * .9f))
+        drawCircle(Color(0xFF7B9DFF), radius * .045f, Offset(c.x - radius * 1.42f, c.y + radius * .72f))
     }
 }
 
