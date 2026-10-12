@@ -148,6 +148,26 @@ function evaluateArithmetic(expression) {
   if (index !== source.length || !Number.isFinite(result)) throw new Error("That expression is incomplete or produces an invalid result.");
   return result;
 }
+function parseQuizPayload(raw) {
+  const source = String(raw || "").trim().replace(/^\x60{3}(?:json)?\s*/i, "").replace(/\s*\x60{3}$/i, "").trim();
+  const start = source.indexOf("{");
+  const end = source.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("The quiz response was not in the expected format. Please generate the quiz again.");
+  let parsed;
+  try { parsed = JSON.parse(source.slice(start, end + 1)); }
+  catch { throw new Error("AURORA could not read the quiz structure. Please generate it again."); }
+  const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+  const cleaned = questions.map((item) => {
+    const options = Array.isArray(item?.options) ? item.options.map((option) => typeof option === "string" ? option.trim() : String(option?.text || option?.label || "").trim()).filter(Boolean).slice(0, 4) : [];
+    let answerIndex = Number.isInteger(item?.answerIndex) ? item.answerIndex : Number.isInteger(item?.correctIndex) ? item.correctIndex : -1;
+    if (answerIndex < 0 && typeof item?.answer === "string") answerIndex = options.findIndex((option) => option.toLowerCase() === item.answer.trim().toLowerCase());
+    if (answerIndex < 0 && typeof item?.correctAnswer === "string") answerIndex = options.findIndex((option) => option.toLowerCase() === item.correctAnswer.trim().toLowerCase());
+    return { question: String(item?.question || item?.prompt || "").trim(), options, answerIndex, explanation: String(item?.explanation || item?.feedback || "").trim() };
+  }).filter((item) => item.question && item.options.length === 4 && item.answerIndex >= 0 && item.answerIndex < 4);
+  if (cleaned.length < 2) throw new Error("AURORA did not return enough valid multiple-choice questions. Try a clearer topic or generate the quiz again.");
+  return { title: String(parsed.title || "CBT Practice").trim(), questions: cleaned.slice(0, 20) };
+}
+
 function convertMeasurement(input) {
   const match = String(input || "").trim().match(/^(-?\d+(?:\.\d+)?)\s*([a-zA-Z°/]+)\s+(?:to|in|into)\s+([a-zA-Z°/]+)$/i);
   if (!match) throw new Error("Use this format: 12 km to miles, 25 C to F, or 500 g to kg.");
@@ -285,6 +305,9 @@ export default function App() {
   const [toolMode, setToolMode] = useState("Improve and polish");
   const [toolSubject, setToolSubject] = useState("General");
   const [toolResult, setToolResult] = useState(null);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizAnswers, setQuizAnswers] = useState([]);
+  const [quizFinished, setQuizFinished] = useState(false);
   const [toolBusy, setToolBusy] = useState(false);
   const [tasks, setTasks] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-tasks") || "[]"); } catch { return []; } });
   const [notes, setNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-notes") || "[]"); } catch { return []; } });
@@ -575,6 +598,9 @@ export default function App() {
     setToolImage(null);
     setToolImagePreview("");
     setToolResult(null);
+    setQuizIndex(0);
+    setQuizAnswers([]);
+    setQuizFinished(false);
     setNotice("");
     setAttachmentOpen(false);
     setPage("tools");
@@ -583,6 +609,9 @@ export default function App() {
   function openToolsHome() {
     setToolScreen("home");
     setToolResult(null);
+    setQuizIndex(0);
+    setQuizAnswers([]);
+    setQuizFinished(false);
     setNotice("");
     setPage("tools");
   }
@@ -635,7 +664,7 @@ export default function App() {
         writing: "Act as AURORA's writing studio. Task: " + toolMode + ". Follow the selected task precisely. Preserve meaning and important details, match the requested audience and tone, and never invent facts, dates or promises. For a draft request, create a complete ready-to-use draft. For proofreading or polishing, preserve the original voice while correcting issues. Return the finished writing first.\n\nTEXT / BRIEF:\n" + value,
         study: "Act as AURORA study tutor. Subject: " + toolSubject + ". Teach the topic first, step by step, starting with the foundation and building toward deeper understanding. Explain why each step works and include a fully worked example when useful. Do not add a quiz, assignment or practice questions unless the user asks for them. Keep the lesson focused and manageable.\n\nTOPIC / QUESTION:\n" + value,
         summarize: "Act as AURORA's summarizer. Produce a clear title, a short plain-language overview, the most important points, key names/dates/numbers, and any actions or conclusions. Keep facts faithful to the supplied text and do not invent missing details.\n\nTEXT TO SUMMARIZE:\n" + value,
-        quiz: "Act as AURORA's quiz maker. Create 8 useful questions about the requested topic. Include a mix of multiple-choice and short-answer questions, provide an answer key in a separate final section, and explain why each correct answer is right. Match the difficulty to the user's wording; if they mention a school exam, make it exam-style.\n\nTOPIC OR SOURCE TEXT:\n" + value,
+        quiz: "Act as AURORA's CBT question writer. Create 10 exam-style multiple-choice questions about the requested topic/source, using exactly four options per question. Return ONLY valid JSON with this exact structure: {\\"title\\":\\"short quiz title\\",\\"questions\\":[{\\"question\\":\\"question text\\",\\"options\\":[\\"option A\\",\\"option B\\",\\"option C\\",\\"option D\\"],\\"answerIndex\\":0,\\"explanation\\":\\"brief explanation\\"}]}. answerIndex must be a zero-based integer from 0 to 3 matching the correct option. Do not include markdown fences, answer keys outside JSON, or any text before/after the JSON. Use only clear, objectively answerable questions and plausible distractors.\n\nTOPIC OR SOURCE TEXT:\n" + value,
         brainstorm: "Act as AURORA's Idea Studio. Help develop the user's idea with practical, distinct options. Start by clarifying the goal in one sentence, then give 8 varied ideas with a short explanation and one concrete next step. Avoid generic repetition.\n\nIDEA / CHALLENGE:\n" + value,
         image: "Act as AURORA's visual understanding assistant. Inspect the image attached to this message directly. Answer the user's question about what is visible, read clearly legible text when possible, distinguish observations from guesses, and say when a detail cannot be determined from the image. Do not tell the user to upload the image again when it is already attached.\n\nUSER REQUEST:\n" + (value || "Describe the image and explain its important details.")
       };
@@ -646,7 +675,15 @@ export default function App() {
       if (!response.ok) throw new Error(data.error || "This tool could not reach AURORA's AI service.");
       const reply = String(data.reply || "").trim();
       if (!reply) throw new Error("AURORA returned an empty result.");
-      setToolResult({ kind, input: value, reply });
+      if (kind === "quiz") {
+        const quizData = parseQuizPayload(reply);
+        setQuizIndex(0);
+        setQuizAnswers([]);
+        setQuizFinished(false);
+        setToolResult({ kind, input: value, reply, quizData });
+      } else {
+        setToolResult({ kind, input: value, reply });
+      }
     } catch (error) {
       setNotice(error.message || "The tool couldn't complete. Please try again.");
     } finally {
@@ -979,7 +1016,59 @@ export default function App() {
                   {notice && <div className="tool-notice" role="status">{notice}</div>}
                   {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
                   {toolResult && <div className="tool-result-panel"><div className="tool-result-heading"><div><span className="panel-eyebrow">YOUR RESULT</span><h3>{({search:"Search results",weather:"Current weather and forecast",translate:"Translation",writing:"Your writing",study:"Study session",summarize:"Your summary",quiz:"Your quiz",brainstorm:"Your ideas",image:"Image guidance"})[toolResult.kind] || "Tool result"}</h3></div><div className="tool-result-actions"><button type="button" className="outline-action" onClick={async () => { const text = toolResult.reply || (toolResult.results || []).map((item) => [item.title, item.snippet, item.url].filter(Boolean).join("\n")).join("\n\n"); try { if (!text || !navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(text); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}>Copy result</button>{toolResult.reply && <button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={14}/> Read aloud</button>}</div></div>
-                    {toolResult.kind === "search" ? <div className={/\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || "") ? "tool-search-results tool-news-feed" : "tool-search-results"}><div className="tool-search-summary"><span>{toolResult.results?.length || 0} stories for “{toolResult.query}”</span><small>Live search · {toolResult.source || "Web search"}</small></div>{(toolResult.results || []).map((item, index) => { const newsMode = /\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || ""); const host = (() => { try { return new URL(item.url).hostname.replace(/^www\./,""); } catch { return "Source"; } })(); const headline = (item.title || "").replace(/\s+-\s+[^-]+$/, ""); const category = /fuel|petrol|naira|econom|business|refinery|price/i.test(headline) ? "Economy & business" : /army|kidnap|security|attack|police|crash|military/i.test(headline) ? "Security" : /football|super eagles|goal|league|sports/i.test(headline) ? "Sports" : /election|president|government|minister|senate|politic/i.test(headline) ? "Politics" : "Top story"; return <article className={newsMode ? "tool-search-result tool-news-story" : "tool-search-result"} key={item.url || index}>{newsMode && <a className="tool-news-image" href={item.url} target="_blank" rel="noreferrer" aria-label={"Read "+headline}><span className="tool-news-image-placeholder"><Sparkles size={22}/><small>AURORA NEWS</small></span>{item.image && <img src={item.image} alt="" loading="lazy" referrerPolicy="no-referrer" onLoad={(e)=>{const fallback=e.currentTarget.parentElement?.querySelector(".tool-news-image-placeholder");if(fallback)fallback.style.display="none";}} onError={(e)=>{e.currentTarget.style.display="none";}}/>}</a>}<div className="tool-news-copy"><h4><a href={item.url} target="_blank" rel="noreferrer">{headline || item.url}</a></h4>{newsMode && <span className="tool-news-category">{category}</span>}{item.snippet && <p>{item.snippet}</p>}<a className="tool-search-url" href={item.url} target="_blank" rel="noreferrer">{host} ↗</a></div></article>;})}{!toolResult.results?.length && <p>No readable results came back. Try a more specific search.</p>}<div className="tool-news-more"><strong>More stories worth knowing</strong><p>Open any headline to read the full report from its publisher.</p><div>{["Politics & government","Fuel prices & cost of living","Security updates","Education & admissions","Football & entertainment"].map(topic=><button type="button" key={topic} onClick={()=>{setToolQuery(topic+" in Nigeria");setToolResult(null);setNotice("Topic added to the search field. Tap Search the web to load these results.");}}>{topic} <span>↗</span></button>)}</div></div></div> : toolResult.kind === "translate" ? <div className="tool-ai-result"><div className="tool-translation-result-label"><Languages size={15}/> {toolLanguage} translation</div><FormattedMessage content={toolResult.reply}/><div className="tool-result-actions"><button type="button" className="outline-action" onClick={async () => { try { if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(toolResult.reply); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}><Copy size={15}/> Copy text</button><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div></div> : <div className="tool-ai-result"><FormattedMessage content={toolResult.reply}/><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div>}
+                    {toolResult.kind === "search" ? <div className={/\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || "") ? "tool-search-results tool-news-feed" : "tool-search-results"}><div className="tool-search-summary"><span>{toolResult.results?.length || 0} stories for “{toolResult.query}”</span><small>Live search · {toolResult.source || "Web search"}</small></div>{(toolResult.results || []).map((item, index) => { const newsMode = /\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || ""); const host = (() => { try { return new URL(item.url).hostname.replace(/^www\./,""); } catch { return "Source"; } })(); const headline = (item.title || "").replace(/\s+-\s+[^-]+$/, ""); const category = /fuel|petrol|naira|econom|business|refinery|price/i.test(headline) ? "Economy & business" : /army|kidnap|security|attack|police|crash|military/i.test(headline) ? "Security" : /football|super eagles|goal|league|sports/i.test(headline) ? "Sports" : /election|president|government|minister|senate|politic/i.test(headline) ? "Politics" : "Top story"; return <article className={newsMode ? "tool-search-result tool-news-story" : "tool-search-result"} key={item.url || index}>{newsMode && <a className="tool-news-image" href={item.url} target="_blank" rel="noreferrer" aria-label={"Read "+headline}><span className="tool-news-image-placeholder"><Sparkles size={22}/><small>AURORA NEWS</small></span>{item.image && <img src={item.image} alt="" loading="lazy" referrerPolicy="no-referrer" onLoad={(e)=>{const fallback=e.currentTarget.parentElement?.querySelector(".tool-news-image-placeholder");if(fallback)fallback.style.display="none";}} onError={(e)=>{e.currentTarget.style.display="none";}}/>}</a>}<div className="tool-news-copy"><h4><a href={item.url} target="_blank" rel="noreferrer">{headline || item.url}</a></h4>{newsMode && <span className="tool-news-category">{category}</span>}{item.snippet && <p>{item.snippet}</p>}<a className="tool-search-url" href={item.url} target="_blank" rel="noreferrer">{host} ↗</a></div></article>;})}{!toolResult.results?.length && <p>No readable results came back. Try a more specific search.</p>}<div className="tool-news-more"><strong>More stories worth knowing</strong><p>Open any headline to read the full report from its publisher.</p><div>{["Politics & government","Fuel prices & cost of living","Security updates","Education & admissions","Football & entertainment"].map(topic=><button type="button" key={topic} onClick={()=>{setToolQuery(topic+" in Nigeria");setToolResult(null);setNotice("Topic added to the search field. Tap Search the web to load these results.");}}>{topic} <span>↗</span></button>)}</div></div></div> : toolResult.kind === "quiz" && toolResult.quizData ? <div className="cbt-practice" style={{ display: "grid", gap: 16 }}>
+                    {!quizFinished ? (() => {
+                      const quiz = toolResult.quizData;
+                      const question = quiz.questions[quizIndex];
+                      const progress = ((quizIndex + 1) / quiz.questions.length) * 100;
+                      return <div style={{ display: "grid", gap: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                          <div><span className="panel-eyebrow">CBT PRACTICE</span><h3 style={{ margin: "6px 0 0" }}>{quiz.title}</h3></div>
+                          <span style={{ color: "#9bdcff", fontSize: 13, fontWeight: 700 }}>Question {quizIndex + 1} of {quiz.questions.length}</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 999, background: "rgba(148,163,184,.18)", overflow: "hidden" }}><div style={{ width: progress + "%", height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#36d7ff,#8b7cff)", transition: "width .2s ease" }} /></div>
+                        <div style={{ border: "1px solid rgba(125,190,255,.2)", borderRadius: 18, padding: 18, background: "rgba(7,18,36,.5)" }}>
+                          <p style={{ color: "#8ccfff", fontSize: 12, fontWeight: 700, letterSpacing: ".12em", margin: "0 0 10px" }}>QUESTION {quizIndex + 1}</p>
+                          <h3 style={{ fontSize: 18, lineHeight: 1.55, margin: 0 }}>{question.question}</h3>
+                        </div>
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {question.options.map((option, optionIndex) => <button key={optionIndex} type="button" onClick={() => {
+                            if (quizAnswers[quizIndex] !== undefined) return;
+                            const updated = [...quizAnswers];
+                            updated[quizIndex] = optionIndex;
+                            setQuizAnswers(updated);
+                            if (quizIndex + 1 >= quiz.questions.length) setQuizFinished(true);
+                            else setQuizIndex(quizIndex + 1);
+                          }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "14px 15px", borderRadius: 14, border: "1px solid rgba(125,190,255,.22)", background: "rgba(12,27,49,.72)", color: "#e9f4ff", cursor: "pointer", fontSize: 14, lineHeight: 1.5 }}>
+                            <span style={{ flex: "0 0 30px", width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: 9, background: "rgba(66,190,255,.12)", color: "#9bdcff", fontWeight: 800 }}>{String.fromCharCode(65 + optionIndex)}</span><span>{option}</span>
+                          </button>)}
+                        </div>
+                        <p style={{ margin: 0, color: "#8ea6c1", fontSize: 12 }}>Choose one option to save your answer and move automatically to the next question.</p>
+                      </div>;
+                    })() : (() => {
+                      const quiz = toolResult.quizData;
+                      const score = quiz.questions.reduce((total, question, index) => total + (quizAnswers[index] === question.answerIndex ? 1 : 0), 0);
+                      return <div style={{ display: "grid", gap: 14 }}>
+                        <div style={{ padding: 20, borderRadius: 18, border: "1px solid rgba(91,211,255,.24)", background: "linear-gradient(145deg,rgba(17,45,73,.78),rgba(21,24,52,.78))" }}>
+                          <span className="panel-eyebrow">PRACTICE COMPLETE</span><h3 style={{ margin: "8px 0", fontSize: 25 }}>{score} / {quiz.questions.length}</h3><p style={{ margin: 0, color: "#b7c9dd" }}>You scored {Math.round((score / quiz.questions.length) * 100)}%. Review each answer and explanation below.</p>
+                        </div>
+                        {quiz.questions.map((question, index) => {
+                          const chosen = quizAnswers[index];
+                          const correct = chosen === question.answerIndex;
+                          return <div key={index} style={{ padding: 15, borderRadius: 14, border: "1px solid " + (correct ? "rgba(74,222,128,.25)" : "rgba(251,113,133,.25)"), background: "rgba(7,18,36,.45)", display: "grid", gap: 8 }}>
+                            <strong style={{ fontSize: 14 }}>Q{index + 1}. {question.question}</strong>
+                            <p style={{ margin: 0, color: correct ? "#86efac" : "#fda4af", fontSize: 13 }}>Your answer: {question.options[chosen] || "Not answered"} {correct ? "— Correct" : "— Incorrect"}</p>
+                            {!correct && <p style={{ margin: 0, color: "#9bdcff", fontSize: 13 }}>Correct answer: {question.options[question.answerIndex]}</p>}
+                            {question.explanation && <p style={{ margin: 0, color: "#b7c9dd", fontSize: 13, lineHeight: 1.55 }}>{question.explanation}</p>}
+                          </div>;
+                        })}
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <button type="button" className="primary-action" onClick={() => { setQuizIndex(0); setQuizAnswers([]); setQuizFinished(false); }}>Retry this quiz</button>
+                          <button type="button" className="outline-action" onClick={() => { setToolResult(null); setQuizIndex(0); setQuizAnswers([]); setQuizFinished(false); }}>Create another quiz</button>
+                        </div>
+                      </div>;
+                    })()}
+                  </div> : toolResult.kind === "translate" ? <div className="tool-ai-result"><div className="tool-translation-result-label"><Languages size={15}/> {toolLanguage} translation</div><FormattedMessage content={toolResult.reply}/><div className="tool-result-actions"><button type="button" className="outline-action" onClick={async () => { try { if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(toolResult.reply); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}><Copy size={15}/> Copy text</button><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div></div> : <div className="tool-ai-result"><FormattedMessage content={toolResult.reply}/><button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={15}/> Read aloud</button></div>}
                   </div>}
                 </div>
                 <div className="tool-workspace-foot"><ShieldCheck size={15}/><span>Powered by AURORA's configured AI services. Results may vary with provider availability.</span></div>
