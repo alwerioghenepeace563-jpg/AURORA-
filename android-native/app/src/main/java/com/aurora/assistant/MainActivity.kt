@@ -150,8 +150,10 @@ private fun AuroraNativeApp() {
                                             latestVersion = result?.optString("tag_name")?.takeIf { it.isNotBlank() }
                                             releaseNotes = result?.optString("body")?.take(1400).orEmpty()
                                             releaseUrl = result?.optString("html_url").orEmpty()
-                                            updateMessage = if (result == null) "Couldn't reach the releases service. Check your connection and try again."
-                                            else if ((result.optJSONArray("assets")?.length() ?: 0) > 0) "Release found. Open the release page to review its APK and installation notes."
+                                            val assets = result?.optJSONArray("assets")
+                                            val hasApk = assets != null && (0 until assets.length()).any { assets.optJSONObject(it)?.optString("name")?.endsWith(".apk", ignoreCase = true) == true }
+                                            updateMessage = if (result == null) "Couldn't reach the release service. Check your app URL and server-side AURORA_GITHUB_TOKEN."
+                                            else if (hasApk) "Release found with an APK asset. In-app download and installation still need the final signed-release setup."
                                             else "Release found, but no downloadable APK asset is attached yet."
                                             checking = false
                                         }
