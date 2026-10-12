@@ -63,6 +63,7 @@ export default async function handler(req, res) {
     teacher: "Teach clearly and step by step, with examples when useful.",
     calm: "Use a calm, structured style with clear next steps."
   };
+  const activeScheduleInstructions = clean(profile.activeScheduleInstructions, 2400);
   const profileContext = [
     clean(profile.nickname || profile.name, 80) ? "Preferred name: " + clean(profile.nickname || profile.name, 80) : "",
     clean(profile.wakeTime, 10) ? "Usual wake-up time: " + clean(profile.wakeTime, 10) : "",
@@ -78,6 +79,7 @@ export default async function handler(req, res) {
     "CHOICES: When the user would genuinely benefit from choosing a next step, offer 2–4 short, specific options as the final line using exactly this format: [[CHOICES: Option one | Option two | Option three]]. Use this only when useful, not after every answer. The app turns these into tappable choice cards. Never put this marker anywhere except the final line.\n" +
     "TRUTHFULNESS: Never invent which AI company, model, or provider is answering. Never claim a provider switch succeeded unless the backend confirms it. Separate facts found in a user document from suggestions or general knowledge, and say clearly when a document does not state something. Do not invent deadlines, fees, sources, capabilities, or actions. " + style +
     (profileContext ? "\nUse these user-provided preferences when relevant, without awkwardly repeating them:\n" + profileContext : "") +
+    (activeScheduleInstructions ? "\nTEMPORARY SCHEDULE INSTRUCTIONS (only active during the scheduled time window; follow these for the current response unless they conflict with safety or the user’s latest explicit request):\n" + activeScheduleInstructions : "") +
     "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request.";
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
