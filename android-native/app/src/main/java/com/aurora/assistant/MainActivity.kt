@@ -4,7 +4,10 @@ import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
 import android.media.MediaPlayer
+import android.speech.RecognizerIntent
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.RepeatMode
@@ -80,6 +83,10 @@ private fun AuroraNativeApp() {
     var voiceRepliesEnabled by remember { mutableStateOf(prefs.getBoolean("voice_replies", true)) }
     var selectedVoice by remember { mutableStateOf(prefs.getString("selected_voice", "jessica") ?: "jessica") }
     val scope = rememberCoroutineScope()
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (!spoken.isNullOrBlank()) { draft = spoken; page = "Jarvis" }
+    }
     LaunchedEffect(chatMessages) { saveNativeHistory(prefs, chatMessages) }
 
     MaterialTheme(colorScheme = darkColorScheme(
@@ -271,6 +278,14 @@ private fun AuroraNativeApp() {
                             if (chatError.isNotBlank()) { Text(chatError, color = Color(0xFFFF9A9A), fontSize = 11.sp, modifier = Modifier.padding(vertical = 5.dp)) }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(value = draft, onValueChange = { draft = it }, placeholder = { Text("Message AURORA…") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp), maxLines = 4)
+                                OutlinedButton(onClick = {
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-NG")
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to AURORA")
+                                    }
+                                    runCatching { speechLauncher.launch(intent) }.onFailure { chatError = "Voice input is not available on this device." }
+                                }, shape = CircleShape, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) { Text("🎙") }
                                 Button(onClick = {
                                     val prompt = draft.trim()
                                     val base = backendUrl.trim().trimEnd('/')
