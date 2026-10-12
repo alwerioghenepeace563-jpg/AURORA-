@@ -5,7 +5,9 @@ on:
   push:
     branches: [main, feat/native-android-assistant]
     paths:
-      - "src/**"\n      - "scripts/**"\n      - "android-native/**"
+      - "src/**"
+      - "scripts/**"
+      - "android-native/**"
       - "api/**"
       - "package.json"
       - "capacitor.config.json"
