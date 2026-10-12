@@ -22,7 +22,7 @@ function makeSpeechFriendly(value) {
     .replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, "$1 over $2")
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/(^|\s)#+\s*/g, "$1")
-    .replace(/\b([A-Za-z0-9]+)\s*\^\s*\{?([A-Za-z0-9+-]+)\}?\b/g, (_, base, power) => {
+    .replace(/\b([A-Za-z0-9]+)\s*\^\s*\{?([A-Za-z0-9+-]+)\}?/g, (_, base, power) => {
       if (power === "2") return base + " squared";
       if (power === "3") return base + " cubed";
       return base + " raised to the power of " + power;
