@@ -131,6 +131,9 @@ private fun AuroraNativeApp() {
     var releaseUrl by remember { mutableStateOf("") }
     var updateMessage by remember { mutableStateOf("Save your deployed AURORA URL in Profile → AI connection to check the latest release.") }
     var checking by remember { mutableStateOf(false) }
+    var apkAvailable by remember { mutableStateOf(false) }
+    var downloadBusy by remember { mutableStateOf(false) }
+    var downloadMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("aurora_native", android.content.Context.MODE_PRIVATE) }
     var backendUrl by remember { mutableStateOf(prefs.getString("backend_url", "") ?: "") }
@@ -218,6 +221,7 @@ private fun AuroraNativeApp() {
                                             releaseUrl = result?.optString("html_url").orEmpty()
                                             val assets = result?.optJSONArray("assets")
                                             val hasApk = assets != null && (0 until assets.length()).any { assets.optJSONObject(it)?.optString("name")?.endsWith(".apk", ignoreCase = true) == true }
+                                            apkAvailable = hasApk
                                             updateMessage = if (result == null) "Couldn't reach the release service. Check your app URL and server-side AURORA_GITHUB_TOKEN."
                                             else if (hasApk) "Release found with an APK asset. In-app download and installation still need the final signed-release setup."
                                             else "Release found, but no downloadable APK asset is attached yet."
@@ -233,6 +237,29 @@ private fun AuroraNativeApp() {
                                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))) }
                                                 .onFailure { updateMessage = "Could not open the release page on this device." }
                                         }, modifier = Modifier.fillMaxWidth()) { Text("Open release page") }
+                                    }
+                                    if (apkAvailable) {
+                                        Spacer(Modifier.height(10.dp))
+                                        Button(onClick = {
+                                            if (!downloadBusy) {
+                                                downloadBusy = true
+                                                downloadMessage = "Preparing secure APK download…"
+                                                scope.launch {
+                                                    val urlResult = withContext(Dispatchers.IO) { getLatestApkDownloadUrl(backendUrl.trim().trimEnd('/')) }
+                                                    downloadBusy = false
+                                                    if (urlResult.first && urlResult.second.isNotBlank()) {
+                                                        val started = (context as? MainActivity)?.downloadAuroraUpdate(urlResult.second) == true
+                                                        downloadMessage = if (started) "Download started. Android will notify you when it is ready to install." else "Could not start the download on this device."
+                                                    } else downloadMessage = urlResult.second.ifBlank { "Could not prepare the APK download." }
+                                                }
+                                            }
+                                        }, enabled = !downloadBusy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
+                                            Text(if (downloadBusy) "Preparing…" else "Download and install update", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    if (downloadMessage.isNotBlank()) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(downloadMessage, color = Muted, fontSize = 12.sp)
                                     }
                                     Spacer(Modifier.height(10.dp))
                                     Text(updateMessage, color = Muted, fontSize = 12.sp)
@@ -684,6 +711,28 @@ private fun executeNativeCommand(context: Context, text: String): String? {
         }
     }
     return "I couldn't find $app on this phone. Make sure it is installed, then try again."
+}
+
+
+private fun getLatestApkDownloadUrl(baseUrl: String): Pair<Boolean, String> {
+    if (!baseUrl.startsWith("https://")) return false to "Save the deployed HTTPS AURORA URL in Profile → AI connection first."
+    return try {
+        val connection = (URL("$baseUrl/api/app-update?download=1").openConnection() as HttpURLConnection)
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("User-Agent", "AURORA-Android")
+        connection.connectTimeout = 12000
+        connection.readTimeout = 20000
+        val status = connection.responseCode
+        val body = (if (status in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+        connection.disconnect()
+        val json = runCatching { JSONObject(body) }.getOrNull()
+        if (status !in 200..299) false to (json?.optString("error")?.takeIf { it.isNotBlank() } ?: "APK download link request failed (HTTP $status).")
+        else {
+            val url = json?.optString("download_url").orEmpty()
+            if (url.startsWith("https://")) true to url else false to "The release service did not return a secure APK download link."
+        }
+    } catch (e: Exception) { false to (e.message ?: "Could not prepare the APK download.") }
 }
 
 private fun runNativeTool(baseUrl: String, kind: String, query: String): String {
