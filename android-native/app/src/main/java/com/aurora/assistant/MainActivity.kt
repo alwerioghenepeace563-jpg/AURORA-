@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
@@ -157,6 +158,9 @@ private fun AuroraNativeApp() {
     var toolInput by remember { mutableStateOf("") }
     var toolResult by remember { mutableStateOf("") }
     var toolBusy by remember { mutableStateOf(false) }
+    var timerMinutes by remember { mutableStateOf("10") }
+    var timerSeconds by remember { mutableStateOf(0) }
+    var timerRunning by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf(prefs.getString("profile_name", "") ?: "") }
     var profileNickname by remember { mutableStateOf(prefs.getString("profile_nickname", "") ?: "") }
     var profileWakeTime by remember { mutableStateOf(prefs.getString("profile_wake_time", "") ?: "") }
@@ -216,6 +220,12 @@ private fun AuroraNativeApp() {
         if (!spoken.isNullOrBlank()) { draft = spoken; page = "Jarvis" }
     }
     LaunchedEffect(chatMessages) { saveNativeHistory(prefs, chatMessages) }
+    LaunchedEffect(timerRunning, timerSeconds) {
+        if (timerRunning && timerSeconds > 0) {
+            delay(1000)
+            timerSeconds -= 1
+        } else if (timerSeconds == 0) timerRunning = false
+    }
     LaunchedEffect(activityItems) { saveActivityItems(prefs, activityItems) }
 
     MaterialTheme(colorScheme = darkColorScheme(
@@ -375,7 +385,39 @@ private fun AuroraNativeApp() {
                                 }
                             }
                             Spacer(Modifier.height(4.dp))
+                            NativeActionCard("Focus timer", "Start a simple focus session") { page = "Timer" }
+                            Spacer(Modifier.height(10.dp))
                             NativeActionCard("Open tools workspace", "Web search, weather and calculator") { page = "Tools" }
+                        }
+                    }
+                    "Timer" -> {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("FOCUS MODE", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Focus timer", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(28.dp))
+                            NativeOrb(190.dp)
+                            Spacer(Modifier.height(20.dp))
+                            val displayMinutes = timerSeconds / 60
+                            val displaySeconds = timerSeconds % 60
+                            Text(if (timerSeconds > 0) "%02d:%02d".format(displayMinutes, displaySeconds) else "${timerMinutes.toIntOrNull()?.coerceIn(1, 180) ?: 10}:00", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Light)
+                            Spacer(Modifier.height(10.dp))
+                            Text(if (timerRunning) "STAY IN YOUR FLOW" else if (timerSeconds == 0) "READY WHEN YOU ARE" else "TIMER PAUSED", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(22.dp))
+                            OutlinedTextField(value = timerMinutes, onValueChange = { value -> if (value.length <= 3 && value.all { it.isDigit() }) timerMinutes = value }, label = { Text("Duration in minutes (1–180)") }, singleLine = true, enabled = !timerRunning && timerSeconds == 0, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+                            Spacer(Modifier.height(14.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(onClick = {
+                                    if (timerSeconds == 0) timerSeconds = (timerMinutes.toIntOrNull() ?: 10).coerceIn(1, 180) * 60
+                                    timerRunning = true
+                                }, enabled = !timerRunning, colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night), modifier = Modifier.weight(1f)) { Text(if (timerSeconds > 0) "Resume" else "Start") }
+                                OutlinedButton(onClick = { timerRunning = false }, enabled = timerRunning, modifier = Modifier.weight(1f)) { Text("Pause") }
+                                OutlinedButton(onClick = { timerRunning = false; timerSeconds = 0 }, modifier = Modifier.weight(1f)) { Text("Reset") }
+                            }
+                            if (timerSeconds == 0 && !timerRunning && timerMinutes.toIntOrNull() != null) {
+                                Spacer(Modifier.height(12.dp))
+                                Text("When the timer reaches zero, your focus session is complete.", color = Muted, fontSize = 12.sp)
+                            }
                         }
                     }
                     "Tools" -> {
