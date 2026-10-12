@@ -1223,9 +1223,14 @@ export default function App() {
                         const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
                         const ready = Object.entries(data.providers || {}).filter(([, value]) => value).map(([name]) => label(name));
                         setExecutorLog((items) => [...items, { role: "assistant", text: "Diagnostics completed. Authentication is verified. Configured provider keys detected: " + (ready.join(", ") || "none") + ". This check confirms configuration only; it does not test live model responses." }]);
-                      } else if (/(open|launch|go to).*(tools|tool workspace)/i.test(command)) {
-                        setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening the AURORA tools workspace." }]);
-                        navigate("tools");
+                      } else if (/(open|launch|go to|navigate to).*(tools|tool workspace|home|dashboard|activities|activity|profile|settings|chat|assistant)/i.test(command)) {
+                        const target = /tools|tool workspace/i.test(command) ? "tools"
+                          : /activities|activity/i.test(command) ? "activities"
+                          : /profile|settings/i.test(command) ? "profile"
+                          : /chat|assistant/i.test(command) ? "chat" : "home";
+                        const targetLabel = { tools: "Tools workspace", activities: "Activities", profile: "Profile and settings", chat: "Chat", home: "Home dashboard" }[target];
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening " + targetLabel + "." }]);
+                        navigate(target);
                       } else {
                         const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "You are AURORA's administrator-side AI Executor. The administrator asked: " + prompt + "\n\nRespond with a concise execution plan. You may only claim a task was executed if the app has a direct supported action for it. Supported direct actions in this console are: refresh provider configuration diagnostics, and navigate to the tools workspace. For all other requests, clearly label your answer as a proposed plan and explain which app integration or explicit confirmation would be needed. Never claim to change app data, secrets, deployments, users, or settings without an actual tool that did so. Do not ask for or reveal API keys." }] }) });
                         const data = await response.json().catch(() => ({}));
