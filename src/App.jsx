@@ -1266,8 +1266,13 @@ export default function App() {
                           headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
                           body: JSON.stringify({ action: "edit_code", prompt })
                         });
-                        const data = await response.json().catch(() => ({}));
-                        if (!response.ok) throw new Error(data.error || "AURORA code editing could not complete.");
+                        const responseText = await response.text();
+                        let data = {};
+                        try { data = responseText ? JSON.parse(responseText) : {}; } catch {}
+                        if (!response.ok) {
+                          const detail = data.error || (responseText && !responseText.trim().startsWith("<") ? responseText.slice(0, 220) : "");
+                          throw new Error((detail || "Server returned a non-JSON error response.") + " (HTTP " + response.status + ")");
+                        }
                         const fileList = (data.filesChanged || []).map((path) => "- " + path).join("\n");
                         setExecutorLog((items) => [...items, { role: "assistant", text: "## Code Change Prepared\n\n**Status:** Review required\n\n### Summary\n" + (data.summary || "AURORA code changes prepared.") + "\n\n### Files changed\n" + (fileList || "- No file list returned.") + "\n\n### Pull request\n" + (data.pullRequest?.url ? "[" + (data.pullRequest.title || "Review code changes") + "](" + data.pullRequest.url + ")" : "Pull request link was not returned.") + "\n\n**Next step:** Review and merge the pull request before expecting the live app to change.\n\n" + (Array.isArray(data.checks) && data.checks.length ? "### Validation notes\n" + data.checks.map((item) => "- " + item).join("\n") : "") }]);
                       } else {
