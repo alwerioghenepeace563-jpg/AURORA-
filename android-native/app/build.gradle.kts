@@ -12,13 +12,24 @@ android {
         applicationId = "com.aurora.assistant"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("auroraVersionCode").orNull?.toIntOrNull() ?: 1
+        versionName = providers.gradleProperty("auroraVersionName").orNull ?: "0.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("AURORA_KEYSTORE_PATH") ?: "release-key.jks")
+            storePassword = System.getenv("AURORA_KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("AURORA_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("AURORA_KEY_PASSWORD") ?: ""
+        }
+    }
     buildTypes {
         debug { applicationIdSuffix = ".nativepreview" }
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures { compose = true }
