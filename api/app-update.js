@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         name: asset.name || "",
         size: Number(asset.size || 0),
         browser_download_url: asset.browser_download_url || ""
-      })) : []
+      }))
     });
   } catch (error) {
     console.error("AURORA update checker error:", error);
