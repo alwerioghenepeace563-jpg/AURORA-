@@ -53,7 +53,7 @@ export default async function handler(req, res) {
           else acc.push(range.slice());
           return acc;
         }, []);
-        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).join("\n")).join("\n...\n").slice(0, 24000);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).join("\n")).join("\n...\n").slice(0, 5500);
       }
       if (path === "src/styles.css") {
         const anchors = [];
@@ -67,8 +67,23 @@ export default async function handler(req, res) {
           else acc.push(range.slice());
           return acc;
         }, []);
-        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).map((line, i) => String(start + i + 1).padStart(4, " ") + ": " + line).join("\n")).join("\n...\n").slice(0, 22000);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).map((line, i) => String(start + i + 1).padStart(4, " ") + ": " + line).join("\n")).join("\n...\n").slice(0, 5500);
       }
+      if (path === "api/chat.js") {
+        const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
+        const terms = [...new Set([...promptTerms, "provider", "fallback", "gemini", "openrouter", "groq", "messages", "systemText"])].slice(0, 22);
+        const patterns = terms.map(term => new RegExp(term, "i"));
+        const anchors = [];
+        lines.forEach((line, index) => { if (patterns.some(pattern => pattern.test(line))) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 10)]); });
+        const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
+          const last = acc[acc.length - 1];
+          if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+          else acc.push(range.slice());
+          return acc;
+        }, []);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).map((line, i) => String(start + i + 1).padStart(4, " ") + ": " + line).join("\n")).join("\n...\n").slice(0, 5500);
+      }
+      excerpt = excerpt.slice(0, 5500);
       contexts.push({ path, sha: file.sha, content, excerpt });
     }
     const system = "You are the AURORA code editor. Return ONLY JSON: {summary:string,changes:[{path:string,find:string,replace:string}],checks:string[]}. Make small safe exact search/replace patches based on the provided code excerpts. Allowed paths: src/App.jsx, src/styles.css, api/chat.js. Never alter authentication or secrets. Max 6 changes. Every find string must be an exact unique substring of the actual file. If unable, return changes as an empty array and explain in summary.";
@@ -93,7 +108,7 @@ export default async function handler(req, res) {
         const jsonStart = cleaned.indexOf("{");
         const jsonEnd = cleaned.lastIndexOf("}");
         if (jsonStart < 0 || jsonEnd <= jsonStart) {
-          providerErrors.push(provider.key + " returned a response that was not JSON");
+          providerErrors.push(provider.key + " returned a response that was not JSON" + (raw ? ": " + raw.slice(0, 100).replace(/\s+/g, " ") : ""));
           continue;
         }
         try {
