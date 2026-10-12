@@ -38,7 +38,7 @@ export default async function handler(req, res) {
         const anchors = [];
         // Include known UI anchors plus prompt-specific terms so requests can target more than the Home page.
         const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
-        const promptPatterns = [...new Set(promptTerms)].slice(0, 18).map(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\        const anchors = [];
+        const promptPatterns = [...new Set(promptTerms)].slice(0, 18).map(term => new RegExp(term, "i"));
         // Include contiguous source windows, not isolated matching lines, so exact patches can be grounded.
         const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i];"), "i"));
         const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i, ...promptPatterns];
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       if (path === "src/styles.css") {
         const anchors = [];
         const promptTerms = prompt.toLowerCase().match(/[a-z][a-z0-9_-]{3,}/g) || [];
-        const promptPatterns = [...new Set(promptTerms)].slice(0, 24).map(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\        const anchors = [];
+        const promptPatterns = [...new Set(promptTerms)].slice(0, 24).map(term => new RegExp(term, "i"));
         const pattern = /orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i;
         lines.forEach((line, index) => { if (pattern.test(line)) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });"), "i"));
         const patterns = [/orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i, ...promptPatterns];
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
           continue;
         }
         const raw = String(data.choices?.[0]?.message?.content || "").trim();
-        const cleaned = raw.replace(/^\`\`\`(?:json)?\\s*/i, "").replace(/\\s*\`\`\`$/, "").trim();
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
         const jsonStart = cleaned.indexOf("{");
         const jsonEnd = cleaned.lastIndexOf("}");
         if (jsonStart < 0 || jsonEnd <= jsonStart) {
