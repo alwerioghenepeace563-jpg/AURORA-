@@ -193,12 +193,12 @@ function convertMeasurement(input) {
   throw new Error("Those units are not in the same supported category. Try length, mass, volume, time, speed, or temperature.");
 }
 
-function Orb({ compact = false, speaking = false }) {
+function Orb({ compact = false, speaking = false, duration = 5 }) {
   return (
     <motion.div
       className={`orb-wrap ${compact ? "orb-wrap-compact" : ""} ${speaking ? "orb-speaking" : ""}`}
       animate={{ y: [0, -7, 0] }}
-      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+      transition={{ duration, repeat: Infinity, ease: "easeInOut" }}
       aria-label="AURORA animated energy orb"
     >
       <div className="orb-halo" />
@@ -972,7 +972,7 @@ export default function App() {
           {page === "home" && (
             <motion.section key="home" className="home-screen" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
               <div className="home-eyebrow"><span className="eyebrow-line" /> YOUR SPACE. YOUR INTELLIGENCE. <span className="eyebrow-line" /></div>
-              <div className="hero-orb"><Orb speaking={speaking} style={{animationDuration: '5s'}} /></div>
+              <div className="hero-orb"><Orb speaking={speaking} duration={5.5} /></div>
               <div className="home-copy">
                 <p className="welcome-kicker">GOOD TO HAVE YOU HERE</p>
                 <h1>Hello<span>,</span> there.</h1>
