@@ -600,7 +600,7 @@ private fun executeNativeCommand(context: Context, text: String): String? {
         return try { context.startActivity(Intent(MediaStore.ACTION_IMAGE_CAPTURE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening the camera." }
         catch (_: Exception) { "I couldn't open the camera on this device." }
     }
-    val match = Regex("""^(?:please\\s+)?open\\s+(whatsapp|youtube|chrome|calculator|clock|contacts|maps|gmail|phone|messages)$""").find(command)
+    val match = Regex("""^(?:please\s+)?open\s+(whatsapp|youtube|chrome|calculator|clock|contacts|maps|gmail|phone|messages)$""")).find(command)
         ?: return null
     val app = match.groupValues[1]
     val packages = mapOf(
