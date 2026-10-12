@@ -171,7 +171,7 @@ function convertMeasurement(input) {
   throw new Error("Those units are not in the same supported category. Try length, mass, volume, time, speed, or temperature.");
 }
 
-function Orb({ compact = false, speaking = false })
+function Orb({ compact = false, speaking = false }) {
   return (
     <motion.div
       className={`orb-wrap ${compact ? "orb-wrap-compact" : ""} ${speaking ? "orb-speaking" : ""}`}
