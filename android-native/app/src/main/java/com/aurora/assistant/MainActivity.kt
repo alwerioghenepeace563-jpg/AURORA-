@@ -135,6 +135,7 @@ private fun AuroraNativeApp() {
     var downloadBusy by remember { mutableStateOf(false) }
     var downloadMessage by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val installedVersion = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0.1.0" }
     val prefs = remember { context.getSharedPreferences("aurora_native", android.content.Context.MODE_PRIVATE) }
     var backendUrl by remember { mutableStateOf(prefs.getString("backend_url", "") ?: "") }
     var draft by remember { mutableStateOf("") }
@@ -200,7 +201,7 @@ private fun AuroraNativeApp() {
                             Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
                                 Column(Modifier.fillMaxWidth().padding(18.dp)) {
                                     Text("Installed version", color = Muted, fontSize = 12.sp)
-                                    Text("0.1.0 · Native preview", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                    Text("$installedVersion · Native Android", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium)
                                     Spacer(Modifier.height(18.dp))
                                     Text("Latest release", color = Muted, fontSize = 12.sp)
                                     Text(latestVersion ?: "Not checked yet", color = Color.White, fontSize = 18.sp)
