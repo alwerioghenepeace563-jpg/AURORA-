@@ -74,6 +74,10 @@ private fun AuroraNativeApp() {
     var chatBusy by remember { mutableStateOf(false) }
     var chatError by remember { mutableStateOf("") }
     var chatMessages by remember { mutableStateOf(loadNativeHistory(prefs)) }
+    var activityKind by remember { mutableStateOf("Tasks") }
+    var activityTitle by remember { mutableStateOf("") }
+    var activityBody by remember { mutableStateOf("") }
+    var activityItems by remember { mutableStateOf(loadActivityItems(prefs)) }
     var profileName by remember { mutableStateOf(prefs.getString("profile_name", "") ?: "") }
     var profileNickname by remember { mutableStateOf(prefs.getString("profile_nickname", "") ?: "") }
     var profilePriorities by remember { mutableStateOf(prefs.getString("profile_priorities", "") ?: "") }
@@ -89,6 +93,7 @@ private fun AuroraNativeApp() {
         if (!spoken.isNullOrBlank()) { draft = spoken; page = "Jarvis" }
     }
     LaunchedEffect(chatMessages) { saveNativeHistory(prefs, chatMessages) }
+    LaunchedEffect(activityItems) { saveActivityItems(prefs, activityItems) }
 
     MaterialTheme(colorScheme = darkColorScheme(
         background = Night, surface = Panel, primary = Cyan,
@@ -165,7 +170,60 @@ private fun AuroraNativeApp() {
                             Text("In-app APK installation is part of the release batch. Android will ask you to approve any installation.", color = Muted, fontSize = 12.sp)
                         }
                     }
-                    "Activities" -> SimplePage("Activities", "Your activity history, saved tools and recent conversations will appear here as their native modules are ported.")
+                    "Activities" -> {
+                        Column(Modifier.fillMaxSize()) {
+                            Text("YOUR WORKSPACE", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text("Activities", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                                listOf("Tasks", "Notes", "Reminders", "Events").forEach { kind ->
+                                    SuggestionChip(kind, activityKind == kind) { activityKind = kind }
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                                    OutlinedTextField(value = activityTitle, onValueChange = { activityTitle = it }, label = { Text(when(activityKind) { "Tasks" -> "Task"; "Notes" -> "Note title"; "Reminders" -> "Reminder"; else -> "Event" }) }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                                    if (activityKind == "Notes") {
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(value = activityBody, onValueChange = { activityBody = it }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), minLines = 2)
+                                    }
+                                    Spacer(Modifier.height(10.dp))
+                                    Button(onClick = {
+                                        val title = activityTitle.trim()
+                                        if (title.isNotBlank()) {
+                                            activityItems = activityItems + NativeActivityItem(activityKind, title, activityBody.trim(), System.currentTimeMillis())
+                                            activityTitle = ""; activityBody = ""
+                                        }
+                                    }, enabled = activityTitle.isNotBlank(), modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
+                                        Text("Save ${activityKind.removeSuffix("s")}", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Text("SAVED ${activityKind.uppercase()}", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(8.dp))
+                            val filteredItems = activityItems.filter { it.kind == activityKind }.sortedByDescending { it.createdAt }
+                            if (filteredItems.isEmpty()) {
+                                Text("Nothing saved here yet. Add your first ${activityKind.lowercase().removeSuffix("s")} above.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
+                            } else {
+                                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(filteredItems) { item ->
+                                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Panel).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f)) {
+                                                Text(item.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                                if (item.body.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(item.body, color = Muted, fontSize = 12.sp) }
+                                            }
+                                            Text("×", color = Muted, fontSize = 20.sp, modifier = Modifier.clickable { activityItems = activityItems.filterNot { it.id == item.id } }.padding(8.dp))
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            NativeActionCard("Focus timer & tools", "Calculator, weather, search and more are in the next tools port") { page = "Jarvis"; draft = "Help me plan a focus session." }
+                        }
+                    }
                     "Profile" -> {
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                             Text("YOUR SPACE", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
@@ -462,6 +520,32 @@ private fun checkLatestRelease(): JSONObject? {
     } catch (_: Exception) { null }
 }
 
+
+
+private data class NativeActivityItem(val kind: String, val title: String, val body: String, val createdAt: Long) {
+    val id: String get() = "$kind-$createdAt-$title"
+}
+
+private fun loadActivityItems(prefs: android.content.SharedPreferences): List<NativeActivityItem> {
+    return try {
+        val array = JSONArray(prefs.getString("activity_items", "[]") ?: "[]")
+        (0 until array.length()).mapNotNull { i ->
+            val item = array.optJSONObject(i) ?: return@mapNotNull null
+            val kind = item.optString("kind")
+            val title = item.optString("title")
+            if (kind !in listOf("Tasks", "Notes", "Reminders", "Events") || title.isBlank()) null
+            else NativeActivityItem(kind, title, item.optString("body"), item.optLong("createdAt"))
+        }
+    } catch (_: Exception) { emptyList() }
+}
+
+private fun saveActivityItems(prefs: android.content.SharedPreferences, items: List<NativeActivityItem>) {
+    val array = JSONArray()
+    items.takeLast(500).forEach { item ->
+        array.put(JSONObject().put("kind", item.kind).put("title", item.title).put("body", item.body).put("createdAt", item.createdAt))
+    }
+    prefs.edit().putString("activity_items", array.toString()).apply()
+}
 
 private fun nativeProfileJson(name: String, nickname: String, priorities: String, food: String, restrictions: String, style: String): JSONObject {
     return JSONObject().put("name", name).put("nickname", nickname).put("priorities", priorities)
