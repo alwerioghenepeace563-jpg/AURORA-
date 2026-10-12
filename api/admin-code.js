@@ -33,8 +33,36 @@ export default async function handler(req, res) {
       const file = await gh("/contents/" + path + "?ref=" + encodeURIComponent(branchBase));
       const content = Buffer.from(file.content || "", "base64").toString("utf8");
       let excerpt = content;
-      if (path === "src/App.jsx") excerpt = content.split("\n").filter((line, i) => /admin-executor|hero-orb|orb-core|home-screen|FormattedMessage|activityTab/i.test(line)).slice(0, 100).join("\n").slice(0, 12000);
-      if (path === "src/styles.css") excerpt = content.split("\n").filter(line => /orb-|hero-orb|home-screen|admin-executor|@media/i.test(line)).slice(0, 180).join("\n").slice(0, 14000);
+      const lines = content.split("\n");
+      if (path === "src/App.jsx") {
+        const anchors = [];
+        // Include contiguous source windows, not isolated matching lines, so exact patches can be grounded.
+        const patterns = [/home-screen|hero-title|hero-subtitle|hero-orb/i, /admin-executor|FormattedMessage|activityTab/i];
+        for (const pattern of patterns) {
+          lines.forEach((line, index) => {
+            if (pattern.test(line)) anchors.push([Math.max(0, index - 8), Math.min(lines.length, index + 14)]);
+          });
+        }
+        const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
+          const last = acc[acc.length - 1];
+          if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+          else acc.push(range.slice());
+          return acc;
+        }, []);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).map((line, i) => String(start + i + 1).padStart(4, " ") + ": " + line).join("\n")).join("\n...\n").slice(0, 24000);
+      }
+      if (path === "src/styles.css") {
+        const anchors = [];
+        const pattern = /orb-|hero-orb|hero-subtitle|home-screen|admin-executor/i;
+        lines.forEach((line, index) => { if (pattern.test(line)) anchors.push([Math.max(0, index - 5), Math.min(lines.length, index + 12)]); });
+        const ranges = anchors.sort((a, b) => a[0] - b[0]).reduce((acc, range) => {
+          const last = acc[acc.length - 1];
+          if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+          else acc.push(range.slice());
+          return acc;
+        }, []);
+        excerpt = ranges.map(([start, end]) => "[lines " + (start + 1) + "-" + end + "]\n" + lines.slice(start, end).map((line, i) => String(start + i + 1).padStart(4, " ") + ": " + line).join("\n")).join("\n...\n").slice(0, 22000);
+      }
       contexts.push({ path, sha: file.sha, content, excerpt });
     }
     const system = "You are the AURORA code editor. Return ONLY JSON: {summary:string,changes:[{path:string,find:string,replace:string}],checks:string[]}. Make small safe exact search/replace patches based on the provided code excerpts. Allowed paths: src/App.jsx, src/styles.css, api/chat.js. Never alter authentication or secrets. Max 6 changes. Every find string must be an exact unique substring of the actual file. If unable, return changes as an empty array and explain in summary.";
