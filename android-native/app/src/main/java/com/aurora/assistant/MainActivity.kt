@@ -399,14 +399,14 @@ private fun NativeTab(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NativeOrb(size: androidx.compose.ui.unit.Dp = 238.dp) {
+private fun NativeOrb(diameter: androidx.compose.ui.unit.Dp = 238.dp) {
     val transition = rememberInfiniteTransition(label = "aurora-orb")
     val pulse by transition.animateFloat(
         initialValue = 0.92f, targetValue = 1.08f,
         animationSpec = infiniteRepeatable(tween(1900), RepeatMode.Reverse),
         label = "pulse"
     )
-    Canvas(Modifier.size(size)) {
+    Canvas(Modifier.size(diameter)) {
         val c = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * .27f * pulse
         drawCircle(Brush.radialGradient(listOf(Cyan.copy(alpha = .28f), Color(0xFF3678FF).copy(alpha = .12f), Color.Transparent), c, size.minDimension * .49f), size.minDimension * .49f, c)
