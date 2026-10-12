@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity, Apple, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Copy,
+  Activity, Apple, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Calculator, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
   SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff
@@ -125,7 +125,53 @@ function findStructuredBlock(line) {
   return null;
 }
 
-function Orb({ compact = false, speaking = false }) {
+function evaluateArithmetic(expression) {
+  const source = String(expression || "").replace(/,/g, "").replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").trim();
+  if (!source || source.length > 120 || !/^[0-9+*/().%\s^-]+$/.test(source)) throw new Error("Use numbers and basic operators (+, −, ×, ÷, %, ^, parentheses).");
+  let index = 0;
+  const skip = () => { while (index < source.length && /\s/.test(source[index])) index++; };
+  function primary() {
+    skip();
+    if (source[index] === "+") { index++; return primary(); }
+    if (source[index] === "-") { index++; return -primary(); }
+    if (source[index] === "(") { index++; const value = addSub(); skip(); if (source[index] !== ")") throw new Error("Check your parentheses."); index++; return value; }
+    const match = source.slice(index).match(/^(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/i);
+    if (!match) throw new Error("Enter a valid arithmetic expression.");
+    index += match[0].length;
+    return Number(match[0]);
+  }
+  function power() { let value = primary(); skip(); if (source[index] === "^") { index++; value = Math.pow(value, power()); } return value; }
+  function percent() { let value = power(); skip(); while (source[index] === "%") { value /= 100; index++; skip(); } return value; }
+  function mulDiv() { let value = percent(); skip(); while (source[index] === "*" || source[index] === "/") { const op = source[index++]; const right = percent(); value = op === "*" ? value * right : value / right; skip(); } return value; }
+  function addSub() { let value = mulDiv(); skip(); while (source[index] === "+" || source[index] === "-") { const op = source[index++]; const right = mulDiv(); value = op === "+" ? value + right : value - right; skip(); } return value; }
+  const result = addSub(); skip();
+  if (index !== source.length || !Number.isFinite(result)) throw new Error("That expression is incomplete or produces an invalid result.");
+  return result;
+}
+function convertMeasurement(input) {
+  const match = String(input || "").trim().match(/^(-?\d+(?:\.\d+)?)\s*([a-zA-Z°/]+)\s+(?:to|in|into)\s+([a-zA-Z°/]+)$/i);
+  if (!match) throw new Error("Use this format: 12 km to miles, 25 C to F, or 500 g to kg.");
+  const value = Number(match[1]), from = match[2].toLowerCase(), to = match[3].toLowerCase();
+  const groups = [
+    { km:1000, kilometer:1000, kilometers:1000, m:1, meter:1, meters:1, cm:.01, mm:.001, mi:1609.344, mile:1609.344, miles:1609.344, ft:.3048, feet:.3048, foot:.3048, in:.0254, inch:.0254, inches:.0254, yd:.9144, yard:.9144, yards:.9144 },
+    { kg:1, kilogram:1, kilograms:1, g:.001, gram:.001, grams:.001, mg:.000001, lb:.45359237, lbs:.45359237, pound:.45359237, pounds:.45359237, oz:.028349523125, ounce:.028349523125, ounces:.028349523125 },
+    { l:1, liter:1, liters:1, litre:1, litres:1, ml:.001, milliliter:.001, milliliters:.001, gal:3.785411784, gallon:3.785411784, gallons:3.785411784 },
+    { s:1, sec:1, second:1, seconds:1, min:60, minute:60, minutes:60, h:3600, hr:3600, hour:3600, hours:3600, day:86400, days:86400 },
+    { "m/s":1, "km/h":1/3.6, mph:.44704 }
+  ];
+  const temp = ["c","°c","celsius","f","°f","fahrenheit","k","kelvin"];
+  if (temp.includes(from) && temp.includes(to)) {
+    const celsius = ["f","°f","fahrenheit"].includes(from) ? (value-32)*5/9 : ["k","kelvin"].includes(from) ? value-273.15 : value;
+    const converted = ["f","°f","fahrenheit"].includes(to) ? celsius*9/5+32 : ["k","kelvin"].includes(to) ? celsius+273.15 : celsius;
+    return value+" "+match[2]+" = "+Number(converted.toFixed(6))+" "+match[3];
+  }
+  for (const group of groups) {
+    if (Object.prototype.hasOwnProperty.call(group, from) && Object.prototype.hasOwnProperty.call(group, to)) return value+" "+match[2]+" = "+Number((value*group[from]/group[to]).toPrecision(10))+" "+match[3];
+  }
+  throw new Error("Those units are not in the same supported category. Try length, mass, volume, time, speed, or temperature.");
+}
+
+function Orb({ compact = false, speaking = false })
   return (
     <motion.div
       className={`orb-wrap ${compact ? "orb-wrap-compact" : ""} ${speaking ? "orb-speaking" : ""}`}
@@ -551,6 +597,15 @@ export default function App() {
     setToolResult(null);
     setNotice("");
     try {
+      if (kind === "calculator") {
+        const result = evaluateArithmetic(value);
+        setToolResult({ kind, input: value, reply: value + " = " + Number(result.toPrecision(12)) });
+        return;
+      }
+      if (kind === "convert") {
+        setToolResult({ kind, input: value, reply: convertMeasurement(value) });
+        return;
+      }
       if (kind === "search") {
         const response = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: value }) });
         const data = await response.json().catch(() => ({}));
@@ -863,7 +918,9 @@ export default function App() {
                     { id: "search", icon: <Sparkles size={21}/>, title: "Web Search", desc: "Explore the web with source links", tint: "cyan" },
                     { id: "writing", icon: <NotebookPen size={21}/>, title: "Writing Assistant", desc: "Draft, polish and organise writing", tint: "violet" },
                     { id: "translate", icon: <WandSparkles size={21}/>, title: "Translation", desc: "Translate into your chosen language", tint: "blue" },
-                    { id: "study", icon: <GraduationCap size={21}/>, title: "Study Assistant", desc: "Learn step by step and practise", tint: "purple" }
+                    { id: "study", icon: <GraduationCap size={21}/>, title: "Study Assistant", desc: "Learn step by step and practise", tint: "purple" },
+                    { id: "calculator", icon: <Calculator size={21}/>, title: "Calculator", desc: "Calculate expressions safely", tint: "cyan" },
+                    { id: "convert", icon: <ArrowLeftRight size={21}/>, title: "Unit Converter", desc: "Convert common measurements", tint: "blue" }
                   ].map((item) => <button type="button" key={item.id} className={"tool-launch-card tool-tint-" + item.tint} onClick={() => openTool(item.id)}>
                     <span className="tool-launch-icon">{item.icon}</span><span className="tool-launch-copy"><strong>{item.title}</strong><small>{item.desc}</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span>
                   </button>)}
@@ -886,21 +943,21 @@ export default function App() {
                   <div className={"tool-detail-orb tool-tint-" + (toolKind === "search" ? "cyan" : toolKind === "translate" ? "blue" : toolKind === "writing" ? "violet" : "purple")}>
                     {toolKind === "search" ? <Sparkles size={26}/> : toolKind === "translate" ? <Languages size={26}/> : toolKind === "writing" ? <NotebookPen size={26}/> : <GraduationCap size={26}/>}
                   </div>
-                  <div><p className="panel-eyebrow">AURORA TOOL / WORKSPACE</p><h1>{({search:"Web Search",translate:"Translation",writing:"Writing Assistant",study:"Study Assistant",summarize:"Summarizer",quiz:"Quiz Maker",brainstorm:"Idea Studio",image:"Image Understanding"})[toolKind] || "AURORA Tool"}<span>.</span></h1><p>{({search:"Discover information and follow it back to its sources.",translate:"Carry your meaning across languages, naturally.",writing:"Shape a rough idea into clear, confident writing.",study:"Understand the idea first. Build confidence one step at a time.",summarize:"Turn long material into a clear, useful summary.",quiz:"Build a practice quiz from a topic or source text.",brainstorm:"Explore creative options and turn ideas into next steps.",image:"Upload an image here and ask AURORA to inspect it directly."})[toolKind] || "A dedicated AURORA workspace."}</p></div>
+                  <div><p className="panel-eyebrow">AURORA TOOL / WORKSPACE</p><h1>{({search:"Web Search",calculator:"Calculator",convert:"Unit Converter",translate:"Translation",writing:"Writing Assistant",study:"Study Assistant",summarize:"Summarizer",quiz:"Quiz Maker",brainstorm:"Idea Studio",image:"Image Understanding"})[toolKind] || "AURORA Tool"}<span>.</span></h1><p>{({search:"Discover information and follow it back to its sources.",calculator:"Calculate arithmetic expressions without sending them to an AI provider.",convert:"Convert length, mass, volume, time, speed and temperature.",translate:"Carry your meaning across languages, naturally.",writing:"Shape a rough idea into clear, confident writing.",study:"Understand the idea first. Build confidence one step at a time.",summarize:"Turn long material into a clear, useful summary.",quiz:"Build a practice quiz from a topic or source text.",brainstorm:"Explore creative options and turn ideas into next steps.",image:"Upload an image here and ask AURORA to inspect it directly."})[toolKind] || "A dedicated AURORA workspace."}</p></div>
                 </div>
                 <div className="tool-workspace glass-panel">
-                  <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",translate:"Your translation",writing:"Let’s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
+                  <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",calculator:"Enter a calculation",convert:"Enter a measurement to convert",translate:"Your translation",writing:"Let’s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",calculator:"Use +, −, ×, ÷, %, powers and parentheses.",convert:"Use a format such as 12 km to miles or 25 C to F.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
                   <form className="tool-run-form" onSubmit={runTool}>
                     {toolKind === "search" ? <label className="tool-field"><span>Search the web</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder="e.g. Latest UNIBEN admission updates…" required/></label> : <>
                       {toolKind === "translate" && <div className="tool-language-row"><label className="tool-field"><span>From</span><select value={toolSourceLanguage} onChange={(e) => setToolSourceLanguage(e.target.value)}>{["Auto-detect","English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label><button type="button" className="tool-swap-languages" aria-label="Swap source and target languages" onClick={() => { if (toolSourceLanguage === "Auto-detect") { setNotice("Choose a source language first to swap languages."); return; } setToolSourceLanguage(toolLanguage); setToolLanguage(toolSourceLanguage); setToolResult(null); setNotice("Languages swapped. Translate again to refresh the result."); }}><ArrowLeftRight size={17}/></button><label className="tool-field"><span>To</span><select value={toolLanguage} onChange={(e) => setToolLanguage(e.target.value)}>{["English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label></div>}
                       {toolKind === "writing" && <label className="tool-field"><span>What should I do?</span><select value={toolMode} onChange={(e) => setToolMode(e.target.value)}>{["Improve and polish","Draft from my brief","Proofread grammar","Summarise","Make it formal","Make it simpler","Create an outline"].map((mode) => <option key={mode}>{mode}</option>)}</select></label>}
                       {toolKind === "study" && <label className="tool-field"><span>Choose a subject</span><select value={toolSubject} onChange={(e) => setToolSubject(e.target.value)}>{["General","Mathematics","English","Biology","Chemistry","Physics","Agricultural Science","Geography","Civic Education","Computer Science"].map((subject) => <option key={subject}>{subject}</option>)}</select></label>}
                       {toolKind === "image" && <div className="tool-image-upload"><label className="tool-image-pick"><ImageIcon size={18}/><span>{toolImage ? "Choose a different image" : "Upload an image"}</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={onToolImageSelected}/></label>{toolImagePreview && <div className="tool-image-preview"><img src={toolImagePreview} alt="Selected image preview"/><button type="button" onClick={() => {setToolImage(null);setToolImagePreview("");}}>Remove image</button></div>}</div>}
-                      <label className="tool-field"><span>{({study:"Topic or question",writing:"Your text or brief",summarize:"Text to summarize",quiz:"Topic or source text",brainstorm:"Idea or challenge",image:"What should I look for? (optional if an image is attached)"})[toolKind] || "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={({study:"Tell me what you want to understand…",writing:"Paste a draft or describe what you need…",summarize:"Paste the text you want summarized…",quiz:"e.g. Cell biology, photosynthesis, or paste your notes…",brainstorm:"e.g. Help me plan a school project or name a brand…",image:"Ask about objects, text, details, or what is happening in the image…"})[toolKind] || "Paste the text you want translated…"} required={toolKind !== "image"}/></label>
+                      <label className="tool-field"><span>{({study:"Topic or question",writing:"Your text or brief",summarize:"Text to summarize",quiz:"Topic or source text",brainstorm:"Idea or challenge",image:"What should I look for? (optional if an image is attached)",calculator:"Expression",convert:"Measurement (e.g. 12 km to miles)"})[toolKind] || "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={({study:"Tell me what you want to understand…",writing:"Paste a draft or describe what you need…",summarize:"Paste the text you want summarized…",quiz:"e.g. Cell biology, photosynthesis, or paste your notes…",brainstorm:"e.g. Help me plan a school project or name a brand…",image:"Ask about objects, text, details, or what is happening in the image…",calculator:"e.g. (24 + 16) / 4",convert:"e.g. 12 km to miles"})[toolKind] || "Paste the text you want translated…"} required={toolKind !== "image"}/></label>
                     </>}
-                    <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> {({search:"Search the web",translate:"Translate text",writing:"Improve my writing",study:"Start learning",summarize:"Summarize text",quiz:"Create my quiz",brainstorm:"Generate ideas",image:"Get guidance"})[toolKind] || "Run tool"}</>}</button>
+                    <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> {({search:"Search the web",calculator:"Calculate",convert:"Convert units",translate:"Translate text",writing:"Improve my writing",study:"Start learning",summarize:"Summarize text",quiz:"Create my quiz",brainstorm:"Generate ideas",image:"Analyse image"})[toolKind] || "Run tool"}</>}</button>
                   </form>
-                  {!toolResult && !toolBusy && <div className="tool-quick-prompts"><span>QUICK START</span><div>{(toolKind === "search" ? ["Latest news in Nigeria","UNIBEN admission updates","Explain how AI works"] : toolKind === "translate" ? ["Good morning, how are you?","Thank you for your help.","I will be there soon."] : toolKind === "writing" ? ["Write a professional email","Improve my introduction","Create a clear outline"] : ["Explain this topic step by step","Give me a worked example","Help me revise for an exam"]).map((prompt) => <button type="button" key={prompt} onClick={() => { if (toolKind === "search") setToolQuery(prompt); else setToolText(prompt); setNotice(""); }}>{prompt}<span>↗</span></button>)}</div></div>}
+                  {!toolResult && !toolBusy && <div className="tool-quick-prompts"><span>QUICK START</span><div>{(toolKind === "search" ? ["Latest news in Nigeria","UNIBEN admission updates","Explain how AI works"] : toolKind === "calculator" ? ["125 * 8 + 45","(24 + 16) / 4","2^10"] : toolKind === "convert" ? ["12 km to miles","25 C to F","500 g to kg"] : toolKind === "translate" ? ["Good morning, how are you?","Thank you for your help.","I will be there soon."] : toolKind === "writing" ? ["Write a professional email","Improve my introduction","Create a clear outline"] : ["Explain this topic step by step","Give me a worked example","Help me revise for an exam"]).map((prompt) => <button type="button" key={prompt} onClick={() => { if (toolKind === "search") setToolQuery(prompt); else setToolText(prompt); setNotice(""); }}>{prompt}<span>↗</span></button>)}</div></div>}
                   {notice && <div className="tool-notice" role="status">{notice}</div>}
                   {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
                   {toolResult && <div className="tool-result-panel"><div className="tool-result-heading"><div><span className="panel-eyebrow">YOUR RESULT</span><h3>{({search:"Search results",translate:"Translation",writing:"Your writing",study:"Study session",summarize:"Your summary",quiz:"Your quiz",brainstorm:"Your ideas",image:"Image guidance"})[toolResult.kind] || "Tool result"}</h3></div><div className="tool-result-actions"><button type="button" className="outline-action" onClick={async () => { const text = toolResult.reply || (toolResult.results || []).map((item) => [item.title, item.snippet, item.url].filter(Boolean).join("\n")).join("\n\n"); try { if (!text || !navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(text); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}>Copy result</button>{toolResult.reply && <button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={14}/> Read aloud</button>}</div></div>
