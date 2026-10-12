@@ -215,6 +215,16 @@ private fun AuroraNativeApp() {
                                 }
                             }
                             Spacer(Modifier.height(10.dp))
+                            Text("Preferred AI provider", color = Muted, fontSize = 12.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                                listOf("auto", "groq", "openrouter", "gemini").forEach { provider ->
+                                    SuggestionChip(provider.replaceFirstChar { it.uppercase() }, (if (preferredProvider.isBlank()) "auto" else preferredProvider) == provider) {
+                                        preferredProvider = if (provider == "auto") "" else provider
+                                        prefs.edit().putString("preferred_provider", preferredProvider).apply()
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
                             Button(onClick = {
                                 prefs.edit().putString("profile_name", profileName).putString("profile_nickname", profileNickname)
                                     .putString("profile_priorities", profilePriorities).putString("profile_food", profileFood)
