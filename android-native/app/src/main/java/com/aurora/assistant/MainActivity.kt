@@ -223,7 +223,7 @@ private fun AuroraNativeApp() {
                                             val hasApk = assets != null && (0 until assets.length()).any { assets.optJSONObject(it)?.optString("name")?.endsWith(".apk", ignoreCase = true) == true }
                                             apkAvailable = hasApk
                                             updateMessage = if (result == null) "Couldn't reach the release service. Check your app URL and server-side AURORA_GITHUB_TOKEN."
-                                            else if (hasApk) "Release found with an APK asset. In-app download and installation still need the final signed-release setup."
+                                            else if (hasApk) "Release found with an APK asset. Use Download and install update below; Android will ask you to approve installation."
                                             else "Release found, but no downloadable APK asset is attached yet."
                                             checking = false
                                         }
@@ -266,7 +266,7 @@ private fun AuroraNativeApp() {
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
-                            Text("In-app APK installation is part of the release batch. Android will ask you to approve any installation.", color = Muted, fontSize = 12.sp)
+                            Text("Updates require a published signed APK and server-side AURORA_GITHUB_TOKEN. Android always asks you to approve installation.", color = Muted, fontSize = 12.sp)
                         }
                     }
                     "Activities" -> {
