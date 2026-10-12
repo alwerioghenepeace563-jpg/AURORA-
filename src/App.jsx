@@ -1193,7 +1193,7 @@ export default function App() {
                   </>;
                 })()}
                 <div className="admin-panel admin-executor-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">04 / NATURAL-LANGUAGE CONTROL</span><h2><Sparkles size={20}/> AI Executor</h2><p>Describe a task. AURORA can run live provider checks, refresh diagnostics, open app workspaces, or prepare a plan for actions not yet connected.</p></div><span className="admin-executor-pulse">EXECUTOR READY</span></div>
-                  <div className="admin-executor-log" aria-live="polite">{executorLog.slice(-5).map((entry, index) => <div className={"admin-executor-entry " + entry.role} key={index}><span>{entry.role === "user" ? "YOU" : entry.role === "system" ? "SYSTEM" : "AURORA"}</span><p>{entry.text}</p></div>)}</div>
+                  <div className="admin-executor-log" aria-live="polite">{executorLog.slice(-5).map((entry, index) => <div className={"admin-executor-entry " + entry.role} key={index}><span>{entry.role === "user" ? "YOU" : entry.role === "system" ? "SYSTEM" : "AURORA"}</span><FormattedMessage content={entry.text} onChoice={(choice) => setExecutorPrompt(choice)} /></div>)}</div>
                   <form className="admin-executor-form" onSubmit={async (event) => {
                     event.preventDefault();
                     const prompt = executorPrompt.trim();
@@ -1213,8 +1213,8 @@ export default function App() {
                         if (!response.ok) throw new Error(data.error || "Live provider test could not complete.");
                         setProviderTests(data.providers || {});
                         const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
-                        const report = Object.entries(data.providers || {}).map(([name, result]) => label(name) + ": " + String(result.status || "unknown").toUpperCase() + (Number.isFinite(result.latencyMs) ? " (" + result.latencyMs + " ms)" : "")).join("; ");
-                        setExecutorLog((items) => [...items, { role: "assistant", text: "Live provider tests completed. " + report + ". This sent a tiny test request to each configured provider and may use a small amount of API quota." }]);
+                        const report = Object.entries(data.providers || {}).map(([name, result]) => "- **" + label(name) + ":** " + String(result.status || "unknown").replace(/_/g, " ").toUpperCase() + (Number.isFinite(result.latencyMs) ? " · " + result.latencyMs + " ms" : "") + (result.message ? " — " + result.message : "")).join("\n");
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "## Live Provider Test\n\n**Status:** Completed\n\n### Results\n" + (report || "- No provider results were returned.") + "\n\n### Note\nThis test sent a tiny request to configured providers and may use a small amount of API quota." }]);
                       } else if (/(run|start|check|refresh|inspect|diagnos).*(diagnostic|system|provider|status|health)|^(diagnostics|provider status|system status|check ai)$/i.test(command)) {
                         const response = await fetch("/api/admin", { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" });
                         const data = await response.json().catch(() => ({}));
@@ -1222,7 +1222,7 @@ export default function App() {
                         setAdminData(data);
                         const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
                         const ready = Object.entries(data.providers || {}).filter(([, value]) => value).map(([name]) => label(name));
-                        setExecutorLog((items) => [...items, { role: "assistant", text: "Diagnostics completed. Authentication is verified. Configured provider keys detected: " + (ready.join(", ") || "none") + ". This check confirms configuration only; it does not test live model responses." }]);
+                        setExecutorLog((items) => [...items, { role: "assistant", text: "## System Diagnostics\n\n**Status:** Completed\n\n### Provider Configuration\n" + (ready.length ? ready.map((name) => "- **" + name + ":** Configured").join("\n") : "- No provider keys detected.") + "\n\n### What this means\nThis checks whether server credentials are configured. It does not send a live request to the AI models." }]);
                       } else if (/(open|launch|go to|navigate to).*(tools|tool workspace|home|dashboard|activities|activity|profile|settings|chat|assistant)/i.test(command)) {
                         const target = /tools|tool workspace/i.test(command) ? "tools"
                           : /activities|activity/i.test(command) ? "activities"
@@ -1232,7 +1232,7 @@ export default function App() {
                         setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening " + targetLabel + "." }]);
                         navigate(target);
                       } else {
-                        const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "You are AURORA's administrator-side AI Executor. The administrator asked: " + prompt + "\n\nRespond with a concise execution plan. You may only claim a task was executed if the app has a direct supported action for it. Supported direct actions in this console are: refresh provider configuration diagnostics, and navigate to the tools workspace. For all other requests, clearly label your answer as a proposed plan and explain which app integration or explicit confirmation would be needed. Never claim to change app data, secrets, deployments, users, or settings without an actual tool that did so. Do not ask for or reveal API keys." }] }) });
+                        const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "You are AURORA's administrator-side AI Executor. The administrator asked: " + prompt + "\n\nRespond in polished, concise Markdown with a clear ## heading, short sections, bullets, and a clear status label such as **Completed**, **Plan**, or **Needs setup**. Start by answering the administrator directly. You may only claim a task was executed if the app has a direct supported action for it. Supported direct actions in this console are: live AI provider tests, refresh provider configuration diagnostics, and navigate to app workspaces. For all other requests, clearly label your answer as a proposed plan and explain which app integration or explicit confirmation is needed. Never claim to change app data, secrets, deployments, users, schedules, or settings without an actual tool that did so. Do not ask for or reveal API keys." }] }) });
                         const data = await response.json().catch(() => ({}));
                         if (!response.ok) throw new Error(data.error || "The AI executor could not reach the AI service.");
                         setExecutorLog((items) => [...items, { role: "assistant", text: data.reply || "I couldn't produce an execution plan." }]);
