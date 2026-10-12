@@ -78,6 +78,10 @@ private fun AuroraNativeApp() {
     var activityTitle by remember { mutableStateOf("") }
     var activityBody by remember { mutableStateOf("") }
     var activityItems by remember { mutableStateOf(loadActivityItems(prefs)) }
+    var toolKind by remember { mutableStateOf("Search") }
+    var toolInput by remember { mutableStateOf("") }
+    var toolResult by remember { mutableStateOf("") }
+    var toolBusy by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf(prefs.getString("profile_name", "") ?: "") }
     var profileNickname by remember { mutableStateOf(prefs.getString("profile_nickname", "") ?: "") }
     var profilePriorities by remember { mutableStateOf(prefs.getString("profile_priorities", "") ?: "") }
@@ -221,7 +225,42 @@ private fun AuroraNativeApp() {
                                 }
                             }
                             Spacer(Modifier.height(4.dp))
-                            NativeActionCard("Focus timer & tools", "Calculator, weather, search and more are in the next tools port") { page = "Jarvis"; draft = "Help me plan a focus session." }
+                            NativeActionCard("Open tools workspace", "Web search, weather and calculator") { page = "Tools" }
+                        }
+                    }
+                    "Tools" -> {
+                        Column(Modifier.fillMaxSize()) {
+                            Text("AURORA UTILITIES", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(6.dp))
+                            Text("Tools workspace", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                                listOf("Search", "Weather", "Calculator").forEach { kind -> SuggestionChip(kind, toolKind == kind) { toolKind = kind; toolResult = "" } }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(value = toolInput, onValueChange = { toolInput = it }, label = { Text(when(toolKind) { "Search" -> "What should I search for?"; "Weather" -> "City or town"; else -> "Math expression (e.g. 12*(4+3))" }) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), minLines = if (toolKind == "Calculator") 1 else 2)
+                            Spacer(Modifier.height(10.dp))
+                            Button(onClick = {
+                                val query = toolInput.trim()
+                                if (query.isNotBlank() && !toolBusy) {
+                                    toolBusy = true; toolResult = ""
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) { runNativeTool(backendUrl.trim().trimEnd('/'), toolKind, query) }
+                                        toolResult = result
+                                        toolBusy = false
+                                    }
+                                }
+                            }, enabled = toolInput.isNotBlank() && !toolBusy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
+                                Text(if (toolBusy) "Working…" else "Run ${toolKind.lowercase()}", fontWeight = FontWeight.Bold)
+                            }
+                            if (toolResult.isNotBlank()) {
+                                Spacer(Modifier.height(12.dp))
+                                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(16.dp)) {
+                                    Text(toolResult, color = Color.White, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(14.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Text("Search and weather use your deployed AURORA backend. Calculator runs locally on the phone.", color = Muted, fontSize = 12.sp)
                         }
                     }
                     "Profile" -> {
@@ -521,6 +560,87 @@ private fun checkLatestRelease(): JSONObject? {
 }
 
 
+
+
+private fun runNativeTool(baseUrl: String, kind: String, query: String): String {
+    if (kind == "Calculator") return try { "$query = ${NativeExpressionParser(query).parse()}" } catch (e: Exception) { e.message ?: "Invalid expression." }
+    if (!baseUrl.startsWith("https://")) return "Open Profile → AI connection and save your deployed HTTPS app URL first."
+    return try {
+        val url = if (kind == "Weather") URL("$baseUrl/api/weather?city=${java.net.URLEncoder.encode(query, "UTF-8")}") else URL("$baseUrl/api/search")
+        val connection = (url.openConnection() as HttpURLConnection)
+        connection.requestMethod = if (kind == "Search") "POST" else "GET"
+        connection.setRequestProperty("Accept", "application/json")
+        if (kind == "Search") {
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+            connection.outputStream.use { it.write(JSONObject().put("query", query).toString().toByteArray(Charsets.UTF_8)) }
+        }
+        connection.connectTimeout = 12000
+        connection.readTimeout = 30000
+        val status = connection.responseCode
+        val body = (if (status in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+        connection.disconnect()
+        val json = runCatching { JSONObject(body) }.getOrNull()
+        if (status !in 200..299) return json?.optString("error")?.takeIf { it.isNotBlank() } ?: "Tool request failed (HTTP $status)."
+        if (kind == "Search") {
+            val results = json?.optJSONArray("results") ?: return "No search results returned."
+            if (results.length() == 0) return "No matching results. Try a more specific search."
+            (0 until minOf(results.length(), 6)).joinToString("\n\n") { i ->
+                val item = results.optJSONObject(i) ?: JSONObject()
+                "${i + 1}. ${item.optString("title")}\n${item.optString("snippet")}\n${item.optString("url")}"
+            }
+        } else {
+            val current = json?.optJSONObject("current") ?: JSONObject()
+            val units = json?.optJSONObject("units") ?: JSONObject()
+            "Weather for ${json?.optString("location") ?: query}\nNow: ${current.optString("temperature", "—")}${units.optString("temperature", "°C")}\nConditions: ${current.optString("description", "Unavailable")}\nHumidity: ${current.optString("humidity", "—")}%\nWind: ${current.optString("windSpeed", "—")} ${units.optString("wind", "km/h")}"
+        }
+    } catch (e: Exception) { e.message ?: "The tool could not complete. Check the connection and try again." }
+}
+
+private class NativeExpressionParser(private val input: String) {
+    private var index = 0
+    fun parse(): Double {
+        val value = expression()
+        skipSpaces()
+        if (index != input.length) throw IllegalArgumentException("Unexpected character at position ${index + 1}.")
+        if (!value.isFinite()) throw IllegalArgumentException("The result is not finite.")
+        return value
+    }
+    private fun expression(): Double {
+        var value = term()
+        while (true) {
+            skipSpaces()
+            value = when {
+                eat('+') -> value + term()
+                eat('-') -> value - term()
+                else -> return value
+            }
+        }
+    }
+    private fun term(): Double {
+        var value = factor()
+        while (true) {
+            skipSpaces()
+            value = when {
+                eat('*') -> value * factor()
+                eat('/') -> { val divisor = factor(); if (divisor == 0.0) throw IllegalArgumentException("Cannot divide by zero."); value / divisor }
+                else -> return value
+            }
+        }
+    }
+    private fun factor(): Double {
+        skipSpaces()
+        if (eat('+')) return factor()
+        if (eat('-')) return -factor()
+        if (eat('(')) { val value = expression(); skipSpaces(); if (!eat(')')) throw IllegalArgumentException("Missing closing parenthesis."); return value }
+        val start = index
+        while (index < input.length && (input[index].isDigit() || input[index] == '.')) index++
+        if (start == index) throw IllegalArgumentException("Enter a valid arithmetic expression.")
+        return input.substring(start, index).toDoubleOrNull() ?: throw IllegalArgumentException("Invalid number.")
+    }
+    private fun skipSpaces() { while (index < input.length && input[index].isWhitespace()) index++ }
+    private fun eat(char: Char): Boolean { if (index < input.length && input[index] == char) { index++; return true }; return false }
+}
 
 private data class NativeActivityItem(val kind: String, val title: String, val body: String, val createdAt: Long) {
     val id: String get() = "$kind-$createdAt-$title"
