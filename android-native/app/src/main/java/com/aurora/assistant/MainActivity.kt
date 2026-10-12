@@ -304,7 +304,7 @@ private fun AuroraNativeApp() {
                             Spacer(Modifier.height(8.dp))
                             Text("Voice", color = Muted, fontSize = 12.sp)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("jessica", "aria", "roger").forEach { voice ->
+                                listOf("jessica", "bella", "lucian").forEach { voice ->
                                     SuggestionChip(voice.replaceFirstChar { it.uppercase() }, voice == selectedVoice) {
                                         selectedVoice = voice
                                         prefs.edit().putString("selected_voice", voice).apply()
@@ -724,7 +724,7 @@ private fun fetchNativeVoice(baseUrl: String, text: String, voice: String, cache
         connection.connectTimeout = 15000
         connection.readTimeout = 60000
         connection.doOutput = true
-        val payload = JSONObject().put("text", text.take(6000)).put("voice", voice)
+        val payload = JSONObject().put("text", text.take(2500)).put("voice", voice)
         connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
         if (connection.responseCode !in 200..299) {
             connection.disconnect()
