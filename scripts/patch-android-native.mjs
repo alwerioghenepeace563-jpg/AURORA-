@@ -14,8 +14,6 @@ const files = {
 
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.provider.Settings;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -64,14 +62,6 @@ public class AuroraAssistantPlugin extends Plugin {
         result.put("opened", true);
         result.put("packageName", packageName);
         call.resolve(result);
-    }
-
-    @PluginMethod
-    public void openAccessibilitySettings(PluginCall call) {
-        Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
-        call.resolve();
     }
 
     @PluginMethod
