@@ -261,7 +261,7 @@ export default function App() {
   const [adminError, setAdminError] = useState("");
   const [executorPrompt, setExecutorPrompt] = useState("");
   const [executorBusy, setExecutorBusy] = useState(false);
-  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try “run system diagnostics”, “test live AI providers”, or “open tools workspace”." }]);
+  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try “run system diagnostics”, “test live AI providers”, “open tools workspace”, or “open custom schedules”." }]);
   const [providerTests, setProviderTests] = useState(null);
   const [draft, setDraft] = useState("");
   const [chatSessions, setChatSessions] = useState(() => {
@@ -1248,14 +1248,16 @@ export default function App() {
                         const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
                         const ready = Object.entries(data.providers || {}).filter(([, value]) => value).map(([name]) => label(name));
                         setExecutorLog((items) => [...items, { role: "assistant", text: "## System Diagnostics\n\n**Status:** Completed\n\n### Provider Configuration\n" + (ready.length ? ready.map((name) => "- **" + name + ":** Configured").join("\n") : "- No provider keys detected.") + "\n\n### What this means\nThis checks whether server credentials are configured. It does not send a live request to the AI models." }]);
-                      } else if (/(open|launch|go to|navigate to).*(tools|tool workspace|home|dashboard|activities|activity|profile|settings|chat|assistant)/i.test(command)) {
+                      } else if (/(open|launch|go to|navigate to).*(tools|tool workspace|home|dashboard|activities|activity|profile|settings|chat|assistant|schedules|schedule workspace|custom schedule)/i.test(command)) {
                         const target = /tools|tool workspace/i.test(command) ? "tools"
+                          : /schedules|schedule workspace|custom schedule/i.test(command) ? "schedules"
                           : /activities|activity/i.test(command) ? "activities"
                           : /profile|settings/i.test(command) ? "profile"
                           : /chat|assistant/i.test(command) ? "chat" : "home";
-                        const targetLabel = { tools: "Tools workspace", activities: "Activities", profile: "Profile and settings", chat: "Chat", home: "Home dashboard" }[target];
+                        const targetLabel = { tools: "Tools workspace", schedules: "Custom schedules", activities: "Activities", profile: "Profile and settings", chat: "Chat", home: "Home dashboard" }[target];
                         setExecutorLog((items) => [...items, { role: "assistant", text: "Executing command: opening " + targetLabel + "." }]);
-                        navigate(target);
+                        if (target === "schedules") { setActivityTab("schedules"); navigate("activities"); }
+                        else navigate(target);
                       } else {
                         const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: "You are AURORA's administrator-side AI Executor. The administrator asked: " + prompt + "\n\nRespond in polished, concise Markdown with a clear ## heading, short sections, bullets, and a clear status label such as **Completed**, **Plan**, or **Needs setup**. Start by answering the administrator directly. You may only claim a task was executed if the app has a direct supported action for it. Supported direct actions in this console are: live AI provider tests, refresh provider configuration diagnostics, and navigate to app workspaces. For all other requests, clearly label your answer as a proposed plan and explain which app integration or explicit confirmation is needed. Never claim to change app data, secrets, deployments, users, schedules, or settings without an actual tool that did so. Do not ask for or reveal API keys." }] }) });
                         const data = await response.json().catch(() => ({}));
