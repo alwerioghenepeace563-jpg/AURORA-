@@ -21,9 +21,9 @@ const PROVIDERS = {
 
 async function verifyAdmin(req) {
   const authorization = req.headers.authorization || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) return { error: "Sign in with the administrator account first.", status: 401 };
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_API || "").trim().replace(/\\/$/, "").replace(/\\/(?:rest\\/v1|auth\\/v1)$/i, "");
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
   if (!supabaseUrl || !supabaseKey) return { error: "Authentication service is not configured on the server.", status: 503 };
   try {
@@ -48,7 +48,7 @@ async function testProvider(name, config) {
   const started = Date.now();
   try {
     const url = name === "gemini"
-      ? "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent((process.env.GEMINI_MODEL || "gemini-2.5-flash").replace(/^models\\//, "")) + ":generateContent?key=" + encodeURIComponent(key)
+      ? "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent((process.env.GEMINI_MODEL || "gemini-2.5-flash").replace(/^models\//, "")) + ":generateContent?key=" + encodeURIComponent(key)
       : config.url;
     const response = await fetch(url, {
       method: "POST",
@@ -60,7 +60,7 @@ async function testProvider(name, config) {
     const latencyMs = Date.now() - started;
     if (!response.ok) {
       const raw = typeof data?.error?.message === "string" ? data.error.message : typeof data?.message === "string" ? data.message : "Provider returned HTTP " + response.status + ".";
-      const safeMessage = raw.replace(/https?:\\/\\/\\S+/g, "[provider link]").replace(/\\b[A-Za-z0-9_-]{24,}\\b/g, "[redacted]").slice(0, 180);
+      const safeMessage = raw.replace(/https?:\/\/\S+/g, "[provider link]").replace(/\b[A-Za-z0-9_-]{24,}\b/g, "[redacted]").slice(0, 180);
       return { configured: true, status: "error", latencyMs, httpStatus: response.status, message: safeMessage };
     }
     const hasReply = name === "gemini"
