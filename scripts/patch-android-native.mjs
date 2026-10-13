@@ -238,8 +238,20 @@ if (!manifest.includes('android:name=".AuroraAssistantService"')) {
 if (!manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
-if (!manifest.includes('com.whatsapp')) {
-  manifest = manifest.replace("</manifest>", '    <queries><package android:name="com.whatsapp" /><package android:name="com.whatsapp.w4b" /></queries>\n</manifest>');
+const visiblePackages = [
+  "com.whatsapp", "com.whatsapp.w4b", "com.google.android.youtube",
+  "com.android.chrome", "com.android.settings", "com.google.android.gm",
+  "com.google.android.apps.maps", "com.google.android.apps.messaging", "com.android.vending"
+];
+if (!manifest.includes("<queries>")) {
+  const queryXml = "    <queries>" + visiblePackages.map((name) => '<package android:name="' + name + '" />').join("") + "</queries>\\n";
+  manifest = manifest.replace("</manifest>", queryXml + "</manifest>");
+} else {
+  for (const name of visiblePackages) {
+    if (!manifest.includes('android:name="' + name + '"')) {
+      manifest = manifest.replace("</queries>", '<package android:name="' + name + '" /></queries>');
+    }
+  }
 }
 fs.writeFileSync(manifestPath, manifest);
 

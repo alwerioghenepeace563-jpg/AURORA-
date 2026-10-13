@@ -55,6 +55,7 @@ if (!/NATIVE ANDROID ASSISTANT/.test(app) || !/toggleNativeAssistant/.test(app))
 if (!/SCREEN ASSISTANT/.test(app) || !/read my phone screen/i.test(app)) failures.push("screen assistant UI");
 if (!/Hey AURORA/.test(app) || !/hands-free conversation/i.test(app) || !/SpeechRecognizer/.test(fs.readFileSync("scripts/patch-android-native.mjs", "utf8"))) failures.push("wake-word and hands-free voice implementation");
 if (!/toggleHandsFreeMode|handsFreeModeRef/.test(app)) failures.push("hands-free voice controls");
+if (!/com.google.android.youtube/.test(app) || !/com.android.settings/.test(app) || !/visiblePackages/.test(fs.readFileSync("scripts/patch-android-native.mjs", "utf8"))) failures.push("common Android app launch commands");
 const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
 if (!nativePatch.includes("AuroraAccessibilityService.java") || !nativePatch.includes("BIND_ACCESSIBILITY_SERVICE")) failures.push("Android accessibility service declaration");
 if (configServerUrlPresent()) failures.push("APK must bundle the UI instead of loading the remote website");

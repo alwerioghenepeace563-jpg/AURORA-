@@ -719,9 +719,24 @@ export default function App() {
       await auroraNative.openAccessibilitySettings();
       return { handled: true, reply: "Android Accessibility settings are open. Choose AURORA Screen Assistant and enable it only if you're comfortable allowing AURORA to read visible screen text. You can turn it off there anytime." };
     }
-    if (/^(?:please\s+)?(?:open|launch|go to)\s+(?:my\s+)?whats?app[.!]?$/i.test(value)) {
-      await auroraNative.openWhatsApp();
-      return { handled: true, reply: "Opening WhatsApp for you." };
+    const appCommands = [
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:my\s+)?whats?app[.!]?$/i, packageName: "com.whatsapp", label: "WhatsApp" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:youtube|you tube)[.!]?$/i, packageName: "com.google.android.youtube", label: "YouTube" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:chrome|google chrome|browser)[.!]?$/i, packageName: "com.android.chrome", label: "Chrome" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:settings|phone settings)[.!]?$/i, packageName: "com.android.settings", label: "Settings" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:gmail|email)[.!]?$/i, packageName: "com.google.android.gm", label: "Gmail" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:google )?maps[.!]?$/i, packageName: "com.google.android.apps.maps", label: "Google Maps" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:messages|sms)[.!]?$/i, packageName: "com.google.android.apps.messaging", label: "Messages" },
+      { pattern: /^(?:please\s+)?(?:open|launch|go to)\s+(?:play store|google play)[.!]?$/i, packageName: "com.android.vending", label: "Play Store" }
+    ];
+    const requestedApp = appCommands.find((item) => item.pattern.test(value));
+    if (requestedApp) {
+      try {
+        await auroraNative.openApp(requestedApp.packageName);
+        return { handled: true, reply: "Opening " + requestedApp.label + " for you." };
+      } catch {
+        return { handled: true, reply: requestedApp.label + " could not be opened. It may not be installed, or Android may use a different app package on this phone." };
+      }
     }
     if (/^(?:please\s+)?(?:start|turn on|enable)\s+(?:the\s+)?(?:aurora\s+)?background assistant[.!]?$/i.test(value)) {
       const result = await auroraNative.startAssistantService();
