@@ -1011,7 +1011,7 @@ private fun readNativeAttachment(context: Context, uri: Uri): NativeAttachment? 
             mime in listOf("image/jpeg", "image/png", "image/webp") -> 3200000
             mime == "application/pdf" || name.endsWith(".pdf", true) -> 6500000
             mime in listOf("text/plain", "text/markdown", "text/csv", "application/json") ||
-                name.matches(Regex(""" .+\\.(txt|md|csv|json)$ """.trim(), RegexOption.IGNORE_CASE)) -> 60000
+                name.matches(Regex(""".+\\.(txt|md|csv|json)$""", RegexOption.IGNORE_CASE)) -> 60000
             else -> return null
         }
         // Enforce the limit while streaming so a huge file cannot be fully loaded into RAM first.
