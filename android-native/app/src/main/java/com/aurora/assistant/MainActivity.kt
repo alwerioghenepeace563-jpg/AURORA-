@@ -1,6 +1,8 @@
 package com.aurora.assistant
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
@@ -171,6 +173,7 @@ private fun AuroraNativeApp() {
     var activityKind by remember { mutableStateOf("Tasks") }
     var activityTitle by remember { mutableStateOf("") }
     var activityBody by remember { mutableStateOf("") }
+    var reminderDelayMinutes by remember { mutableStateOf("10") }
     var activityItems by remember { mutableStateOf(loadActivityItems(prefs)) }
     var toolKind by remember { mutableStateOf("Search") }
     var toolInput by remember { mutableStateOf("") }
@@ -371,12 +374,26 @@ private fun AuroraNativeApp() {
                                         Spacer(Modifier.height(8.dp))
                                         OutlinedTextField(value = activityBody, onValueChange = { activityBody = it }, label = { Text("Note") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), minLines = 2)
                                     }
+                                    if (activityKind == "Reminders") {
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(value = reminderDelayMinutes, onValueChange = { value -> reminderDelayMinutes = value.filter(Char::isDigit).take(5) }, label = { Text("Remind me in how many minutes?") }, supportingText = { Text("1–43200 minutes (up to 30 days)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                                    }
                                     Spacer(Modifier.height(10.dp))
                                     Button(onClick = {
                                         val title = activityTitle.trim()
                                         if (title.isNotBlank()) {
-                                            activityItems = activityItems + NativeActivityItem(activityKind, title, activityBody.trim(), System.currentTimeMillis())
-                                            activityTitle = ""; activityBody = ""
+                                            val now = System.currentTimeMillis()
+                                            val delayMinutes = reminderDelayMinutes.toLongOrNull()
+                                            if (activityKind == "Reminders" && (delayMinutes == null || delayMinutes !in 1L..43200L)) {
+                                                android.widget.Toast.makeText(context, "Choose a reminder time from 1 to 43200 minutes.", android.widget.Toast.LENGTH_LONG).show()
+                                            } else {
+                                                activityItems = activityItems + NativeActivityItem(activityKind, title, activityBody.trim(), now)
+                                                if (activityKind == "Reminders" && delayMinutes != null) {
+                                                    scheduleAuroraReminder(context, title, now + delayMinutes * 60_000L)
+                                                    android.widget.Toast.makeText(context, "Reminder saved and scheduled.", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                                activityTitle = ""; activityBody = ""
+                                            }
                                         }
                                     }, enabled = activityTitle.isNotBlank(), modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) {
                                         Text("Save ${activityKind.removeSuffix("s")}", fontWeight = FontWeight.Bold)
