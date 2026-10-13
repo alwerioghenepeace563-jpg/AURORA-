@@ -351,7 +351,7 @@ export default function App() {
   useEffect(() => {
     if (!AuroraNative.isAndroid()) return;
     let stopped = false;
-    AuroraNative.status().then((status) => { if (!stopped) setNativeStatus(status); }).catch(() => {});
+    AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
     const pollWakeWord = async () => {
       try {
         const result = await AuroraNative.consumeWakeWord();
@@ -1552,6 +1552,17 @@ export default function App() {
                   )}
                   <small style={{ color: "#94a9bf" }}>Android will ask you to confirm installation. If it reports a package conflict, the installed app and update APK must be signed with the same key.</small>
                 </div>}
+              </section>
+              <section className="profile-card" style={{ marginTop: 14, display: "block" }}>
+                <p className="panel-eyebrow">ANDROID ACCESSIBILITY</p>
+                <h2 style={{ margin: "4px 0 8px" }}>Screen Reading</h2>
+                <p style={{ color: "#9fb3ca", fontSize: 13, lineHeight: 1.6, margin: "0 0 12px" }}>To let AURORA read text from another app, enable “AURORA Screen Assistant” in Android Accessibility settings. Return here and tap Read Screen again. AURORA only sends captured text to AI when you choose to ask about it.</p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button type="button" className="outline-action" onClick={readCurrentAndroidScreen} disabled={screenReadBusy}>{screenReadBusy ? "Reading screen…" : "Read current screen"} <Eye size={15}/></button>
+                  <button type="button" className="outline-action" onClick={() => AuroraNative.openAccessibilitySettings().catch((error) => setScreenReadMessage(error?.message || "Could not open Accessibility settings."))} disabled={!AuroraNative.isAndroid()}>Accessibility settings <ArrowUpRight size={15}/></button>
+                </div>
+                {screenReadMessage && <p role="status" style={{ color: "#b9d9ec", fontSize: 12, lineHeight: 1.6, margin: "12px 0 0" }}>{screenReadMessage}</p>}
+                {screenReadText && <><textarea aria-label="Captured screen text" readOnly value={screenReadText} rows={5} style={{ width: "100%", marginTop: 10, resize: "vertical" }}/><button type="button" className="primary-action" style={{ marginTop: 10 }} onClick={() => { setPage("chat"); sendMessage("Please read and explain the text captured from my current Android screen. Clearly summarise what it says and help me with it.\n\nSCREEN TEXT:\n" + screenReadText); }}>Ask AURORA about this screen <ArrowUpRight size={16}/></button></>}
               </section>
               <UpdateCenter />
               <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
