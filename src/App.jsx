@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
+import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -638,7 +639,8 @@ export default function App() {
       return;
     }
     try {
-      const redirectTo = window.location.origin;
+      // Android OAuth must return through the app deep link, not Supabase’s default Site URL (Vercel).
+      const redirectTo = Capacitor.isNativePlatform() ? "com.aurora.assistant://login-callback" : window.location.origin;
       window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
     } catch { setAuthMessage("Could not start " + provider + " sign-in. Please try again."); }
   }
@@ -656,25 +658,60 @@ export default function App() {
 
   useEffect(() => {
     if (!authConfigured) return;
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const accessToken = hash.get("access_token");
-    const refreshToken = hash.get("refresh_token");
-    if (!accessToken) return;
     let cancelled = false;
-    fetch(authUrl + "/auth/v1/user", { headers: { apikey: authKey, Authorization: "Bearer " + accessToken } })
-      .then(async (response) => {
+    let appUrlListener = null;
+
+    const consumeAuthCallback = async (rawUrl) => {
+      if (!rawUrl) return;
+      let params;
+      try {
+        const callbackUrl = new URL(rawUrl);
+        params = new URLSearchParams(callbackUrl.hash.replace(/^#/, "") || callbackUrl.search.replace(/^\\?/, ""));
+      } catch { return; }
+      const accessToken = params.get("access_token");
+      if (!accessToken) return;
+      const refreshToken = params.get("refresh_token");
+      try {
+        const response = await fetch(authUrl + "/auth/v1/user", {
+          headers: { apikey: authKey, Authorization: "Bearer " + accessToken }
+        });
         if (!response.ok) throw new Error("Could not verify sign-in session.");
-        return response.json();
-      })
-      .then((user) => {
+        const user = await response.json();
         if (cancelled) return;
-        const session = { access_token: accessToken, refresh_token: refreshToken, expires_at: Number(hash.get("expires_at")) || Math.floor(Date.now()/1000)+3600, user };
+        const session = {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          expires_at: Number(params.get("expires_at")) || Math.floor(Date.now() / 1000) + 3600,
+          user
+        };
         localStorage.setItem("aurora-auth-session", JSON.stringify(session));
         setAuthSession(session);
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-      })
-      .catch(() => { if (!cancelled) setAuthMessage("Sign-in could not be verified. Please try again."); });
-    return () => { cancelled = true; };
+        setAuthMessage("");
+        if (rawUrl === window.location.href) {
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        }
+      } catch {
+        if (!cancelled) setAuthMessage("Sign-in could not be verified. Please try again.");
+      }
+    };
+
+    // Keep web sign-in working, and receive Android's registered custom-scheme callback.
+    void consumeAuthCallback(window.location.href);
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener("appUrlOpen", ({ url }) => { void consumeAuthCallback(url); })
+        .then((listener) => {
+          if (cancelled) void listener.remove();
+          else appUrlListener = listener;
+        })
+        .catch(() => {});
+      CapacitorApp.getLaunchUrl()
+        .then((launch) => { if (launch?.url) void consumeAuthCallback(launch.url); })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+      if (appUrlListener) void appUrlListener.remove();
+    };
   }, [authConfigured, authUrl, authKey]);
 
   useEffect(() => {
