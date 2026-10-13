@@ -38,6 +38,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
+      - name: Verify Android feature integration
+        run: npm run android:check
       - name: Generate Android project
         run: npx cap add android
       - name: Install native assistant foundation
