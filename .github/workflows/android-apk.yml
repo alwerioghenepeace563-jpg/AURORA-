@@ -36,6 +36,8 @@ jobs:
       - name: Build web app
         env:
           VITE_AURORA_REDUCED_PERMISSION_TEST: "true"
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
       - name: Check web-to-Android feature parity
         run: npm run android:check
