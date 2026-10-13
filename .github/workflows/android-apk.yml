@@ -35,6 +35,8 @@ jobs:
         run: npm install
       - name: Build web app
         run: npm run build
+      - name: Check web-to-Android feature parity
+        run: npm run android:check
       - name: Generate Android project
         run: npx cap add android
       - name: Install native assistant foundation
