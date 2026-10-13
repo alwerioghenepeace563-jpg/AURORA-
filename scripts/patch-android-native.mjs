@@ -254,6 +254,18 @@ if (!manifest.includes("<queries>")) {
     }
   }
 }
+// Register the OAuth callback URI so Android can return from the external browser.
+const callbackIntentFilter = `            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.aurora.assistant" android:host="login-callback" />
+            </intent-filter>`;
+const mainActivityStart = manifest.indexOf('<activity');
+const mainActivityEnd = mainActivityStart >= 0 ? manifest.indexOf('</activity>', mainActivityStart) : -1;
+if (mainActivityStart >= 0 && mainActivityEnd > mainActivityStart && !manifest.includes('android:host="login-callback"')) {
+  manifest = manifest.slice(0, mainActivityEnd) + callbackIntentFilter + "\\n        " + manifest.slice(mainActivityEnd);
+}
 fs.writeFileSync(manifestPath, manifest);
 
 const mainActivity = path.join(javaRoot, "MainActivity.java");
