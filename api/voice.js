@@ -1,18 +1,8 @@
+import { applyAuroraCors } from "../lib/cors.js";
 export default async function handler(req, res) {
-  const allowedOrigin = process.env.AURORA_ALLOWED_ORIGIN;
-  const origin = req.headers.origin;
-  if (allowedOrigin && origin && origin !== allowedOrigin) {
-    return res.status(403).json({ error: "Origin not allowed." });
-  }
-  if (allowedOrigin) res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Vary", "Origin");
+  if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
 
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    return res.status(204).end();
-  }
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST, OPTIONS");
     return res.status(405).json({ error: "Use POST." });
