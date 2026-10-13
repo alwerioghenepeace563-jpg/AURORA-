@@ -1,4 +1,5 @@
-import { applyAuroraCors } from "../lib/cors.js";
+import cors from "../lib/cors.cjs";
+const { applyAuroraCors } = cors;
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "GET, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
