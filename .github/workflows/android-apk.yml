@@ -6,10 +6,8 @@ on:
     branches: [main]
     paths:
       - "src/**"
-      - "api/**"
       - "package.json"
       - "capacitor.config.json"
-      - ".github/workflows/android-apk.yml"
 
 permissions:
   contents: read
