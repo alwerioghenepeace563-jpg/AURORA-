@@ -146,10 +146,11 @@ public class AuroraAssistantPlugin extends Plugin {
                     out.getFD().sync();
                 }
                 if (total < 100000) throw new Exception("The downloaded update file is incomplete.");
+                final long downloadedBytes = total;
                 getActivity().runOnUiThread(() -> {
                     JSObject result = new JSObject();
                     result.put("downloaded", true);
-                    result.put("bytes", total);
+                    result.put("bytes", downloadedBytes);
                     call.resolve(result);
                 });
             } catch (Exception e) {
