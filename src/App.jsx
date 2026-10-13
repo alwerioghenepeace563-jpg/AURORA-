@@ -295,6 +295,7 @@ export default function App() {
   const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
+  const [guestMode, setGuestMode] = useState(false);
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
   const [authVerified, setAuthVerified] = useState(false);
   const [runtimeAuthConfig, setRuntimeAuthConfig] = useState(null);
@@ -575,7 +576,14 @@ export default function App() {
     try {
       const nativeAndroid = auroraNative.isAndroid();
       const redirectTo = nativeAndroid ? "com.aurora.assistant://login-callback" : window.location.origin;
-      const authorize = new URL("/auth/v1/authorize", authUrl);
+      let supabaseBase;
+      try {
+        supabaseBase = new URL(authUrl);
+        if (!["https:", "http:"].includes(supabaseBase.protocol) || !supabaseBase.hostname) throw new Error("not a valid web address");
+      } catch {
+        throw new Error("AURORA's Supabase project URL is missing or invalid. Check SUPABASE_URL / VITE_SUPABASE_URL in Vercel; it must look like https://your-project.supabase.co.");
+      }
+      const authorize = new URL("/auth/v1/authorize", supabaseBase.origin);
       authorize.searchParams.set("provider", provider);
       authorize.searchParams.set("redirect_to", redirectTo);
       authorize.searchParams.set("apikey", authKey);
@@ -693,6 +701,13 @@ export default function App() {
   }
 
   function navigate(next) {
+    if (guestMode && ["tools", "activities"].includes(next)) {
+      setGuestMode(false);
+      setAuthMode("signin");
+      setAuthMessage("Please sign in to unlock Tools and Activities.");
+      setPage("home");
+      return;
+    }
     if (next === "tools") setToolScreen("home");
     if (next === "admin" && (!authVerified || !authSession?.access_token || String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com")) {
       setNotice("Admin access is restricted.");
@@ -1135,7 +1150,7 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
-  if (!authSession?.access_token) {
+  if (!authSession?.access_token && !guestMode) {
     return (
       <div className="auth-screen">
         <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
@@ -1153,6 +1168,11 @@ export default function App() {
             <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUp size={17}/></button>
           </form>
           <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"} <button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>
+          <div className="auth-divider"><span /> <small>OR EXPLORE FIRST</small> <span /></div>
+          <button className="auth-provider-button" type="button" onClick={() => { setGuestMode(true); setAuthMessage(""); setPage("home"); }}>
+            <span className="auth-apple-mark"><Eye size={18}/></span> Try AURORA without signing in
+          </button>
+          <p className="auth-setup-note">Guest access lets you explore Home and chat. Tools and Activities stay locked until you sign in.</p>
           <p className="auth-legal"><ShieldCheck size={13}/> Your account is protected by secure authentication.</p>
         </section>
         <p className="auth-footer">AURORA · YOUR SPACE, YOUR INTELLIGENCE</p>
