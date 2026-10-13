@@ -421,11 +421,12 @@ export default function App() {
       if (!url || !url.startsWith("com.aurora.assistant://login-callback")) return;
       try {
         const callback = new URL(url);
-        const params = new URLSearchParams((callback.hash || "").replace(/^#/, ""));
-        const oauthError = params.get("error_description") || params.get("error");
+        const hashParams = new URLSearchParams((callback.hash || "").replace(/^#/, ""));
+        const queryParams = callback.searchParams;
+        const oauthError = hashParams.get("error_description") || hashParams.get("error") || queryParams.get("error_description") || queryParams.get("error");
         if (oauthError) { setAuthMessage("Google sign-in failed: " + oauthError); return; }
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
+        const accessToken = hashParams.get("access_token") || queryParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token") || queryParams.get("refresh_token");
         if (!accessToken) { setAuthMessage("Google returned to AURORA without a sign-in token. Check Supabase redirect settings."); return; }
         setAuthBusy(true);
         const response = await fetch(authUrl + "/auth/v1/user", {
@@ -435,7 +436,7 @@ export default function App() {
         const user = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(user.message || user.msg || "Could not verify the Google sign-in session.");
         if (!active) return;
-        const session = { access_token: accessToken, refresh_token: refreshToken, expires_at: Number(params.get("expires_at")) || Math.floor(Date.now()/1000)+3600, user };
+        const session = { access_token: accessToken, refresh_token: refreshToken, expires_at: Number(hashParams.get("expires_at") || queryParams.get("expires_at")) || Math.floor(Date.now()/1000)+3600, user };
         localStorage.setItem("aurora-auth-session", JSON.stringify(session));
         setAuthSession(session);
         setAuthMessage("");
@@ -536,7 +537,11 @@ export default function App() {
     setAuthBusy(true);
     try {
       const isSignup = authMode === "signup";
-      const endpoint = isSignup ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+      const nativeAndroid = auroraNative.isAndroid();
+      const redirectTo = nativeAndroid ? "com.aurora.assistant://login-callback" : window.location.origin;
+      const endpoint = isSignup
+        ? "/auth/v1/signup?redirect_to=" + encodeURIComponent(redirectTo)
+        : "/auth/v1/token?grant_type=password";
       const response = await fetch(authUrl + endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: authKey },
@@ -551,7 +556,9 @@ export default function App() {
         setAuthMessage("");
       } else {
         setAuthMode("signin");
-        setAuthMessage("Account created. If email confirmation is enabled, verify your email before signing in.");
+        setAuthMessage(nativeAndroid
+          ? "Account created. Open the verification email on this phone and tap its link. AURORA should reopen to finish sign-in; if it does not, return here and sign in after verification."
+          : "Account created. Check your email and open the verification link, then return here to sign in.");
       }
     } catch (error) {
       setAuthMessage(error.message || "Could not sign in. Please try again.");
@@ -574,8 +581,10 @@ export default function App() {
       } else {
         window.location.href = authorizeUrl;
       }
-    } catch { setAuthMessage("Could not open " + provider + " sign-in. Check your connection and try again."); }
-    finally { setAuthBusy(false); }
+    } catch (error) {
+      const detail = error?.message ? String(error.message) : "Unknown browser or network error";
+      setAuthMessage("Could not start " + provider + " sign-in: " + detail + ". Check your connection and try again.");
+    } finally { setAuthBusy(false); }
   }
 
   function handleSignOut() {
