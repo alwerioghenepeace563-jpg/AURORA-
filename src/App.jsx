@@ -1480,7 +1480,7 @@ export default function App() {
                   <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={16} /></a>
                   <small style={{ color: "#94a9bf" }}>Android may ask you to confirm installation after the APK downloads. AURORA cannot install an update silently.</small>
                 </div>}
-              </div>
+              </section>
               <UpdateCenter />
               <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
             </motion.section>
