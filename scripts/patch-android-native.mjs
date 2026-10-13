@@ -18,6 +18,13 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.provider.Settings;
+import android.net.Uri;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -100,6 +107,88 @@ public class AuroraAssistantPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("text", text);
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void downloadAndInstallUpdate(PluginCall call) {
+        String urlString = call.getString("url");
+        if (urlString == null || !urlString.startsWith("https://")) {
+            call.reject("A secure HTTPS update URL is required.");
+            return;
+        }
+        try {
+            String host = new URL(urlString).getHost().toLowerCase(java.util.Locale.ROOT);
+            if (!(host.equals("github.com") || host.endsWith(".github.com") || host.equals("raw.githubusercontent.com") || host.endsWith(".githubusercontent.com"))) {
+                call.reject("The update must come from the trusted GitHub release host.");
+                return;
+            }
+        } catch (Exception e) { call.reject("The update URL is invalid."); return; }
+        new Thread(() -> {
+            File apk = new File(getContext().getCacheDir(), "aurora-update.apk");
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(urlString).openConnection();
+                connection.setConnectTimeout(20000);
+                connection.setReadTimeout(45000);
+                connection.setInstanceFollowRedirects(true);
+                connection.setRequestProperty("User-Agent", "AURORA-Updater");
+                int code = connection.getResponseCode();
+                if (code < 200 || code >= 300) throw new Exception("Download server returned HTTP " + code);
+                long total = 0;
+                try (InputStream in = connection.getInputStream(); FileOutputStream out = new FileOutputStream(apk)) {
+                    byte[] buffer = new byte[16384];
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        total += count;
+                        if (total > 120L * 1024L * 1024L) throw new Exception("The update file is larger than expected.");
+                        out.write(buffer, 0, count);
+                    }
+                    out.getFD().sync();
+                }
+                if (total < 100000) throw new Exception("The downloaded update file is incomplete.");
+                getActivity().runOnUiThread(() -> {
+                    JSObject result = new JSObject();
+                    result.put("downloaded", true);
+                    result.put("bytes", total);
+                    call.resolve(result);
+                });
+            } catch (Exception e) {
+                apk.delete();
+                getActivity().runOnUiThread(() -> call.reject("Update download failed: " + (e.getMessage() == null ? "network error" : e.getMessage())));
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void installDownloadedUpdate(PluginCall call) {
+        File apk = new File(getContext().getCacheDir(), "aurora-update.apk");
+        if (!apk.exists() || apk.length() < 100000) {
+            call.reject("Download the update first.");
+            return;
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
+                Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
+                settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(settings);
+                JSObject result = new JSObject();
+                result.put("needsInstallPermission", true);
+                call.resolve(result);
+                return;
+            }
+            Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
+            Intent install = new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(uri, "application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(install);
+            JSObject result = new JSObject();
+            result.put("installerLaunched", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Could not open Android's installer: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
+        }
     }
 
     @PluginMethod
@@ -228,12 +317,23 @@ const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />',
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
-  '<uses-permission android:name="android.permission.CAMERA" />'
+  '<uses-permission android:name="android.permission.CAMERA" />',
+  '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
 ];
 for (const permission of permissions) {
   const key = permission.match(/android:name="([^"]+)"/)[1];
   if (!manifest.includes(key)) manifest = manifest.replace("<application", permission + "\n    <application");
 }
+if (!manifest.includes('android:name="androidx.core.content.FileProvider"')) {
+  manifest = manifest.replace("</application>", '        <provider android:name="androidx.core.content.FileProvider" android:authorities="com.aurora.assistant.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/aurora_file_paths" /></provider>\\n    </application>');
+}
+const filePaths = path.join(xmlDir, "aurora_file_paths.xml");
+fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="aurora_updates" path="." />
+</paths>
+`);
+
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
