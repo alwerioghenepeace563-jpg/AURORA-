@@ -1055,11 +1055,22 @@ private class NativeExpressionParser(private val input: String) {
  */
 @Composable
 private fun NativeFormattedMessage(message: String, modifier: Modifier = Modifier) {
+    var insideCodeBlock = false
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         message.lines().forEach { rawLine ->
             val line = rawLine.trimEnd()
-            if (line.isBlank()) {
+            if (line.trimStart().startsWith("```") || line.trimStart().startsWith("~~~")) {
+                insideCodeBlock = !insideCodeBlock
+            } else if (insideCodeBlock) {
+                Surface(color = Color(0xFF07121D), shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(text = line.ifBlank { " " }, color = Color(0xFF9DE7F5), fontSize = 12.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp))
+                }
+            } else if (line.isBlank()) {
                 Spacer(Modifier.height(2.dp))
+            } else if (Regex("^\\s*(---+|\\*\\*\\*+|___+)\\s*$").matches(line)) {
+                HorizontalDivider(color = Color(0xFF294452), thickness = 1.dp, modifier = Modifier.padding(vertical = 5.dp))
             } else {
                 val heading = Regex("^#{1,3}\\s+").find(line)
                 val displayLine = if (heading != null) line.removeRange(heading.range).trim() else line
@@ -1072,32 +1083,29 @@ private fun NativeFormattedMessage(message: String, modifier: Modifier = Modifie
                 }
                 val annotated = buildAnnotatedString {
                     var index = 0
-                    val pattern = Regex("(\\*\\*.+?\\*\\*|__.+?__|\\*[^*\\n]+\\*|_[^_\\n]+_|\u0060[^\u0060\\n]+\u0060)")
+                    val pattern = Regex("(\\*\\*.+?\\*\\*|__.+?__|~~.+?~~|\\*[^*\\n]+\\*|_[^_\\n]+_|\\u0060[^\\u0060\\n]+\\u0060)")
                     pattern.findAll(cleaned).forEach { match ->
                         append(cleaned.substring(index, match.range.first))
                         val token = match.value
                         when {
-                            token.startsWith("**") && token.endsWith("**") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(token.substring(2, token.length - 2)) }
-                            token.startsWith("__") && token.endsWith("__") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(token.substring(2, token.length - 2)) }
-                            token.startsWith("`") && token.endsWith("`") -> withStyle(SpanStyle(background = Color(0xFF102B38), color = Cyan, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)) { append(token.substring(1, token.length - 1)) }
-                            token.startsWith("*") && token.endsWith("*") -> withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(token.substring(1, token.length - 1)) }
-                            token.startsWith("_") && token.endsWith("_") -> withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(token.substring(1, token.length - 1)) }
+                            (token.startsWith("**") && token.endsWith("**")) || (token.startsWith("__") && token.endsWith("__")) ->
+                                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(token.substring(2, token.length - 2)) }
+                            token.startsWith("~~") && token.endsWith("~~") ->
+                                withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough, color = Muted)) { append(token.substring(2, token.length - 2)) }
+                            token.startsWith("\u0060") && token.endsWith("\u0060") ->
+                                withStyle(SpanStyle(background = Color(0xFF102B38), color = Cyan, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)) { append(token.substring(1, token.length - 1)) }
+                            token.startsWith("*") && token.endsWith("*") ->
+                                withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(token.substring(1, token.length - 1)) }
+                            token.startsWith("_") && token.endsWith("_") ->
+                                withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(token.substring(1, token.length - 1)) }
                             else -> append(token)
                         }
                         index = match.range.last + 1
                     }
                     append(cleaned.substring(index))
                 }
-                Text(
-                    text = annotated,
-                    color = Color.White,
-                    fontSize = when {
-                        heading != null -> 16.sp
-                        else -> 14.sp
-                    },
-                    fontWeight = if (heading != null) FontWeight.SemiBold else FontWeight.Normal,
-                    textDecoration = if (cleaned.contains("~~")) TextDecoration.None else TextDecoration.None
-                )
+                Text(text = annotated, color = Color.White, fontSize = if (heading != null) 16.sp else 14.sp,
+                    fontWeight = if (heading != null) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
     }
