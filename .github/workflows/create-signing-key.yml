@@ -1,0 +1,86 @@
+name: Create AURORA Permanent Signing Key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create-signing-key:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Generate persistent Android debug keystore
+        shell: bash
+        run: |
+          mkdir -p signing-key-package
+          keytool -genkeypair -v \
+            -keystore signing-key-package/aurora-debug.keystore \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          keytool -list -v \
+            -keystore signing-key-package/aurora-debug.keystore \
+            -storepass android \
+            -alias androiddebugkey > signing-key-package/CERTIFICATE-INFO.txt
+
+      - name: Prepare key instructions
+        shell: bash
+        run: |
+          cat > signing-key-package/READ-ME-FIRST.txt <<'EOF'
+          AURORA PERSISTENT ANDROID DEBUG SIGNING KEY
+
+          IMPORTANT:
+          - Keep this ZIP private. Anyone with the keystore can sign builds as this debug identity.
+          - Do not commit this ZIP or the keystore into the source repository.
+          - Save a backup somewhere private and secure.
+          - This is a DEBUG signing key for consistent test builds, not a production Play Store signing key.
+
+          KEYSTORE FILE: aurora-debug.keystore
+          KEYSTORE PASSWORD: android
+          KEY ALIAS: androiddebugkey
+          KEY PASSWORD: android
+
+          GITHUB REPOSITORY SECRET TO ADD:
+          Name: AURORA_DEBUG_KEYSTORE_BASE64
+          Value: the Base64 text from BASE64-SECRET-VALUE.txt
+
+          Add the secret in:
+          GitHub > alwerioghenepeace563-jpg/AURORA- > Settings >
+          Secrets and variables > Actions > New repository secret
+
+          Paste the entire Base64 value from BASE64-SECRET-VALUE.txt as the secret value.
+          Do not paste the value into chat, issues, commits, or public messages.
+
+          The APK workflow expects the standard Android debug keystore location and these
+          passwords/alias. After adding the secret, future builds can reuse this same key.
+
+          NOTE ABOUT UPDATING AN EXISTING INSTALL:
+          A new persistent key will not automatically match an older APK signed with a
+          different temporary key. Do not uninstall your currently installed AURORA until
+          we check whether an update can be installed over it.
+          EOF
+          base64 -w 0 signing-key-package/aurora-debug.keystore > signing-key-package/BASE64-SECRET-VALUE.txt
+          printf '\n' >> signing-key-package/BASE64-SECRET-VALUE.txt
+          chmod 600 signing-key-package/aurora-debug.keystore signing-key-package/BASE64-SECRET-VALUE.txt
+
+      - name: Package signing key ZIP
+        run: cd signing-key-package && zip -9 ../AURORA-Permanent-Signing-Key.zip aurora-debug.keystore READ-ME-FIRST.txt CERTIFICATE-INFO.txt BASE64-SECRET-VALUE.txt
+
+      - name: Upload signing key package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AURORA-Permanent-Signing-Key
+          path: AURORA-Permanent-Signing-Key.zip
+          if-no-files-found: error
+          retention-days: 7
