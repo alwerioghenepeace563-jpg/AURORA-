@@ -1,3 +1,4 @@
+import { applyAuroraCors } from "../lib/cors.js";
 function decodeHtml(value = "") {
   return value
     .replace(/&amp;/g, "&").replace(/&quot;/g, '"')
@@ -175,6 +176,7 @@ async function parseWikipedia(query) {
   }));
 }
 export default async function handler(req, res) {
+  if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   if (req.method !== "GET" && req.method !== "POST") {
