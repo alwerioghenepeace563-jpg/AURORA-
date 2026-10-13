@@ -1058,13 +1058,22 @@ export default function App() {
     try { recognition.start(); setListening(true); setNotice(""); } catch { setListening(false); if (!handsFreeModeRef.current) setNotice("Microphone is already active. Try again in a moment."); }
   }
 
-  function toggleMic() {
+  async function toggleMic() {
     if (listening) { const wasHandsFree = handsFreeModeRef.current; handsFreeModeRef.current = false; setHandsFreeMode(false); recognitionRef.current?.stop(); setListening(false); if (wasHandsFree && nativeServiceOn) auroraNative.startAssistantService().catch(() => {}); setNotice("Hands-free listening paused."); return; }
+    if (auroraNative.isAndroid()) {
+      try { await auroraNative.requestMicrophonePermission(); }
+      catch (error) { setNotice(error?.message || "Allow microphone access in Android settings to use voice input. You can still type to AURORA."); return; }
+    }
     handsFreeModeRef.current = false; setHandsFreeMode(false); startMicRecognition();
   }
 
-  function toggleHandsFreeMode() {
-    const next = !handsFreeModeRef.current; handsFreeModeRef.current = next; setHandsFreeMode(next);
+  async function toggleHandsFreeMode() {
+    const next = !handsFreeModeRef.current;
+    if (next && auroraNative.isAndroid()) {
+      try { await auroraNative.requestMicrophonePermission(); }
+      catch (error) { setNotice(error?.message || "Allow microphone access to start hands-free conversation."); return; }
+    }
+    handsFreeModeRef.current = next; setHandsFreeMode(next);
     if (next) { setPage("chat"); startMicRecognition(); setNotice("Hands-free conversation is on. AURORA will listen again after each spoken reply. Tap the microphone to stop."); }
     else { recognitionRef.current?.stop(); setListening(false); if (nativeServiceOn) auroraNative.startAssistantService().catch(() => {}); setNotice("Hands-free conversation is off. Hey AURORA wake listening can resume."); }
   }
