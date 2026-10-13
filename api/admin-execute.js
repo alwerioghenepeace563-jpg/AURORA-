@@ -1,3 +1,4 @@
+import { applyAuroraCors } from "../lib/cors.js";
 const PROVIDERS = {
   groq: {
     env: "GROQ_API_KEY",
@@ -74,6 +75,7 @@ async function testProvider(name, config) {
 }
 
 export default async function handler(req, res) {
+  if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Vary", "Authorization");
   if (req.method !== "POST") {
