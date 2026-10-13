@@ -30,7 +30,7 @@ if (!adminApi.includes("ADMIN_EMAIL_ALLOWLIST") || !adminApi.includes("@gmail.co
 const app = fs.readFileSync("src/App.jsx", "utf8");
 const config = JSON.parse(fs.readFileSync("capacitor.config.json", "utf8"));
 const checks = [
-  ["Reduced-permission test build flag", /VITE_AURORA_REDUCED_PERMISSION_TEST/.test(app) && /AURORA_REDUCED_PERMISSION_TEST/.test(fs.readFileSync("scripts/patch-android-native.mjs", "utf8")) ? /VITE_AURORA_REDUCED_PERMISSION_TEST/.test(app) : /$a/],
+  ["Reduced-permission test build flag", /VITE_AURORA_REDUCED_PERMISSION_TEST/],
   ["Admin dashboard", /adminData|Admin/i],
   ["AI Executor", /executorPrompt|Executor/i],
   ["AI chat", /sendMessage|api\/chat|chatMessages/i],
@@ -47,6 +47,7 @@ const checks = [
   ["Theme/customization code", /theme|appearance|accent/i]
 ];
 const failures = checks.filter(([, pattern]) => !pattern.test(app)).map(([name]) => name);
+if (!/AURORA_REDUCED_PERMISSION_TEST/.test(fs.readFileSync("scripts/patch-android-native.mjs", "utf8"))) failures.push("native reduced-permission build switch");
 
 const publicConfig = fs.readFileSync("api/public-config.js", "utf8");
 if (!/supabaseAnonKey/.test(publicConfig) || /SUPABASE_SERVICE_ROLE|service_role/i.test(publicConfig)) failures.push("safe public auth configuration endpoint");
