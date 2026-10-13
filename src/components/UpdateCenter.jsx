@@ -34,7 +34,7 @@ export default function UpdateCenter() {
       }
       setInstalled(appInfo);
       setRelease(manifest);
-      setDownloaded(false);
+      if (Number(manifest.versionCode || 0) <= Number(appInfo.build || 0)) setDownloaded(false);
       setStatus("ready");
     } catch (err) {
       setError(err?.message || "Could not check for updates.");
