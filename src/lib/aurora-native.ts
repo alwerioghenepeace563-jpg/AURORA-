@@ -38,3 +38,10 @@ export const auroraNative = {
     return AuroraNative.openApp({ packageName });
   },
 };
+
+// Keep web requests same-origin on the website, but route server API calls to Vercel
+// when the UI is bundled inside the native Android application.
+export const auroraApiUrl = (path: string): string => {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return Capacitor.isNativePlatform() ? `https://aurora-ten-gold.vercel.app${normalized}` : normalized;
+};
