@@ -1,4 +1,6 @@
+import { applyAuroraCors } from "../lib/cors.js";
 export default function handler(req, res) {
+  if (applyAuroraCors(req, res, "GET, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
   const configuredProviders = [
     process.env.GROQ_API_KEY ? "groq" : null,
