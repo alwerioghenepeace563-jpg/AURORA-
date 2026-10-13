@@ -13,6 +13,8 @@ type AuroraNativePlugin = {
   stopAssistantService(): Promise<{ stopped: boolean }>;
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
+  openAccessibilitySettings(): Promise<{ opened: boolean }>;
+  readScreen(): Promise<{ text: string }>;
 };
 
 const AuroraNative = registerPlugin<AuroraNativePlugin>("AuroraNative");
@@ -28,6 +30,14 @@ export const auroraNative = {
   stopAssistantService: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA background service is available only in the Android app.");
     return AuroraNative.stopAssistantService();
+  },
+  openAccessibilitySettings: async () => {
+    if (!Capacitor.isNativePlatform()) throw new Error("Screen Assistant settings are available only in the Android app.");
+    return AuroraNative.openAccessibilitySettings();
+  },
+  readScreen: async () => {
+    if (!Capacitor.isNativePlatform()) throw new Error("Phone screen reading is available only in the Android app.");
+    return AuroraNative.readScreen();
   },
   openWhatsApp: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");

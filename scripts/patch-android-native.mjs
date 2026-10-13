@@ -16,6 +16,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.provider.Settings;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -64,6 +65,28 @@ public class AuroraAssistantPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("opened", true);
         result.put("packageName", packageName);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openAccessibilitySettings(PluginCall call) {
+        Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+        JSObject result = new JSObject();
+        result.put("opened", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void readScreen(PluginCall call) {
+        String text = AuroraAccessibilityService.readVisibleText();
+        if (text == null) {
+            call.reject("Enable AURORA Screen Assistant in Android Accessibility settings first.");
+            return;
+        }
+        JSObject result = new JSObject();
+        result.put("text", text);
         call.resolve(result);
     }
 
@@ -142,12 +165,107 @@ public class AuroraAssistantService extends Service {
     @Override
     public IBinder onBind(Intent intent) { return null; }
 }
-`
+`,
+  "AuroraAccessibilityService.java": `package com.aurora.assistant;
+
+import android.accessibilityservice.AccessibilityService;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import java.util.ArrayList;
+import java.util.List;
+
+public class AuroraAccessibilityService extends AccessibilityService {
+    private static volatile AuroraAccessibilityService instance;
+    private static volatile String lastExternalScreenText = "";
+
+    @Override public void onServiceConnected() {
+        super.onServiceConnected();
+        instance = this;
+    }
+
+    @Override public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event == null || event.getPackageName() == null
+                || "com.aurora.assistant".contentEquals(event.getPackageName())) return;
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return;
+        String visible = collectVisibleText(root);
+        root.recycle();
+        if (visible != null && !visible.trim().isEmpty()) lastExternalScreenText = visible;
+    }
+
+    @Override public void onInterrupt() { }
+
+    @Override public void onDestroy() {
+        if (instance == this) instance = null;
+        super.onDestroy();
+    }
+
+    public static String readVisibleText() {
+        AuroraAccessibilityService service = instance;
+        if (service == null) return null;
+        AccessibilityNodeInfo root = service.getRootInActiveWindow();
+        if (root == null) return lastExternalScreenText;
+        String packageName = String.valueOf(root.getPackageName());
+        String visible = collectVisibleText(root);
+        root.recycle();
+        if (!"com.aurora.assistant".equals(packageName) && visible != null && !visible.trim().isEmpty()) {
+            lastExternalScreenText = visible;
+            return visible;
+        }
+        return lastExternalScreenText;
+    }
+
+    private static String collectVisibleText(AccessibilityNodeInfo root) {
+        List<String> lines = new ArrayList<>();
+        collect(root, lines);
+        StringBuilder result = new StringBuilder();
+        for (String line : lines) {
+            if (result.length() > 0) result.append("\\n");
+            result.append(line);
+            if (result.length() >= 12000) break;
+        }
+        return result.toString();
+    }
+
+    private static void collect(AccessibilityNodeInfo node, List<String> lines) {
+        if (node == null || lines.size() >= 400) return;
+        CharSequence text = node.getText();
+        if (text == null) text = node.getContentDescription();
+        if (text != null) {
+            String value = text.toString().trim();
+            if (!value.isEmpty() && !lines.contains(value)) lines.add(value);
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) { collect(child, lines); child.recycle(); }
+        }
+    }
+}`
 };
 
 for (const [name, content] of Object.entries(files)) {
   fs.writeFileSync(path.join(javaRoot, name), content);
 }
+
+const xmlDir = path.join(android, "app/src/main/res/xml");
+fs.mkdirSync(xmlDir, { recursive: true });
+fs.writeFileSync(path.join(xmlDir, "aurora_accessibility_service.xml"), `<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:notificationTimeout="150"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/aurora_accessibility_description"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows" />
+`);
+const valuesDir = path.join(android, "app/src/main/res/values");
+fs.mkdirSync(valuesDir, { recursive: true });
+const stringsPath = path.join(valuesDir, "strings.xml");
+let strings = fs.existsSync(stringsPath) ? fs.readFileSync(stringsPath, "utf8") : '<?xml version="1.0" encoding="utf-8"?>\\n<resources>\\n</resources>\\n';
+if (!strings.includes("aurora_accessibility_description")) {
+  strings = strings.replace("</resources>", '    <string name="aurora_accessibility_description">Allows AURORA to read visible text from other apps after you enable Screen Assistant in Android settings. Text is sent to AI only when you ask AURORA to read your screen.</string>\\n</resources>');
+}
+fs.writeFileSync(stringsPath, strings);
 
 const manifestPath = path.join(android, "app/src/main/AndroidManifest.xml");
 let manifest = fs.readFileSync(manifestPath, "utf8");
@@ -161,6 +279,9 @@ for (const permission of permissions) {
 }
 if (!manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" />\n    </application>');
+}
+if (!manifest.includes('android:name=".AuroraAccessibilityService"')) {
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\\n        </service>\\n    </application>');
 }
 if (!manifest.includes('com.whatsapp')) {
   manifest = manifest.replace("</manifest>", '    <queries><package android:name="com.whatsapp" /><package android:name="com.whatsapp.w4b" /></queries>\n</manifest>');
@@ -189,4 +310,4 @@ public class MainActivity extends BridgeActivity {
     fs.writeFileSync(mainActivity, main);
   }
 }
-console.log("AURORA native Android bridge and foreground-service foundation installed.");
+console.log("AURORA native bridge, foreground service, and opt-in screen-reading foundation installed.");

@@ -52,11 +52,15 @@ if (!/supabaseAnonKey/.test(publicConfig) || /SUPABASE_SERVICE_ROLE|service_role
 const nativeBridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 if (!/auroraApiUrl/.test(nativeBridge) || !/auroraApiUrl\("\/api\//.test(app)) failures.push("native API routing");
 if (!/NATIVE ANDROID ASSISTANT/.test(app) || !/toggleNativeAssistant/.test(app)) failures.push("Android assistant service controls");
+if (!/SCREEN ASSISTANT/.test(app) || !/read my phone screen/i.test(app)) failures.push("screen assistant UI");
+const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
+if (!/AuroraAccessibilityService\\.java/.test(nativePatch) || !/BIND_ACCESSIBILITY_SERVICE/.test(nativePatch)) failures.push("Android accessibility service declaration");
 if (configServerUrlPresent()) failures.push("APK must bundle the UI instead of loading the remote website");
 for (const [name, pattern] of [
   ["native bridge registration", /registerPlugin/],
   ["native service controls", /startAssistantService|stopAssistantService/],
-  ["native app launching", /openApp|openWhatsApp/]
+  ["native app launching", /openApp|openWhatsApp/],
+  ["opt-in screen reading", /readScreen|openAccessibilitySettings/]
 ]) {
   if (!pattern.test(nativeBridge)) failures.push(name);
 }
