@@ -14,6 +14,8 @@ class AuroraBootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != "android.intent.action.MY_PACKAGE_REPLACED") return
 
+        AuroraRoutineScheduler.restore(context)
+
         val prefs = context.getSharedPreferences("aurora_reminder_alarms", Context.MODE_PRIVATE)
         val saved = try { JSONArray(prefs.getString("alarms", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
         val remaining = JSONArray()
