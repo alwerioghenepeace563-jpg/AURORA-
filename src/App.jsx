@@ -568,25 +568,41 @@ export default function App() {
 
   async function handleOAuth(provider) {
     setAuthMessage("");
-    if (!authConfigured) {
-      setAuthMessage("Login setup is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
-      return;
-    }
     setAuthBusy(true);
     try {
+      // Re-check the server config at tap time. On a fresh Android launch the
+      // first render can happen before the asynchronous public-config request finishes.
+      let effectiveAuthUrl = String(authUrl || "").trim().replace(/\\/$/, "").replace(/\\/(?:rest\\/v1|auth\\/v1)$/i, "");
+      let effectiveAuthKey = authKey || "";
+      const isValidSupabaseUrl = (value) => {
+        try {
+          const parsed = new URL(String(value || "").trim());
+          return ["https:", "http:"].includes(parsed.protocol) && Boolean(parsed.hostname);
+        } catch { return false; }
+      };
+      if (!isValidSupabaseUrl(effectiveAuthUrl) || !effectiveAuthKey) {
+        const configResponse = await fetch(auroraApiUrl("/api/public-config"), { cache: "no-store" });
+        const config = await configResponse.json().catch(() => ({}));
+        if (!configResponse.ok || !config.supabaseUrl || !config.supabaseAnonKey) {
+          throw new Error(config.error || "AURORA could not load its sign-in configuration. Please check the Vercel public sign-in settings.");
+        }
+        effectiveAuthUrl = String(config.supabaseUrl).trim().replace(/\\/$/, "").replace(/\\/(?:rest\\/v1|auth\\/v1)$/i, "");
+        effectiveAuthKey = String(config.supabaseAnonKey || "");
+        setRuntimeAuthConfig({ supabaseUrl: effectiveAuthUrl, supabaseAnonKey: effectiveAuthKey });
+      }
       const nativeAndroid = auroraNative.isAndroid();
       const redirectTo = nativeAndroid ? "com.aurora.assistant://login-callback" : window.location.origin;
       let supabaseBase;
       try {
-        supabaseBase = new URL(authUrl);
+        supabaseBase = new URL(effectiveAuthUrl);
         if (!["https:", "http:"].includes(supabaseBase.protocol) || !supabaseBase.hostname) throw new Error("not a valid web address");
       } catch {
-        throw new Error("AURORA's Supabase project URL is missing or invalid. Check SUPABASE_URL / VITE_SUPABASE_URL in Vercel; it must look like https://your-project.supabase.co.");
+        throw new Error("The sign-in URL returned by AURORA's server is invalid. Check the Supabase project URL in Vercel.");
       }
       const authorize = new URL("/auth/v1/authorize", supabaseBase.origin);
       authorize.searchParams.set("provider", provider);
       authorize.searchParams.set("redirect_to", redirectTo);
-      authorize.searchParams.set("apikey", authKey);
+      authorize.searchParams.set("apikey", effectiveAuthKey);
       const authorizeUrl = authorize.toString();
       if (nativeAndroid) {
         try {
