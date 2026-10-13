@@ -326,7 +326,7 @@ for (const permission of permissions) {
   if (!manifest.includes(key)) manifest = manifest.replace("<application", permission + "\n    <application");
 }
 if (!manifest.includes('android:name="androidx.core.content.FileProvider"')) {
-  manifest = manifest.replace("</application>", '        <provider android:name="androidx.core.content.FileProvider" android:authorities="com.aurora.assistant.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/aurora_file_paths" /></provider>\\n    </application>');
+  manifest = manifest.replace("</application>", '        <provider android:name="androidx.core.content.FileProvider" android:authorities="com.aurora.assistant.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/aurora_file_paths" /></provider>\n    </application>');
 }
 const filePaths = path.join(xmlDir, "aurora_file_paths.xml");
 fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
