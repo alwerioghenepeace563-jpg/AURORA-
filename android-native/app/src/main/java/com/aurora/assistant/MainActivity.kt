@@ -808,7 +808,7 @@ private fun executeNativeCommand(context: Context, text: String): String? {
         return try { context.startActivity(Intent(MediaStore.ACTION_IMAGE_CAPTURE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); "Opening the camera." }
         catch (_: Exception) { "I couldn't open the camera on this device." }
     }
-    val match = Regex("""^(?:please\s+)?open\s+(whatsapp|youtube|chrome|calculator|clock|contacts|maps|gmail|phone|messages)$""")).find(command)
+    val match = Regex("""^(?:please\s+)?open\s+(whatsapp|youtube|chrome|calculator|clock|contacts|maps|gmail|phone|messages)$""").find(command)
         ?: return null
     val app = match.groupValues[1]
     val packages = mapOf(
@@ -893,7 +893,7 @@ private fun runNativeTool(baseUrl: String, kind: String, query: String): String 
 
 
 private fun nativeConvertUnits(query: String): String {
-    val match = Regex("""^\s*(-?\d+(?:\.\d+)?)\s*([a-zA-Z°]+)\s+(?:to|in)\s+([a-zA-Z°]+)\s*$""")).find(query)
+    val match = Regex("""^\s*(-?\d+(?:\.\d+)?)\s*([a-zA-Z°]+)\s+(?:to|in)\s+([a-zA-Z°]+)\s*$""").find(query)
         ?: return "Use a format like “10 km to miles”, “5 kg to lb”, or “32 F to C”."
     val value = match.groupValues[1].toDouble()
     val from = match.groupValues[2].lowercase()
