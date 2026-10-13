@@ -329,6 +329,7 @@ export default function App() {
   });
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [nativeStatus, setNativeStatus] = useState(null);
@@ -384,6 +385,7 @@ export default function App() {
   const [timerLabel, setTimerLabel] = useState("Focus timer");
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const handsFreeModeRef = useRef(false);
   const audioRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
@@ -739,7 +741,7 @@ export default function App() {
         const nativeAction = await handleNativeCommand(text);
         if (nativeAction?.handled) {
           setMessages((current) => [...current, { role: "assistant", content: nativeAction.reply }]);
-          if (soundOn) speak(nativeAction.reply);
+          if (soundOn) await speak(nativeAction.reply);
           return;
         }
         if (nativeAction?.context) nativeContext = nativeAction.context;
@@ -758,7 +760,7 @@ export default function App() {
           ? "Web results for: " + query + "\\n\\n" + results.map((item, index) => (index + 1) + ". " + item.title + "\\n" + (item.snippet || "Open the source to read more.") + "\\nSource: " + item.url).join("\\n\\n") + "\\n\\nThese are search results, so check the linked sources for full context."
           : "I couldn't find matching results for “" + query + "”. Try a more specific search.";
         setMessages((current) => [...current, { role: "assistant", content: searchReply }]);
-        if (soundOn) speak(searchReply);
+        if (soundOn) await speak(searchReply);
         return;
       }
       let preferredProvider;
@@ -780,11 +782,12 @@ export default function App() {
       if (!reply) throw new Error("AURORA returned an empty response.");
       if (["groq", "openrouter", "gemini"].includes(data.provider)) { try { localStorage.setItem("aurora-active-ai-provider", data.provider); } catch {} }
       setMessages((current) => [...current, { role: "assistant", content: reply }]);
-      if (soundOn) speak(reply);
+      if (soundOn) await speak(reply);
     } catch (error) {
       setNotice(error.message || "Couldn't reach AURORA's AI service. Check the Vercel environment variables.");
     } finally {
       setBusy(false);
+      if (handsFreeModeRef.current) setTimeout(() => { if (handsFreeModeRef.current) startMicRecognition(); }, 850);
     }
   }
 
@@ -913,35 +916,27 @@ export default function App() {
     }
   }
 
-  function toggleMic() {
+  function startMicRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setNotice("Voice input isn't supported in this browser. Try Chrome on a secure connection.");
-      return;
-    }
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
+    if (!SpeechRecognition) { setHandsFreeMode(false); handsFreeModeRef.current = false; setNotice("Voice input is not supported in this Android WebView. Try a supported browser."); return; }
+    if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch {} }
     const recognition = new SpeechRecognition();
-    recognition.lang = "en-GB";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const spokenText = event.results?.[0]?.[0]?.transcript || "";
-      setDraft(spokenText);
-      setListening(false);
-      if (spokenText.trim()) sendMessage(spokenText);
-    };
-    recognition.onerror = () => {
-      setListening(false);
-      setNotice("Microphone didn't start. Please allow microphone access and try again.");
-    };
-    recognition.onend = () => setListening(false);
-    recognitionRef.current = recognition;
-    try { recognition.start(); setListening(true); setNotice(""); }
-    catch { setListening(false); setNotice("Microphone is already active. Try again in a moment."); }
+    recognition.lang = "en-GB"; recognition.interimResults = false; recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => { const spokenText = event.results?.[0]?.[0]?.transcript || ""; setListening(false); if (spokenText.trim()) sendMessage(spokenText); };
+    recognition.onerror = () => { setListening(false); if (!handsFreeModeRef.current) setNotice("Microphone did not start. Please allow microphone access and try again."); };
+    recognition.onend = () => setListening(false); recognitionRef.current = recognition;
+    try { recognition.start(); setListening(true); setNotice(""); } catch { setListening(false); if (!handsFreeModeRef.current) setNotice("Microphone is already active. Try again in a moment."); }
+  }
+
+  function toggleMic() {
+    if (listening) { handsFreeModeRef.current = false; setHandsFreeMode(false); recognitionRef.current?.stop(); setListening(false); setNotice("Hands-free listening paused."); return; }
+    handsFreeModeRef.current = false; setHandsFreeMode(false); startMicRecognition();
+  }
+
+  function toggleHandsFreeMode() {
+    const next = !handsFreeModeRef.current; handsFreeModeRef.current = next; setHandsFreeMode(next);
+    if (next) { setPage("chat"); startMicRecognition(); setNotice("Hands-free conversation is on. AURORA will listen again after each spoken reply. Tap the microphone to stop."); }
+    else { recognitionRef.current?.stop(); setListening(false); setNotice("Hands-free conversation is off."); }
   }
 
   async function onFileSelected(event) {
@@ -1150,6 +1145,7 @@ export default function App() {
                 <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
                 <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="jessica">Jessica</option><option value="bella">Bella</option><option value="laura">Laura</option><option value="lucian">Lucian Rock</option></select><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>Choose which voice AURORA uses for spoken answers. Your choice is saved on this device.</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 {auroraNative.isAndroid() && <div className="setting-group"><p className="setting-label">NATIVE ANDROID ASSISTANT</p><button className="setting-row" type="button" onClick={toggleNativeAssistant} disabled={nativeBusy}><span className="setting-icon">{nativeServiceOn ? <Pause size={17} /> : <Play size={17} />}</span><span className="setting-text"><strong>{nativeBusy ? "Updating service…" : nativeServiceOn ? "Stop background service" : "Start background service"}</strong><small>{nativeStatus?.nativeBridge ? "Android bridge connected. Wake-word listening is not enabled yet." : "Controls the Android foreground service; wake-word listening is not enabled yet."}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>}
+                {auroraNative.isAndroid() && <div className="setting-group"><p className="setting-label">VOICE CONVERSATION</p><button className="setting-row" type="button" onClick={toggleHandsFreeMode}><span className="setting-icon">{handsFreeMode ? <Pause size={17} /> : <Mic size={17} />}</span><span className="setting-text"><strong>{handsFreeMode ? "Stop hands-free conversation" : "Start hands-free conversation"}</strong><small>Listen, answer with AURORA AI, speak the reply, then listen again</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>}
                 {auroraNative.isAndroid() && <div className="setting-group"><p className="setting-label">SCREEN ASSISTANT</p><button className="setting-row" type="button" onClick={() => auroraNative.openAccessibilitySettings().then(() => setNotice("Enable AURORA Screen Assistant in Android Accessibility settings if you want screen reading.")).catch((error) => setNotice(error.message || "Could not open Accessibility settings."))}><span className="setting-icon"><Eye size={17} /></span><span className="setting-text"><strong>Enable screen reading</strong><small>Optional Android Accessibility permission</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" type="button" onClick={() => sendMessage("Please read my phone screen.")}><span className="setting-icon"><FileText size={17} /></span><span className="setting-text"><strong>Read last phone screen</strong><small>Send visible text to AURORA only when you ask</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>}
                 <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 <div className="privacy-note"><ShieldCheck size={17} /><div><strong>Your privacy matters</strong><p>Your API keys stay on the server, never in the browser.</p></div></div>
