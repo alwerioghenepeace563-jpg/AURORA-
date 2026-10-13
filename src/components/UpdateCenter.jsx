@@ -67,6 +67,8 @@ export default function UpdateCenter() {
       if (!result?.downloaded) throw new Error("The update was not downloaded.");
       setDownloaded(true);
       setStatus("downloaded");
+      // Continue straight to Android's installer after the in-app download completes.
+      await installUpdate();
     } catch (err) {
       setError(err?.message || "Could not download the update.");
       setStatus("error");
