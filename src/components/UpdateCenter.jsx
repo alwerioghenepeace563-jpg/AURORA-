@@ -41,7 +41,13 @@ export default function UpdateCenter() {
   }, []);
 
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) checkForUpdates();
+    if (!Capacitor.isNativePlatform()) return;
+    checkForUpdates();
+    let subscription;
+    CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) checkForUpdates();
+    }).then((listener) => { subscription = listener; });
+    return () => { subscription?.remove(); };
   }, [checkForUpdates]);
 
   if (!Capacitor.isNativePlatform()) return null;
