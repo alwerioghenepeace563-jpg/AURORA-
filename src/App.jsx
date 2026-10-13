@@ -338,7 +338,8 @@ export default function App() {
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
-  const APP_VERSION_CODE = Number(import.meta.env.VITE_AURORA_VERSION_CODE || 1094);
+  const [installedVersionCode, setInstalledVersionCode] = useState(Number(import.meta.env.VITE_AURORA_VERSION_CODE || 1094));
+  const [installedVersionName, setInstalledVersionName] = useState(import.meta.env.VITE_AURORA_VERSION_NAME || "1.0.94");
   const [screenReadText, setScreenReadText] = useState("");
   const [screenReadBusy, setScreenReadBusy] = useState(false);
   const [screenReadMessage, setScreenReadMessage] = useState("");
@@ -372,12 +373,19 @@ export default function App() {
     setAppUpdateBusy(true);
     setAppUpdateMessage("Checking the update server…");
     try {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const build = await AuroraNative.getBuildInfo();
+          if (Number.isFinite(Number(build?.versionCode))) setInstalledVersionCode(Number(build.versionCode));
+          if (build?.versionName) setInstalledVersionName(String(build.versionName));
+        } catch {}
+      }
       const response = await fetch("https://raw.githubusercontent.com/alwerioghenepeace563-jpg/-Lively_updates/main/aurora/version.json?check=" + Date.now(), { cache: "no-store" });
       if (!response.ok) throw new Error("Update server returned HTTP " + response.status);
       const info = await response.json();
       if (!info || !Number.isFinite(Number(info.versionCode)) || !info.apkUrl) throw new Error("The update information is incomplete.");
       setAppUpdateInfo(info);
-      if (Number(info.versionCode) > APP_VERSION_CODE) setAppUpdateMessage("A new version is available: " + (info.versionName || ("build " + info.versionCode)) + ".");
+      if (Number(info.versionCode) > installedVersionCode) setAppUpdateMessage("A new version is available: " + (info.versionName || ("build " + info.versionCode)) + ".");
       else setAppUpdateMessage("You're on the latest listed version (" + (info.versionName || "current") + ").");
     } catch (error) {
       setAppUpdateMessage(error.message || "Could not check for updates. Try again when you're online.");
@@ -1408,11 +1416,11 @@ export default function App() {
               </form>
               <section className="profile-card" style={{ marginTop: 18, display: "block" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {`1.0.${Math.max(0, APP_VERSION_CODE - 1000)}`}</p></div>
+                  <div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {installedVersionName}</p></div>
                   <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={15} />} {appUpdateBusy ? "Checking…" : "Check for updates"}</button>
                 </div>
                 <p role="status" style={{ color: "#c6d6e8", fontSize: 13, lineHeight: 1.55, margin: "14px 0 8px" }}>{appUpdateMessage}</p>
-                {appUpdateInfo && Number(appUpdateInfo.versionCode) > APP_VERSION_CODE && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 14, display: "grid", gap: 10 }}>
+                {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 14, display: "grid", gap: 10 }}>
                   <strong>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
                   {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 13 }}>{appUpdateInfo.releaseNotes}</p>}
                   <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={16} /></a>
