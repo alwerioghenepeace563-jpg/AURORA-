@@ -12,8 +12,11 @@ fs.mkdirSync(javaRoot, { recursive: true });
 const files = {
   "AuroraAssistantPlugin.java": `package com.aurora.assistant;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
+import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -70,6 +73,11 @@ public class AuroraAssistantPlugin extends Plugin {
         result.put("platform", "android");
         result.put("nativeBridge", true);
         result.put("backgroundServiceFoundation", true);
+        boolean notificationsAllowed = Build.VERSION.SDK_INT < 33
+            || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+        result.put("notificationsPermissionGranted", notificationsAllowed);
+        result.put("notificationsPermissionRequired", Build.VERSION.SDK_INT >= 33 && !notificationsAllowed);
         result.put("wakeWordEnabled", false);
         result.put("liveRealtimeVoiceEnabled", false);
         call.resolve(result);
