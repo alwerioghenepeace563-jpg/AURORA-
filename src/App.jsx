@@ -373,11 +373,15 @@ export default function App() {
     setAppUpdateBusy(true);
     setAppUpdateMessage("Checking the update server…");
     try {
+      let currentVersionCode = installedVersionCode;
+      let currentVersionName = installedVersionName;
       if (Capacitor.isNativePlatform()) {
         try {
           const build = await AuroraNative.getBuildInfo();
-          if (Number.isFinite(Number(build?.versionCode))) setInstalledVersionCode(Number(build.versionCode));
-          if (build?.versionName) setInstalledVersionName(String(build.versionName));
+          if (Number.isFinite(Number(build?.versionCode))) currentVersionCode = Number(build.versionCode);
+          if (build?.versionName) currentVersionName = String(build.versionName);
+          setInstalledVersionCode(currentVersionCode);
+          setInstalledVersionName(currentVersionName);
         } catch {}
       }
       const response = await fetch("https://raw.githubusercontent.com/alwerioghenepeace563-jpg/-Lively_updates/main/aurora/version.json?check=" + Date.now(), { cache: "no-store" });
@@ -385,8 +389,8 @@ export default function App() {
       const info = await response.json();
       if (!info || !Number.isFinite(Number(info.versionCode)) || !info.apkUrl) throw new Error("The update information is incomplete.");
       setAppUpdateInfo(info);
-      if (Number(info.versionCode) > installedVersionCode) setAppUpdateMessage("A new version is available: " + (info.versionName || ("build " + info.versionCode)) + ".");
-      else setAppUpdateMessage("You're on the latest listed version (" + (info.versionName || "current") + ").");
+      if (Number(info.versionCode) > currentVersionCode) setAppUpdateMessage("A new version is available: " + (info.versionName || ("build " + info.versionCode)) + ".");
+      else setAppUpdateMessage("You're on the latest listed version (" + (currentVersionName || "current") + ").");
     } catch (error) {
       setAppUpdateMessage(error.message || "Could not check for updates. Try again when you're online.");
     } finally {
