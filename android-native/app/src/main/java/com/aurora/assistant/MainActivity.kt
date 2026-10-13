@@ -665,7 +665,7 @@ private fun AuroraNativeApp() {
                                                 val outgoingAttachment = pendingAttachment
                                                 pendingAttachment = null
                                                 attachmentLabel = ""
-                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle), preferredProvider, outgoingAttachment) }
+                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle).put("savedActivities", JSONArray().apply { activityItems.takeLast(80).forEach { item -> put(JSONObject().put("type", item.kind).put("title", item.title).put("details", item.body).put("createdAt", item.createdAt)) } }), preferredProvider, outgoingAttachment) }
                                                 chatBusy = false
                                                 if (result.first) {
                                                     chatMessages = chatMessages + ("assistant" to result.second)
