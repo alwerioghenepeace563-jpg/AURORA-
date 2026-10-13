@@ -22,18 +22,29 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative")
+@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }) })
 public class AuroraAssistantPlugin extends Plugin {
     @PluginMethod
+    public void requestMicrophonePermission(PluginCall call) {
+        if (getPermissionState("microphone") == PermissionState.GRANTED) { JSObject r=new JSObject(); r.put("granted",true); call.resolve(r); return; }
+        requestPermissionForAlias("microphone",call,"microphonePermissionCallback");
+    }
+    @PermissionCallback private void microphonePermissionCallback(PluginCall call) { if(getPermissionState("microphone")!=PermissionState.GRANTED){call.reject("Microphone permission is needed for Hey AURORA. You can deny it and use AURORA normally.");return;} JSObject r=new JSObject();r.put("granted",true);call.resolve(r); }
+    @PluginMethod public void consumeWakeWord(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean d=p.getBoolean("wake_detected",false);if(d)p.edit().putBoolean("wake_detected",false).apply();JSObject r=new JSObject();r.put("detected",d);call.resolve(r); }
+    @PluginMethod
     public void startAssistantService(PluginCall call) {
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { call.reject("Grant microphone permission first to enable Hey AURORA."); return; }
         Intent intent = new Intent(getContext(), AuroraAssistantService.class);
         intent.setAction(AuroraAssistantService.ACTION_START);
         androidx.core.content.ContextCompat.startForegroundService(getContext(), intent);
         JSObject result = new JSObject();
         result.put("started", true);
-        result.put("note", "Foreground service started; wake-word listening is not enabled by this foundation build.");
+        result.put("note", "Hey AURORA wake-word listening is on. Say Hey AURORA to open AURORA hands-free.");
         call.resolve(result);
     }
 
@@ -101,71 +112,13 @@ public class AuroraAssistantPlugin extends Plugin {
                 == PackageManager.PERMISSION_GRANTED;
         result.put("notificationsPermissionGranted", notificationsAllowed);
         result.put("notificationsPermissionRequired", Build.VERSION.SDK_INT >= 33 && !notificationsAllowed);
-        result.put("wakeWordEnabled", false);
+        result.put("wakeWordEnabled", true);
         result.put("liveRealtimeVoiceEnabled", false);
         call.resolve(result);
     }
 }
 `,
-  "AuroraAssistantService.java": `package com.aurora.assistant;
-
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.app.Service;
-import android.content.Intent;
-import android.os.Build;
-import android.os.IBinder;
-
-public class AuroraAssistantService extends Service {
-    public static final String ACTION_START = "com.aurora.assistant.START";
-    public static final String ACTION_STOP = "com.aurora.assistant.STOP";
-    private static final String CHANNEL_ID = "aurora_assistant_status";
-    private static final int NOTIFICATION_ID = 7401;
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "AURORA Assistant", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Shows when AURORA's assistant service is active.");
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) manager.createNotificationChannel(channel);
-        }
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        String action = intent == null ? ACTION_START : intent.getAction();
-        if (ACTION_STOP.equals(action)) {
-            stopForeground(true);
-            stopSelf();
-            return START_NOT_STICKY;
-        }
-
-        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        PendingIntent pendingIntent = launchIntent == null ? null : PendingIntent.getActivity(
-            this, 0, launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
-
-        Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-            ? new Notification.Builder(this, CHANNEL_ID)
-            : new Notification.Builder(this);
-        builder.setContentTitle("AURORA is ready")
-            .setContentText("Assistant service is active. Wake-word listening is not active yet.")
-            .setSmallIcon(getApplicationInfo().icon)
-            .setOngoing(true);
-        if (pendingIntent != null) builder.setContentIntent(pendingIntent);
-        startForeground(NOTIFICATION_ID, builder.build());
-        return START_STICKY;
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) { return null; }
-}
-`,
+  "AuroraAssistantService.java": "package com.aurora.assistant;\nimport android.app.Notification; import android.app.NotificationChannel; import android.app.NotificationManager; import android.app.PendingIntent; import android.app.Service;\nimport android.content.Intent; import android.content.SharedPreferences; import android.content.pm.PackageManager; import android.content.pm.ServiceInfo;\nimport android.os.Build; import android.os.Bundle; import android.os.Handler; import android.os.IBinder; import android.os.Looper;\nimport android.speech.RecognitionListener; import android.speech.RecognizerIntent; import android.speech.SpeechRecognizer; import java.util.ArrayList; import java.util.Locale;\npublic class AuroraAssistantService extends Service {\n public static final String ACTION_START=\"com.aurora.assistant.START\", ACTION_STOP=\"com.aurora.assistant.STOP\"; private static final String CHANNEL_ID=\"aurora_assistant_status\"; private static final int NOTIFICATION_ID=7401;\n private final Handler handler=new Handler(Looper.getMainLooper()); private SpeechRecognizer recognizer; private boolean stopping=false, wakeDetected=false;\n @Override public void onCreate(){ super.onCreate(); if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){ NotificationChannel c=new NotificationChannel(CHANNEL_ID,\"AURORA Assistant\",NotificationManager.IMPORTANCE_LOW); c.setDescription(\"Visible status for AURORA's microphone wake listener.\"); NotificationManager m=getSystemService(NotificationManager.class); if(m!=null)m.createNotificationChannel(c); } }\n @Override public int onStartCommand(Intent intent,int flags,int startId){ String action=intent==null?ACTION_START:intent.getAction(); if(ACTION_STOP.equals(action)){stopping=true;stopRecognition();stopForeground(true);stopSelf();return START_NOT_STICKY;} if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){stopSelf();return START_NOT_STICKY;} Notification n=buildNotification(\"Listening for Hey AURORA · tap to open\"); if(Build.VERSION.SDK_INT>=29)startForeground(NOTIFICATION_ID,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);else startForeground(NOTIFICATION_ID,n); stopping=false;wakeDetected=false;handler.post(this::listen);return START_STICKY; }\n private Notification buildNotification(String text){ Intent launch=getPackageManager().getLaunchIntentForPackage(getPackageName()); PendingIntent pi=launch==null?null:PendingIntent.getActivity(this,0,launch,PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_IMMUTABLE:0)); Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,CHANNEL_ID):new Notification.Builder(this); b.setContentTitle(\"AURORA · Hey AURORA\").setContentText(text).setSmallIcon(getApplicationInfo().icon).setOngoing(true);if(pi!=null)b.setContentIntent(pi);return b.build(); }\n private void updateNote(String text){NotificationManager m=getSystemService(NotificationManager.class);if(m!=null)m.notify(NOTIFICATION_ID,buildNotification(text));}\n private void listen(){if(stopping||wakeDetected||isDestroyed())return;if(!SpeechRecognizer.isRecognitionAvailable(this)){updateNote(\"Speech recognition unavailable · open AURORA to use mic\");handler.postDelayed(this::listen,5000);return;}try{if(recognizer!=null){recognizer.destroy();recognizer=null;}recognizer=SpeechRecognizer.createSpeechRecognizer(this);recognizer.setRecognitionListener(new RecognitionListener(){\n public void onReadyForSpeech(Bundle b){} public void onBeginningOfSpeech(){} public void onRmsChanged(float r){} public void onBufferReceived(byte[] b){} public void onEndOfSpeech(){}\n public void onError(int e){if(!stopping&&!wakeDetected)handler.postDelayed(AuroraAssistantService.this::listen,1200);} public void onResults(Bundle b){check(b);} public void onPartialResults(Bundle b){check(b);} public void onEvent(int e,Bundle b){} });\n Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.UK.toLanguageTag());i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);recognizer.startListening(i);}catch(Exception e){handler.postDelayed(this::listen,2500);} }\n private void check(Bundle b){if(b==null||stopping||wakeDetected)return;ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);if(a==null)return;for(String s:a){String v=s==null?\"\":s.toLowerCase(Locale.UK).replaceAll(\"[^a-z ]\",\" \").replaceAll(\"\\\\s+\",\" \").trim();if(v.contains(\"hey aurora\")||v.contains(\"hey a urora\")||v.contains(\"hey orora\")){wakeDetected=true;stopRecognition();getSharedPreferences(\"aurora_assistant\",MODE_PRIVATE).edit().putBoolean(\"wake_detected\",true).apply();updateNote(\"Wake phrase heard · opening AURORA\");Intent launch=getPackageManager().getLaunchIntentForPackage(getPackageName());if(launch!=null){launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);startActivity(launch);}return;}}if(!stopping&&!wakeDetected)handler.postDelayed(this::listen,300);}\n private void stopRecognition(){handler.removeCallbacksAndMessages(null);if(recognizer!=null){try{recognizer.cancel();}catch(Exception e){}try{recognizer.destroy();}catch(Exception e){}recognizer=null;}}\n @Override public void onDestroy(){stopping=true;stopRecognition();super.onDestroy();} @Override public IBinder onBind(Intent i){return null;}\n}",
   "AuroraAccessibilityService.java": `package com.aurora.assistant;
 
 import android.accessibilityservice.AccessibilityService;
@@ -271,6 +224,8 @@ const manifestPath = path.join(android, "app/src/main/AndroidManifest.xml");
 let manifest = fs.readFileSync(manifestPath, "utf8");
 const permissions = [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />',
+  '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
 ];
 for (const permission of permissions) {
@@ -278,7 +233,7 @@ for (const permission of permissions) {
   if (!manifest.includes(key)) manifest = manifest.replace("<application", permission + "\n    <application");
 }
 if (!manifest.includes('android:name=".AuroraAssistantService"')) {
-  manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" />\n    </application>');
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
 if (!manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
@@ -310,4 +265,4 @@ public class MainActivity extends BridgeActivity {
     fs.writeFileSync(mainActivity, main);
   }
 }
-console.log("AURORA native bridge, foreground service, and opt-in screen-reading foundation installed.");
+console.log("AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");

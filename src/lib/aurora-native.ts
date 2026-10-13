@@ -9,6 +9,8 @@ export type AuroraNativeStatus = {
 };
 
 type AuroraNativePlugin = {
+  requestMicrophonePermission(): Promise<{ granted: boolean }>;
+  consumeWakeWord(): Promise<{ detected: boolean }>;
   startAssistantService(): Promise<{ started: boolean; note?: string }>;
   stopAssistantService(): Promise<{ stopped: boolean }>;
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
@@ -23,6 +25,8 @@ export const auroraNative = {
   isAndroid: () => Capacitor.getPlatform() === "android",
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
+  requestMicrophonePermission: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Microphone permission is available only in the Android app."); return AuroraNative.requestMicrophonePermission(); },
+  consumeWakeWord: async () => { if (!Capacitor.isNativePlatform()) return { detected: false }; return AuroraNative.consumeWakeWord(); },
   startAssistantService: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA background service is available only in the Android app.");
     return AuroraNative.startAssistantService();

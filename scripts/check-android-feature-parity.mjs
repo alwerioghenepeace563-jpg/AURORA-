@@ -53,6 +53,7 @@ const nativeBridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 if (!/auroraApiUrl/.test(nativeBridge) || !/auroraApiUrl\("\/api\//.test(app)) failures.push("native API routing");
 if (!/NATIVE ANDROID ASSISTANT/.test(app) || !/toggleNativeAssistant/.test(app)) failures.push("Android assistant service controls");
 if (!/SCREEN ASSISTANT/.test(app) || !/read my phone screen/i.test(app)) failures.push("screen assistant UI");
+if (!/Hey AURORA/.test(app) || !/hands-free conversation/i.test(app) || !/SpeechRecognizer/.test(fs.readFileSync("scripts/patch-android-native.mjs", "utf8"))) failures.push("wake-word and hands-free voice implementation");
 const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
 if (!nativePatch.includes("AuroraAccessibilityService.java") || !nativePatch.includes("BIND_ACCESSIBILITY_SERVICE")) failures.push("Android accessibility service declaration");
 if (configServerUrlPresent()) failures.push("APK must bundle the UI instead of loading the remote website");
@@ -60,7 +61,9 @@ for (const [name, pattern] of [
   ["native bridge registration", /registerPlugin/],
   ["native service controls", /startAssistantService|stopAssistantService/],
   ["native app launching", /openApp|openWhatsApp/],
-  ["opt-in screen reading", /readScreen|openAccessibilitySettings/]
+  ["opt-in screen reading", /readScreen|openAccessibilitySettings/],
+  ["microphone wake-word bridge", /consumeWakeWord|requestMicrophonePermission/],
+  ["hands-free voice controls", /toggleHandsFreeMode|handsFreeModeRef/]
 ]) {
   if (!pattern.test(nativeBridge)) failures.push(name);
 }
