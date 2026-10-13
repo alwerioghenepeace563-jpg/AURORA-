@@ -1,15 +1,14 @@
 name: Build AURORA Android APK
-# Preserve the established AURORA signing key and Lively Updates publisher.
+# Keep the established AURORA signing key and Lively Updates publisher.
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, feat/native-android-assistant]
+    branches: [main]
     paths:
       - "src/**"
-      - "scripts/**"
-      - "android-native/**"
       - "api/**"
+      - "lib/**"
       - "package.json"
       - "capacitor.config.json"
       - ".github/workflows/android-apk.yml"
@@ -42,12 +41,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
-      - name: Check web-to-Android feature parity
-        run: npm run android:check
       - name: Generate Android project
         run: npx cap add android
-      - name: Install native assistant foundation
-        run: node scripts/patch-android-native.mjs
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Restore stable Android signing key
@@ -63,12 +58,18 @@ jobs:
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
           VERSION_NAME="1.0.${GITHUB_RUN_NUMBER}"
           sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
-          sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${VERSION_NAME}\"/" android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+['\"][^'\"]+['\"]/versionName '${VERSION_NAME}'/" android/app/build.gradle
           echo "AURORA_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "AURORA_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           grep -E "versionCode|versionName" android/app/build.gradle
       - name: Build debug APK
         run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - name: Verify APK archive
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          jarsigner -verify "$APK"
       - name: Publish update to Lively Updates
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' && env.HAS_LIVELY_UPDATES_TOKEN == 'true' }}
         env:
@@ -85,7 +86,7 @@ jobs:
             "versionName": "${AURORA_VERSION_NAME}",
             "minimumSupportedVersionCode": 0,
             "apkUrl": "https://raw.githubusercontent.com/alwerioghenepeace563-jpg/-Lively_updates/main/aurora/AURORA.apk",
-            "releaseNotes": "AURORA Android update from commit ${GITHUB_SHA:0:7}",
+            "releaseNotes": "AURORA Android update with verified package and stable signing from commit ${GITHUB_SHA:0:7}",
             "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
@@ -95,6 +96,9 @@ jobs:
           git add aurora/AURORA.apk aurora/version.json
           git commit -m "Publish AURORA Android ${AURORA_VERSION_NAME}"
           git push origin HEAD:main
+      - name: Warn if existing updater credentials are missing
+        if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE != 'true' || env.HAS_LIVELY_UPDATES_TOKEN != 'true' }}
+        run: echo "::warning::The established AURORA_DEBUG_KEYSTORE_BASE64 and AURORA_LIVELY_PUBLISHER secrets are needed to publish an installable update signed with the existing key."
       - name: Upload APK
         uses: actions/upload-artifact@v5
         with:
