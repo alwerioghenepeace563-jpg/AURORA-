@@ -85,8 +85,26 @@ class MainActivity : ComponentActivity() {
                 val prefs = getSharedPreferences("aurora_native", Context.MODE_PRIVATE)
                 if (completedId != prefs.getLong("download_id", -2L)) return
                 val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                val query = DownloadManager.Query().setFilterById(completedId)
+                manager.query(query)?.use { cursor ->
+                    if (!cursor.moveToFirst()) return
+                    val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
+                    val sizeIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                    val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
+                    val size = if (sizeIndex >= 0) cursor.getLong(sizeIndex) else 0L
+                    if (status != DownloadManager.STATUS_SUCCESSFUL || size <= 0L) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "AURORA update download failed. Please check your connection and try again.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return
+                    }
+                }
                 val uri = manager.getUriForDownloadedFile(completedId)
                 if (uri != null) openApkInstaller(uri)
+                else android.widget.Toast.makeText(context, "AURORA downloaded, but Android could not open the APK.", android.widget.Toast.LENGTH_LONG).show()
             }
         }
         val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
