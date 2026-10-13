@@ -46,6 +46,9 @@ const checks = [
 const failures = checks.filter(([, pattern]) => !pattern.test(app)).map(([name]) => name);
 
 const nativeBridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+if (!/auroraApiUrl/.test(nativeBridge) || !/auroraApiUrl\("\/api\//.test(app)) failures.push("native API routing");
+if (!/NATIVE ANDROID ASSISTANT/.test(app) || !/toggleNativeAssistant/.test(app)) failures.push("Android assistant service controls");
+if (configServerUrlPresent()) failures.push("APK must bundle the UI instead of loading the remote website");
 for (const [name, pattern] of [
   ["native bridge registration", /registerPlugin/],
   ["native service controls", /startAssistantService|stopAssistantService/],
@@ -55,6 +58,7 @@ for (const [name, pattern] of [
 }
 
 const config = JSON.parse(fs.readFileSync("capacitor.config.json", "utf8"));
+function configServerUrlPresent() { return Boolean(config.server && config.server.url); }
 if (config.appId !== "com.aurora.assistant") failures.push("AURORA Android application ID");
 if (config.appName !== "AURORA") failures.push("AURORA Android app name");
 if (config.webDir !== "dist") failures.push("Capacitor web build directory");
