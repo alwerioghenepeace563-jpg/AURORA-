@@ -440,6 +440,35 @@ export default function App() {
       setAppUpdateBusy(false);
     }
   }
+  async function installAppUpdate() {
+    if (!appUpdateInfo?.apkUrl) {
+      setAppUpdateMessage("Check for updates first.");
+      return;
+    }
+    if (!Capacitor.isNativePlatform()) {
+      window.open(appUpdateInfo.apkUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setAppUpdateBusy(true);
+    setAppUpdateMessage("Downloading the verified AURORA update…");
+    try {
+      const downloaded = await AuroraNative.downloadAndInstallUpdate(appUpdateInfo.apkUrl);
+      if (!downloaded?.downloaded) throw new Error("AURORA could not finish downloading the update.");
+      setAppUpdateMessage("Download complete. Preparing Android's installer…");
+      const result = await AuroraNative.installDownloadedUpdate();
+      if (result?.needsInstallPermission) {
+        setAppUpdateMessage("Allow AURORA to install updates on the next Android screen, return here, then tap Install update again.");
+      } else if (result?.installerLaunched) {
+        setAppUpdateMessage("Android's installer opened. Confirm the update there. If Android reports a package conflict, the installed app and APK may have different signing certificates.");
+      } else {
+        setAppUpdateMessage("The update was downloaded. Tap Install update again to open Android's installer.");
+      }
+    } catch (error) {
+      setAppUpdateMessage(error?.message || "Could not download or open the AURORA update.");
+    } finally {
+      setAppUpdateBusy(false);
+    }
+  }
   const [attachmentOpen, setAttachmentOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -1477,8 +1506,14 @@ export default function App() {
                 {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 14, display: "grid", gap: 10 }}>
                   <strong>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
                   {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 13 }}>{appUpdateInfo.releaseNotes}</p>}
-                  <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={16} /></a>
-                  <small style={{ color: "#94a9bf" }}>Android may ask you to confirm installation after the APK downloads. AURORA cannot install an update silently.</small>
+                  {Capacitor.isNativePlatform() ? (
+                    <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>
+                      {appUpdateBusy ? <span className="mini-loader" /> : <ArrowUpRight size={16} />} {appUpdateBusy ? "Preparing update…" : "Download and install update"}
+                    </button>
+                  ) : (
+                    <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={16} /></a>
+                  )}
+                  <small style={{ color: "#94a9bf" }}>Android will ask you to confirm installation. If it reports a package conflict, the installed app and update APK must be signed with the same key.</small>
                 </div>}
               </section>
               <UpdateCenter />
