@@ -10,6 +10,7 @@ import {
 import { auroraNative, auroraApiUrl } from "./lib/aurora-native";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
+import UpdateCenter from "./components/UpdateCenter.jsx";
 
 
 function makeSpeechFriendly(value) {
@@ -1505,6 +1506,7 @@ export default function App() {
                 </div>
                 <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved ✓" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
               </form>
+              <UpdateCenter />
               <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
             </motion.section>
           )}
