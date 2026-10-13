@@ -61,6 +61,19 @@ jobs:
           @CapacitorPlugin(name = "AuroraNative")
           public class AuroraNativePlugin extends Plugin {
             @PluginMethod
+            public void getBuildInfo(PluginCall call) {
+              try {
+                android.content.pm.PackageInfo info = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+                JSObject result = new JSObject();
+                result.put("versionCode", android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode);
+                result.put("versionName", info.versionName == null ? "" : info.versionName);
+                call.resolve(result);
+              } catch (Exception e) {
+                call.reject("Could not read the installed AURORA build version.", e);
+              }
+            }
+
+            @PluginMethod
             public void openAccessibilitySettings(PluginCall call) {
               try {
                 Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
