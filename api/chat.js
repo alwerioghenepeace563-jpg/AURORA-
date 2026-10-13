@@ -1,7 +1,7 @@
 import { applyAuroraCors } from "../lib/cors.js";
 import { getPreferredProvider, setPreferredProvider, providerOrder } from "../lib/ai-provider.js";
 
-export default async function handler(req, res) {
+async function chatHandler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
 
@@ -220,5 +220,20 @@ export default async function handler(req, res) {
       return res.status(504).json({ error: "AURORA's AI providers took too long to respond. Please try again in a moment." });
     }
     return res.status(502).json({ error: "Could not reach the AI service." });
+  }
+}
+
+
+// Catch failures that occur before provider handling begins, so the client receives
+// a diagnostic JSON response instead of Vercel's generic FUNCTION_INVOCATION_FAILED.
+export default async function handler(req, res) {
+  try {
+    return await chatHandler(req, res);
+  } catch (error) {
+    console.error("AURORA chat handler crashed outside provider handling:", error?.stack || error?.message || "Unknown error");
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "AURORA chat encountered an unexpected server error. Check the Vercel function logs." });
+    }
+    return res.end();
   }
 }
