@@ -575,11 +575,22 @@ export default function App() {
     try {
       const nativeAndroid = auroraNative.isAndroid();
       const redirectTo = nativeAndroid ? "com.aurora.assistant://login-callback" : window.location.origin;
-      const authorizeUrl = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
+      const authorize = new URL("/auth/v1/authorize", authUrl);
+      authorize.searchParams.set("provider", provider);
+      authorize.searchParams.set("redirect_to", redirectTo);
+      authorize.searchParams.set("apikey", authKey);
+      const authorizeUrl = authorize.toString();
       if (nativeAndroid) {
-        await Browser.open({ url: authorizeUrl, presentationStyle: "popover" });
+        try {
+          await Browser.open({ url: authorizeUrl });
+        } catch (browserError) {
+          // Some Android Go builds cannot launch Custom Tabs; fall back to the WebView
+          // so the user gets a visible error/page instead of being blocked at the login screen.
+          console.warn("AURORA external sign-in browser unavailable:", browserError);
+          window.location.assign(authorizeUrl);
+        }
       } else {
-        window.location.href = authorizeUrl;
+        window.location.assign(authorizeUrl);
       }
     } catch (error) {
       const detail = error?.message ? String(error.message) : "Unknown browser or network error";
