@@ -198,7 +198,7 @@ jobs:
               meta = ET.SubElement(service, "meta-data")
               meta.set(ns + "name", "android.accessibilityservice")
               meta.set(ns + "resource", "@xml/aurora_accessibility_service")
-          manifest.write(manifest, encoding="utf-8", xml_declaration=True)
+          tree.write(str(manifest), encoding="utf-8", xml_declaration=True)
           PY
           MAIN="$JAVA_DIR/MainActivity.java"
           if [ ! -f "$MAIN" ]; then
