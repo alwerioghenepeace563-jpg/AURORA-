@@ -1470,7 +1470,7 @@ export default function App() {
                   <button type="button" className="outline-action" onClick={() => openNativeApp("com.whatsapp")} disabled={!AuroraNative.isAndroid()}>Open WhatsApp <ArrowUpRight size={15}/></button>
                   {nativeNotice && <span role="status" style={{ color: "#a9bdd2", fontSize: 13 }}>{nativeNotice}</span>}
                 </div>
-                <div style={{ marginTop: 20 }}><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {installedVersionName}</p></div>
+                <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {installedVersionName}</p></div>
                   <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={15} />} {appUpdateBusy ? "Checking…" : "Check for updates"}</button>
                 </div>
                 <p role="status" style={{ color: "#c6d6e8", fontSize: 13, lineHeight: 1.55, margin: "14px 0 8px" }}>{appUpdateMessage}</p>
