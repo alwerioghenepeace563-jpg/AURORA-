@@ -1000,17 +1000,29 @@ private class NativeExpressionParser(private val input: String) {
 }
 
 private fun scheduleAuroraReminder(context: Context, title: String, triggerAtMillis: Long) {
+    if (triggerAtMillis <= System.currentTimeMillis()) return
+    val requestCode = (title + triggerAtMillis).hashCode()
     val intent = Intent(context, AuroraReminderReceiver::class.java).apply {
         putExtra(AuroraReminderReceiver.EXTRA_TITLE, title)
-        putExtra(AuroraReminderReceiver.EXTRA_ID, (title + triggerAtMillis).hashCode())
+        putExtra(AuroraReminderReceiver.EXTRA_ID, requestCode)
     }
-    val requestCode = (title + triggerAtMillis).hashCode()
     val pending = PendingIntent.getBroadcast(
         context, requestCode, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
     val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
+
+    // Persist scheduled alarms so Android can restore them after a device reboot.
+    val prefs = context.getSharedPreferences("aurora_reminder_alarms", Context.MODE_PRIVATE)
+    val alarms = try { JSONArray(prefs.getString("alarms", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+    val updated = JSONArray()
+    for (i in 0 until alarms.length()) {
+        val item = alarms.optJSONObject(i) ?: continue
+        if (item.optInt("id") != requestCode) updated.put(item)
+    }
+    updated.put(JSONObject().put("id", requestCode).put("title", title).put("at", triggerAtMillis))
+    prefs.edit().putString("alarms", updated.toString()).apply()
 }
 
 private data class NativeActivityItem(val kind: String, val title: String, val body: String, val createdAt: Long) {
