@@ -263,6 +263,7 @@ private fun AuroraNativeApp() {
     }
     LaunchedEffect(activityItems) { saveActivityItems(prefs, activityItems) }
     LaunchedEffect(routineItems) { saveRoutineItems(prefs, routineItems) }
+    LaunchedEffect(routineItems) { AuroraRoutineScheduler.scheduleAll(context, routineItems.map { JSONObject().put("id", it.id).put("title", it.title).put("time", it.time).put("days", it.days).put("enabled", it.enabled) }) }
 
     MaterialTheme(colorScheme = darkColorScheme(
         background = Night, surface = Panel, primary = Cyan,
