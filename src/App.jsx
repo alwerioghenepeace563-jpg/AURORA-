@@ -670,10 +670,13 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); };
+      const playbackEnded = new Promise((resolve) => {
+        audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); resolve(); };
+      });
       await audio.play();
       setSpeaking(true);
+      await playbackEnded;
     } catch (error) {
       // Keep Read Aloud usable when the hosted voice service is unavailable.
       // Browser speech is a fallback only; the selected cloud voice remains preferred.
@@ -687,11 +690,14 @@ export default function App() {
           const preferredVoice = availableVoices.find((voice) => /female|samantha|victoria|karen|zira|aria|jenny|serena/i.test(voice.name) && /^en/i.test(voice.lang))
             || availableVoices.find((voice) => /^en/i.test(voice.lang));
           if (preferredVoice) utterance.voice = preferredVoice;
-          utterance.onend = () => setSpeaking(false);
-          utterance.onerror = () => { setSpeaking(false); setNotice("Read aloud is unavailable on this device right now."); };
+          const speechFinished = new Promise((resolve) => {
+            utterance.onend = () => { setSpeaking(false); resolve(); };
+            utterance.onerror = () => { setSpeaking(false); setNotice("Read aloud is unavailable on this device right now."); resolve(); };
+          });
           setSpeaking(true);
           window.speechSynthesis.speak(utterance);
           setNotice("Cloud voice unavailable; using this device’s voice for now.");
+          await speechFinished;
           return;
         }
       } catch {}
