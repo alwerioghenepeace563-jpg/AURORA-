@@ -937,14 +937,14 @@ export default function App() {
   }
 
   function toggleMic() {
-    if (listening) { handsFreeModeRef.current = false; setHandsFreeMode(false); recognitionRef.current?.stop(); setListening(false); setNotice("Hands-free listening paused."); return; }
+    if (listening) { const wasHandsFree = handsFreeModeRef.current; handsFreeModeRef.current = false; setHandsFreeMode(false); recognitionRef.current?.stop(); setListening(false); if (wasHandsFree && nativeServiceOn) auroraNative.startAssistantService().catch(() => {}); setNotice("Hands-free listening paused."); return; }
     handsFreeModeRef.current = false; setHandsFreeMode(false); startMicRecognition();
   }
 
   function toggleHandsFreeMode() {
     const next = !handsFreeModeRef.current; handsFreeModeRef.current = next; setHandsFreeMode(next);
     if (next) { setPage("chat"); startMicRecognition(); setNotice("Hands-free conversation is on. AURORA will listen again after each spoken reply. Tap the microphone to stop."); }
-    else { recognitionRef.current?.stop(); setListening(false); setNotice("Hands-free conversation is off."); }
+    else { recognitionRef.current?.stop(); setListening(false); if (nativeServiceOn) auroraNative.startAssistantService().catch(() => {}); setNotice("Hands-free conversation is off. Hey AURORA wake listening can resume."); }
   }
 
   async function onFileSelected(event) {
