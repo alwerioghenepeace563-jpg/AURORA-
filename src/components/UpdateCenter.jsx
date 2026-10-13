@@ -8,7 +8,7 @@ const MANIFEST_URL = "https://raw.githubusercontent.com/alwerioghenepeace563-jpg
 
 function compareVersions(latest, installed) {
   const latestCode = Number(latest?.versionCode || 0);
-  const installedCode = Number(installed?.buildNumber || 0);
+  const installedCode = Number(installed?.build || 0);
   return latestCode > installedCode;
 }
 
@@ -52,7 +52,11 @@ export default function UpdateCenter() {
   const openDownload = async () => {
     if (!published || !release?.apkUrl) return;
     try {
-      await Browser.open({ url: release.apkUrl });
+      if (Capacitor.isNativePlatform()) {
+        await Browser.open({ url: release.apkUrl });
+      } else {
+        window.open(release.apkUrl, "_blank", "noopener,noreferrer");
+      }
     } catch {
       window.open(release.apkUrl, "_blank", "noopener,noreferrer");
     }
@@ -65,13 +69,13 @@ export default function UpdateCenter() {
         <div className="update-center-title">
           <p className="panel-eyebrow">AURORA SYSTEM</p>
           <h2 id="aurora-update-heading">App updates</h2>
-          <p>Updates published through Lively Updates.</p>
+          <p>Live releases from Lively Updates. Check again after installing to refresh the version shown here.</p>
         </div>
       </div>
 
       <div className="update-center-version-row">
         <span>Installed version</span>
-        <strong>{installed ? `${installed.version || "Installed"} (${installed.buildNumber || "?"})` : "Checking device…"}</strong>
+        <strong>{installed ? `${installed.version || "Installed"} (${installed.build || "?"})` : "Checking device…"}</strong>
       </div>
       {release && (
         <>
@@ -106,7 +110,7 @@ export default function UpdateCenter() {
 
       <div className="update-center-safety">
         <ShieldCheck size={17} />
-        <span>Updates are installed over the existing app when the Android package and signing key match. Android may ask you to approve installation. Do not uninstall AURORA to update it.</span>
+        <span>Android requires your approval to install downloaded APK updates. After installation, reopen AURORA and tap Check for updates to refresh the installed version. Keep the same signing key; do not uninstall AURORA to update it.</span>
       </div>
     </section>
   );
