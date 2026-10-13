@@ -28,6 +28,9 @@ jobs:
           gradle-version: "8.9"
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
       - name: Validate native update API syntax
         run: node --check api/app-update.js
       - name: Build native Android APK
