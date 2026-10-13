@@ -5,6 +5,7 @@ export type AuroraNativeStatus = {
   nativeBridge: boolean;
   backgroundServiceFoundation: boolean;
   wakeWordEnabled: boolean;
+  wakeWordListening: boolean;
   liveRealtimeVoiceEnabled: boolean;
 };
 
