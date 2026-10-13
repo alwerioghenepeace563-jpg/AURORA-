@@ -261,9 +261,9 @@ fs.writeFileSync(path.join(xmlDir, "aurora_accessibility_service.xml"), `<?xml v
 const valuesDir = path.join(android, "app/src/main/res/values");
 fs.mkdirSync(valuesDir, { recursive: true });
 const stringsPath = path.join(valuesDir, "strings.xml");
-let strings = fs.existsSync(stringsPath) ? fs.readFileSync(stringsPath, "utf8") : '<?xml version="1.0" encoding="utf-8"?>\\n<resources>\\n</resources>\\n';
+let strings = fs.existsSync(stringsPath) ? fs.readFileSync(stringsPath, "utf8") : '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>\n';
 if (!strings.includes("aurora_accessibility_description")) {
-  strings = strings.replace("</resources>", '    <string name="aurora_accessibility_description">Allows AURORA to read visible text from other apps after you enable Screen Assistant in Android settings. Text is sent to AI only when you ask AURORA to read your screen.</string>\\n</resources>');
+  strings = strings.replace("</resources>", '    <string name="aurora_accessibility_description">Allows AURORA to read visible text from other apps after you enable Screen Assistant in Android settings. Text is sent to AI only when you ask AURORA to read your screen.</string>\n</resources>');
 }
 fs.writeFileSync(stringsPath, strings);
 
@@ -281,7 +281,7 @@ if (!manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" />\n    </application>');
 }
 if (!manifest.includes('android:name=".AuroraAccessibilityService"')) {
-  manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\\n        </service>\\n    </application>');
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
 if (!manifest.includes('com.whatsapp')) {
   manifest = manifest.replace("</manifest>", '    <queries><package android:name="com.whatsapp" /><package android:name="com.whatsapp.w4b" /></queries>\n</manifest>');

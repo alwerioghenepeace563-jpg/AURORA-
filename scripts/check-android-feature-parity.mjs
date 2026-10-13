@@ -54,7 +54,7 @@ if (!/auroraApiUrl/.test(nativeBridge) || !/auroraApiUrl\("\/api\//.test(app)) f
 if (!/NATIVE ANDROID ASSISTANT/.test(app) || !/toggleNativeAssistant/.test(app)) failures.push("Android assistant service controls");
 if (!/SCREEN ASSISTANT/.test(app) || !/read my phone screen/i.test(app)) failures.push("screen assistant UI");
 const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
-if (!/AuroraAccessibilityService\\.java/.test(nativePatch) || !/BIND_ACCESSIBILITY_SERVICE/.test(nativePatch)) failures.push("Android accessibility service declaration");
+if (!nativePatch.includes("AuroraAccessibilityService.java") || !nativePatch.includes("BIND_ACCESSIBILITY_SERVICE")) failures.push("Android accessibility service declaration");
 if (configServerUrlPresent()) failures.push("APK must bundle the UI instead of loading the remote website");
 for (const [name, pattern] of [
   ["native bridge registration", /registerPlugin/],
