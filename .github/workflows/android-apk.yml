@@ -52,10 +52,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Publish updater APK and version metadata
-        if: ${{ secrets.LIVELY_UPDATES_TOKEN != '' }}
         env:
           LIVELY_UPDATES_TOKEN: ${{ secrets.LIVELY_UPDATES_TOKEN }}
         run: |
+          if [ -z "$LIVELY_UPDATES_TOKEN" ]; then echo "::warning::LIVELY_UPDATES_TOKEN is not configured; APK was built but not published to the in-app updater."; exit 0; fi
           node <<'NODE'
           const fs = require('fs');
           const token = process.env.LIVELY_UPDATES_TOKEN;
