@@ -19,7 +19,8 @@ Source of truth: the existing React web app in `src/App.jsx` and `src/styles.css
 
 ## Batch 3 — Remaining screens and tools
 - [x] Port core profile fields and local persistence; remaining web profile/settings fields still need to port
-- [x] Add native local Tasks, Notes, Reminders and Events plus a focus timer; full web activity parity, scheduled notifications and calendar integrations remain to port
+- [x] Add native local Tasks, Notes, Reminders and Events plus a focus timer
+- [x] Add minute-based scheduled reminder alarms and Android notifications; reboot persistence and real-device notification tests remain
 - [x] Add native search, weather, calculator and common unit conversions
 - [ ] Port authentication and admin-only features with secure session handling
 - [ ] Test each feature against its existing web counterpart
@@ -33,4 +34,4 @@ Source of truth: the existing React web app in `src/App.jsx` and `src/styles.css
 - [ ] Build and test a signed release APK on a real Android device
 
 ## Current limitations
-The app is not yet a full parity port. Native chat sends text, recent history, core profile preferences and the selected provider to `/api/chat`; rich message rendering, attachments, active schedules, wake phrase/background service, full authentication and admin features remain. The updater can request a short-lived release-asset URL, download the APK with Android DownloadManager, and hand off to Android's package installer. To work against this private repository, configure `AURORA_GITHUB_TOKEN` as a server-side secret in the deployed web app, and configure the release-signing secrets listed in `android-native/README.md`. The native APK build and real-device installation/update have not yet been verified.
+The app is not yet a full parity port. Native chat sends text, recent history, core profile preferences and the selected provider to `/api/chat`; rich message rendering, attachments, active schedules, wake phrase/background service, full authentication and admin features remain. Scheduled reminders now have an alarm/notification implementation, pending build and device verification. The updater can request a short-lived release-asset URL, download the APK with Android DownloadManager, and hand off to Android's package installer. To work against this private repository, configure `AURORA_GITHUB_TOKEN` as a server-side secret in the deployed web app, and configure the release-signing secrets listed in `android-native/README.md`. The native APK build and real-device installation/update have not yet been verified.
