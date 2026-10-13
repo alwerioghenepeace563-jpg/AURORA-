@@ -1,4 +1,5 @@
-import { applyAuroraCors } from "../lib/cors.js";
+import cors from "../lib/cors.cjs";
+const { applyAuroraCors } = cors;
 const PROVIDERS = {
   groq: {
     env: "GROQ_API_KEY",
