@@ -8,6 +8,8 @@ import {
   SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff
 } from "lucide-react";
 import { auroraNative, auroraApiUrl } from "./lib/aurora-native";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 
 
 function makeSpeechFriendly(value) {
@@ -411,6 +413,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!auroraNative.isAndroid()) return;
+    let active = true;
+    let subscription;
+    const handleOAuthCallback = async ({ url }) => {
+      if (!url || !url.startsWith("com.aurora.assistant://login-callback")) return;
+      try {
+        const callback = new URL(url);
+        const params = new URLSearchParams((callback.hash || "").replace(/^#/, ""));
+        const oauthError = params.get("error_description") || params.get("error");
+        if (oauthError) { setAuthMessage("Google sign-in failed: " + oauthError); return; }
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        if (!accessToken) { setAuthMessage("Google returned to AURORA without a sign-in token. Check Supabase redirect settings."); return; }
+        setAuthBusy(true);
+        const response = await fetch(authUrl + "/auth/v1/user", {
+          headers: { apikey: authKey, Authorization: "Bearer " + accessToken },
+          cache: "no-store"
+        });
+        const user = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(user.message || user.msg || "Could not verify the Google sign-in session.");
+        if (!active) return;
+        const session = { access_token: accessToken, refresh_token: refreshToken, expires_at: Number(params.get("expires_at")) || Math.floor(Date.now()/1000)+3600, user };
+        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        setAuthSession(session);
+        setAuthMessage("");
+        await Browser.close().catch(() => {});
+      } catch (error) {
+        if (active) setAuthMessage(error.message || "Google sign-in could not be completed. Please try again.");
+      } finally { if (active) setAuthBusy(false); }
+    };
+    CapacitorApp.addListener("appUrlOpen", handleOAuthCallback).then((handle) => { subscription = handle; });
+    return () => { active = false; subscription?.remove(); };
+  }, [authUrl, authKey]);
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, busy]);
 
@@ -526,10 +563,18 @@ export default function App() {
       setAuthMessage("Login setup is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
       return;
     }
+    setAuthBusy(true);
     try {
-      const redirectTo = window.location.origin;
-      window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
-    } catch { setAuthMessage("Could not start " + provider + " sign-in. Please try again."); }
+      const nativeAndroid = auroraNative.isAndroid();
+      const redirectTo = nativeAndroid ? "com.aurora.assistant://login-callback" : window.location.origin;
+      const authorizeUrl = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
+      if (nativeAndroid) {
+        await Browser.open({ url: authorizeUrl, presentationStyle: "popover" });
+      } else {
+        window.location.href = authorizeUrl;
+      }
+    } catch { setAuthMessage("Could not open " + provider + " sign-in. Check your connection and try again."); }
+    finally { setAuthBusy(false); }
   }
 
   function handleSignOut() {
