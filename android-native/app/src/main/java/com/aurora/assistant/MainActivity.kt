@@ -1007,17 +1007,35 @@ private fun readNativeAttachment(context: Context, uri: Uri): NativeAttachment? 
             "json" -> "application/json"
             else -> "text/plain"
         }
-        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        val maxBytes = when {
+            mime in listOf("image/jpeg", "image/png", "image/webp") -> 3200000
+            mime == "application/pdf" || name.endsWith(".pdf", true) -> 6500000
+            mime in listOf("text/plain", "text/markdown", "text/csv", "application/json") ||
+                name.matches(Regex(""" .+\\.(txt|md|csv|json)$ """.trim(), RegexOption.IGNORE_CASE)) -> 60000
+            else -> return null
+        }
+        // Enforce the limit while streaming so a huge file cannot be fully loaded into RAM first.
+        val output = ByteArrayOutputStream(minOf(maxBytes, 65536))
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                if (total > maxBytes) return null
+                output.write(buffer, 0, count)
+            }
+        } ?: return null
+        val bytes = output.toByteArray()
         if (mime.startsWith("image/")) {
-            if (mime !in listOf("image/jpeg", "image/png", "image/webp") || bytes.size > 3200000) return null
+            if (mime !in listOf("image/jpeg", "image/png", "image/webp")) return null
             NativeAttachment(name, mime, base64 = Base64.encodeToString(bytes, Base64.NO_WRAP))
         } else if (mime == "application/pdf" || name.endsWith(".pdf", true)) {
-            if (bytes.size > 6500000) return null
             NativeAttachment(name, "application/pdf", base64 = Base64.encodeToString(bytes, Base64.NO_WRAP))
-        } else if (mime in listOf("text/plain", "text/markdown", "text/csv", "application/json") || name.matches(Regex(""".+\.(txt|md|csv|json)$""", RegexOption.IGNORE_CASE))) {
-            if (bytes.size > 60000) return null
+        } else {
             NativeAttachment(name, mime, text = bytes.toString(Charsets.UTF_8))
-        } else null
+        }
     } catch (_: Exception) { null }
 }
 
