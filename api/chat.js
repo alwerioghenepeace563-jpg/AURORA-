@@ -1,6 +1,7 @@
 import cors from "../lib/cors.cjs";
 const { applyAuroraCors } = cors;
-import { getPreferredProvider, setPreferredProvider, providerOrder } from "../lib/ai-provider.js";
+import aiProvider from "../lib/ai-provider.cjs";
+const { getPreferredProvider, setPreferredProvider, providerOrder } = aiProvider;
 
 async function chatHandler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
