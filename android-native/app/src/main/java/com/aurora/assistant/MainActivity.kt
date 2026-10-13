@@ -53,6 +53,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -616,7 +620,7 @@ private fun AuroraNativeApp() {
                                         Text(if (message.first == "user") "YOU" else "AURORA", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
                                         Spacer(Modifier.height(4.dp))
                                         Surface(color = if (message.first == "user") Color(0xFF123044) else Panel, shape = RoundedCornerShape(16.dp)) {
-                                            Text(message.second, color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(12.dp))
+                                            NativeFormattedMessage(message.second, Modifier.padding(12.dp))
                                         }
                                     }
                                 }
@@ -997,6 +1001,61 @@ private class NativeExpressionParser(private val input: String) {
     }
     private fun skipSpaces() { while (index < input.length && input[index].isWhitespace()) index++ }
     private fun eat(char: Char): Boolean { if (index < input.length && input[index] == char) { index++; return true }; return false }
+}
+
+/**
+ * Lightweight native rendering for common Markdown used in assistant replies.
+ * Handles headings, bold, italics, inline code, bullets and numbered-list prefixes
+ * without adding a network dependency or interpreting message text as HTML.
+ */
+@Composable
+private fun NativeFormattedMessage(message: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        message.lines().forEach { rawLine ->
+            val line = rawLine.trimEnd()
+            if (line.isBlank()) {
+                Spacer(Modifier.height(2.dp))
+            } else {
+                val heading = Regex("^#{1,3}\\s+").find(line)
+                val displayLine = if (heading != null) line.removeRange(heading.range).trim() else line
+                val isBullet = Regex("^\\s*[-*+]\\s+").containsMatchIn(displayLine)
+                val isNumbered = Regex("^\\s*\\d+[.)]\\s+").containsMatchIn(displayLine)
+                val cleaned = when {
+                    isBullet -> "• " + displayLine.replaceFirst(Regex("^\\s*[-*+]\\s+"), "")
+                    isNumbered -> displayLine.replaceFirst(Regex("^\\s*"), "")
+                    else -> displayLine
+                }
+                val annotated = buildAnnotatedString {
+                    var index = 0
+                    val pattern = Regex("(\\*\\*.+?\\*\\*|__.+?__|\\*[^*\\n]+\\*|_[^_\\n]+_|\u0060[^\u0060\\n]+\u0060)")
+                    pattern.findAll(cleaned).forEach { match ->
+                        append(cleaned.substring(index, match.range.first))
+                        val token = match.value
+                        when {
+                            token.startsWith("**") && token.endsWith("**") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(token.substring(2, token.length - 2)) }
+                            token.startsWith("__") && token.endsWith("__") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(token.substring(2, token.length - 2)) }
+                            token.startsWith("`") && token.endsWith("`") -> withStyle(SpanStyle(background = Color(0xFF102B38), color = Cyan, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)) { append(token.substring(1, token.length - 1)) }
+                            token.startsWith("*") && token.endsWith("*") -> withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(token.substring(1, token.length - 1)) }
+                            token.startsWith("_") && token.endsWith("_") -> withStyle(SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)) { append(token.substring(1, token.length - 1)) }
+                            else -> append(token)
+                        }
+                        index = match.range.last + 1
+                    }
+                    append(cleaned.substring(index))
+                }
+                Text(
+                    text = annotated,
+                    color = Color.White,
+                    fontSize = when {
+                        heading != null -> 16.sp
+                        else -> 14.sp
+                    },
+                    fontWeight = if (heading != null) FontWeight.SemiBold else FontWeight.Normal,
+                    textDecoration = if (cleaned.contains("~~")) TextDecoration.None else TextDecoration.None
+                )
+            }
+        }
+    }
 }
 
 private fun scheduleAuroraReminder(context: Context, title: String, triggerAtMillis: Long) {
