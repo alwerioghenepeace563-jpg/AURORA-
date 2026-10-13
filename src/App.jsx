@@ -330,6 +330,9 @@ export default function App() {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [nativeStatus, setNativeStatus] = useState(null);
+  const [nativeServiceOn, setNativeServiceOn] = useState(false);
+  const [nativeBusy, setNativeBusy] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
@@ -384,6 +387,13 @@ export default function App() {
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
+
+  useEffect(() => {
+    if (!auroraNative.isAndroid()) return;
+    let cancelled = false;
+    auroraNative.status().then((status) => { if (!cancelled) setNativeStatus(status); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -581,6 +591,24 @@ export default function App() {
       }).catch(() => handleSignOut());
     }
   }, [authSession, authConfigured, authUrl, authKey]);
+
+  async function toggleNativeAssistant() {
+    if (!auroraNative.isAndroid() || nativeBusy) return;
+    setNativeBusy(true);
+    try {
+      if (nativeServiceOn) {
+        await auroraNative.stopAssistantService();
+        setNativeServiceOn(false);
+        setNotice("AURORA background service stopped.");
+      } else {
+        const result = await auroraNative.startAssistantService();
+        setNativeServiceOn(Boolean(result.started));
+        setNotice(result.note || "AURORA background service started. Wake-word listening is not enabled yet.");
+      }
+    } catch (error) {
+      setNotice(error?.message || "Could not change the Android assistant service.");
+    } finally { setNativeBusy(false); }
+  }
 
   function navigate(next) {
     if (next === "tools") setToolScreen("home");
@@ -1100,6 +1128,7 @@ export default function App() {
                 <div className="settings-header"><div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div><button className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button></div>
                 <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
                 <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="jessica">Jessica</option><option value="bella">Bella</option><option value="laura">Laura</option><option value="lucian">Lucian Rock</option></select><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>Choose which voice AURORA uses for spoken answers. Your choice is saved on this device.</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
+                {auroraNative.isAndroid() && <div className="setting-group"><p className="setting-label">NATIVE ANDROID ASSISTANT</p><button className="setting-row" type="button" onClick={toggleNativeAssistant} disabled={nativeBusy}><span className="setting-icon">{nativeServiceOn ? <Pause size={17} /> : <Play size={17} />}</span><span className="setting-text"><strong>{nativeBusy ? "Updating service…" : nativeServiceOn ? "Stop background service" : "Start background service"}</strong><small>{nativeStatus?.nativeBridge ? "Android bridge connected. Wake-word listening is not enabled yet." : "Controls the Android foreground service; wake-word listening is not enabled yet."}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>}
                 <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 <div className="privacy-note"><ShieldCheck size={17} /><div><strong>Your privacy matters</strong><p>Your API keys stay on the server, never in the browser.</p></div></div>
                 <div className="panel-bottom"><span>AURORA INTERFACE</span><span>V 0.2</span></div>
