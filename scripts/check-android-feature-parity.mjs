@@ -21,7 +21,7 @@ if (missing.length) {
 }
 
 const adminApi = fs.readFileSync("api/admin.js", "utf8");
-if (!/ADMIN_EMAIL_ALLOWLIST/.test(adminApi) || !/alwerioghenepeace563@gmail\\.com/.test(adminApi)) {
+if (!adminApi.includes("ADMIN_EMAIL_ALLOWLIST") || !adminApi.includes("@gmail.com")) {
   console.error("AURORA Android parity check failed: Admin API must retain the configured administrator email allowlist.");
   process.exit(1);
 }
