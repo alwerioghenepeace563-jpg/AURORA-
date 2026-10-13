@@ -227,7 +227,8 @@ const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />',
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
-  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+  '<uses-permission android:name="android.permission.CAMERA" />'
 ];
 for (const permission of permissions) {
   const key = permission.match(/android:name="([^"]+)"/)[1];
