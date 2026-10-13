@@ -22,10 +22,30 @@ object AuroraRoutineScheduler {
 
     fun scheduleAll(context: Context, routines: List<JSONObject>) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previous = try {
+            JSONArray(prefs.getString(KEY, "[]") ?: "[]")
+        } catch (_: Exception) { JSONArray() }
+        val incomingIds = routines.map { it.optString("id") }.filter { it.isNotBlank() }.toSet()
+        val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        // Cancel alarms for routines that were deleted, otherwise a stale notification
+        // could still fire even after the routine disappears from the UI.
+        for (i in 0 until previous.length()) {
+            val old = previous.optJSONObject(i) ?: continue
+            val oldId = old.optString("id")
+            if (oldId.isBlank() || oldId in incomingIds) continue
+            val staleIntent = Intent(context, AuroraRoutineReceiver::class.java).apply {
+                action = "com.aurora.assistant.ROUTINE.$oldId"
+                putExtra(EXTRA_ID, oldId)
+                putExtra(EXTRA_TITLE, old.optString("title", "AURORA routine"))
+            }
+            val stalePending = PendingIntent.getBroadcast(context, oldId.hashCode(), staleIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            alarm.cancel(stalePending)
+            stalePending.cancel()
+        }
         val saved = JSONArray()
         routines.forEach { saved.put(it) }
         prefs.edit().putString(KEY, saved.toString()).apply()
-        val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         routines.forEach { routine ->
             val id = routine.optString("id")
             if (id.isBlank()) return@forEach
