@@ -293,8 +293,9 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
   const [authVerified, setAuthVerified] = useState(false);
-  const authUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
-  const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+  const [runtimeAuthConfig, setRuntimeAuthConfig] = useState(null);
+  const authUrl = (runtimeAuthConfig?.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
+  const authKey = runtimeAuthConfig?.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   const authConfigured = Boolean(authUrl && authKey);
   const [page, setPage] = useState("home");
   const [adminData, setAdminData] = useState(null);
@@ -392,6 +393,16 @@ export default function App() {
     if (!auroraNative.isAndroid()) return;
     let cancelled = false;
     auroraNative.status().then((status) => { if (!cancelled) setNativeStatus(status); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!auroraNative.isAndroid()) return;
+    let cancelled = false;
+    fetch(auroraApiUrl("/api/public-config"), { cache: "no-store" })
+      .then(async (response) => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || "Could not load sign-in configuration."); return data; })
+      .then((data) => { if (!cancelled && data.supabaseUrl && data.supabaseAnonKey) setRuntimeAuthConfig(data); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
