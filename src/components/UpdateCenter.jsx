@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
-import { Browser } from "@capacitor/browser";
-import { Capacitor } from "@capacitor/core";
-import { CheckCircle2, Download, ExternalLink, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import { CheckCircle2, Download, RefreshCw, ShieldCheck, Smartphone, PackageCheck } from "lucide-react";
 
 const MANIFEST_URL = "https://raw.githubusercontent.com/alwerioghenepeace563-jpg/-Lively_updates/main/aurora/version.json";
+const AuroraNative = registerPlugin("AuroraNative");
 
 function compareVersions(latest, installed) {
   const latestCode = Number(latest?.versionCode || 0);
@@ -17,6 +17,7 @@ export default function UpdateCenter() {
   const [release, setRelease] = useState(null);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [downloaded, setDownloaded] = useState(false);
 
   const checkForUpdates = useCallback(async () => {
     setStatus("checking");
@@ -33,6 +34,7 @@ export default function UpdateCenter() {
       }
       setInstalled(appInfo);
       setRelease(manifest);
+      setDownloaded(false);
       setStatus("ready");
     } catch (err) {
       setError(err?.message || "Could not check for updates.");
@@ -53,18 +55,40 @@ export default function UpdateCenter() {
   if (!Capacitor.isNativePlatform()) return null;
 
   const updateAvailable = release && installed && compareVersions(release, installed);
-  const published = release && Number(release.versionCode || 0) > 0 && typeof release.apkUrl === "string" && release.apkUrl.startsWith("https://");
+  const published = release && Number(release.versionCode || 0) > 0 &&
+    typeof release.apkUrl === "string" && release.apkUrl.startsWith("https://");
 
-  const openDownload = async () => {
-    if (!published || !release?.apkUrl) return;
+  const downloadUpdate = async () => {
+    if (!published || !updateAvailable || !release?.apkUrl) return;
+    setStatus("downloading");
+    setError("");
     try {
-      if (Capacitor.isNativePlatform()) {
-        await Browser.open({ url: release.apkUrl });
-      } else {
-        window.open(release.apkUrl, "_blank", "noopener,noreferrer");
+      const result = await AuroraNative.downloadAndInstallUpdate({ url: release.apkUrl });
+      if (!result?.downloaded) throw new Error("The update was not downloaded.");
+      setDownloaded(true);
+      setStatus("downloaded");
+    } catch (err) {
+      setError(err?.message || "Could not download the update.");
+      setStatus("error");
+    }
+  };
+
+  const installUpdate = async () => {
+    setError("");
+    try {
+      const result = await AuroraNative.installDownloadedUpdate();
+      if (result?.needsInstallPermission) {
+        setStatus("permission");
+        return;
       }
-    } catch {
-      window.open(release.apkUrl, "_blank", "noopener,noreferrer");
+      if (result?.installerLaunched) {
+        setStatus("installing");
+        return;
+      }
+      setStatus("downloaded");
+    } catch (err) {
+      setError(err?.message || "Could not start the installer.");
+      setStatus("error");
     }
   };
 
@@ -75,7 +99,7 @@ export default function UpdateCenter() {
         <div className="update-center-title">
           <p className="panel-eyebrow">AURORA SYSTEM</p>
           <h2 id="aurora-update-heading">App updates</h2>
-          <p>Live releases from Lively Updates. Check again after installing to refresh the version shown here.</p>
+          <p>Check releases, download the APK inside AURORA, and continue to Android's installer.</p>
         </div>
       </div>
 
@@ -94,29 +118,34 @@ export default function UpdateCenter() {
       )}
 
       {status === "checking" && <p className="update-center-status"><RefreshCw size={15} className="update-spin" /> Checking Lively Updates…</p>}
+      {status === "downloading" && <p className="update-center-status"><RefreshCw size={15} className="update-spin" /> Downloading update inside AURORA… Keep the app open.</p>}
       {status === "error" && <p className="update-center-error" role="status">{error}</p>}
       {status === "ready" && !published && <p className="update-center-status">Update service is connected. No AURORA release has been published yet.</p>}
-      {status === "ready" && published && updateAvailable && (
-        <p className="update-center-status update-center-available"><Download size={16} /> A newer version is available.</p>
-      )}
-      {status === "ready" && published && !updateAvailable && (
-        <p className="update-center-status"><CheckCircle2 size={16} /> You’re using the latest published version.</p>
-      )}
+      {status === "ready" && published && updateAvailable && <p className="update-center-status update-center-available"><Download size={16} /> A newer version is available.</p>}
+      {status === "ready" && published && !updateAvailable && <p className="update-center-status"><CheckCircle2 size={16} /> App is up to date.</p>}
+      {status === "downloaded" && <p className="update-center-status"><PackageCheck size={16} /> Update downloaded. Continue to install it.</p>}
+      {status === "permission" && <p className="update-center-status">Allow “Install unknown apps” for AURORA in Android settings, return here, then tap Continue installation.</p>}
+      {status === "installing" && <p className="update-center-status">Android’s installer is open. Approve the update, then return to AURORA. The installed version will be checked again.</p>}
 
       <div className="update-center-actions">
-        <button className="outline-action" type="button" onClick={checkForUpdates} disabled={status === "checking"}>
+        <button className="outline-action" type="button" onClick={checkForUpdates} disabled={status === "checking" || status === "downloading"}>
           <RefreshCw size={16} className={status === "checking" ? "update-spin" : ""} /> Check for updates
         </button>
-        {published && updateAvailable && (
-          <button className="primary-action" type="button" onClick={openDownload}>
-            <Download size={16} /> Download update <ExternalLink size={14} />
+        {published && updateAvailable && !downloaded && (
+          <button className="primary-action" type="button" onClick={downloadUpdate} disabled={status === "downloading"}>
+            <Download size={16} /> {status === "downloading" ? "Downloading…" : "Download update"}
+          </button>
+        )}
+        {downloaded && (
+          <button className="primary-action" type="button" onClick={installUpdate}>
+            <PackageCheck size={16} /> Continue installation
           </button>
         )}
       </div>
 
       <div className="update-center-safety">
         <ShieldCheck size={17} />
-        <span>Android requires your approval to install downloaded APK updates. After installation, reopen AURORA and tap Check for updates to refresh the installed version. Keep the same signing key; do not uninstall AURORA to update it.</span>
+        <span>AURORA downloads the update inside the app. Android still requires you to approve installation. After installation, reopen AURORA and the updater rechecks the installed version. Updates require the same signing key as the installed app.</span>
       </div>
     </section>
   );
