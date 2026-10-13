@@ -30,6 +30,7 @@ if (!adminApi.includes("ADMIN_EMAIL_ALLOWLIST") || !adminApi.includes("@gmail.co
 const app = fs.readFileSync("src/App.jsx", "utf8");
 const config = JSON.parse(fs.readFileSync("capacitor.config.json", "utf8"));
 const checks = [
+  ["Reduced-permission test build flag", /VITE_AURORA_REDUCED_PERMISSION_TEST/.test(app) && /AURORA_REDUCED_PERMISSION_TEST/.test(fs.readFileSync("scripts/patch-android-native.mjs", "utf8")) ? /VITE_AURORA_REDUCED_PERMISSION_TEST/.test(app) : /$a/],
   ["Admin dashboard", /adminData|Admin/i],
   ["AI Executor", /executorPrompt|Executor/i],
   ["AI chat", /sendMessage|api\/chat|chatMessages/i],

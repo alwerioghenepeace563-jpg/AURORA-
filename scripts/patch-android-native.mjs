@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
+const reducedPermissionTest = process.env.AURORA_REDUCED_PERMISSION_TEST === "true";
 const android = path.join(root, "android");
 const javaRoot = path.join(android, "app/src/main/java/com/aurora/assistant");
 if (!fs.existsSync(path.join(android, "app/src/main/AndroidManifest.xml"))) {
@@ -27,7 +28,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }) })
+@CapacitorPlugin(name = "AuroraNative"${reducedPermissionTest ? "" : ", permissions = { @Permission(alias = \"microphone\", strings = { Manifest.permission.RECORD_AUDIO }) }"})
 public class AuroraAssistantPlugin extends Plugin {
     @PluginMethod
     public void requestMicrophonePermission(PluginCall call) {
@@ -106,13 +107,13 @@ public class AuroraAssistantPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("platform", "android");
         result.put("nativeBridge", true);
-        result.put("backgroundServiceFoundation", true);
+        result.put("backgroundServiceFoundation", ${reducedPermissionTest ? "false" : "true"});
         boolean notificationsAllowed = Build.VERSION.SDK_INT < 33
             || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS)
                 == PackageManager.PERMISSION_GRANTED;
         result.put("notificationsPermissionGranted", notificationsAllowed);
         result.put("notificationsPermissionRequired", Build.VERSION.SDK_INT >= 33 && !notificationsAllowed);
-        result.put("wakeWordEnabled", true);
+        result.put("wakeWordEnabled", ${reducedPermissionTest ? "false" : "true"});
         result.put("liveRealtimeVoiceEnabled", false);
         call.resolve(result);
     }
@@ -222,7 +223,7 @@ fs.writeFileSync(stringsPath, strings);
 
 const manifestPath = path.join(android, "app/src/main/AndroidManifest.xml");
 let manifest = fs.readFileSync(manifestPath, "utf8");
-const permissions = [
+const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />',
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
@@ -232,10 +233,10 @@ for (const permission of permissions) {
   const key = permission.match(/android:name="([^"]+)"/)[1];
   if (!manifest.includes(key)) manifest = manifest.replace("<application", permission + "\n    <application");
 }
-if (!manifest.includes('android:name=".AuroraAssistantService"')) {
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
-if (!manifest.includes('android:name=".AuroraAccessibilityService"')) {
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
 const visiblePackages = [
@@ -277,4 +278,6 @@ public class MainActivity extends BridgeActivity {
     fs.writeFileSync(mainActivity, main);
   }
 }
-console.log("AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");
+console.log(reducedPermissionTest
+  ? "AURORA reduced-permission test build: microphone and accessibility permissions/services omitted."
+  : "AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");
