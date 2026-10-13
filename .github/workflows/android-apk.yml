@@ -1,4 +1,5 @@
 name: Build AURORA Android APK
+# Rebuild after Supabase configuration secrets were added.
 
 on:
   workflow_dispatch:
