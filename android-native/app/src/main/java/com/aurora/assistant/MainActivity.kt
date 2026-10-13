@@ -184,6 +184,11 @@ private fun AuroraNativeApp() {
     var activityBody by remember { mutableStateOf("") }
     var reminderDelayMinutes by remember { mutableStateOf("10") }
     var activityItems by remember { mutableStateOf(loadActivityItems(prefs)) }
+    var showRoutines by remember { mutableStateOf(false) }
+    var routineTitle by remember { mutableStateOf("") }
+    var routineTime by remember { mutableStateOf("07:00") }
+    var routineDays by remember { mutableStateOf("Daily") }
+    var routineItems by remember { mutableStateOf(loadRoutineItems(prefs)) }
     var toolKind by remember { mutableStateOf("Search") }
     var toolInput by remember { mutableStateOf("") }
     var toolResult by remember { mutableStateOf("") }
@@ -257,6 +262,7 @@ private fun AuroraNativeApp() {
         } else if (timerSeconds == 0) timerRunning = false
     }
     LaunchedEffect(activityItems) { saveActivityItems(prefs, activityItems) }
+    LaunchedEffect(routineItems) { saveRoutineItems(prefs, routineItems) }
 
     MaterialTheme(colorScheme = darkColorScheme(
         background = Night, surface = Panel, primary = Cyan,
@@ -369,6 +375,44 @@ private fun AuroraNativeApp() {
                             Text("YOUR WORKSPACE", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp)
                             Spacer(Modifier.height(6.dp))
                             Text("Activities", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+
+                            Spacer(Modifier.height(10.dp))
+                            OutlinedButton(onClick = { showRoutines = !showRoutines }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (showRoutines) "Hide custom routines" else "✦ Custom routines (${routineItems.size})")
+                            }
+                            if (showRoutines) {
+                                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                        OutlinedTextField(value = routineTitle, onValueChange = { routineTitle = it }, label = { Text("Routine name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                                        Spacer(Modifier.height(6.dp))
+                                        OutlinedTextField(value = routineTime, onValueChange = { routineTime = it.take(5) }, label = { Text("Time (24-hour HH:mm)") }, supportingText = { Text("Example: 07:00") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            listOf("Daily", "Weekdays", "Weekends").forEach { day -> SuggestionChip(day, routineDays == day) { routineDays = day } }
+                                        }
+                                        Button(onClick = {
+                                            val title = routineTitle.trim()
+                                            val validTime = Regex("^(?:[01]\\d|2[0-3]):[0-5]\\d$").matches(routineTime)
+                                            if (title.isBlank() || !validTime) {
+                                                android.widget.Toast.makeText(context, "Enter a routine name and a valid time like 07:00.", android.widget.Toast.LENGTH_LONG).show()
+                                            } else {
+                                                routineItems = routineItems + NativeRoutineItem(java.util.UUID.randomUUID().toString(), title, routineTime, routineDays, true)
+                                                routineTitle = ""
+                                                android.widget.Toast.makeText(context, "Routine saved for AURORA's planning context.", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }, enabled = routineTitle.isNotBlank(), modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Night)) { Text("Save routine") }
+                                        routineItems.forEach { item ->
+                                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(item.title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                                    Text("${item.time} · ${item.days}", color = Muted, fontSize = 11.sp)
+                                                }
+                                                Text(if (item.enabled) "ON" else "OFF", color = if (item.enabled) Cyan else Muted, modifier = Modifier.clickable { routineItems = routineItems.map { if (it.id == item.id) it.copy(enabled = !it.enabled) else it }.padding(6.dp))
+                                                Text("×", color = Muted, modifier = Modifier.clickable { routineItems = routineItems.filterNot { it.id == item.id } }.padding(6.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                                 listOf("Tasks", "Notes", "Reminders", "Events").forEach { kind ->
@@ -665,7 +709,7 @@ private fun AuroraNativeApp() {
                                                 val outgoingAttachment = pendingAttachment
                                                 pendingAttachment = null
                                                 attachmentLabel = ""
-                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle).put("savedActivities", JSONArray().apply { activityItems.takeLast(80).forEach { item -> put(JSONObject().put("type", item.kind).put("title", item.title).put("details", item.body).put("createdAt", item.createdAt)) } }), preferredProvider, outgoingAttachment) }
+                                                val result = withContext(Dispatchers.IO) { sendNativeMessage(base, history, nativeProfileJson(profileName, profileNickname, profileWakeTime, profileSleepTime, profilePriorities, profileFood, profileRestrictions, assistantStyle).put("savedActivities", JSONArray().apply { activityItems.takeLast(80).forEach { item -> put(JSONObject().put("type", item.kind).put("title", item.title).put("details", item.body).put("createdAt", item.createdAt)) } }).put("customRoutines", JSONArray().apply { routineItems.forEach { item -> put(JSONObject().put("title", item.title).put("time", item.time).put("days", item.days).put("enabled", item.enabled)) } }), preferredProvider, outgoingAttachment) }
                                                 chatBusy = false
                                                 if (result.first) {
                                                     chatMessages = chatMessages + ("assistant" to result.second)
@@ -1082,6 +1126,31 @@ private fun scheduleAuroraReminder(context: Context, title: String, triggerAtMil
     }
     updated.put(JSONObject().put("id", requestCode).put("title", title).put("at", triggerAtMillis))
     prefs.edit().putString("alarms", updated.toString()).apply()
+}
+
+private data class NativeRoutineItem(val id: String, val title: String, val time: String, val days: String, val enabled: Boolean)
+
+private fun loadRoutineItems(prefs: android.content.SharedPreferences): List<NativeRoutineItem> {
+    return try {
+        val array = JSONArray(prefs.getString("custom_routines", "[]") ?: "[]")
+        (0 until array.length()).mapNotNull { i ->
+            val item = array.optJSONObject(i) ?: return@mapNotNull null
+            val title = item.optString("title")
+            val time = item.optString("time")
+            val days = item.optString("days", "Daily")
+            val id = item.optString("id")
+            if (title.isBlank() || !Regex("^(?:[01]\\d|2[0-3]):[0-5]\\d$").matches(time) || days !in listOf("Daily", "Weekdays", "Weekends") || id.isBlank()) null
+            else NativeRoutineItem(id, title, time, days, item.optBoolean("enabled", true))
+        }
+    } catch (_: Exception) { emptyList() }
+}
+
+private fun saveRoutineItems(prefs: android.content.SharedPreferences, items: List<NativeRoutineItem>) {
+    val array = JSONArray()
+    items.takeLast(200).forEach { item ->
+        array.put(JSONObject().put("id", item.id).put("title", item.title).put("time", item.time).put("days", item.days).put("enabled", item.enabled))
+    }
+    prefs.edit().putString("custom_routines", array.toString()).apply()
 }
 
 private data class NativeActivityItem(val kind: String, val title: String, val body: String, val createdAt: Long) {
