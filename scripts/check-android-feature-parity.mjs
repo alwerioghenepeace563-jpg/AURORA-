@@ -27,6 +27,7 @@ if (!adminApi.includes("ADMIN_EMAIL_ALLOWLIST") || !adminApi.includes("@gmail.co
 }
 
 const app = fs.readFileSync("src/App.jsx", "utf8");
+const config = JSON.parse(fs.readFileSync("capacitor.config.json", "utf8"));
 const checks = [
   ["Admin dashboard", /adminData|Admin/i],
   ["AI Executor", /executorPrompt|Executor/i],
@@ -57,7 +58,6 @@ for (const [name, pattern] of [
   if (!pattern.test(nativeBridge)) failures.push(name);
 }
 
-const config = JSON.parse(fs.readFileSync("capacitor.config.json", "utf8"));
 function configServerUrlPresent() { return Boolean(config.server && config.server.url); }
 if (config.appId !== "com.aurora.assistant") failures.push("AURORA Android application ID");
 if (config.appName !== "AURORA") failures.push("AURORA Android app name");
