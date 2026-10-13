@@ -385,6 +385,7 @@ export default function App() {
   const [timerLabel, setTimerLabel] = useState("Focus timer");
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const sendMessageRef = useRef(null);
   const handsFreeModeRef = useRef(false);
   const audioRef = useRef(null);
   const fileRef = useRef(null);
@@ -792,6 +793,8 @@ export default function App() {
     }
   }
 
+  sendMessageRef.current = sendMessage;
+
   function openTool(kind) {
     setToolKind(kind);
     setToolScreen("detail");
@@ -930,7 +933,7 @@ export default function App() {
     if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch {} }
     const recognition = new SpeechRecognition();
     recognition.lang = "en-GB"; recognition.interimResults = false; recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => { const spokenText = event.results?.[0]?.[0]?.transcript || ""; setListening(false); if (spokenText.trim()) sendMessage(spokenText); };
+    recognition.onresult = (event) => { const spokenText = event.results?.[0]?.[0]?.transcript || ""; setListening(false); if (spokenText.trim()) sendMessageRef.current?.(spokenText); };
     recognition.onerror = () => { setListening(false); if (!handsFreeModeRef.current) setNotice("Microphone did not start. Please allow microphone access and try again."); };
     recognition.onend = () => setListening(false); recognitionRef.current = recognition;
     try { recognition.start(); setListening(true); setNotice(""); } catch { setListening(false); if (!handsFreeModeRef.current) setNotice("Microphone is already active. Try again in a moment."); }
