@@ -3,6 +3,8 @@ package com.aurora.assistant
 import android.os.Bundle
 import android.Manifest
 import android.content.pm.PackageManager
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
@@ -80,6 +82,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1901)
+        }
         downloadReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
@@ -992,6 +997,20 @@ private class NativeExpressionParser(private val input: String) {
     }
     private fun skipSpaces() { while (index < input.length && input[index].isWhitespace()) index++ }
     private fun eat(char: Char): Boolean { if (index < input.length && input[index] == char) { index++; return true }; return false }
+}
+
+private fun scheduleAuroraReminder(context: Context, title: String, triggerAtMillis: Long) {
+    val intent = Intent(context, AuroraReminderReceiver::class.java).apply {
+        putExtra(AuroraReminderReceiver.EXTRA_TITLE, title)
+        putExtra(AuroraReminderReceiver.EXTRA_ID, (title + triggerAtMillis).hashCode())
+    }
+    val requestCode = (title + triggerAtMillis).hashCode()
+    val pending = PendingIntent.getBroadcast(
+        context, requestCode, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
 }
 
 private data class NativeActivityItem(val kind: String, val title: String, val body: String, val createdAt: Long) {
