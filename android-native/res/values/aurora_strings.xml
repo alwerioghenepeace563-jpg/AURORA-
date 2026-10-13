@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aurora_accessibility_description">Allows AURORA to read accessible text on the current screen and click matching accessible controls when you explicitly request it.</string>
+</resources>
