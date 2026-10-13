@@ -1,3 +1,4 @@
+import { applyAuroraCors } from "../lib/cors.js";
 const WEATHER_CODES = {
   0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
   45: "Fog", 48: "Depositing rime fog", 51: "Light drizzle", 53: "Drizzle",
@@ -10,6 +11,7 @@ const WEATHER_CODES = {
 };
 
 export default async function handler(req, res) {
+  if (applyAuroraCors(req, res, "GET, OPTIONS")) return;
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
