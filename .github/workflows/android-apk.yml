@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       HAS_AURORA_DEBUG_KEYSTORE: ${{ secrets.AURORA_DEBUG_KEYSTORE_BASE64 != '' }}
-      HAS_LIVELY_UPDATES_TOKEN: ${{ secrets.LIVELY_UPDATES_TOKEN != '' }}
+      HAS_LIVELY_UPDATES_TOKEN: ${{ secrets.AURORA_LIVELY_PUBLISHER != '' }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -75,7 +75,7 @@ jobs:
       - name: Publish update to Lively Updates
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' && env.HAS_LIVELY_UPDATES_TOKEN == 'true' }}
         env:
-          LIVELY_UPDATES_TOKEN: ${{ secrets.LIVELY_UPDATES_TOKEN }}
+          LIVELY_UPDATES_TOKEN: ${{ secrets.AURORA_LIVELY_PUBLISHER }}
         run: |
           git clone "https://x-access-token:${LIVELY_UPDATES_TOKEN}@github.com/alwerioghenepeace563-jpg/-Lively_updates.git" /tmp/lively-updates
           mkdir -p /tmp/lively-updates/aurora
