@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { registerPlugin, Capacitor } from "@capacitor/core";
+
+const AuroraNative = registerPlugin("AuroraNative");
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -335,7 +338,36 @@ export default function App() {
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
-  const APP_VERSION_CODE = 1085;
+  const APP_VERSION_CODE = Number(import.meta.env.VITE_AURORA_VERSION_CODE || 1094);
+  const [screenReadText, setScreenReadText] = useState("");
+  const [screenReadBusy, setScreenReadBusy] = useState(false);
+  const [screenReadMessage, setScreenReadMessage] = useState("");
+
+  async function readCurrentAndroidScreen() {
+    if (!Capacitor.isNativePlatform()) {
+      setScreenReadMessage("Read Screen requires the AURORA Android APK with the native bridge installed.");
+      return;
+    }
+    setScreenReadBusy(true);
+    setScreenReadMessage("Checking Android screen-reading permission…");
+    try {
+      const status = await AuroraNative.isAccessibilityEnabled();
+      if (!status?.enabled) {
+        setScreenReadMessage("Enable AURORA Screen Reader in Android Accessibility settings, then return here and tap Read Screen again.");
+        await AuroraNative.openAccessibilitySettings();
+        return;
+      }
+      const result = await AuroraNative.readScreen();
+      const text = String(result?.text || "").trim();
+      if (!text) throw new Error("No readable text was found on the current screen.");
+      setScreenReadText(text);
+      setScreenReadMessage("Screen text captured. Review it below before sending it to AURORA AI.");
+    } catch (error) {
+      setScreenReadMessage(error?.message || "Could not read the current screen. Open Accessibility settings and try again.");
+    } finally {
+      setScreenReadBusy(false);
+    }
+  }
   async function checkForAppUpdate() {
     setAppUpdateBusy(true);
     setAppUpdateMessage("Checking the update server…");
@@ -1126,6 +1158,8 @@ export default function App() {
                 <div className="tool-launch-grid">
                   <button type="button" className="tool-launch-card tool-tint-blue" onClick={() => openAttachment("files")}><span className="tool-launch-icon"><FileText size={21}/></span><span className="tool-launch-copy"><strong>Document Reader</strong><small>Summarise and ask questions about files</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
                   <button type="button" className="tool-launch-card tool-tint-pink" onClick={() => openTool("image")}><span className="tool-launch-icon"><ImageIcon size={21}/></span><span className="tool-launch-copy"><strong>Image Understanding</strong><small>Choose an image and ask AURORA about it</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
+                  <button type="button" className="tool-launch-card tool-tint-cyan" onClick={readCurrentAndroidScreen} disabled={screenReadBusy}><span className="tool-launch-icon"><Eye size={21}/></span><span className="tool-launch-copy"><strong>{screenReadBusy ? "Reading screen…" : "Read Screen"}</strong><small>Read visible Android app text with your permission</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
+                  {screenReadMessage && <div className="tools-note glass-panel" role="status"><span className="tools-note-icon"><Eye size={17}/></span><div><strong>Android Screen Reader</strong><p>{screenReadMessage}</p>{screenReadText && <><textarea aria-label="Captured screen text" readOnly value={screenReadText} rows={6} style={{width:"100%",marginTop:8,resize:"vertical"}}/><button type="button" className="primary-action" style={{marginTop:10}} onClick={() => { setPage("chat"); sendMessage("Please read and explain the text captured from my current Android screen. Clearly summarise what it says and help me with it.\n\nSCREEN TEXT:\n" + screenReadText); }}>Ask AURORA about this screen <ArrowUpRight size={16}/></button></>}</div></div>}
                 </div>
                 <div className="tools-category-heading"><span>03</span><div><h2>Create & practise</h2><p>Turn a topic into a useful result in one step.</p></div></div>
                 <div className="tool-launch-grid">
@@ -1374,7 +1408,7 @@ export default function App() {
               </form>
               <section className="profile-card" style={{ marginTop: 18, display: "block" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: 1.0.85</p></div>
+                  <div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {`1.0.${Math.max(0, APP_VERSION_CODE - 1000)}`}</p></div>
                   <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={15} />} {appUpdateBusy ? "Checking…" : "Check for updates"}</button>
                 </div>
                 <p role="status" style={{ color: "#c6d6e8", fontSize: 13, lineHeight: 1.55, margin: "14px 0 8px" }}>{appUpdateMessage}</p>
