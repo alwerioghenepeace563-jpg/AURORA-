@@ -8,6 +8,9 @@ on:
       - "src/**"
       - "package.json"
       - "capacitor.config.json"
+      - ".github/workflows/android-apk.yml"
+      - "api/**"
+      - "lib/**"
 
 permissions:
   contents: read
