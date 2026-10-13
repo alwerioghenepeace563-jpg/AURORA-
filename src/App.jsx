@@ -572,7 +572,7 @@ export default function App() {
     try {
       // Re-check the server config at tap time. On a fresh Android launch the
       // first render can happen before the asynchronous public-config request finishes.
-      let effectiveAuthUrl = String(authUrl || "").trim().replace(/\\/$/, "").replace(/\\/(?:rest\\/v1|auth\\/v1)$/i, "");
+      let effectiveAuthUrl = String(authUrl || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
       let effectiveAuthKey = authKey || "";
       const isValidSupabaseUrl = (value) => {
         try {
@@ -586,7 +586,7 @@ export default function App() {
         if (!configResponse.ok || !config.supabaseUrl || !config.supabaseAnonKey) {
           throw new Error(config.error || "AURORA could not load its sign-in configuration. Please check the Vercel public sign-in settings.");
         }
-        effectiveAuthUrl = String(config.supabaseUrl).trim().replace(/\\/$/, "").replace(/\\/(?:rest\\/v1|auth\\/v1)$/i, "");
+        effectiveAuthUrl = String(config.supabaseUrl).trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
         effectiveAuthKey = String(config.supabaseAnonKey || "");
         setRuntimeAuthConfig({ supabaseUrl: effectiveAuthUrl, supabaseAnonKey: effectiveAuthKey });
       }
