@@ -11,6 +11,7 @@ const requiredFiles = [
   "api/search.js",
   "api/voice.js",
   "api/weather.js",
+  "api/public-config.js",
   "capacitor.config.json"
 ];
 
@@ -46,6 +47,8 @@ const checks = [
 ];
 const failures = checks.filter(([, pattern]) => !pattern.test(app)).map(([name]) => name);
 
+const publicConfig = fs.readFileSync("api/public-config.js", "utf8");
+if (!/supabaseAnonKey/.test(publicConfig) || /SUPABASE_SERVICE_ROLE|service_role/i.test(publicConfig)) failures.push("safe public auth configuration endpoint");
 const nativeBridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 if (!/auroraApiUrl/.test(nativeBridge) || !/auroraApiUrl\("\/api\//.test(app)) failures.push("native API routing");
 if (!/NATIVE ANDROID ASSISTANT/.test(app) || !/toggleNativeAssistant/.test(app)) failures.push("Android assistant service controls");
