@@ -332,6 +332,27 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [appUpdateInfo, setAppUpdateInfo] = useState(null);
+  const [appUpdateBusy, setAppUpdateBusy] = useState(false);
+  const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
+  const APP_VERSION_CODE = 1085;
+  async function checkForAppUpdate() {
+    setAppUpdateBusy(true);
+    setAppUpdateMessage("Checking the update server…");
+    try {
+      const response = await fetch("https://raw.githubusercontent.com/alwerioghenepeace563-jpg/-Lively_updates/main/aurora/version.json?check=" + Date.now(), { cache: "no-store" });
+      if (!response.ok) throw new Error("Update server returned HTTP " + response.status);
+      const info = await response.json();
+      if (!info || !Number.isFinite(Number(info.versionCode)) || !info.apkUrl) throw new Error("The update information is incomplete.");
+      setAppUpdateInfo(info);
+      if (Number(info.versionCode) > APP_VERSION_CODE) setAppUpdateMessage("A new version is available: " + (info.versionName || ("build " + info.versionCode)) + ".");
+      else setAppUpdateMessage("You're on the latest listed version (" + (info.versionName || "current") + ").");
+    } catch (error) {
+      setAppUpdateMessage(error.message || "Could not check for updates. Try again when you're online.");
+    } finally {
+      setAppUpdateBusy(false);
+    }
+  }
   const [attachmentOpen, setAttachmentOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -1351,6 +1372,19 @@ export default function App() {
                 </div>
                 <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved ✓" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
               </form>
+              <section className="profile-card" style={{ marginTop: 18, display: "block" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: 1.0.85</p></div>
+                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={15} />} {appUpdateBusy ? "Checking…" : "Check for updates"}</button>
+                </div>
+                <p role="status" style={{ color: "#c6d6e8", fontSize: 13, lineHeight: 1.55, margin: "14px 0 8px" }}>{appUpdateMessage}</p>
+                {appUpdateInfo && Number(appUpdateInfo.versionCode) > APP_VERSION_CODE && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 14, display: "grid", gap: 10 }}>
+                  <strong>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
+                  {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 13 }}>{appUpdateInfo.releaseNotes}</p>}
+                  <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={16} /></a>
+                  <small style={{ color: "#94a9bf" }}>Android may ask you to confirm installation after the APK downloads. AURORA cannot install an update silently.</small>
+                </div>}
+              </section>
               <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
             </motion.section>
           )}
