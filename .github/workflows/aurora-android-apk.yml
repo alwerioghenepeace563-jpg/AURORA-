@@ -54,6 +54,22 @@ jobs:
       - name: Apply AURORA native assistant features
         run: node scripts/patch-android-native.mjs
 
+      - name: Remove duplicate generated speech method
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java')
+          source = p.read_text()
+          marker = '    @PluginMethod\\n    public void speakText(PluginCall call) {'
+          first = source.find(marker)
+          second = source.find(marker, first + len(marker))
+          status = source.find('    @PluginMethod\\n    public void status(PluginCall call) {', second)
+          if first < 0 or second < 0 or status < 0:
+              raise SystemExit('Could not safely locate duplicate speakText method boundaries')
+          p.write_text(source[:second] + source[status:])
+          print('Removed duplicate speakText method before Gradle compilation.')
+          PY
+
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
