@@ -1604,7 +1604,6 @@ export default function App() {
                 {screenReadMessage && <p role="status" style={{ color: "#b9d9ec", fontSize: 12, lineHeight: 1.6, margin: "12px 0 0" }}>{screenReadMessage}</p>}
                 {screenReadText && <><textarea aria-label="Captured screen text" readOnly value={screenReadText} rows={5} style={{ width: "100%", marginTop: 10, resize: "vertical" }}/><button type="button" className="primary-action" style={{ marginTop: 10 }} onClick={() => { setPage("chat"); sendMessage("Please read and explain the text captured from my current Android screen. Clearly summarise what it says and help me with it.\n\nSCREEN TEXT:\n" + screenReadText); }}>Ask AURORA about this screen <ArrowUpRight size={16}/></button></>}
               </section>
-              <UpdateCenter />
               <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
             </motion.section>
           )}
