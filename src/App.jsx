@@ -840,6 +840,36 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
+      // Execute supported Android app-launch commands locally instead of sending them
+      // to the AI as ordinary chat. The native bridge is the only layer that can
+      // launch another installed Android application.
+      if (AuroraNative.isAndroid() && !attachmentOverride) {
+        const command = text.toLowerCase().replace(/[.!?,]/g, " ").replace(/\\s+/g, " ").trim();
+        const launchMatch = command.match(/^(?:please\\s+)?(?:open|launch|start|go to|switch to)\\s+(.+)$/);
+        if (launchMatch) {
+          const requested = launchMatch[1].replace(/\\s+(?:app|application)$/, "").trim();
+          const appTargets = [
+            { names: ["whatsapp", "whats app"], packageName: "com.whatsapp", label: "WhatsApp" },
+            { names: ["whatsapp business", "whats app business"], packageName: "com.whatsapp.w4b", label: "WhatsApp Business" },
+            { names: ["youtube", "you tube"], packageName: "com.google.android.youtube", label: "YouTube" },
+            { names: ["chrome", "google chrome", "browser"], packageName: "com.android.chrome", label: "Chrome" },
+            { names: ["gmail", "google mail", "email"], packageName: "com.google.android.gm", label: "Gmail" },
+            { names: ["maps", "google maps"], packageName: "com.google.android.apps.maps", label: "Google Maps" },
+            { names: ["messages", "sms", "text messages"], packageName: "com.google.android.apps.messaging", label: "Messages" },
+            { names: ["settings", "phone settings"], packageName: "com.android.settings", label: "Settings" },
+            { names: ["play store", "google play", "google play store"], packageName: "com.android.vending", label: "Play Store" }
+          ];
+          const target = appTargets.find((item) => item.names.includes(requested));
+          if (target) {
+            await AuroraNative.openApp(target.packageName);
+            const launchReply = "Opening " + target.label + ".";
+            setMessages((current) => [...current, { role: "assistant", content: launchReply }]);
+            if (soundOn) speak(launchReply);
+            setNativeNotice(launchReply);
+            return;
+          }
+        }
+      }
       if (!attachmentOverride && /^Search the web for\s+/i.test(text)) {
         const query = text.replace(/^Search the web for\s+/i, "").trim();
         const searchResponse = await fetch(auroraApiUrl("/api/search"), {
