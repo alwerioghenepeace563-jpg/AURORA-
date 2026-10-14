@@ -19,6 +19,8 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.provider.Settings;
 import android.net.Uri;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -213,6 +215,43 @@ public class AuroraAssistantPlugin extends Plugin {
             }
         }
         JSObject result = new JSObject(); result.put("enabled", active); call.resolve(result);
+    }
+
+    @PluginMethod
+    public void speakText(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.trim().isEmpty() || text.length() > 2500) {
+            call.reject("Speech text must be between 1 and 2500 characters.");
+            return;
+        }
+        final TextToSpeech[] engine = new TextToSpeech[1];
+        engine[0] = new TextToSpeech(getContext(), status -> {
+            if (status != TextToSpeech.SUCCESS || engine[0] == null) {
+                if (engine[0] != null) engine[0].shutdown();
+                call.reject("Android text-to-speech could not start. Check that a speech engine is installed.");
+                return;
+            }
+            try {
+                engine[0].setLanguage(java.util.Locale.UK);
+                engine[0].setPitch(0.96f);
+                engine[0].setSpeechRate(0.96f);
+                engine[0].setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String id) { }
+                    @Override public void onDone(String id) { if (engine[0] != null) engine[0].shutdown(); }
+                    @Override public void onError(String id) { if (engine[0] != null) engine[0].shutdown(); }
+                });
+                int result = engine[0].speak(text, TextToSpeech.QUEUE_FLUSH, null, "aurora-" + System.currentTimeMillis());
+                if (result == TextToSpeech.ERROR) {
+                    engine[0].shutdown();
+                    call.reject("Android text-to-speech rejected the message.");
+                } else {
+                    call.resolve(new JSObject().put("spoken", true));
+                }
+            } catch (Exception e) {
+                if (engine[0] != null) engine[0].shutdown();
+                call.reject("Android text-to-speech failed: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
+            }
+        });
     }
 
     @PluginMethod
