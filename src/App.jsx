@@ -844,10 +844,10 @@ export default function App() {
       // to the AI as ordinary chat. The native bridge is the only layer that can
       // launch another installed Android application.
       if (AuroraNative.isAndroid() && !attachmentOverride) {
-        const command = text.toLowerCase().replace(/[.!?,]/g, " ").replace(/\\s+/g, " ").trim();
-        const launchMatch = command.match(/^(?:please\\s+)?(?:open|launch|start|go to|switch to)\\s+(.+)$/);
+        const command = text.toLowerCase().replace(/[.!?,]/g, " ").replace(/\s+/g, " ").trim();
+        const launchMatch = command.match(/^(?:please\s+)?(?:open|launch|start|go to|switch to)\s+(.+)$/);
         if (launchMatch) {
-          const requested = launchMatch[1].replace(/\\s+(?:app|application)$/, "").trim();
+          const requested = launchMatch[1].replace(/\s+(?:app|application)$/, "").trim();
           const appTargets = [
             { names: ["whatsapp", "whats app"], packageName: "com.whatsapp", label: "WhatsApp" },
             { names: ["whatsapp business", "whats app business"], packageName: "com.whatsapp.w4b", label: "WhatsApp Business" },
