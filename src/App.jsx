@@ -805,8 +805,18 @@ export default function App() {
       await audio.play();
       setSpeaking(true);
     } catch (error) {
-      // Keep Read Aloud usable when the hosted voice service is unavailable.
-      // Browser speech is a fallback only; the selected cloud voice remains preferred.
+      // Android WebViews do not consistently expose browser speech synthesis.
+      // Use Android's system TTS engine before falling back to browser speech.
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await AuroraNative.speakText(makeSpeechFriendly(text));
+          setSpeaking(false);
+          setNotice("Cloud voice unavailable; using Android voice for now.");
+          return;
+        } catch (nativeError) {
+          // Continue to browser speech as a last resort.
+        }
+      }
       try {
         if ("speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function") {
           window.speechSynthesis.cancel();
