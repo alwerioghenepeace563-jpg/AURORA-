@@ -1200,7 +1200,8 @@ export default function App() {
         </section>
         <p className="auth-footer">AURORA · YOUR SPACE, YOUR INTELLIGENCE</p>
       </div>
-    );  }
+    );
+  }
 
   return (
     <div className="app-shell">
