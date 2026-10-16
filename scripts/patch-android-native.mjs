@@ -3,6 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const reducedPermissionTest = process.env.AURORA_REDUCED_PERMISSION_TEST === "true";
+const disableAccessibility = process.env.AURORA_DISABLE_ACCESSIBILITY === "true";
 const android = path.join(root, "android");
 const javaRoot = path.join(android, "app/src/main/java/com/aurora/assistant");
 if (!fs.existsSync(path.join(android, "app/src/main/AndroidManifest.xml"))) {
@@ -403,7 +404,7 @@ fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
-if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
+if (!reducedPermissionTest && !disableAccessibility && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
 const visiblePackages = [
@@ -459,4 +460,6 @@ public class MainActivity extends BridgeActivity {
 }
 console.log(reducedPermissionTest
   ? "AURORA reduced-permission test build: microphone and accessibility permissions/services omitted."
-  : "AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");
+  : disableAccessibility
+    ? "AURORA accessibility-disabled test build: screen-reading service omitted; other native features retained."
+    : "AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");
