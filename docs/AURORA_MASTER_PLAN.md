@@ -95,9 +95,15 @@ AURORA should feel like a personal assistant in the Alexa / Google Assistant cat
 - [ ] Store release notes and test outcomes with each build.
 - [ ] Do not claim device validation from CI success alone.
 
+## Recent refresh commits
+- `71e7a3e` — added this master agenda so previous decisions and remaining work stay visible.
+- `0baa408` — removed duplicate native speech bridge declarations.
+- `fca41fb` — cleaned up guest-mode auth-gate formatting.
+- A new build for the cleanup commits still needs to be confirmed; the latest confirmed APK is from `e18c803`.
+
 ## Current known cleanup items
-- [ ] Remove duplicate `speakText` declarations in `src/lib/aurora-native.ts` (both the plugin type and wrapper currently repeat them).
-- [ ] Keep the guest-mode auth gate readable and consistently formatted.
+- [x] Removed duplicate `speakText` declarations in `src/lib/aurora-native.ts` (commit `0baa408`).
+- [x] Cleaned up guest-mode auth-gate formatting (commit `fca41fb`).
 - [ ] Revisit the parity checker: it currently checks that native feature strings exist, but does not prove those features work on a phone.
 - [ ] Accessibility service registration is currently disabled in the APK workflow as a cautious test setting; screen reading will not be fully available unless this is deliberately re-enabled and tested.
 - [ ] Diagnose separately whether “does not open” means Android refuses to install the APK, the installed app crashes, or the app opens to an unwanted sign-in screen. These are different failures and must not be treated as the same bug.
