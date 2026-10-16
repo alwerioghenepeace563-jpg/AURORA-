@@ -16,7 +16,6 @@ type AuroraNativePlugin = {
   stopAssistantService(): Promise<{ stopped: boolean }>;
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   speakText(options: { text: string }): Promise<{ spoken: boolean }>;
-  speakText(options: { text: string }): Promise<{ spoken: boolean }>;
   status(): Promise<AuroraNativeStatus>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
@@ -73,10 +72,6 @@ export const auroraNative = {
   openApp: async (packageName: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
     return AuroraNative.openApp({ packageName });
-  },
-  speakText: async (text: string) => {
-    if (!Capacitor.isNativePlatform()) throw new Error("Native speech is available only in the Android app.");
-    return AuroraNative.speakText({ text });
   },
   speakText: async (text: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Native speech is available only in the Android app.");
