@@ -68,6 +68,8 @@ jobs:
           PY
 
       - name: Apply AURORA native assistant features
+        env:
+          AURORA_DISABLE_ACCESSIBILITY: "true"
         run: node scripts/patch-android-native.mjs
 
       - name: Sync Capacitor Android project
