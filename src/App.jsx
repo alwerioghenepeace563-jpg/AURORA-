@@ -294,6 +294,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
+  const [guestMode, setGuestMode] = useState(true);
   const [authVerified, setAuthVerified] = useState(false);
   const authUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
@@ -805,8 +806,18 @@ export default function App() {
       await audio.play();
       setSpeaking(true);
     } catch (error) {
-      // Keep Read Aloud usable when the hosted voice service is unavailable.
-      // Browser speech is a fallback only; the selected cloud voice remains preferred.
+      // Android WebViews do not consistently expose browser speech synthesis.
+      // Use Android's system TTS engine before falling back to browser speech.
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await AuroraNative.speakText(makeSpeechFriendly(text));
+          setSpeaking(false);
+          setNotice("Cloud voice unavailable; using Android voice for now.");
+          return;
+        } catch (nativeError) {
+          // Continue to browser speech as a last resort.
+        }
+      }
       try {
         if ("speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function") {
           window.speechSynthesis.cancel();
@@ -840,6 +851,36 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
+      // Execute supported Android app-launch commands locally instead of sending them
+      // to the AI as ordinary chat. The native bridge is the only layer that can
+      // launch another installed Android application.
+      if (AuroraNative.isAndroid() && !attachmentOverride) {
+        const command = text.toLowerCase().replace(/[.!?,]/g, " ").replace(/\s+/g, " ").trim();
+        const launchMatch = command.match(/^(?:please\s+)?(?:open|launch|start|go to|switch to)\s+(.+)$/);
+        if (launchMatch) {
+          const requested = launchMatch[1].replace(/\s+(?:app|application)$/, "").trim();
+          const appTargets = [
+            { names: ["whatsapp", "whats app"], packageName: "com.whatsapp", label: "WhatsApp" },
+            { names: ["whatsapp business", "whats app business"], packageName: "com.whatsapp.w4b", label: "WhatsApp Business" },
+            { names: ["youtube", "you tube"], packageName: "com.google.android.youtube", label: "YouTube" },
+            { names: ["chrome", "google chrome", "browser"], packageName: "com.android.chrome", label: "Chrome" },
+            { names: ["gmail", "google mail", "email"], packageName: "com.google.android.gm", label: "Gmail" },
+            { names: ["maps", "google maps"], packageName: "com.google.android.apps.maps", label: "Google Maps" },
+            { names: ["messages", "sms", "text messages"], packageName: "com.google.android.apps.messaging", label: "Messages" },
+            { names: ["settings", "phone settings"], packageName: "com.android.settings", label: "Settings" },
+            { names: ["play store", "google play", "google play store"], packageName: "com.android.vending", label: "Play Store" }
+          ];
+          const target = appTargets.find((item) => item.names.includes(requested));
+          if (target) {
+            await AuroraNative.openApp(target.packageName);
+            const launchReply = "Opening " + target.label + ".";
+            setMessages((current) => [...current, { role: "assistant", content: launchReply }]);
+            if (soundOn) speak(launchReply);
+            setNativeNotice(launchReply);
+            return;
+          }
+        }
+      }
       if (!attachmentOverride && /^Search the web for\s+/i.test(text)) {
         const query = text.replace(/^Search the web for\s+/i, "").trim();
         const searchResponse = await fetch(auroraApiUrl("/api/search"), {
@@ -1137,7 +1178,7 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
-  if (!authSession?.access_token) {
+  if (!authSession?.access_token && !guestMode) {
     return (
       <div className="auth-screen">
         <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
@@ -1174,6 +1215,7 @@ export default function App() {
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
+          {!authSession?.access_token && <button className="auth-signout-button" onClick={() => setGuestMode(false)} aria-label="Sign in to AURORA"><UserRound size={15}/><span>Sign in</span></button>}
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
         </div>
@@ -1564,7 +1606,6 @@ export default function App() {
                 {screenReadMessage && <p role="status" style={{ color: "#b9d9ec", fontSize: 12, lineHeight: 1.6, margin: "12px 0 0" }}>{screenReadMessage}</p>}
                 {screenReadText && <><textarea aria-label="Captured screen text" readOnly value={screenReadText} rows={5} style={{ width: "100%", marginTop: 10, resize: "vertical" }}/><button type="button" className="primary-action" style={{ marginTop: 10 }} onClick={() => { setPage("chat"); sendMessage("Please read and explain the text captured from my current Android screen. Clearly summarise what it says and help me with it.\n\nSCREEN TEXT:\n" + screenReadText); }}>Ask AURORA about this screen <ArrowUpRight size={16}/></button></>}
               </section>
-              <UpdateCenter />
               <button className="primary-action profile-chat-action" onClick={() => navigate("chat")}>Talk to AURORA <ArrowUp size={16} /></button>
             </motion.section>
           )}

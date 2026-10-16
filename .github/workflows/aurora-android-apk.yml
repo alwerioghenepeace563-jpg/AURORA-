@@ -1,0 +1,90 @@
+name: AURORA Android APK
+
+on:
+  push:
+    branches:
+      - fix/native-app-launch-wake-word
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager "platform-tools"
+          yes | sdkmanager "platforms;android-35"
+          yes | sdkmanager "build-tools;35.0.0"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web interface
+        run: npm run build
+
+      - name: Generate Android project
+        run: npx cap add android
+
+      - name: Set AURORA Android version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          lines = p.read_text().splitlines()
+          code = [i for i, line in enumerate(lines) if line.strip().startswith('versionCode ')]
+          name = [i for i, line in enumerate(lines) if line.strip().startswith('versionName ')]
+          if len(code) != 1 or len(name) != 1:
+              raise SystemExit(f'Could not safely set version: versionCode={len(code)}, versionName={len(name)}')
+          lines[code[0]] = '        versionCode 2'
+          lines[name[0]] = '        versionName "2.0.0"'
+          p.write_text(chr(10).join(lines) + chr(10))
+          print('Set AURORA Android version to 2.0.0 (versionCode 2).')
+          PY
+
+      - name: Apply AURORA native assistant features
+        env:
+          AURORA_DISABLE_ACCESSIBILITY: "true"
+        run: node scripts/patch-android-native.mjs
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AURORA-debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

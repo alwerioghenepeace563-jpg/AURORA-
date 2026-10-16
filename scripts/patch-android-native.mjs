@@ -3,6 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const reducedPermissionTest = process.env.AURORA_REDUCED_PERMISSION_TEST === "true";
+const disableAccessibility = process.env.AURORA_DISABLE_ACCESSIBILITY === "true";
 const android = path.join(root, "android");
 const javaRoot = path.join(android, "app/src/main/java/com/aurora/assistant");
 if (!fs.existsSync(path.join(android, "app/src/main/AndroidManifest.xml"))) {
@@ -19,6 +20,10 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.provider.Settings;
 import android.net.Uri;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -216,6 +221,43 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void speakText(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.trim().isEmpty() || text.length() > 2500) {
+            call.reject("Speech text must be between 1 and 2500 characters.");
+            return;
+        }
+        final TextToSpeech[] engine = new TextToSpeech[1];
+        engine[0] = new TextToSpeech(getContext(), status -> {
+            if (status != TextToSpeech.SUCCESS || engine[0] == null) {
+                if (engine[0] != null) engine[0].shutdown();
+                call.reject("Android text-to-speech could not start. Check that a speech engine is installed.");
+                return;
+            }
+            try {
+                engine[0].setLanguage(java.util.Locale.UK);
+                engine[0].setPitch(0.96f);
+                engine[0].setSpeechRate(0.96f);
+                engine[0].setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String id) { }
+                    @Override public void onDone(String id) { if (engine[0] != null) engine[0].shutdown(); }
+                    @Override public void onError(String id) { if (engine[0] != null) engine[0].shutdown(); }
+                });
+                int result = engine[0].speak(text, TextToSpeech.QUEUE_FLUSH, null, "aurora-" + System.currentTimeMillis());
+                if (result == TextToSpeech.ERROR) {
+                    engine[0].shutdown();
+                    call.reject("Android text-to-speech rejected the message.");
+                } else {
+                    call.resolve(new JSObject().put("spoken", true));
+                }
+            } catch (Exception e) {
+                if (engine[0] != null) engine[0].shutdown();
+                call.reject("Android text-to-speech failed: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
+            }
+        });
+    }
+
+    @PluginMethod
     public void status(PluginCall call) {
         JSObject result = new JSObject();
         result.put("platform", "android");
@@ -362,7 +404,7 @@ fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
-if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
+if (!reducedPermissionTest && !disableAccessibility && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
 const visiblePackages = [
@@ -418,4 +460,6 @@ public class MainActivity extends BridgeActivity {
 }
 console.log(reducedPermissionTest
   ? "AURORA reduced-permission test build: microphone and accessibility permissions/services omitted."
-  : "AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");
+  : disableAccessibility
+    ? "AURORA accessibility-disabled test build: screen-reading service omitted; other native features retained."
+    : "AURORA native bridge, opt-in screen reader, and Hey AURORA wake-word listener installed.");
