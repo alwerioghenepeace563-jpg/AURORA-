@@ -294,6 +294,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
+  const [guestMode, setGuestMode] = useState(true);
   const [authVerified, setAuthVerified] = useState(false);
   const authUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
@@ -1177,7 +1178,7 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
-  if (!authSession?.access_token) {
+  if (!authSession?.access_token && !guestMode) {
     return (
       <div className="auth-screen">
         <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
@@ -1199,8 +1200,7 @@ export default function App() {
         </section>
         <p className="auth-footer">AURORA · YOUR SPACE, YOUR INTELLIGENCE</p>
       </div>
-    );
-  }
+    );  }
 
   return (
     <div className="app-shell">
@@ -1214,6 +1214,7 @@ export default function App() {
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
+          {!authSession?.access_token && <button className="auth-signout-button" onClick={() => setGuestMode(false)} aria-label="Sign in to AURORA"><UserRound size={15}/><span>Sign in</span></button>}
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
         </div>
