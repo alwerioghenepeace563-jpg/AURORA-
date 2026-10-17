@@ -415,17 +415,17 @@ if (!fs.existsSync(mainActivity)) {
   // Capacitor requires custom plugins to be registered before BridgeActivity creates
   // the bridge. Normalize the order even if an earlier patch inserted the line in
   // the wrong place or duplicated it.
-  main = main.replace(/^[ \\t]*registerPlugin\\(AuroraAssistantPlugin\\.class\\);[ \\t]*\\r?\\n/gm, "");
-  const onCreate = /(@Override\\s+public void onCreate\\(Bundle savedInstanceState\\)\\s*\\{)/;
+  main = main.replace(/^[ \t]*registerPlugin\(AuroraAssistantPlugin\.class\);[ \t]*\r?\n/gm, "");
+  const onCreate = /(@Override\s+public void onCreate\(Bundle savedInstanceState\)\s*\\{)/;
   if (!onCreate.test(main)) {
     throw new Error("MainActivity.onCreate was not found; refusing to produce an APK with an unregistered AuroraNative plugin.");
   }
   if (!main.includes("import com.getcapacitor.BridgeActivity;")) {
-    main = main.replace(/(package [^;]+;)/, "$1\\n\\nimport com.getcapacitor.BridgeActivity;");
+    main = main.replace(/(package [^;]+;)/, "$1\n\nimport com.getcapacitor.BridgeActivity;");
   }
-  main = main.replace(onCreate, "$1\\n        registerPlugin(AuroraAssistantPlugin.class);");
+  main = main.replace(onCreate, "$1\n        registerPlugin(AuroraAssistantPlugin.class);");
   if (!main.includes("import android.os.Bundle;")) {
-    main = main.replace(/(package [^;]+;)/, "$1\\n\\nimport android.os.Bundle;");
+    main = main.replace(/(package [^;]+;)/, "$1\n\nimport android.os.Bundle;");
   }
   fs.writeFileSync(mainActivity, main);
 }
