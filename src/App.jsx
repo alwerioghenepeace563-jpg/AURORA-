@@ -1009,15 +1009,29 @@ export default function App() {
     }
   }
 
-  function toggleMic() {
+  async function toggleMic() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setNotice("Voice input isn't supported in this browser. Try Chrome on a secure connection.");
-      return;
-    }
     if (listening) {
       recognitionRef.current?.stop();
       setListening(false);
+      return;
+    }
+    // Android WebView may not implement Web Speech recognition. Request the
+    // native microphone permission first, then give a truthful fallback error.
+    try {
+      if (auroraNative.isAndroid()) {
+        const permission = await auroraNative.requestMicrophonePermission();
+        if (!permission?.granted) {
+          setNotice("AURORA needs microphone permission to hear you. Allow it in Android Settings and try again.");
+          return;
+        }
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not request microphone permission.");
+      return;
+    }
+    if (!SpeechRecognition) {
+      setNotice("Microphone permission is granted, but speech recognition is not supported by this Android WebView. Native speech recognition integration is required; this is not a permission error.");
       return;
     }
     const recognition = new SpeechRecognition();
@@ -1030,14 +1044,21 @@ export default function App() {
       setListening(false);
       if (spokenText.trim()) sendMessage(spokenText);
     };
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
       setListening(false);
-      setNotice("Microphone didn't start. Please allow microphone access and try again.");
+      const reason = event?.error ? String(event.error) : "unknown error";
+      setNotice("Speech recognition failed (" + reason + "). Check microphone permission and Android speech services.");
     };
     recognition.onend = () => setListening(false);
     recognitionRef.current = recognition;
-    try { recognition.start(); setListening(true); setNotice(""); }
-    catch { setListening(false); setNotice("Microphone is already active. Try again in a moment."); }
+    try {
+      recognition.start();
+      setListening(true);
+      setNotice("");
+    } catch {
+      setListening(false);
+      setNotice("Speech recognition could not start. Close other microphone apps and try again.");
+    }
   }
 
   async function onFileSelected(event) {
