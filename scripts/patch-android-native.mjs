@@ -416,7 +416,7 @@ if (!fs.existsSync(mainActivity)) {
   // the bridge. Normalize the order even if an earlier patch inserted the line in
   // the wrong place or duplicated it.
   main = main.replace(/^[ \t]*registerPlugin\(AuroraAssistantPlugin\.class\);[ \t]*\r?\n/gm, "");
-  const onCreate = /(@Override\s+public void onCreate\(Bundle savedInstanceState\)\s*\\{)/;
+  const onCreate = /(@Override\s+public void onCreate\(Bundle savedInstanceState\)\s*\{)/;
   if (!onCreate.test(main)) {
     throw new Error("MainActivity.onCreate was not found; refusing to produce an APK with an unregistered AuroraNative plugin.");
   }
