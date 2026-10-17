@@ -395,8 +395,7 @@ if (mainActivityStart >= 0 && mainActivityEnd > mainActivityStart && !manifest.i
 fs.writeFileSync(manifestPath, manifest);
 
 const mainActivity = path.join(javaRoot, "MainActivity.java");
-if (!fs.existsSync(mainActivity)) {
-  fs.writeFileSync(mainActivity, `package com.aurora.assistant;
+const expectedMainActivity = `package com.aurora.assistant;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
@@ -408,13 +407,30 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
     }
 }
-`);
+`;
+if (!fs.existsSync(mainActivity)) {
+  fs.writeFileSync(mainActivity, expectedMainActivity);
 } else {
   let main = fs.readFileSync(mainActivity, "utf8");
-  if (!main.includes("registerPlugin(AuroraAssistantPlugin.class)")) {
-    main = main.replace("super.onCreate(savedInstanceState);", "registerPlugin(AuroraAssistantPlugin.class);\n        super.onCreate(savedInstanceState);");
-    fs.writeFileSync(mainActivity, main);
+  // Capacitor requires custom plugins to be registered before BridgeActivity creates
+  // the bridge. Normalize the order even if an earlier patch inserted the line in
+  // the wrong place or duplicated it.
+  main = main.replace(/^[ \\t]*registerPlugin\\(AuroraAssistantPlugin\\.class\\);[ \\t]*\\r?\\n/gm, "");
+  const onCreate = /(@Override\\s+public void onCreate\\(Bundle savedInstanceState\\)\\s*\\{)/;
+  if (!onCreate.test(main)) {
+    throw new Error("MainActivity.onCreate was not found; refusing to produce an APK with an unregistered AuroraNative plugin.");
   }
+  if (!main.includes("import com.getcapacitor.BridgeActivity;")) {
+    main = main.replace(/(package [^;]+;)/, "$1\\n\\nimport com.getcapacitor.BridgeActivity;");
+  }
+  main = main.replace(onCreate, "$1\\n        registerPlugin(AuroraAssistantPlugin.class);");
+  if (!main.includes("import android.os.Bundle;")) {
+    main = main.replace(/(package [^;]+;)/, "$1\\n\\nimport android.os.Bundle;");
+  }
+  fs.writeFileSync(mainActivity, main);
+}
+if (!fs.readFileSync(mainActivity, "utf8").includes("registerPlugin(AuroraAssistantPlugin.class);")) {
+  throw new Error("AuroraNative plugin registration verification failed.");
 }
 console.log(reducedPermissionTest
   ? "AURORA reduced-permission test build: microphone and accessibility permissions/services omitted."
