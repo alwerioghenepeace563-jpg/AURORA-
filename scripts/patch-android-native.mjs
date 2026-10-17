@@ -395,6 +395,9 @@ if (mainActivityStart >= 0 && mainActivityEnd > mainActivityStart && !manifest.i
 fs.writeFileSync(manifestPath, manifest);
 
 const mainActivity = path.join(javaRoot, "MainActivity.java");
+// Capacitor's generated MainActivity is normally an empty BridgeActivity subclass
+// with no onCreate override. Replace that generated stub with a deterministic class
+// that registers AuroraNative before BridgeActivity initializes its JS bridge.
 const expectedMainActivity = `package com.aurora.assistant;
 
 import android.os.Bundle;
@@ -408,28 +411,10 @@ public class MainActivity extends BridgeActivity {
     }
 }
 `;
-if (!fs.existsSync(mainActivity)) {
-  fs.writeFileSync(mainActivity, expectedMainActivity);
-} else {
-  let main = fs.readFileSync(mainActivity, "utf8");
-  // Capacitor requires custom plugins to be registered before BridgeActivity creates
-  // the bridge. Normalize the order even if an earlier patch inserted the line in
-  // the wrong place or duplicated it.
-  main = main.replace(/^[ \t]*registerPlugin\(AuroraAssistantPlugin\.class\);[ \t]*\r?\n/gm, "");
-  const onCreate = /(@Override\s+public void onCreate\(Bundle savedInstanceState\)\s*\{)/;
-  if (!onCreate.test(main)) {
-    throw new Error("MainActivity.onCreate was not found; refusing to produce an APK with an unregistered AuroraNative plugin.");
-  }
-  if (!main.includes("import com.getcapacitor.BridgeActivity;")) {
-    main = main.replace(/(package [^;]+;)/, "$1\n\nimport com.getcapacitor.BridgeActivity;");
-  }
-  main = main.replace(onCreate, "$1\n        registerPlugin(AuroraAssistantPlugin.class);");
-  if (!main.includes("import android.os.Bundle;")) {
-    main = main.replace(/(package [^;]+;)/, "$1\n\nimport android.os.Bundle;");
-  }
-  fs.writeFileSync(mainActivity, main);
-}
-if (!fs.readFileSync(mainActivity, "utf8").includes("registerPlugin(AuroraAssistantPlugin.class);")) {
+fs.writeFileSync(mainActivity, expectedMainActivity);
+const verifiedMainActivity = fs.readFileSync(mainActivity, "utf8");
+if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);") ||
+    !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
 console.log(reducedPermissionTest
