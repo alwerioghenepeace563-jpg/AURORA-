@@ -74,7 +74,7 @@ async function chatHandler(req, res) {
     "TRUTHFULNESS: Never invent which AI company, model, or provider is answering. Never claim a provider switch succeeded unless the backend confirms it. Separate facts found in a user document from suggestions or general knowledge, and say clearly when a document does not state something. Do not invent deadlines, fees, sources, capabilities, or actions. " + style +
     (profileContext ? "\nUse these user-provided preferences when relevant, without awkwardly repeating them:\n" + profileContext : "") +
     (activeScheduleInstructions ? "\nTEMPORARY SCHEDULE INSTRUCTIONS (only active during the scheduled time window; follow these for the current response unless they conflict with safety or the user’s latest explicit request):\n" + activeScheduleInstructions : "") +
-    (liveToolContext ? "\\nLIVE TOOL RESULTS (use these for the current request; they came from an AURORA capability that ran for this turn):\\n" + liveToolContext + "\\nUse this live result rather than claiming you cannot access the relevant information. Do not imply a tool ran when no result was supplied." : "") +
+    (liveToolContext ? "\nLIVE TOOL RESULTS (use these for the current request; they came from an AURORA capability that ran for this turn):\\n" + liveToolContext + "\nUse this live result rather than claiming you cannot access the relevant information. Do not imply a tool ran when no result was supplied." : "") +
     "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request.";
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
