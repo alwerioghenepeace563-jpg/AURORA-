@@ -1,149 +1,218 @@
-// AURORA's shared capability tree. The main chat routes clear tool requests here
-// before calling the AI, then supplies the real tool output as grounded context.
+// AURORA's shared capability tree: one orchestrator can combine local memory,
+// device context, weather, web/news, and navigation for a single useful answer.
 import { auroraApiUrl } from "./aurora-native";
 
 function formatPlace(address = {}) {
-  return [
-    address.road,
-    address.suburb || address.neighbourhood,
+  return [address.road, address.suburb || address.neighbourhood,
     address.city || address.town || address.village || address.county,
-    address.state,
-    address.country
-  ].filter(Boolean).filter((item, index, all) => all.indexOf(item) === index).join(", ");
+    address.state, address.country]
+    .filter(Boolean).filter((item, index, all) => all.indexOf(item) === index).join(", ");
+}
+
+function readLocalMemory(query, limit = 8) {
+  if (typeof localStorage === "undefined") return [];
+  const q = String(query || "").toLowerCase();
+  const terms = q.split(/[^a-z0-9]+/).filter(word => word.length > 3);
+  const records = [];
+  const add = (kind, label, text, date = "") => {
+    const body = String(text || "").trim();
+    if (!body) return;
+    const haystack = (label + " " + body).toLowerCase();
+    const score = terms.reduce((sum, term) => sum + (haystack.includes(term) ? 1 : 0), 0);
+    if (score || /journey|visit|travel|presentation|meeting|appointment|route|trip|destination|event|project/i.test(q)) {
+      records.push({ kind, label: String(label || kind).slice(0, 100), text: body.slice(0, 500), date, score });
+    }
+  };
+  try {
+    const sessions = JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]");
+    for (const session of (Array.isArray(sessions) ? sessions : []).slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0, 40)) {
+      const messages = Array.isArray(session.messages) ? session.messages : [];
+      const matching = messages.filter(m => m && typeof m.content === "string" && /user|assistant/.test(m.role))
+        .filter(m => {
+          const t = m.content.toLowerCase();
+          return terms.some(term => t.includes(term)) ||
+            (/journey|visit|travel|presentation|meeting|appointment|route|trip|destination|event/i.test(q) &&
+             /went to|visited|travelled|traveled|presentation|meeting|appointment|journey|trip|route|destination|tomorrow|today/i.test(t));
+        }).slice(-3);
+      for (const m of matching) add("previous_conversation", session.title || "Previous chat", m.role.toUpperCase() + ": " + m.content, session.updatedAt ? new Date(session.updatedAt).toLocaleDateString() : "");
+    }
+  } catch {}
+  for (const [key, kind] of [["aurora-notes","saved_note"],["aurora-tasks","saved_task"],["aurora-calendar-events","calendar_event"],["aurora-reminders","reminder"]]) {
+    try {
+      const items = JSON.parse(localStorage.getItem(key) || "[]");
+      for (const item of (Array.isArray(items) ? items : []).slice(0, 80)) {
+        add(kind, item.title || item.name || item.label || kind,
+          [item.title, item.text, item.content, item.description, item.note, item.instruction, item.location, item.destination, item.status].filter(Boolean).join(" — "),
+          item.date || item.startAt || item.dueAt || "");
+      }
+    } catch {}
+  }
+  return records.sort((a,b)=>b.score-a.score).slice(0, limit);
 }
 
 async function getDeviceLocation() {
-  if (!globalThis.navigator?.geolocation) {
-    throw new Error("This device or browser does not support location access.");
-  }
+  if (!globalThis.navigator?.geolocation) throw new Error("This device or browser does not support location access.");
   const position = await new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, (error) => {
+    navigator.geolocation.getCurrentPosition(resolve, error => {
       const message = error.code === 1
         ? "Location permission was denied. Allow location access for AURORA in your browser or Android app settings, then ask again."
         : error.code === 3
           ? "The location request timed out. Turn on your phone's location/GPS and try again."
           : "AURORA couldn't get your location. Check that location/GPS is enabled and try again.";
       reject(new Error(message));
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
   });
   const { latitude, longitude, accuracy } = position.coords;
   let place = "";
   try {
-    const response = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + encodeURIComponent(latitude) + "&lon=" + encodeURIComponent(longitude), { headers: { Accept: "application/json" } });
-    if (response.ok) {
-      const data = await response.json();
-      place = formatPlace(data.address || {}) || data.display_name || "";
-    }
+    const response = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + latitude + "&lon=" + longitude, { headers: { Accept: "application/json" } });
+    if (response.ok) { const data = await response.json(); place = formatPlace(data.address || {}) || data.display_name || ""; }
   } catch {}
   return { latitude, longitude, accuracy, place };
 }
 
-function locationContext(location) {
-  return [
-    "Tool: device_location (fresh device/browser geolocation explicitly requested by the user).",
-    "Latitude: " + location.latitude,
-    "Longitude: " + location.longitude,
-    "Reported accuracy: approximately " + Math.round(location.accuracy) + " metres.",
-    location.place ? "Resolved place: " + location.place : "Reverse geocoding did not return a readable place name.",
-    "Answer using these actual coordinates/place details. Be clear that GPS accuracy varies."
-  ].join("\n");
+async function searchWeb(query) {
+  const response = await fetch(auroraApiUrl("/api/search"), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Web search could not complete.");
+  return { source: data.source || "web search", results: Array.isArray(data.results) ? data.results.slice(0, 5) : [] };
+}
+
+async function getWeather(city) {
+  const response = await fetch(auroraApiUrl("/api/weather?city=") + encodeURIComponent(city));
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Weather could not be loaded.");
+  const current = data.current || {};
+  return {
+    location: data.location || city,
+    current: current.description + ", " + current.temperature + (data.units?.temperature || "°C"),
+    feelsLike: current.apparentTemperature,
+    humidity: current.humidity,
+    wind: current.windSpeed,
+    forecast: (data.forecast || []).map(day => day.date + ": " + day.description + ", high " + day.high + "°, low " + day.low + "°, rain chance " + day.rainChance + "%"),
+    updatedAt: data.updatedAt
+  };
+}
+
+function findDestination(text) {
+  const patterns = [
+    /\b(?:should i go|do you think i should go|plan (?:a )?(?:trip|journey) to|travel to|visit|go to|head to|journey to|trip to|route to|directions to|navigate to|take me to)\s+(.+?)(?:\s+(?:today|tomorrow|this morning|this afternoon|tonight|now|later|next week)\b|[?.!,]|$)/i,
+    /\b(?:presentation|meeting|appointment|event)\s+(?:at|in|near)\s+(.+?)(?:[?.!,]|$)/i
+  ];
+  for (const pattern of patterns) { const m = text.match(pattern); if (m?.[1]) return m[1].trim().replace(/\b(the|there|today|tomorrow)$/i, "").trim(); }
+  return "";
+}
+
+async function journeyBrief(text) {
+  const destination = findDestination(text);
+  const memory = readLocalMemory(destination || text, 10);
+  const sections = ["Tool: journey_decision_brief. This is a combined result assembled for the user's decision, not a guarantee."];
+  sections.push("User's request: " + text);
+  if (destination) sections.push("Likely destination: " + destination);
+  if (memory.length) sections.push("RELEVANT AURORA ON-DEVICE MEMORY (past chats, saved notes, tasks, reminders and calendar events; may contain incomplete references):\n" +
+    memory.map((m,i)=>(i+1)+". ["+m.kind+"] "+m.label+(m.date ? " ("+m.date+")" : "")+": "+m.text).join("\n"));
+  else sections.push("No clearly matching saved AURORA memory was found. Do not pretend to know whether the user has visited before; ask or state that no record was found.");
+  let location = null;
+  try { location = await getDeviceLocation(); sections.push("CURRENT DEVICE LOCATION: "+(location.place || "coordinates available")+"; coordinates "+location.latitude+","+location.longitude+"; estimated accuracy "+Math.round(location.accuracy)+"m."); }
+  catch (error) { sections.push("CURRENT DEVICE LOCATION unavailable: "+error.message+". Do not invent an origin; route links can still use the destination only."); }
+  if (destination) {
+    const jobs = [];
+    jobs.push(getWeather(destination).then(weather => ({kind:"weather",value:weather})).catch(error=>({kind:"weather_error",value:error.message})));
+    jobs.push(searchWeb(destination+" traffic road closures events incidents today").then(result=>({kind:"local_conditions_and_traffic",value:result})).catch(error=>({kind:"search_error",value:error.message})));
+    jobs.push(searchWeb(destination+" latest local news events happening today").then(result=>({kind:"local_news_and_events",value:result})).catch(error=>({kind:"news_error",value:error.message})));
+    const results = await Promise.all(jobs);
+    for (const item of results) {
+      if (item.kind === "weather") sections.push("DESTINATION WEATHER: "+JSON.stringify(item.value));
+      else if (item.kind === "local_conditions_and_traffic" || item.kind === "local_news_and_events") {
+        sections.push(item.kind.toUpperCase().replace(/_/g," ")+": "+(item.value.results.length ? item.value.results.map((r,i)=>(i+1)+". "+r.title+" — "+r.snippet+" Source: "+r.url).join("\n") : "No useful results returned."));
+      } else sections.push(item.kind.toUpperCase()+": "+item.value);
+    }
+    const dest = encodeURIComponent(destination);
+    const origin = location ? "&origin="+encodeURIComponent(location.latitude+","+location.longitude) : "";
+    sections.push("GOOGLE MAPS ROUTE: https://www.google.com/maps/dir/?api=1&destination="+dest+origin+"&travelmode=driving");
+    sections.push("GOOGLE MAPS DESTINATION: https://www.google.com/maps/search/?api=1&query="+dest);
+  } else {
+    sections.push("No destination could be reliably extracted. Use the memory results to ask one concise clarifying question about the place, meeting, or journey before making destination-specific claims.");
+  }
+  sections.push("DECISION RULES: Explain what is known vs unknown. Consider weather, current dated news/events, traffic/road incidents, route/ETA (if a provider supplied it), calendar/task conflicts and prior notes. Recommend a departure window only when evidence supports it; public search results are not guaranteed live traffic. Ask whether the user wants a more precise departure-time check if data is missing. Never claim to have checked a past visit unless memory actually shows it. Use links in the answer when helpful.");
+  return { context: sections.join("\n\n") };
 }
 
 const capabilityTools = [
   {
+    id: "journey_decision_brief",
+    description: "Combines prior AURORA memory, current location, destination weather, news/events, traffic/road incident searches and Google Maps route links for go/no-go and departure timing.",
+    matches: text => /\b(should i go|do you think i should go|journey|trip|travel plan|visit there|go there|head there|traffic|road closure|presentation|meeting|appointment|what have i done before|did i visit|have i been there|things i have done|what happened last time)\b/i.test(text) && /\b(today|tomorrow|there|journey|trip|travel|go|visit|destination|presentation|meeting|appointment|traffic|before|last time|plan|place)\b/i.test(text),
+    run: journeyBrief
+  },
+  {
     id: "device_location",
     description: "Current GPS location and place lookup.",
-    matches: (text) => /\b(where am i|my current location|current location|where are we|locate me|show where i am|my position|where am i right now)\b/i.test(text),
-    run: async () => ({ context: locationContext(await getDeviceLocation()) })
+    matches: text => /\b(where am i|my current location|current location|where are we|locate me|show where i am|my position|where am i right now)\b/i.test(text),
+    run: async () => {
+      const location = await getDeviceLocation();
+      return { context: ["Tool: device_location.", "Place: "+(location.place || "unresolved"), "Latitude: "+location.latitude, "Longitude: "+location.longitude, "Accuracy: approximately "+Math.round(location.accuracy)+"m. GPS accuracy varies."].join("\n") };
+    }
   },
   {
     id: "weather",
-    description: "Live weather and short forecast from a city, or the user's location when they ask about weather here.",
-    matches: (text) => /\b(weather|forecast|temperature outside|is it raining|will it rain|rain today)\b/i.test(text),
-    run: async (text) => {
+    description: "Current weather and forecast; resolves 'here' using the device location.",
+    matches: text => /\b(weather|forecast|temperature outside|is it raining|will it rain|rain today)\b/i.test(text),
+    run: async text => {
       const match = text.match(/\b(?:weather|forecast|temperature outside|is it raining|will it rain|rain today)\b(?:\s+(?:like\s+)?(?:in|for|at)\s+([^?.!,]+))?/i);
       let city = match?.[1]?.trim() || "";
-      let location;
-      if (!city || /^(here|my location|where i am|outside|today|now)$/i.test(city)) {
-        location = await getDeviceLocation();
-        city = location.place || "";
-      }
-      if (!city) throw new Error("I got your coordinates but couldn't identify a town for weather. Ask for weather in a named city, such as Benin City.");
-      const response = await fetch(auroraApiUrl("/api/weather?city=") + encodeURIComponent(city));
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Weather could not be loaded.");
-      const current = data.current || {};
-      const forecast = Array.isArray(data.forecast) ? data.forecast : [];
-      return { context: [
-        "Tool: live_weather. Location: " + (data.location || city),
-        "Current temperature: " + (current.temperature ?? "unavailable") + (data.units?.temperature || "°C"),
-        "Feels like: " + (current.apparentTemperature ?? "unavailable") + (data.units?.temperature || "°C"),
-        "Conditions: " + (current.description || "unavailable"),
-        "Humidity: " + (current.humidity ?? "unavailable") + "%",
-        "Wind: " + (current.windSpeed ?? "unavailable") + " " + (data.units?.wind || "km/h"),
-        ...forecast.map(day => day.date + ": " + day.description + ", high " + day.high + (data.units?.temperature || "°C") + ", low " + day.low + (data.units?.temperature || "°C") + ", rain chance " + (day.rainChance ?? "unavailable") + "%"),
-        "Weather data timestamp: " + (data.updatedAt || "not provided")
-      ].join("\n") };
+      if (!city || /^(here|my location|where i am|outside|today|now)$/i.test(city)) city = (await getDeviceLocation()).place;
+      if (!city) throw new Error("I couldn't identify your town. Ask for weather in a named city, such as Benin City.");
+      return { context: "Tool: live_weather. "+JSON.stringify(await getWeather(city)) };
     }
   },
   {
     id: "web_search",
-    description: "Search the web for current facts, sources, news, and requested lookups.",
-    matches: (text) => /\b(search (?:the web )?for|look up|find online|search online|latest news|news today|what's happening in|what is happening in)\b/i.test(text),
-    run: async (text) => {
-      const query = text.replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:search (?:the web )?for|look up|find online|search online)\s*/i, "").trim()
-        || text.trim();
-      const response = await fetch(auroraApiUrl("/api/search"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query })
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Web search could not complete.");
-      const results = Array.isArray(data.results) ? data.results.slice(0, 6) : [];
-      if (!results.length) return { context: "Tool: web_search. No matching results were returned for: " + query };
-      return { context: "Tool: web_search. Query: " + query + "\n" + results.map((item, index) =>
-        (index + 1) + ". " + (item.title || "Untitled source") + "\n" +
-        (item.snippet || "No snippet supplied.") + "\nURL: " + (item.url || "unavailable")
-      ).join("\n\n") + "\nUse these search results as sources; distinguish source claims from established facts." };
+    description: "Search current web facts, news, events and sources.",
+    matches: text => /\b(search (?:the web )?for|look up|find online|search online|latest news|news today|what's happening in|what is happening in)\b/i.test(text),
+    run: async text => {
+      const query = text.replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:search (?:the web )?for|look up|find online|search online)\s*/i, "").trim() || text.trim();
+      const result = await searchWeb(query);
+      return { context: "Tool: web_search. Query: "+query+"; source: "+result.source+"\n"+result.results.map((item,i)=>(i+1)+". "+item.title+"\n"+item.snippet+"\nURL: "+item.url).join("\n\n") };
     }
   },
   {
     id: "maps_navigation",
-    description: "Create map, satellite, destination, or route links from a destination; use GPS when directions start from the user's current location.",
-    matches: (text) => /\b(directions to|route to|navigate to|how do i get to|take me to|show (?:me )?(?:the )?map|open (?:google )?maps|satellite view|street view|where is)\b/i.test(text),
-    run: async (text) => {
-      const destinationMatch = text.match(/\b(?:directions to|route to|navigate to|how do i get to|take me to|where is)\s+([^?.!,]+)/i);
-      const destination = destinationMatch?.[1]?.trim() || "";
-      const wantsSatellite = /\bsatellite\b/i.test(text);
-      const wantsStreetView = /\bstreet view\b/i.test(text);
-      let origin = "";
-      if (/\b(from here|from my location|from where i am|current location|where i am)\b/i.test(text)) {
-        const location = await getDeviceLocation();
-        origin = location.latitude + "," + location.longitude;
-      }
-      const encodedDestination = encodeURIComponent(destination || "my current location");
-      const directionsUrl = origin
-        ? "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(origin) + "&destination=" + encodedDestination + "&travelmode=driving"
-        : "https://www.google.com/maps/dir/?api=1&destination=" + encodedDestination;
-      const viewUrl = "https://www.google.com/maps/search/?api=1&query=" + encodedDestination + (wantsSatellite ? "&basemap=satellite" : "");
-      const streetUrl = "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=" + encodeURIComponent(origin || destination || "Nigeria");
-      return { context: [
-        "Tool: maps_navigation.",
-        destination ? "Destination requested: " + destination : "No named destination was supplied; ask a follow-up if the user needs a route to somewhere specific.",
-        origin ? "Starting coordinates: " + origin : "No GPS starting point was requested or supplied.",
-        "Google Maps search/map: " + viewUrl,
-        "Google Maps directions: " + directionsUrl,
-        wantsStreetView ? "Google Maps Street View: " + streetUrl : "",
-        "These links open Google Maps; satellite/Street View availability depends on coverage and the Google Maps app/browser."
-      ].filter(Boolean).join("\n") };
+    description: "Destination map, route, satellite and Street View links.",
+    matches: text => /\b(directions to|route to|navigate to|how do i get to|take me to|show (?:me )?(?:the )?map|open (?:google )?maps|satellite view|street view|where is)\b/i.test(text),
+    run: async text => {
+      const destination = findDestination(text) || "";
+      let location = null;
+      if (/\b(from here|from my location|from where i am|current location|where i am)\b/i.test(text)) location = await getDeviceLocation();
+      const query = encodeURIComponent(destination || "my current location");
+      const origin = location ? "&origin="+encodeURIComponent(location.latitude+","+location.longitude) : "";
+      return { context: ["Tool: maps_navigation.", "Destination: "+(destination || "not specified"),
+        "Google Maps: https://www.google.com/maps/search/?api=1&query="+query,
+        "Google Maps directions: https://www.google.com/maps/dir/?api=1&destination="+query+origin+"&travelmode=driving",
+        /\bsatellite\b/i.test(text) ? "Satellite: https://www.google.com/maps/search/?api=1&query="+query+"&basemap=satellite" : "",
+        /\bstreet view\b/i.test(text) ? "Street View: https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+encodeURIComponent(destination || "Nigeria") : "",
+        "Satellite/Street View coverage varies by place; these links open Google Maps."].filter(Boolean).join("\n") };
+    }
+  },
+  {
+    id: "aurora_memory",
+    description: "Searches locally saved AURORA conversations, notes, tasks, reminders and calendar events to recall relevant past work and preferences.",
+    matches: text => /\b(remember|what did i|what have i|did i ever|have i ever|last time|before|previous|presentation|project i did|things i did|what was my)\b/i.test(text),
+    run: async text => {
+      const memory = readLocalMemory(text, 12);
+      return { context: "Tool: aurora_memory. Search scope: this device's saved AURORA chat sessions, notes, tasks, reminders and calendar events.\n" +
+        (memory.length ? memory.map((m,i)=>(i+1)+". ["+m.kind+"] "+m.label+(m.date ? " ("+m.date+")" : "")+": "+m.text).join("\n") :
+        "No matching saved record found. Be transparent; don't invent a memory.") };
     }
   }
 ];
 
 export async function runAuroraToolTree(userText) {
   const text = String(userText || "");
-  const tool = capabilityTools.find((candidate) => candidate.matches(text));
+  const tool = capabilityTools.find(candidate => candidate.matches(text));
   if (!tool) return null;
   try {
     const result = await tool.run(text);
