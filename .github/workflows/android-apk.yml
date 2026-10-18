@@ -71,6 +71,19 @@ jobs:
           test -s "$APK"
           unzip -t "$APK"
           jarsigner -verify "$APK"
+      - name: Verify established AURORA signing identity
+        if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' }}
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          ACTUAL="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          EXPECTED="655d21eddc165b1d218d465eff96000725f258ae315952a99ae01875156f8f8"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::AURORA signing certificate mismatch. Refusing to publish this APK."
+            exit 1
+          fi
+          echo "AURORA signing certificate verified."
       - name: Publish update to Lively Updates
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' && env.HAS_LIVELY_UPDATES_TOKEN == 'true' }}
         env:

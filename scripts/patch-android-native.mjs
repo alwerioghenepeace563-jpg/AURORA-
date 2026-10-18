@@ -42,6 +42,39 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "AuroraNative"${reducedPermissionTest ? "" : ", permissions = { @Permission(alias = \"microphone\", strings = { Manifest.permission.RECORD_AUDIO }) }"})
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
+    private boolean isTrustedUpdateUrl(URL url) {
+        if (url == null || !"https".equalsIgnoreCase(url.getProtocol())) return false;
+        String host = url.getHost().toLowerCase(java.util.Locale.ROOT);
+        return host.equals("github.com") || host.endsWith(".github.com")
+            || host.equals("raw.githubusercontent.com")
+            || host.endsWith(".githubusercontent.com");
+    }
+
+    private boolean isCompatibleSignedUpdate(File apk) throws Exception {
+        PackageManager pm = getContext().getPackageManager();
+        android.content.pm.PackageInfo candidate;
+        android.content.pm.PackageInfo installed;
+        if (Build.VERSION.SDK_INT >= 28) {
+            candidate = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
+            installed = pm.getPackageInfo(getContext().getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+            if (candidate == null || installed == null
+                || !"com.aurora.assistant".equals(candidate.packageName)
+                || candidate.signingInfo == null || installed.signingInfo == null
+                || candidate.signingInfo.hasMultipleSigners()
+                || installed.signingInfo.hasMultipleSigners()) return false;
+            android.content.pm.Signature[] a = candidate.signingInfo.getApkContentsSigners();
+            android.content.pm.Signature[] b = installed.signingInfo.getApkContentsSigners();
+            return a != null && b != null && a.length == 1 && b.length == 1 && a[0].equals(b[0]);
+        }
+        candidate = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNATURES);
+        installed = pm.getPackageInfo(getContext().getPackageName(), PackageManager.GET_SIGNATURES);
+        return candidate != null && installed != null
+            && "com.aurora.assistant".equals(candidate.packageName)
+            && candidate.signatures != null && installed.signatures != null
+            && candidate.signatures.length == 1 && installed.signatures.length == 1
+            && candidate.signatures[0].equals(installed.signatures[0]);
+    }
+
 
     @PluginMethod
     public void startSpeechRecognition(PluginCall call) {
@@ -226,6 +259,9 @@ public class AuroraAssistantPlugin extends Plugin {
                 connection.setInstanceFollowRedirects(true);
                 connection.setRequestProperty("User-Agent", "AURORA-Updater");
                 int code = connection.getResponseCode();
+                if (!isTrustedUpdateUrl(connection.getURL())) {
+                    throw new Exception("The download redirected to an untrusted destination.");
+                }
                 if (code < 200 || code >= 300) throw new Exception("Download server returned HTTP " + code);
                 long total = 0;
                 try (InputStream in = connection.getInputStream(); FileOutputStream out = new FileOutputStream(apk)) {
@@ -239,6 +275,9 @@ public class AuroraAssistantPlugin extends Plugin {
                     out.getFD().sync();
                 }
                 if (total < 100000) throw new Exception("The downloaded update file is incomplete.");
+                if (!isCompatibleSignedUpdate(apk)) {
+                    throw new Exception("Downloaded APK package or signing certificate does not match this AURORA installation.");
+                }
                 final long downloadedBytes = total;
                 getActivity().runOnUiThread(() -> {
                     JSObject result = new JSObject();
