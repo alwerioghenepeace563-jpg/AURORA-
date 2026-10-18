@@ -52,16 +52,29 @@ function readLocalMemory(query, limit = 8) {
 
 async function getDeviceLocation() {
   if (!globalThis.navigator?.geolocation) throw new Error("This device or browser does not support location access.");
-  const position = await new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, error => {
-      const message = error.code === 1
-        ? "Location permission was denied. Allow location access for AURORA in your browser or Android app settings, then ask again."
-        : error.code === 3
-          ? "The location request timed out. Turn on your phone's location/GPS and try again."
-          : "AURORA couldn't get your location. Check that location/GPS is enabled and try again.";
-      reject(new Error(message));
-    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
+  // Prefer a recent cached/coarse fix first: high-accuracy GPS can take a long
+  // time to lock on budget Android phones and inside WebViews.
+  const getPosition = (options) => new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
   });
+  let position;
+  try {
+    position = await getPosition({ enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 });
+  } catch (firstError) {
+    if (firstError?.code === 1) {
+      throw new Error("Location permission was denied. Allow location access for AURORA in Android app settings, then ask again.");
+    }
+    try {
+      position = await getPosition({ enableHighAccuracy: true, timeout: 30000, maximumAge: 120000 });
+    } catch (error) {
+      const message = error?.code === 1
+        ? "Location permission was denied. Allow location access for AURORA in Android app settings, then ask again."
+        : error?.code === 3
+          ? "AURORA couldn't get a GPS fix after waiting. Turn on Location, enable Google Location Accuracy if available, and try near a window or outdoors. You can also name your town."
+          : "AURORA couldn't get your location. Check Location permission and GPS, or tell AURORA your town.";
+      throw new Error(message);
+    }
+  }
   const { latitude, longitude, accuracy } = position.coords;
   let place = "";
   try {
