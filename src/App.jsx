@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
+import { runAuroraToolTree } from "./lib/aurora-tool-tree";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
 import { AnimatePresence, motion } from "framer-motion";
@@ -863,10 +864,17 @@ export default function App() {
       let preferredProvider;
       try { preferredProvider = localStorage.getItem("aurora-active-ai-provider") || undefined; } catch {}
       const activeScheduleInstructions = schedules.filter((item) => item.status !== "cancelled" && new Date(item.startAt).getTime() <= Date.now() && Date.now() < new Date(item.endAt).getTime()).map((item) => "- " + item.title + ": " + item.instruction).join("\n");
+      // Route clearly relevant requests through the shared AURORA capability tree before asking the AI.
+      const liveToolResult = await runAuroraToolTree(text);
+      if (liveToolResult?.error) {
+        setMessages((current) => [...current, { role: "assistant", content: liveToolResult.error }]);
+        if (soundOn) speak(liveToolResult.error);
+        return;
+      }
       const response = await fetch(auroraApiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile: { ...profile, activeScheduleInstructions }, preferredProvider })
+        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile: { ...profile, activeScheduleInstructions }, preferredProvider, toolContext: liveToolResult?.context || "" })
       });
       const rawResponse = await response.text();
       let data = {};
