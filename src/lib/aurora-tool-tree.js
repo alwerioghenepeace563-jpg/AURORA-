@@ -50,7 +50,7 @@ function readLocalMemory(query, limit = 8) {
   return records.sort((a,b)=>b.score-a.score).slice(0, limit);
 }
 
-async function getDeviceLocation() {
+async function getDeviceLocation({ fresh = false } = {}) {
   if (!globalThis.navigator?.geolocation) throw new Error("This device or browser does not support location access.");
   // Prefer a recent cached/coarse fix first: high-accuracy GPS can take a long
   // time to lock on budget Android phones and inside WebViews.
@@ -59,13 +59,13 @@ async function getDeviceLocation() {
   });
   let position;
   try {
-    position = await getPosition({ enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 });
+    position = await getPosition({ enableHighAccuracy: false, timeout: 12000, maximumAge: fresh ? 0 : 120000 });
   } catch (firstError) {
     if (firstError?.code === 1) {
       throw new Error("Location permission was denied. Allow location access for AURORA in Android app settings, then ask again.");
     }
     try {
-      position = await getPosition({ enableHighAccuracy: true, timeout: 30000, maximumAge: 120000 });
+      position = await getPosition({ enableHighAccuracy: true, timeout: 30000, maximumAge: fresh ? 0 : 120000 });
     } catch (error) {
       const message = error?.code === 1
         ? "Location permission was denied. Allow location access for AURORA in Android app settings, then ask again."
@@ -219,10 +219,10 @@ const capabilityTools = [
     matches: text => /\b(directions to|route to|navigate to|how do i get to|take me to|show (?:me )?(?:the )?map|open (?:google )?maps|satellite view|street view|where is)\b/i.test(text),
     run: async text => {
       const destination = findDestination(text) || "";
-      const asksForCurrentPosition = /\b(my current location|current location|where am i|where i am|my position|my location)\b/i.test(text);
+      const asksForCurrentPosition = /\b(?:my\s+)?(?:current|present|live|fresh)\s+(?:gps\s+)?(?:device\s+)?location\b|\bwhere am i(?: right now)?\b|\bwhere i am\b|\bmy position\b|\bmy location\b/i.test(text);
       let location = null;
       if (asksForCurrentPosition || /\b(from here|from my location|from where i am|current location|where i am)\b/i.test(text)) {
-        location = await getDeviceLocation();
+        location = await getDeviceLocation({ fresh: /\b(refresh|fresh|latest|right now|current)\b/i.test(text) });
       }
       // For a "show my current location" request, use actual coordinates in the
       // Maps URL instead of the literal words "my current location".
@@ -235,8 +235,8 @@ const capabilityTools = [
         : mapUrl;
       return { context: ["Tool: maps_navigation.",
         asksForCurrentPosition && location
-          ? "ACTION REQUIRED: The user asked to show their current location. Give them the direct clickable Google Maps link below, not generic instructions. Explain it is centered on the GPS coordinates AURORA just obtained."
-          : "ACTION REQUIRED: Provide the relevant direct Google Maps link below.",
+          ? "ACTION REQUIRED: The user asked to show their current location. Give them the direct clickable Google Maps link below, not generic instructions. Explain it is centered on the fresh GPS coordinates AURORA just obtained. Do not claim inability to read GPS because coordinates are present."
+          : "ACTION REQUIRED: Provide the relevant direct Google Maps link below. If the user asked to refresh current location but GPS failed, state the real tool error and do not give generic Google Maps instructions.",
         "Destination: "+(destination || (location ? (location.place || "current GPS position") : "not specified")),
         location ? "GPS coordinates: "+location.latitude+","+location.longitude+" (estimated accuracy "+Math.round(location.accuracy)+"m)." : "",
         "Open Google Maps at this location: "+mapUrl,
