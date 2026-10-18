@@ -338,6 +338,9 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
+  useEffect(() => {
+    try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
+  }, [profile]);
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
@@ -1275,6 +1278,23 @@ export default function App() {
                 <button onClick={() => sendMessage("Help me think through an idea.")}><Sparkles size={15} /> Explore an idea</button>
                 <button onClick={() => sendMessage("Help me organise my tasks.")}><Check size={15} /> Organise tasks</button>
               </div>
+              <section aria-label="AURORA app updater" className="glass-panel" style={{ width: "min(610px,100%)", marginTop: 24, padding: "16px 18px", borderRadius: 18, textAlign: "left", display: "grid", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 12, display: "grid", placeItems: "center", background: "rgba(73,155,255,.12)", border: "1px solid rgba(110,231,255,.2)" }}><RotateCcw size={18} /></div>
+                    <div><strong style={{ display: "block", fontSize: 13 }}>AURORA Updater</strong><span style={{ color: "#91a8c3", fontSize: 11 }}>Installed: {installedVersionName}</span></div>
+                  </div>
+                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={14} />} {appUpdateBusy ? "Checking…" : "Check for updates"}</button>
+                </div>
+                <p role="status" style={{ margin: 0, color: "#a9bdd2", fontSize: 12, lineHeight: 1.5 }}>{appUpdateMessage}</p>
+                {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 12, display: "grid", gap: 9 }}>
+                  <strong style={{ fontSize: 13 }}>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
+                  {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 12 }}>{appUpdateInfo.releaseNotes}</p>}
+                  {Capacitor.isNativePlatform()
+                    ? <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>{appUpdateBusy ? "Preparing update…" : "Download and install update"} <ArrowUpRight size={15}/></button>
+                    : <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={15}/></a>}
+                </div>}
+              </section>
               <div className="home-footer-note"><ShieldCheck size={13} /> PRIVATE BY DESIGN <span /> BUILT AROUND YOU</div>
             </motion.section>
           )}
