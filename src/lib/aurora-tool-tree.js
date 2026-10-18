@@ -109,49 +109,64 @@ function findDestination(text) {
 async function journeyBrief(text) {
   let destination = findDestination(text);
   const memory = readLocalMemory(destination || text, 10);
-  if (!destination) {
+  // Resolve vague references such as "that place" from the user's own saved context.
+  const vagueDestination = /\\b(that place|the place i (?:mentioned|told you about)|where i (?:said|told you)|there|that destination)\\b/i.test(text);
+  if (!destination || vagueDestination) {
     for (const record of memory) {
       const inferred = findDestination(record.text);
       if (inferred) { destination = inferred; break; }
     }
   }
-  const sections = ["Tool: journey_decision_brief. This is a combined result assembled for the user's decision, not a guarantee."];
+  const sections = ["Tool: journey_decision_brief. Combined travel context; this is guidance, not a guarantee."];
   sections.push("User's request: " + text);
   if (destination) sections.push("Likely destination: " + destination);
-  if (memory.length) sections.push("RELEVANT AURORA ON-DEVICE MEMORY (past chats, saved notes, tasks, reminders and calendar events; may contain incomplete references):\n" +
-    memory.map((m,i)=>(i+1)+". ["+m.kind+"] "+m.label+(m.date ? " ("+m.date+")" : "")+": "+m.text).join("\n"));
+  if (memory.length) sections.push("RELEVANT AURORA ON-DEVICE MEMORY (past chats, saved notes, tasks, reminders and calendar events; may contain incomplete references):\\n" +
+    memory.map((m,i)=>(i+1)+". ["+m.kind+"] "+m.label+(m.date ? " ("+m.date+")" : "")+": "+m.text).join("\\n"));
   else sections.push("No clearly matching saved AURORA memory was found. Do not pretend to know whether the user has visited before; ask or state that no record was found.");
+
   let location = null;
-  try { location = await getDeviceLocation(); sections.push("CURRENT DEVICE LOCATION: "+(location.place || "coordinates available")+"; coordinates "+location.latitude+","+location.longitude+"; estimated accuracy "+Math.round(location.accuracy)+"m."); }
-  catch (error) { sections.push("CURRENT DEVICE LOCATION unavailable: "+error.message+". Do not invent an origin; route links can still use the destination only."); }
-  if (destination) {
+  try {
+    location = await getDeviceLocation();
+    sections.push("CURRENT DEVICE LOCATION: "+(location.place || "coordinates available")+"; coordinates "+location.latitude+","+location.longitude+"; estimated accuracy "+Math.round(location.accuracy)+"m.");
+  } catch (error) {
+    sections.push("CURRENT DEVICE LOCATION unavailable: "+error.message+". Do not invent an origin or town.");
+  }
+
+  // If no destination was named, still check local conditions when location is available.
+  const contextPlace = destination || location?.place || "";
+  if (contextPlace) {
     const jobs = [];
-    jobs.push(getWeather(destination).then(weather => ({kind:"weather",value:weather})).catch(error=>({kind:"weather_error",value:error.message})));
-    jobs.push(searchWeb(destination+" traffic road closures events incidents today").then(result=>({kind:"local_conditions_and_traffic",value:result})).catch(error=>({kind:"search_error",value:error.message})));
-    jobs.push(searchWeb(destination+" latest local news events happening today").then(result=>({kind:"local_news_and_events",value:result})).catch(error=>({kind:"news_error",value:error.message})));
+    jobs.push(getWeather(contextPlace).then(weather => ({kind:"weather",value:weather})).catch(error=>({kind:"weather_error",value:error.message})));
+    jobs.push(searchWeb(contextPlace+" traffic road closures events incidents today").then(result=>({kind:"local_conditions_and_traffic",value:result})).catch(error=>({kind:"search_error",value:error.message})));
+    jobs.push(searchWeb(contextPlace+" latest local news events happening today").then(result=>({kind:"local_news_and_events",value:result})).catch(error=>({kind:"news_error",value:error.message})));
     const results = await Promise.all(jobs);
     for (const item of results) {
-      if (item.kind === "weather") sections.push("DESTINATION WEATHER: "+JSON.stringify(item.value));
+      if (item.kind === "weather") sections.push("DESTINATION/LOCAL WEATHER: "+JSON.stringify(item.value));
       else if (item.kind === "local_conditions_and_traffic" || item.kind === "local_news_and_events") {
-        sections.push(item.kind.toUpperCase().replace(/_/g," ")+": "+(item.value.results.length ? item.value.results.map((r,i)=>(i+1)+". "+r.title+" — "+r.snippet+" Source: "+r.url).join("\n") : "No useful results returned."));
+        sections.push(item.kind.toUpperCase().replace(/_/g," ")+": "+(item.value.results.length ? item.value.results.map((r,i)=>(i+1)+". "+r.title+" — "+r.snippet+" Source: "+r.url).join("\\n") : "No useful results returned."));
       } else sections.push(item.kind.toUpperCase()+": "+item.value);
     }
+  } else {
+    sections.push("Weather and local-news checks could not run because location permission is unavailable and no town/destination was named. Ask the user for their town or destination; do not claim the checks were completed.");
+  }
+
+  if (destination) {
     const dest = encodeURIComponent(destination);
     const origin = location ? "&origin="+encodeURIComponent(location.latitude+","+location.longitude) : "";
     sections.push("GOOGLE MAPS ROUTE: https://www.google.com/maps/dir/?api=1&destination="+dest+origin+"&travelmode=driving");
     sections.push("GOOGLE MAPS DESTINATION: https://www.google.com/maps/search/?api=1&query="+dest);
   } else {
-    sections.push("No destination could be reliably extracted. Use the memory results to ask one concise clarifying question about the place, meeting, or journey before making destination-specific claims.");
+    sections.push("DESTINATION NEEDED FOR ROUTING: The user asked about travel but did not specify where they are going. Ask for the destination. Do not invent one. Local weather/news may still be useful if location was available.");
   }
-  sections.push("DECISION RULES: Explain what is known vs unknown. Consider weather, current dated news/events, traffic/road incidents, route/ETA (if a provider supplied it), calendar/task conflicts and prior notes. Recommend a departure window only when evidence supports it; public search results are not guaranteed live traffic. Ask whether the user wants a more precise departure-time check if data is missing. Never claim to have checked a past visit unless memory actually shows it. Use links in the answer when helpful.");
-  return { context: sections.join("\n\n") };
+  sections.push("DECISION RULES: Explain what is known vs unknown. Consider weather, current dated news/events, traffic/road incidents, route/ETA (if a provider supplied it), calendar/task conflicts and prior notes. Recommend a departure window only when evidence supports it; public search results are not guaranteed live traffic. Never claim to have checked a past visit unless memory actually shows it. Be clear if a check failed. Use links in the answer when helpful.");
+  return { context: sections.join("\\n\\n") };
 }
 
 const capabilityTools = [
   {
     id: "journey_decision_brief",
     description: "Combines prior AURORA memory, current location, destination weather, news/events, traffic/road incident searches and Google Maps route links for go/no-go and departure timing.",
-    matches: text => /\b(should i go|do you think i should go|journey|trip|travel plan|visit there|go there|head there|traffic|road closure|presentation|meeting|appointment|what have i done before|did i visit|have i been there|things i have done|what happened last time)\b/i.test(text) && /\b(today|tomorrow|there|journey|trip|travel|go|visit|destination|presentation|meeting|appointment|traffic|before|last time|plan|place)\b/i.test(text),
+    matches: text => /\b(should i go|do you think i should go|should i travel|should we travel|help me decide whether i should travel|before i travel|before travelling|before traveling|journey|trip|travel plan|visit there|go there|head there|traffic|road closure|presentation|meeting|appointment|what have i done before|did i visit|have i been there|things i have done|what happened last time)\b/i.test(text) && /\b(today|tomorrow|there|journey|trip|travel|go|visit|destination|presentation|meeting|appointment|traffic|before|last time|plan|place|weather|news|route)\b/i.test(text),
     run: journeyBrief
   },
   {
