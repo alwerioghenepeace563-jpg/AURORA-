@@ -57,7 +57,7 @@ async function chatHandler(req, res) {
     calm: "Use a calm, structured style with clear next steps."
   };
   const activeScheduleInstructions = clean(profile.activeScheduleInstructions, 2400);
-  const liveToolContext = clean(body.toolContext, 3000);
+  const liveToolContext = clean(body.toolContext, 9000);
   const profileContext = [
     clean(profile.nickname || profile.name, 80) ? "Preferred name: " + clean(profile.nickname || profile.name, 80) : "",
     clean(profile.wakeTime, 10) ? "Usual wake-up time: " + clean(profile.wakeTime, 10) : "",
