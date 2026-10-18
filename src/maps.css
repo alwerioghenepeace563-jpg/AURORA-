@@ -38,3 +38,8 @@
 .maps-disclaimer{max-width:1200px;margin:14px auto 0;border:1px solid rgba(132,180,230,.1);border-radius:12px;padding:12px 14px;background:rgba(10,20,35,.45);font-size:10px;line-height:1.65;color:#7187a1}
 @media(max-width:850px){.maps-workspace{grid-template-columns:1fr}.maps-controls{order:1}.maps-map-frame{order:0;min-height:390px;height:48vh}.maps-heading{align-items:center}}
 @media(max-width:480px){.aurora-maps-page{padding:24px 12px 125px}.maps-heading{gap:8px}.maps-heading h1{font-size:37px}.maps-live-badge{font-size:8px;padding:8px}.maps-map-frame{min-height:330px;height:42vh;border-radius:15px}.maps-controls{padding:10px;border-radius:15px}.maps-disclaimer{font-size:9px}}
+
+.maps-google-embed{position:absolute;inset:0;width:100%;height:100%;border:0;background:#0a1423;z-index:2}
+.maps-return-map,.maps-open-full{position:absolute;z-index:4;top:12px;display:flex;align-items:center;gap:7px;border:1px solid rgba(180,220,255,.25);border-radius:10px;padding:9px 11px;background:rgba(5,14,27,.92);color:#eaf7ff;font:500 11px/1.2 inherit;text-decoration:none;box-shadow:0 5px 18px rgba(0,0,0,.2)}
+.maps-return-map{left:12px}.maps-open-full{right:12px}
+.maps-return-map:hover,.maps-open-full:hover{background:rgba(23,66,98,.96)}
