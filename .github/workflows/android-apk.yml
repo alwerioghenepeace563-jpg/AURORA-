@@ -1,5 +1,5 @@
 name: Build AURORA Android APK
-# Keep the established AURORA signing key and Lively Updates publisher.
+# Use the new persistent local Android debug signing identity and Lively Updates publisher.
 
 on:
   workflow_dispatch:
@@ -78,9 +78,9 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           ACTUAL="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          EXPECTED="655d21eddc165b1d218d465eff96000725f258ae315952a99ae01875156f8f8"
+          EXPECTED="20b1446e73429b7b7304eba80b2d8d320d2e42f7e35c72153fc67b0a1bf83c7d"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::AURORA signing certificate mismatch. Refusing to publish this APK."
+            echo "::error::AURORA signing certificate mismatch against the new key. Refusing to publish this APK."
             exit 1
           fi
           echo "AURORA signing certificate verified."
