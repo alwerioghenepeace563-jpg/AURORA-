@@ -517,6 +517,7 @@ export default function App() {
   const [timerLabel, setTimerLabel] = useState("Focus timer");
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const nativeSpeechListenersRef = useRef([]);
   const audioRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
@@ -1010,28 +1011,67 @@ export default function App() {
   }
 
   async function toggleMic() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (listening) {
-      recognitionRef.current?.stop();
+      try {
+        if (auroraNative.isAndroid()) {
+          await auroraNative.stopSpeechRecognition();
+          nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
+          nativeSpeechListenersRef.current = [];
+        } else {
+          recognitionRef.current?.stop();
+        }
+      } catch {}
       setListening(false);
       return;
     }
-    // Android WebView may not implement Web Speech recognition. Request the
-    // native microphone permission first, then give a truthful fallback error.
-    try {
-      if (auroraNative.isAndroid()) {
+
+    if (auroraNative.isAndroid()) {
+      try {
         const permission = await auroraNative.requestMicrophonePermission();
         if (!permission?.granted) {
           setNotice("AURORA needs microphone permission to hear you. Allow it in Android Settings and try again.");
           return;
         }
+        nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
+        nativeSpeechListenersRef.current = [];
+        const cleanup = () => {
+          nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
+          nativeSpeechListenersRef.current = [];
+          setListening(false);
+        };
+        nativeSpeechListenersRef.current.push(await auroraNative.addSpeechResultListener((event) => {
+          const spokenText = event?.transcript?.trim() || "";
+          cleanup();
+          if (spokenText) {
+            setDraft(spokenText);
+            sendMessage(spokenText);
+          } else {
+            setNotice("I didn't catch that. Please try speaking again.");
+          }
+        }));
+        nativeSpeechListenersRef.current.push(await auroraNative.addSpeechErrorListener((event) => {
+          cleanup();
+          setNotice("Android speech recognition: " + (event?.message || "could not hear speech") + ". Check that a speech service is enabled on your phone.");
+        }));
+        nativeSpeechListenersRef.current.push(await auroraNative.addSpeechStatusListener((event) => {
+          if (event?.status === "listening") setNotice("Listening… speak now.");
+          if (event?.status === "processing") setNotice("Processing your speech…");
+        }));
+        await auroraNative.startSpeechRecognition();
+        setListening(true);
+        setNotice("Listening… speak now.");
+      } catch (error) {
+        nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
+        nativeSpeechListenersRef.current = [];
+        setListening(false);
+        setNotice(error instanceof Error ? error.message : "Could not start Android speech recognition.");
       }
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Could not request microphone permission.");
       return;
     }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setNotice("Microphone permission is granted, but speech recognition is not supported by this Android WebView. Native speech recognition integration is required; this is not a permission error.");
+      setNotice("Speech recognition is not supported in this browser. Try AURORA on Android or use text input.");
       return;
     }
     const recognition = new SpeechRecognition();
@@ -1047,7 +1087,7 @@ export default function App() {
     recognition.onerror = (event) => {
       setListening(false);
       const reason = event?.error ? String(event.error) : "unknown error";
-      setNotice("Speech recognition failed (" + reason + "). Check microphone permission and Android speech services.");
+      setNotice("Speech recognition failed (" + reason + "). Check microphone permission and speech services.");
     };
     recognition.onend = () => setListening(false);
     recognitionRef.current = recognition;
