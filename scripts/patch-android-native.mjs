@@ -61,19 +61,19 @@ public class AuroraAssistantPlugin extends Plugin {
                 }
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
                 speechRecognizer.setRecognitionListener(new RecognitionListener() {
-                    @Override public void onReadyForSpeech(Bundle params) { notifyListeners("speechStatus", new JSObject().put("status", "listening")); }
+                    @Override public void onReadyForSpeech(Bundle params) { notifyListeners("speechStatus", speechPayload("status", "listening")); }
                     @Override public void onBeginningOfSpeech() {}
                     @Override public void onRmsChanged(float rmsdB) {}
                     @Override public void onBufferReceived(byte[] buffer) {}
-                    @Override public void onEndOfSpeech() { notifyListeners("speechStatus", new JSObject().put("status", "processing")); }
+                    @Override public void onEndOfSpeech() { notifyListeners("speechStatus", speechPayload("status", "processing")); }
                     @Override public void onError(int error) {
-                        notifyListeners("speechError", new JSObject().put("code", error).put("message", speechErrorMessage(error)));
+                        JSObject errorEvent = new JSObject(); errorEvent.put("code", error); errorEvent.put("message", speechErrorMessage(error)); notifyListeners("speechError", errorEvent);
                         cleanupSpeechRecognizer();
                     }
                     @Override public void onResults(Bundle results) {
                         java.util.ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                         String transcript = matches == null || matches.isEmpty() ? "" : matches.get(0);
-                        notifyListeners("speechResult", new JSObject().put("transcript", transcript));
+                        notifyListeners("speechResult", speechPayload("transcript", transcript));
                         cleanupSpeechRecognizer();
                     }
                     @Override public void onPartialResults(Bundle partialResults) {}
@@ -85,7 +85,7 @@ public class AuroraAssistantPlugin extends Plugin {
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-GB");
                 intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
                 speechRecognizer.startListening(intent);
-                call.resolve(new JSObject().put("started", true));
+                call.resolve(speechPayload("started", true));
             } catch (Exception e) {
                 cleanupSpeechRecognizer();
                 call.reject("Could not start Android speech recognition: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
@@ -97,7 +97,7 @@ public class AuroraAssistantPlugin extends Plugin {
     public void stopSpeechRecognition(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             cleanupSpeechRecognizer();
-            call.resolve(new JSObject().put("stopped", true));
+            call.resolve(speechPayload("stopped", true));
         });
     }
 
@@ -107,6 +107,12 @@ public class AuroraAssistantPlugin extends Plugin {
             try { speechRecognizer.destroy(); } catch (Exception ignored) {}
             speechRecognizer = null;
         }
+    }
+
+    private JSObject speechPayload(String key, Object value) {
+        JSObject payload = new JSObject();
+        payload.put(key, value);
+        return payload;
     }
 
     private String speechErrorMessage(int error) {
