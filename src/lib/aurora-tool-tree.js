@@ -107,8 +107,14 @@ function findDestination(text) {
 }
 
 async function journeyBrief(text) {
-  const destination = findDestination(text);
+  let destination = findDestination(text);
   const memory = readLocalMemory(destination || text, 10);
+  if (!destination) {
+    for (const record of memory) {
+      const inferred = findDestination(record.text);
+      if (inferred) { destination = inferred; break; }
+    }
+  }
   const sections = ["Tool: journey_decision_brief. This is a combined result assembled for the user's decision, not a guarantee."];
   sections.push("User's request: " + text);
   if (destination) sections.push("Likely destination: " + destination);
