@@ -23,10 +23,12 @@ export default async function handler(req, res) {
 
   const voiceName = typeof body?.voice === "string" ? body.voice.toLowerCase() : "jessica";
   const voiceIds = {
-    jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID,
-    bella: process.env.ELEVENLABS_BELLA_VOICE_ID,
-    laura: process.env.ELEVENLABS_LAURA_VOICE_ID,
-    lucian: process.env.ELEVENLAB_LUCIAN_VOICE_ID || process.env.ELEVENLABS_LUCIAN_VOICE_ID
+    // A configured default voice keeps cloud speech working even when an
+    // optional named voice has not been given its own Voice ID yet.
+    jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID,
+    bella: process.env.ELEVENLABS_BELLA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID,
+    laura: process.env.ELEVENLABS_LAURA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID,
+    lucian: process.env.ELEVENLABS_LUCIAN_VOICE_ID || process.env.ELEVENLAB_LUCIAN_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID
   };
   if (!Object.prototype.hasOwnProperty.call(voiceIds, voiceName)) {
     return res.status(400).json({ error: "Choose Jessica, Bella, Laura, or Lucian." });
@@ -44,7 +46,8 @@ export default async function handler(req, res) {
         text: text.trim(),
         model_id: process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2",
         voice_settings: { stability: 0.55, similarity_boost: 0.78, style: 0.25, use_speaker_boost: true }
-      })
+      }),
+      signal: AbortSignal.timeout(18000)
     });
 
     if (!upstream.ok) {
@@ -64,6 +67,9 @@ export default async function handler(req, res) {
     return res.status(200).send(audio);
   } catch (error) {
     console.error("AURORA voice function error:", error);
-    return res.status(502).json({ error: "Could not reach the voice service." });
+    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
+    return res.status(502).json({
+      error: timedOut ? "The cloud voice provider took too long to respond. Try again; device voice fallback remains available." : "Could not reach the voice service."
+    });
   }
 }
