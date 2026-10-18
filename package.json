@@ -9,7 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "android:sync": "npm run build && npm run android:check && node scripts/patch-android-native.mjs && cap sync android",
-    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "android:check": "node scripts/check-android-feature-parity.mjs"
   },
   "dependencies": {
