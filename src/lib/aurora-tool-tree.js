@@ -110,7 +110,7 @@ async function journeyBrief(text) {
   let destination = findDestination(text);
   const memory = readLocalMemory(destination || text, 10);
   // Resolve vague references such as "that place" from the user's own saved context.
-  const vagueDestination = /\\b(that place|the place i (?:mentioned|told you about)|where i (?:said|told you)|there|that destination)\\b/i.test(text);
+  const vagueDestination = /\b(that place|the place i (?:mentioned|told you about)|where i (?:said|told you)|there|that destination)\b/i.test(text);
   if (!destination || vagueDestination) {
     for (const record of memory) {
       const inferred = findDestination(record.text);
@@ -120,8 +120,8 @@ async function journeyBrief(text) {
   const sections = ["Tool: journey_decision_brief. Combined travel context; this is guidance, not a guarantee."];
   sections.push("User's request: " + text);
   if (destination) sections.push("Likely destination: " + destination);
-  if (memory.length) sections.push("RELEVANT AURORA ON-DEVICE MEMORY (past chats, saved notes, tasks, reminders and calendar events; may contain incomplete references):\\n" +
-    memory.map((m,i)=>(i+1)+". ["+m.kind+"] "+m.label+(m.date ? " ("+m.date+")" : "")+": "+m.text).join("\\n"));
+  if (memory.length) sections.push("RELEVANT AURORA ON-DEVICE MEMORY (past chats, saved notes, tasks, reminders and calendar events; may contain incomplete references):\n" +
+    memory.map((m,i)=>(i+1)+". ["+m.kind+"] "+m.label+(m.date ? " ("+m.date+")" : "")+": "+m.text).join("\n"));
   else sections.push("No clearly matching saved AURORA memory was found. Do not pretend to know whether the user has visited before; ask or state that no record was found.");
 
   let location = null;
@@ -143,7 +143,7 @@ async function journeyBrief(text) {
     for (const item of results) {
       if (item.kind === "weather") sections.push("DESTINATION/LOCAL WEATHER: "+JSON.stringify(item.value));
       else if (item.kind === "local_conditions_and_traffic" || item.kind === "local_news_and_events") {
-        sections.push(item.kind.toUpperCase().replace(/_/g," ")+": "+(item.value.results.length ? item.value.results.map((r,i)=>(i+1)+". "+r.title+" — "+r.snippet+" Source: "+r.url).join("\\n") : "No useful results returned."));
+        sections.push(item.kind.toUpperCase().replace(/_/g," ")+": "+(item.value.results.length ? item.value.results.map((r,i)=>(i+1)+". "+r.title+" — "+r.snippet+" Source: "+r.url).join("\n") : "No useful results returned."));
       } else sections.push(item.kind.toUpperCase()+": "+item.value);
     }
   } else {
@@ -159,7 +159,7 @@ async function journeyBrief(text) {
     sections.push("DESTINATION NEEDED FOR ROUTING: The user asked about travel but did not specify where they are going. Ask for the destination. Do not invent one. Local weather/news may still be useful if location was available.");
   }
   sections.push("DECISION RULES: Explain what is known vs unknown. Consider weather, current dated news/events, traffic/road incidents, route/ETA (if a provider supplied it), calendar/task conflicts and prior notes. Recommend a departure window only when evidence supports it; public search results are not guaranteed live traffic. Never claim to have checked a past visit unless memory actually shows it. Be clear if a check failed. Use links in the answer when helpful.");
-  return { context: sections.join("\\n\\n") };
+  return { context: sections.join("\n\n") };
 }
 
 const capabilityTools = [
