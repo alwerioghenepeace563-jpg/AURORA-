@@ -49,6 +49,7 @@ export default function MapsWorkspace() {
   const [tracking, setTracking] = useState(false);
   const [notice, setNotice] = useState("Search for a destination or use your current location to begin.");
   const [mode, setMode] = useState("street");
+  const [googleView, setGoogleView] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -150,15 +151,17 @@ export default function MapsWorkspace() {
   }
 
   function openGoogle(modeName) {
-    const query = destination.trim();
-    const origin = location ? "&origin=" + encodeURIComponent(location.lat + "," + location.lon) : "";
-    const destinationParam = query ? "&destination=" + encodeURIComponent(query) : "";
-    const url = modeName === "satellite"
-      ? "https://www.google.com/maps" + (query ? "/search/" + encodeURIComponent(query) : "") + "?output=classic&t=k"
-      : modeName === "streetview"
-        ? "https://www.google.com/maps" + (query ? "/search/" + encodeURIComponent(query) : "") + "?layer=c"
-        : "https://www.google.com/maps/dir/?api=1" + origin + destinationParam + "&travelmode=driving";
-    window.open(url, "_blank", "noopener,noreferrer");
+    setGoogleView(modeName);
+    setMode(modeName);
+    setNotice(modeName === "satellite" ? "Loading Google Maps satellite imagery inside this map box…" : modeName === "streetview" ? "Loading Google Maps street-level imagery inside this map box where available…" : "Loading Google Maps directions inside this map box…");
+  }
+
+  function googleEmbedUrl() {
+    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
+    if (googleView === "satellite") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&t=k&z=15&output=embed";
+    if (googleView === "streetview") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&layer=c&output=embed";
+    const origin = location ? location.lat + "," + location.lon : "Nigeria";
+    return "https://maps.google.com/maps?saddr=" + encodeURIComponent(origin) + "&daddr=" + encodeURIComponent(destination.trim() || query) + "&output=embed";
   }
 
   const fmtDistance = (metres) => metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : Math.round(metres) + " m";
@@ -171,13 +174,13 @@ export default function MapsWorkspace() {
         <form className="maps-search" onSubmit={searchDestination}><Search size={18}/><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Where do you want to go?" aria-label="Destination" /><button type="submit" disabled={busy} aria-label="Search destination">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button></form>
         <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Use my location</strong><small>Show where I am now</small></span></button>
         <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live location" : "Live location tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span></button>
-        <div className="maps-mode-row"><button type="button" className={mode === "street" ? "maps-mode-active" : ""} onClick={() => { setMode("street"); setNotice("Built-in street map is active."); }}><MapPinned size={15}/> Map</button><button type="button" onClick={() => openGoogle("satellite")}><Satellite size={15}/> Satellite</button></div>
+        <div className="maps-mode-row"><button type="button" className={mode === "street" ? "maps-mode-active" : ""} onClick={() => { setGoogleView(""); setMode("street"); setNotice("Built-in street map is active."); }}><MapPinned size={15}/> Map</button><button type="button" onClick={() => openGoogle("satellite")}><Satellite size={15}/> Satellite</button></div>
         <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level view</strong><small>Open Google Street View where available</small></span><ArrowLeft size={14} style={{ transform: "rotate(135deg)" }}/></button>
         <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Fallback for full navigation and traffic</small></span><ExternalLink size={14}/></button>
         {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Routing is provided by a public demo service and may be limited or unavailable.</small></div>}
         <p className="maps-note" role="status">{notice}</p>
       </aside>
-      <div className="maps-map-frame"><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map" />{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">Interactive street map · © OpenStreetMap contributors</div></div>
+      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "satellite" ? "Google Maps satellite view" : googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade" /><button type="button" className="maps-return-map" onClick={() => { setGoogleView(""); setMode("street"); setNotice("Returned to AURORA built-in map."); }}><MapPinned size={14}/> AURORA Map</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed", "")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map" />{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">Interactive street map · © OpenStreetMap contributors</div></>}</div>
     </div>
     <div className="maps-disclaimer">Satellite imagery, Street View, traffic and full turn-by-turn guidance open in Google Maps where supported. Built-in routing uses public services for prototype use and is not a guaranteed emergency or commercial navigation service.</div>
   </section>;
