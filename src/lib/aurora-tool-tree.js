@@ -185,7 +185,7 @@ const capabilityTools = [
   {
     id: "device_location",
     description: "Current GPS location and place lookup.",
-    matches: text => /\b(where am i|my current location|current location|where are we|locate me|show where i am|my position|where am i right now)\b/i.test(text),
+    matches: text => /\b(where am i|my current location|current location|where are we|locate me|show where i am|my position|where am i right now)\b/i.test(text) && !/\b(?:google\s+)?maps?\b|\bopen (?:the )?map\b|\bshow (?:me )?(?:my )?(?:current )?location on\b/i.test(text),
     run: async () => {
       const location = await getDeviceLocation();
       return { context: ["Tool: device_location.", "Place: "+(location.place || "unresolved"), "Latitude: "+location.latitude, "Longitude: "+location.longitude, "Accuracy: approximately "+Math.round(location.accuracy)+"m. GPS accuracy varies."].join("\n") };
