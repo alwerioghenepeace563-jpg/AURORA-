@@ -3,12 +3,13 @@ import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
 import { createPortal } from "react-dom";
+import MapsWorkspace from "./MapsWorkspace";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, Apple, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Calculator, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
-  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff
+  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned
 } from "lucide-react";
 
 
@@ -271,6 +272,7 @@ function BottomNav({ active, onNavigate }) {
     { id: "home", label: "Home", Icon: House },
     { id: "activities", label: "Activities", Icon: CalendarDays },
     { id: "tools", label: "Tools", Icon: Sparkles },
+    { id: "maps", label: "Maps", Icon: MapPinned },
     { id: "chat", label: "AURORA", Icon: AudioLines },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
@@ -1569,6 +1571,8 @@ export default function App() {
               <button className="outline-action" type="button" onClick={() => navigate("home")}><ArrowLeft size={16}/> Back to AURORA</button>
             </motion.section>
           )}
+
+          {page === "maps" && <motion.div key="maps" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><MapsWorkspace /></motion.div>}
 
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
