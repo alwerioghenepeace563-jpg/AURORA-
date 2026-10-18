@@ -79,6 +79,17 @@ export default function MapsWorkspace() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !location || !window.L) return;
+    const point = [location.lat, location.lon];
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = window.L.circleMarker(point, { radius: 9, color: "#f5fcff", weight: 3, fillColor: "#27a9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
+      mapRef.current.setView(point, 16);
+    } else {
+      userMarkerRef.current.setLatLng(point);
+    }
+  }, [mapReady, location]);
+
   function useCurrentLocation() {
     if (!navigator.geolocation) { setNotice("This device or browser does not support location."); return; }
     setNotice("Requesting location permission…");
