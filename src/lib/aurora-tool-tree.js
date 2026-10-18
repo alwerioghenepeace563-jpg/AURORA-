@@ -219,16 +219,31 @@ const capabilityTools = [
     matches: text => /\b(directions to|route to|navigate to|how do i get to|take me to|show (?:me )?(?:the )?map|open (?:google )?maps|satellite view|street view|where is)\b/i.test(text),
     run: async text => {
       const destination = findDestination(text) || "";
+      const asksForCurrentPosition = /\b(my current location|current location|where am i|where i am|my position|my location)\b/i.test(text);
       let location = null;
-      if (/\b(from here|from my location|from where i am|current location|where i am)\b/i.test(text)) location = await getDeviceLocation();
-      const query = encodeURIComponent(destination || "my current location");
+      if (asksForCurrentPosition || /\b(from here|from my location|from where i am|current location|where i am)\b/i.test(text)) {
+        location = await getDeviceLocation();
+      }
+      // For a "show my current location" request, use actual coordinates in the
+      // Maps URL instead of the literal words "my current location".
+      const mapTarget = destination || (location ? location.latitude+","+location.longitude : "my current location");
+      const query = encodeURIComponent(mapTarget);
       const origin = location ? "&origin="+encodeURIComponent(location.latitude+","+location.longitude) : "";
-      return { context: ["Tool: maps_navigation.", "Destination: "+(destination || "not specified"),
-        "Google Maps: https://www.google.com/maps/search/?api=1&query="+query,
-        "Google Maps directions: https://www.google.com/maps/dir/?api=1&destination="+query+origin+"&travelmode=driving",
+      const mapUrl = "https://www.google.com/maps/search/?api=1&query="+query;
+      const directionsUrl = destination
+        ? "https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(destination)+origin+"&travelmode=driving"
+        : mapUrl;
+      return { context: ["Tool: maps_navigation.",
+        asksForCurrentPosition && location
+          ? "ACTION REQUIRED: The user asked to show their current location. Give them the direct clickable Google Maps link below, not generic instructions. Explain it is centered on the GPS coordinates AURORA just obtained."
+          : "ACTION REQUIRED: Provide the relevant direct Google Maps link below.",
+        "Destination: "+(destination || (location ? (location.place || "current GPS position") : "not specified")),
+        location ? "GPS coordinates: "+location.latitude+","+location.longitude+" (estimated accuracy "+Math.round(location.accuracy)+"m)." : "",
+        "Open Google Maps at this location: "+mapUrl,
+        destination ? "Google Maps directions: "+directionsUrl : "",
         /\bsatellite\b/i.test(text) ? "Satellite: https://www.google.com/maps/search/?api=1&query="+query+"&basemap=satellite" : "",
-        /\bstreet view\b/i.test(text) ? "Street View: https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+encodeURIComponent(destination || "Nigeria") : "",
-        "Satellite/Street View coverage varies by place; these links open Google Maps."].filter(Boolean).join("\n") };
+        /\bstreet view\b/i.test(text) ? "Street View: https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+encodeURIComponent(destination || mapTarget) : "",
+        "Do not merely tell the user how to search manually when a direct Maps link is available. Satellite/Street View coverage varies by place."].filter(Boolean).join("\n") };
     }
   },
   {
