@@ -1307,6 +1307,32 @@ export default function App() {
                 </div>}
               </section>
               <div className="home-footer-note"><ShieldCheck size={13} /> PRIVATE BY DESIGN <span /> BUILT AROUND YOU</div>
+              {showSettings && (
+                <aside className="settings-panel home-settings-panel" aria-label="AURORA settings">
+                  <div className="settings-header">
+                    <div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div>
+                    <button type="button" className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button>
+                  </div>
+                  <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
+                  <div className="setting-group">
+                    <p className="setting-label">VOICE EXPERIENCE</p>
+                    <button type="button" className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button>
+                    <button type="button" className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                  </div>
+                  <div className="setting-group">
+                    <p className="setting-label">AURORA PULSE</p>
+                    <div className="privacy-note"><AudioLines size={17} /><div><strong>Floating assistant controls</strong><p>Open the Android assistant controls and screen-reading options. The floating Pulse launcher still needs its native Android launch method before it can be started from here.</p></div></div>
+                    <button type="button" className="setting-row" onClick={() => { navigate("profile"); setTimeout(() => document.getElementById("aurora-updater")?.scrollIntoView({ behavior: "smooth", block: "center" }), 180); }}><span className="setting-icon"><Settings2 size={17} /></span><span className="setting-text"><strong>Open Android assistant controls</strong><small>Hey AURORA, app launching and updater</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                  </div>
+                  <div className="setting-group">
+                    <p className="setting-label">QUICK ACCESS</p>
+                    <button type="button" className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                    <button type="button" className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                  </div>
+                  <div className="privacy-note"><ShieldCheck size={17} /><div><strong>Your privacy matters</strong><p>Your API keys stay on the server, never in the browser.</p></div></div>
+                  <div className="panel-bottom"><span>AURORA INTERFACE</span><span>V 0.2</span></div>
+                </aside>
+              )}
             </motion.section>
           )}
 
