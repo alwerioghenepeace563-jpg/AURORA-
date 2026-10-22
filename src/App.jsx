@@ -366,7 +366,17 @@ export default function App() {
   useEffect(() => {
     if (!AuroraNative.isAndroid()) return;
     let stopped = false;
-    AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
+    const refreshNativeStatus = async () => {
+      try {
+        const status = await AuroraNative.status();
+        if (stopped || !status) return;
+        setNativeStatus(status);
+        setNativeServiceOn(Boolean(status.wakeWordListening));
+        if (status.wakeWordError) setNativeNotice(status.wakeWordError);
+      } catch {}
+    };
+    refreshNativeStatus();
+    const statusTimer = setInterval(refreshNativeStatus, 2200);
     const pollWakeWord = async () => {
       try {
         const result = await AuroraNative.consumeWakeWord();
@@ -377,7 +387,7 @@ export default function App() {
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
-    return () => { stopped = true; clearInterval(timer); };
+    return () => { stopped = true; clearInterval(timer); clearInterval(statusTimer); };
   }, []);
 
   async function toggleNativeAssistant() {
@@ -389,10 +399,22 @@ export default function App() {
         setNativeServiceOn(false);
         setNativeNotice("AURORA background listening is stopped.");
       } else {
-        await AuroraNative.requestMicrophonePermission();
+        const permission = await AuroraNative.requestMicrophonePermission();
+        if (!permission?.granted) throw new Error("Microphone permission is needed. Allow it in Android Settings, then try again.");
         const result = await AuroraNative.startAssistantService();
         setNativeServiceOn(Boolean(result?.started));
-        setNativeNotice(result?.note || "Hey AURORA listening is on. Say “Hey AURORA” to start hands-free chat.");
+        setNativeNotice(result?.note || "Android accepted the start request. Checking that the microphone listener becomes active…");
+        setTimeout(async () => {
+          try {
+            const status = await AuroraNative.status();
+            if (status) {
+              setNativeStatus(status);
+              setNativeServiceOn(Boolean(status.wakeWordListening));
+              if (status.wakeWordError) setNativeNotice(status.wakeWordError);
+              else if (!status.wakeWordListening) setNativeNotice("Android did not confirm Hey AURORA is listening. Check the notification and microphone permissions, then try again.");
+            }
+          } catch (error) { setNativeNotice(error?.message || "Could not verify Hey AURORA status."); }
+        }, 1800);
       }
     } catch (error) { setNativeNotice(error?.message || "Could not start the native assistant."); }
     finally { setNativeBusy(false); }
