@@ -298,6 +298,15 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
   const [authVerified, setAuthVerified] = useState(false);
+  const [guestMode, setGuestMode] = useState(() => { try { return sessionStorage.getItem("aurora-guest-mode") === "true"; } catch { return false; } });
+
+  function continueAsGuest() {
+    try { sessionStorage.setItem("aurora-guest-mode", "true"); } catch {}
+    setGuestMode(true);
+    setAuthMessage("");
+    setPage("home");
+    setShowSettings(true);
+  }
   const authUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   const authConfigured = Boolean(authUrl && authKey);
@@ -357,7 +366,17 @@ export default function App() {
   useEffect(() => {
     if (!AuroraNative.isAndroid()) return;
     let stopped = false;
-    AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
+    const refreshNativeStatus = async () => {
+      try {
+        const status = await AuroraNative.status();
+        if (stopped || !status) return;
+        setNativeStatus(status);
+        setNativeServiceOn(Boolean(status.wakeWordListening));
+        if (status.wakeWordError) setNativeNotice(status.wakeWordError);
+      } catch {}
+    };
+    refreshNativeStatus();
+    const statusTimer = setInterval(refreshNativeStatus, 2200);
     const pollWakeWord = async () => {
       try {
         const result = await AuroraNative.consumeWakeWord();
@@ -368,7 +387,7 @@ export default function App() {
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
-    return () => { stopped = true; clearInterval(timer); };
+    return () => { stopped = true; clearInterval(timer); clearInterval(statusTimer); };
   }, []);
 
   async function toggleNativeAssistant() {
@@ -380,10 +399,22 @@ export default function App() {
         setNativeServiceOn(false);
         setNativeNotice("AURORA background listening is stopped.");
       } else {
-        await AuroraNative.requestMicrophonePermission();
+        const permission = await AuroraNative.requestMicrophonePermission();
+        if (!permission?.granted) throw new Error("Microphone permission is needed. Allow it in Android Settings, then try again.");
         const result = await AuroraNative.startAssistantService();
         setNativeServiceOn(Boolean(result?.started));
-        setNativeNotice(result?.note || "Hey AURORA listening is on. Say “Hey AURORA” to start hands-free chat.");
+        setNativeNotice(result?.note || "Android accepted the start request. Checking that the microphone listener becomes active…");
+        setTimeout(async () => {
+          try {
+            const status = await AuroraNative.status();
+            if (status) {
+              setNativeStatus(status);
+              setNativeServiceOn(Boolean(status.wakeWordListening));
+              if (status.wakeWordError) setNativeNotice(status.wakeWordError);
+              else if (!status.wakeWordListening) setNativeNotice("Android did not confirm Hey AURORA is listening. Check the notification and microphone permissions, then try again.");
+            }
+          } catch (error) { setNativeNotice(error?.message || "Could not verify Hey AURORA status."); }
+        }, 1800);
       }
     } catch (error) { setNativeNotice(error?.message || "Could not start the native assistant."); }
     finally { setNativeBusy(false); }
@@ -1211,7 +1242,7 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
-  if (!authSession?.access_token) {
+  if (!authSession?.access_token && !guestMode) {
     return (
       <div className="auth-screen">
         <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
@@ -1228,6 +1259,7 @@ export default function App() {
             {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Secure sign-in needs Supabase project keys in Vercel before login can work.</p>}
             <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUp size={17}/></button>
           </form>
+          <button className="auth-provider-button" type="button" onClick={continueAsGuest} style={{ marginTop: 12 }}>Continue without signing in <ArrowUpRight size={17}/></button>
           <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"} <button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>
           <p className="auth-legal"><ShieldCheck size={13}/> Your account is protected by secure authentication.</p>
         </section>
@@ -1250,6 +1282,7 @@ export default function App() {
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
+          {guestMode && !authSession?.access_token && <button className="auth-signout-button" onClick={() => { try { sessionStorage.removeItem("aurora-guest-mode"); } catch {} setGuestMode(false); setPage("home"); }} aria-label="Exit guest mode"><UserRound size={15}/><span>Exit guest</span></button>}
         </div>
       </header>
 
@@ -1296,6 +1329,32 @@ export default function App() {
                 </div>}
               </section>
               <div className="home-footer-note"><ShieldCheck size={13} /> PRIVATE BY DESIGN <span /> BUILT AROUND YOU</div>
+              {showSettings && (
+                <aside className="settings-panel home-settings-panel" aria-label="AURORA settings">
+                  <div className="settings-header">
+                    <div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div>
+                    <button type="button" className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button>
+                  </div>
+                  <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
+                  <div className="setting-group">
+                    <p className="setting-label">VOICE EXPERIENCE</p>
+                    <button type="button" className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button>
+                    <button type="button" className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                  </div>
+                  <div className="setting-group">
+                    <p className="setting-label">AURORA PULSE</p>
+                    <div className="privacy-note"><AudioLines size={17} /><div><strong>Floating assistant controls</strong><p>Open the Android assistant controls and screen-reading options. The floating Pulse launcher still needs its native Android launch method before it can be started from here.</p></div></div>
+                    <button type="button" className="setting-row" onClick={() => { navigate("profile"); setTimeout(() => document.getElementById("aurora-updater")?.scrollIntoView({ behavior: "smooth", block: "center" }), 180); }}><span className="setting-icon"><Settings2 size={17} /></span><span className="setting-text"><strong>Open Android assistant controls</strong><small>Hey AURORA, app launching and updater</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                  </div>
+                  <div className="setting-group">
+                    <p className="setting-label">QUICK ACCESS</p>
+                    <button type="button" className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                    <button type="button" className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button>
+                  </div>
+                  <div className="privacy-note"><ShieldCheck size={17} /><div><strong>Your privacy matters</strong><p>Your API keys stay on the server, never in the browser.</p></div></div>
+                  <div className="panel-bottom"><span>AURORA INTERFACE</span><span>V 0.2</span></div>
+                </aside>
+              )}
             </motion.section>
           )}
 
