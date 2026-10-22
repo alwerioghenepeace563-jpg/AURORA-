@@ -342,6 +342,8 @@ export default function App() {
   const [pulseDraft, setPulseDraft] = useState("");
   const [pulseMessages, setPulseMessages] = useState([{ role: "assistant", content: "Hey! I’m AURORA. What would you like help with?" }]);
   const [pulseBusy, setPulseBusy] = useState(false);
+  const [browserWakeListening, setBrowserWakeListening] = useState(false);
+  const browserWakeRecognitionRef = useRef(null);
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
@@ -373,6 +375,58 @@ export default function App() {
     const timer = setInterval(pollWakeWord, 1100);
     return () => { stopped = true; clearInterval(timer); };
   }, []);
+
+  function toggleBrowserWakeWord() {
+    if (browserWakeListening) {
+      try { browserWakeRecognitionRef.current?.stop(); } catch {}
+      browserWakeRecognitionRef.current = null;
+      setBrowserWakeListening(false);
+      setNativeNotice("Laptop wake-word listening is stopped.");
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setNativeNotice("This browser does not support continuous speech recognition. Try Chrome or Edge and allow microphone access.");
+      return;
+    }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-GB";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 3;
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const alternatives = Array.from(event.results[i] || []).map((item) => String(item?.transcript || "").toLowerCase());
+          if (alternatives.some((phrase) => /\bhey\s+aurora\b/.test(phrase))) {
+            setPulseOpen(true);
+            setNativeNotice("Hey AURORA heard you. AURORA Pulse is open.");
+            try { recognition.stop(); } catch {}
+            setBrowserWakeListening(false);
+            browserWakeRecognitionRef.current = null;
+            return;
+          }
+        }
+      };
+      recognition.onerror = (event) => {
+        setBrowserWakeListening(false);
+        browserWakeRecognitionRef.current = null;
+        setNativeNotice("Laptop microphone listening stopped (" + String(event?.error || "speech error") + "). Check microphone permission and try again.");
+      };
+      recognition.onend = () => {
+        setBrowserWakeListening(false);
+        if (browserWakeRecognitionRef.current === recognition) browserWakeRecognitionRef.current = null;
+      };
+      browserWakeRecognitionRef.current = recognition;
+      recognition.start();
+      setBrowserWakeListening(true);
+      setNativeNotice("Laptop is listening for “Hey AURORA”. Keep this tab open and microphone permission enabled.");
+    } catch {
+      setBrowserWakeListening(false);
+      browserWakeRecognitionRef.current = null;
+      setNativeNotice("Could not start laptop wake-word listening. Allow microphone access and try again.");
+    }
+  }
 
   async function toggleNativeAssistant() {
     if (!AuroraNative.isAndroid() || nativeBusy) return;
@@ -1629,6 +1683,7 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div><p className="panel-eyebrow">NATIVE ANDROID ASSISTANT</p><h2 style={{ margin: "4px 0" }}>Hey AURORA</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>{nativeStatus?.backgroundServiceFoundation ? "Native assistant foundation detected." : "Background voice service and app launching."}</p></div>
                   <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Starting…" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
+                  {!AuroraNative.isAndroid() && <button type="button" className="outline-action" onClick={toggleBrowserWakeWord}>{browserWakeListening ? "Stop laptop listening" : "Enable Hey AURORA on laptop"}</button>}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                   <button type="button" className="outline-action" onClick={() => openNativeApp("com.whatsapp")} disabled={!AuroraNative.isAndroid()}>Open WhatsApp <ArrowUpRight size={15}/></button>
