@@ -298,6 +298,15 @@ export default function App() {
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
   const [authVerified, setAuthVerified] = useState(false);
+  const [guestMode, setGuestMode] = useState(() => { try { return sessionStorage.getItem("aurora-guest-mode") === "true"; } catch { return false; } });
+
+  function continueAsGuest() {
+    try { sessionStorage.setItem("aurora-guest-mode", "true"); } catch {}
+    setGuestMode(true);
+    setAuthMessage("");
+    setPage("home");
+    setShowSettings(true);
+  }
   const authUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const authKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   const authConfigured = Boolean(authUrl && authKey);
@@ -1211,7 +1220,7 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
-  if (!authSession?.access_token) {
+  if (!authSession?.access_token && !guestMode) {
     return (
       <div className="auth-screen">
         <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
@@ -1228,6 +1237,7 @@ export default function App() {
             {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Secure sign-in needs Supabase project keys in Vercel before login can work.</p>}
             <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUp size={17}/></button>
           </form>
+          <button className="auth-provider-button" type="button" onClick={continueAsGuest} style={{ marginTop: 12 }}>Continue without signing in <ArrowUpRight size={17}/></button>
           <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"} <button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>
           <p className="auth-legal"><ShieldCheck size={13}/> Your account is protected by secure authentication.</p>
         </section>
@@ -1250,6 +1260,7 @@ export default function App() {
           <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
+          {guestMode && !authSession?.access_token && <button className="auth-signout-button" onClick={() => { try { sessionStorage.removeItem("aurora-guest-mode"); } catch {} setGuestMode(false); setPage("home"); }} aria-label="Exit guest mode"><UserRound size={15}/><span>Exit guest</span></button>}
         </div>
       </header>
 
