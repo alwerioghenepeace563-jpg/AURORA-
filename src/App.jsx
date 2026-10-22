@@ -338,6 +338,10 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [pulseOpen, setPulseOpen] = useState(false);
+  const [pulseDraft, setPulseDraft] = useState("");
+  const [pulseMessages, setPulseMessages] = useState([{ role: "assistant", content: "Hey! I’m AURORA. What would you like help with?" }]);
+  const [pulseBusy, setPulseBusy] = useState(false);
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
@@ -1605,6 +1609,7 @@ export default function App() {
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
+              <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your floating AI assistant panel</small></span><span className="pulse-launch-arrow">↗</span></button>
               <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>{profile.nickname || profile.name || "Your profile"}</h2><p>Personal details and preferences</p></div><span className="coming-pill">ON THIS DEVICE</span></div>
               <form className="profile-form" onSubmit={(event) => { event.preventDefault(); setProfileSaved(true); setTimeout(() => setProfileSaved(false), 2400); }}>
                 <div className="profile-form-heading"><div><h2>Personalise AURORA</h2><p>These details stay saved on this device and help tailor replies when you chat.</p></div></div>
@@ -1662,6 +1667,49 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {pulseOpen && (
+            <motion.div className="aurora-pulse-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPulseOpen(false)}>
+              <motion.section className="aurora-pulse-panel" role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+                <style>{`
+                  .pulse-launch-card{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:15px 17px;margin:16px 0 18px;border:1px solid #1f2a44;border-radius:20px;background:linear-gradient(120deg,#0d1322,#111b2d);color:#e8edf7;cursor:pointer}
+                  .pulse-launch-orb,.aurora-pulse-orb{display:block;flex:none;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 42%,#0b3a55 72%,#b79cff 100%);box-shadow:0 0 12px #2dd4e688,0 0 30px #5aa2ff55}
+                  .pulse-launch-orb{width:42px;height:42px}.pulse-launch-copy{display:grid;gap:4px;flex:1}.pulse-launch-copy strong{font-size:14px}.pulse-launch-copy small{font-size:12px;color:#8a96ad}.pulse-launch-arrow{color:#2dd4e6;font-size:22px}
+                  .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(1,4,12,.66);backdrop-filter:blur(9px);display:flex;align-items:flex-end;justify-content:center;padding:0 20px max(18px,env(safe-area-inset-bottom))}
+                  .aurora-pulse-panel{position:relative;width:min(100%,520px);height:min(960px,62vh);min-height:400px;padding:14px 22px 18px;border:1px solid #1f2a44;border-radius:40px;background:linear-gradient(160deg,rgba(13,19,34,.98),rgba(8,12,22,.99));box-shadow:0 0 35px #2dd4e622,0 22px 90px #000b;color:#e8edf7;display:flex;flex-direction:column;overflow:hidden}
+                  .aurora-pulse-head{display:flex;align-items:center;gap:11px;border-bottom:1px solid #1f2a44;padding:4px 0 13px}.aurora-pulse-head .aurora-pulse-orb{width:36px;height:36px}.aurora-pulse-brand{flex:1}.aurora-pulse-brand strong{letter-spacing:.18em;font-size:14px;font-weight:600}.aurora-pulse-brand small{display:block;color:#8a96ad;font-size:10px;letter-spacing:.12em;margin-top:4px}.aurora-pulse-close{border:1px solid #1f2a44;border-radius:50%;width:36px;height:36px;background:#0d1322;color:#e8edf7;font-size:21px;cursor:pointer}
+                  .aurora-pulse-greeting{padding:17px 0 10px}.aurora-pulse-greeting small{color:#2dd4e6;font-size:10px;letter-spacing:.15em}.aurora-pulse-greeting h2{font-size:22px;font-weight:500;margin:6px 0}.aurora-pulse-greeting p{color:#8a96ad;font-size:13px;margin:0;line-height:1.5}
+                  .aurora-pulse-weather{display:flex;align-items:center;gap:12px;border:1px solid #1f2a44;border-radius:18px;padding:13px 15px;background:linear-gradient(110deg,#0d1322,#101b2c);margin:7px 0 12px}.aurora-pulse-weather-icon{font-size:26px;color:#ffd23f}.aurora-pulse-weather strong{display:block;font-size:13px}.aurora-pulse-weather small{color:#8a96ad;font-size:11px}.aurora-pulse-weather .pulse-weather-note{margin-left:auto;color:#8a96ad;font-size:11px}
+                  .aurora-pulse-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 13px}.aurora-pulse-chips button{border:1px solid #1f2a44;border-radius:18px;background:#0d1322;color:#e8edf7;padding:8px 11px;font-size:11px;cursor:pointer}
+                  .aurora-pulse-chat{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:2px 0 12px}.aurora-pulse-message{max-width:90%;padding:11px 13px;border:1px solid #1f2a44;border-radius:16px;background:#0d1322;font-size:13px;line-height:1.5;white-space:pre-wrap}.aurora-pulse-message.user{align-self:flex-end;border-color:#2dd4e655;background:linear-gradient(120deg,#102c39,#171b36)}.aurora-pulse-message.assistant{align-self:flex-start}
+                  .aurora-pulse-composer{display:flex;gap:9px;align-items:center;padding:9px;border:1px solid #2dd4e688;border-radius:24px;background:#0d1322;box-shadow:0 0 18px #2dd4e611}.aurora-pulse-composer input{min-width:0;flex:1;border:0!important;outline:none!important;background:transparent!important;color:#e8edf7!important;padding:9px 4px!important;font-size:13px}.aurora-pulse-composer input::placeholder{color:#8a96ad}.aurora-pulse-send{width:40px;height:40px;border:0;border-radius:50%;background:linear-gradient(135deg,#22c3e6,#7a5cff);color:white;font-size:18px;cursor:pointer}.aurora-pulse-send:disabled{opacity:.5}.aurora-pulse-foot{font-size:10px;color:#8a96ad;text-align:center;margin:10px 0 0}
+                  @media(max-width:480px){.aurora-pulse-backdrop{padding-left:10px;padding-right:10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}.aurora-pulse-panel{height:min(720px,76vh);min-height:390px;border-radius:30px;padding:12px 15px 14px}}
+                `}</style>
+                <header className="aurora-pulse-head"><span className="aurora-pulse-orb" /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE · YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => setPulseOpen(false)}>×</button></header>
+                <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
+                <div className="aurora-pulse-weather"><span className="aurora-pulse-weather-icon">✦</span><div><strong>Ready when you are</strong><small>Ask a question or start with a shortcut</small></div><span className="pulse-weather-note">AURORA</span></div>
+                <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
+                <div className="aurora-pulse-chat" aria-live="polite">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinking…</div>}</div>
+                <form className="aurora-pulse-composer" onSubmit={async (event) => {
+                  event.preventDefault(); const text = pulseDraft.trim(); if (!text || pulseBusy) return;
+                  const next = [...pulseMessages, { role: "user", content: text }]; setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
+                  try {
+                    const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile }) });
+                    const data = await response.json(); if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
+                    const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
+                    setPulseMessages((items) => [...items, { role: "assistant", content: String(reply) }]);
+                  } catch (error) { setPulseMessages((items) => [...items, { role: "assistant", content: error?.message || "I couldn’t connect just now. Please try again." }]); }
+                  finally { setPulseBusy(false); }
+                }}><input value={pulseDraft} onChange={(event) => setPulseDraft(event.target.value)} placeholder="Message AURORA…" aria-label="Message AURORA Pulse" /><button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy || !pulseDraft.trim()}>↑</button></form>
+                <p className="aurora-pulse-foot">AURORA Pulse · close anytime to return to Profile</p>
+              </motion.section>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {typeof document !== "undefined" && createPortal(
       <AnimatePresence>
