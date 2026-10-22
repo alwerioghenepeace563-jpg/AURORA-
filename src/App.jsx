@@ -1795,6 +1795,8 @@ export default function App() {
                 <div className="aurora-pulse-chat" aria-live="polite">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinking…</div>}</div>
                 <form className="aurora-pulse-composer" onSubmit={async (event) => {
                   event.preventDefault(); const text = pulseDraft.trim(); if (!text || pulseBusy) return;
+                  const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\\s+(.+)$/i);
+                  if (searchMatch) { setPulseDraft(""); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
                   const next = [...pulseMessages, { role: "user", content: text }]; setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
                   try {
                     const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile }) });
