@@ -343,13 +343,37 @@ export default function App() {
   const [pulseMessages, setPulseMessages] = useState([{ role: "assistant", content: "Hey! I’m AURORA. What would you like help with?" }]);
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
-  const [pulseWeather, setPulseWeather] = useState({ temperature: "72°F", condition: "Sunny", city: "Lagos" });
+  const [pulseWeather, setPulseWeather] = useState({ temperature: "—", condition: "Tap to load current weather", city: "Lagos" });
   const [pulseWeatherBusy, setPulseWeatherBusy] = useState(false);
+  const pulseWeatherRequestRef = useRef(0);
   const [browserWakeListening, setBrowserWakeListening] = useState(false);
   const browserWakeRecognitionRef = useRef(null);
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
+  async function loadPulseWeather(city = pulseWeatherCity) {
+    const chosen = String(city || "").trim();
+    if (!chosen) return;
+    const requestId = ++pulseWeatherRequestRef.current;
+    setPulseWeatherBusy(true);
+    try {
+      const response = await fetch(auroraApiUrl("/api/weather?city=") + encodeURIComponent(chosen));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Weather could not be loaded.");
+      const current = data.current || {};
+      const units = data.units || {};
+      if (requestId !== pulseWeatherRequestRef.current) return;
+      setPulseWeather({ temperature: current.temperature == null ? "—" : String(current.temperature) + (units.temperature || "°C"), condition: current.description || "Conditions unavailable", city: data.location || chosen });
+      setPulseWeatherCity(data.location || chosen);
+    } catch (error) {
+      if (requestId === pulseWeatherRequestRef.current) {
+        setPulseWeather({ temperature: "Unavailable", condition: error?.message || "Try again shortly", city: chosen });
+      }
+    } finally {
+      if (requestId === pulseWeatherRequestRef.current) setPulseWeatherBusy(false);
+    }
+  }
+  useEffect(() => { loadPulseWeather("Lagos"); }, []);
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
@@ -1755,6 +1779,7 @@ export default function App() {
                   .aurora-pulse-chat{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:2px 0 12px}.aurora-pulse-message{max-width:90%;padding:11px 13px;border:1px solid #1f2a44;border-radius:16px;background:#0d1322;font-size:13px;line-height:1.5;white-space:pre-wrap}.aurora-pulse-message.user{align-self:flex-end;border-color:#2dd4e655;background:linear-gradient(120deg,#102c39,#171b36)}.aurora-pulse-message.assistant{align-self:flex-start}
                   .aurora-pulse-composer{display:flex;gap:9px;align-items:center;padding:9px;border:1px solid #2dd4e688;border-radius:24px;background:#0d1322;box-shadow:0 0 18px #2dd4e611}.aurora-pulse-composer input{min-width:0;flex:1;border:0!important;outline:none!important;background:transparent!important;color:#e8edf7!important;padding:9px 4px!important;font-size:13px}.aurora-pulse-composer input::placeholder{color:#8a96ad}.aurora-pulse-send{width:40px;height:40px;border:0;border-radius:50%;background:linear-gradient(135deg,#22c3e6,#7a5cff);color:white;font-size:18px;cursor:pointer}.aurora-pulse-send:disabled{opacity:.5}.aurora-pulse-foot{font-size:10px;color:#8a96ad;text-align:center;margin:10px 0 0}
                   @media(max-width:480px){.aurora-pulse-backdrop{padding-left:10px;padding-right:10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}.aurora-pulse-panel{height:min(720px,76vh);min-height:390px;border-radius:30px;padding:12px 15px 14px}}
+                  .aurora-pulse-orb.is-listening{animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-speaking{animation:auroraPulseTalking .45s ease-in-out infinite alternate;filter:hue-rotate(20deg)}
                   .aurora-pulse-shortcuts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(700px,92vw);display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:auto}
                   .aurora-pulse-shortcuts button{flex:1;min-width:0;height:42px;border:1px solid #315b96;border-radius:24px;background:rgba(9,28,65,.92);color:#e1edff;display:flex;align-items:center;justify-content:center;gap:5px;font-size:15px;white-space:nowrap;cursor:pointer}
                   .aurora-pulse-shortcuts button span{font-size:12px}
@@ -1763,9 +1788,9 @@ export default function App() {
                   .aurora-pulse-composer input{min-width:0;flex:1}
                   @media(max-width:480px){.aurora-pulse-shortcuts{bottom:17px;width:92vw;gap:5px}.aurora-pulse-shortcuts button{height:39px;font-size:13px}.aurora-pulse-shortcuts button span{font-size:10px}.aurora-pulse-weather{bottom:112px!important}.aurora-pulse-composer{bottom:63px!important;width:92vw!important}.aurora-pulse-head .aurora-pulse-orb{top:28px!important;width:44px!important;height:44px!important}}
                 `}</style>
-                <header className="aurora-pulse-head"><span className="aurora-pulse-orb" /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE · YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => setPulseOpen(false)}>×</button></header>
+                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseBusy ? " is-listening" : speaking ? " is-speaking" : "")} aria-label={pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE · YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => setPulseOpen(false)}>×</button></header>
                 <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
-                <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={async () => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (!city || !city.trim()) return; const chosen = city.trim(); setPulseWeatherCity(chosen); setPulseWeatherBusy(true); try { const response = await fetch(auroraApiUrl("/api/weather?city=") + encodeURIComponent(chosen)); const data = await response.json(); if (!response.ok) throw new Error(data?.error || "Weather could not be loaded."); const raw = data?.current || data?.weather || data; const temp = raw?.temperature ?? raw?.temp ?? raw?.temperature_2m ?? data?.temperature ?? data?.temp; const condition = raw?.condition ?? raw?.description ?? raw?.weather_description ?? data?.condition ?? data?.description ?? "Current conditions"; setPulseWeather({ temperature: temp == null ? "Weather ready" : (String(temp).includes("°") ? String(temp) : String(temp) + "°"), condition: String(condition), city: data?.location || data?.city || chosen }); setPulseWeatherCity(data?.location || data?.city || chosen); } catch (error) { setPulseMessages(items => [...items, { role: "assistant", content: "I couldn’t load weather for " + chosen + ": " + (error?.message || "Please try again.") }]); } finally { setPulseWeatherBusy(false); } }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">☀</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loading…" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">⌖ {pulseWeather.city} ›</span></button>
+                <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">☀</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loading…" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">⌖ {pulseWeather.city} ›</span></button>
                 <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
                 <div className="aurora-pulse-chat" aria-live="polite">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinking…</div>}</div>
                 <form className="aurora-pulse-composer" onSubmit={async (event) => {
@@ -1776,10 +1801,11 @@ export default function App() {
                     const data = await response.json(); if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
                     const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
                     setPulseMessages((items) => [...items, { role: "assistant", content: String(reply) }]);
+                    if (soundOn) speak(String(reply));
                   } catch (error) { setPulseMessages((items) => [...items, { role: "assistant", content: error?.message || "I couldn’t connect just now. Please try again." }]); }
                   finally { setPulseBusy(false); }
                 }}><input value={pulseDraft} onChange={(event) => setPulseDraft(event.target.value)} placeholder="Message AURORA…" aria-label="Message AURORA Pulse" /><button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy || !pulseDraft.trim()}>↑</button></form>
-                <div className="aurora-pulse-shortcuts"><button type="button" onClick={() => setPulseDraft("Search the web for ")}>⌕ <span>Search the web</span></button><button type="button" onClick={() => { setPulseOpen(false); openAttachment("camera"); }}>▣ <span>Camera</span></button><button type="button" onClick={() => { setToolKind("translate"); setToolScreen("workspace"); setPulseOpen(false); navigate("tools"); }}>文 <span>Translate</span></button><button type="button" onClick={() => { setPulseOpen(false); setAttachmentOpen(true); }}>••• <span>More tools</span></button></div>
+                <div className="aurora-pulse-shortcuts"><button type="button" onClick={() => { const query = pulseDraft.trim().replace(/^search the web for\s*/i, ""); setPulseOpen(false); openTool("search"); setToolQuery(query); }}>⌕ <span>Search</span></button><button type="button" onClick={() => { setPulseOpen(false); openAttachment("camera"); }}>▣ <span>Camera</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("writing"); }}>✎ <span>Writing</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("translate"); }}>文 <span>Translate</span></button><button type="button" onClick={() => { setPulseOpen(false); setAttachmentOpen(true); }}>••• <span>More</span></button></div>
                 <p className="aurora-pulse-foot">AURORA Pulse · close anytime to return to Profile</p>
               </motion.section>
             </motion.div>
