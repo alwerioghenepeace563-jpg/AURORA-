@@ -6,6 +6,9 @@ export type AuroraNativeStatus = {
   backgroundServiceFoundation: boolean;
   wakeWordEnabled: boolean;
   wakeWordListening: boolean;
+  wakeWordError?: string;
+  notificationsPermissionGranted?: boolean;
+  notificationsPermissionRequired?: boolean;
   liveRealtimeVoiceEnabled: boolean;
 };
 
