@@ -366,9 +366,8 @@ export default function App() {
       try {
         const result = await AuroraNative.consumeWakeWord();
         if (stopped || !result?.detected) return;
-        setPage("chat");
-        setNativeNotice("Hey AURORA heard you. Speak now.");
-        setTimeout(() => { if (!stopped) toggleMic(); }, 650);
+        setPulseOpen(true);
+        setNativeNotice("Hey AURORA heard you. AURORA Pulse is open.");
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
