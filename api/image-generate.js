@@ -30,11 +30,10 @@ export default async function handler(req, res) {
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   if (!prompt || prompt.length > 4000) return jsonError(res, 400, "Enter a prompt between 1 and 4000 characters.");
 
-  const allowedSizes = [512, 768, 1024, 1280];
   const width = Number(body.width || 1024);
   const height = Number(body.height || 1024);
-  if (!allowedSizes.includes(width) || !allowedSizes.includes(height)) {
-    return jsonError(res, 400, "Choose a supported image size: 512, 768, 1024, or 1280 pixels.");
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 512 || height < 512 || width > 1280 || height > 1280 || width % 16 !== 0 || height % 16 !== 0) {
+    return jsonError(res, 400, "Choose image dimensions between 512 and 1280 pixels in multiples of 16.");
   }
 
   const inputImage = body.inputImage;
