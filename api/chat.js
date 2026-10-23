@@ -1,4 +1,5 @@
 import cors from "../lib/cors.cjs";
+import { searchAuroraWeb } from "./search.js";
 const { applyAuroraCors } = cors;
 import aiProvider from "../lib/ai-provider.cjs";
 const { getPreferredProvider, setPreferredProvider, providerOrder } = aiProvider;
@@ -62,6 +63,37 @@ async function chatHandler(req, res) {
   };
   const activeScheduleInstructions = clean(profile.activeScheduleInstructions, 2400);
   const liveToolContext = clean(body.toolContext, 9000);
+
+  // AURORA_LIVE_SEARCH_CONTEXT: automatically retrieve web results for explicit
+  // online/current-information requests. Search failure must not block AI fallback.
+  let liveSearchContext = "";
+  try {
+    const latestUserMessage = [...body.messages].reverse().find(
+      message => message?.role === "user" && typeof message.content === "string"
+    );
+    const searchText = latestUserMessage?.content?.trim().slice(0, 240) || "";
+    const asksForLiveInfo = /\b(search (?:the )?(?:web|internet|online)|look up online|find online|latest|current|today'?s news|recent news|breaking news|headlines|news about|as of (?:today|now)|this week|current price|price of|what happened (?:today|recently))\b/i.test(searchText);
+    const hasUserAttachments = body.messages.some(message => message?.image || message?.document);
+
+    if (asksForLiveInfo && !hasUserAttachments && searchText.length >= 2) {
+      const searchResult = await searchAuroraWeb(searchText);
+      const rows = Array.isArray(searchResult?.results) ? searchResult.results.slice(0, 5) : [];
+      if (rows.length) {
+        liveSearchContext = [
+          "Search query: " + searchText,
+          "Search source: " + String(searchResult.source || "web search"),
+          ...rows.map((item, index) =>
+            String(index + 1) + ". " + String(item.title || "Untitled").slice(0, 220) +
+            "\nURL: " + String(item.url || "").slice(0, 500) +
+            "\nSnippet: " + String(item.snippet || "").slice(0, 700)
+          )
+        ].join("\n\n").slice(0, 6500);
+      }
+    }
+  } catch (searchError) {
+    console.warn("AURORA live search unavailable; continuing with AI providers:", searchError?.message || "Search failed");
+  }
+
   const profileContext = [
     clean(profile.nickname || profile.name, 80) ? "Preferred name: " + clean(profile.nickname || profile.name, 80) : "",
     clean(profile.wakeTime, 10) ? "Usual wake-up time: " + clean(profile.wakeTime, 10) : "",
@@ -79,6 +111,10 @@ async function chatHandler(req, res) {
     (profileContext ? "\nUse these user-provided preferences when relevant, without awkwardly repeating them:\n" + profileContext : "") +
     (activeScheduleInstructions ? "\nTEMPORARY SCHEDULE INSTRUCTIONS (only active during the scheduled time window; follow these for the current response unless they conflict with safety or the user’s latest explicit request):\n" + activeScheduleInstructions : "") +
     (liveToolContext ? "\nLIVE TOOL RESULTS (use these for the current request; they came from an AURORA capability that ran for this turn):\n" + liveToolContext + "\nUse this live result rather than claiming you cannot access the relevant information. Do not imply a tool ran when no result was supplied." : "") +
+
+    (liveSearchContext ? "\nLIVE WEB SEARCH RESULTS (retrieved for this request):\n" + liveSearchContext +
+      "\nUse these results for current claims, include relevant source links in Markdown, distinguish reported facts from inference, and mention uncertainty or conflicting results. Do not claim a source says more than its title/snippet supports." : "") +
+
     "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request." +
     "\n\n" + buildCoreInstructions(corePlan);
   const payload = {

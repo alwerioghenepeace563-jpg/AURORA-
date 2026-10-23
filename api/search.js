@@ -21,7 +21,9 @@ function safeUrl(raw, base) {
       if (target) return safeUrl(target, base);
     }
     if (!["http:", "https:"].includes(u.protocol)) return "";
-    if (/duckduckgo\.com|bing\.com|google\.com/.test(u.hostname)) return "";
+    if (/duckduckgo\.com|bing\.com/.test(u.hostname)) return "";
+    if (/google\.com$/.test(u.hostname) &&
+        !(u.hostname === "news.google.com" && /^\/(?:rss\/)?articles\//.test(u.pathname))) return "";
     return u.href;
   } catch { return ""; }
 }
@@ -176,6 +178,76 @@ async function parseWikipedia(query) {
     snippet: stripTags(item.snippet || "")
   }));
 }
+
+export async function searchAuroraWeb(rawQuery) {
+  const query = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 240) : "";
+  if (query.length < 2) throw new Error("Search query is too short.");
+
+  const looksLikeNews = /\b(news|headlines|breaking news|current affairs)\b|\b(latest|breaking|current|today'?s|recent)\b.{0,50}\b(naija|Nigeria|world|tech|sports|politics|updates)\b/i.test(query);
+  const errors = [];
+  const attemptGroup = async (attempts) => {
+    try {
+      return await Promise.any(attempts);
+    } catch (error) {
+      for (const item of (error?.errors || [])) {
+        errors.push(String(item?.message || "Provider failed").slice(0, 160));
+      }
+      return null;
+    }
+  };
+
+  if (looksLikeNews) {
+    const news = await attemptGroup([
+      parseGoogleNewsSearch(query).then(results => ({
+        query, results, source: "Google News"
+      }))
+    ]);
+    if (news?.results?.length) {
+      return { ...news, results: news.results.slice(0, 5) };
+    }
+  }
+
+  const providers = [
+    { name: "DuckDuckGo", url: "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query), parse: parseDuck },
+    { name: "DuckDuckGo Lite", url: "https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(query), parse: parseDuckLite },
+    { name: "Bing", url: "https://www.bing.com/search?q=" + encodeURIComponent(query), parse: parseBing }
+  ];
+
+  const webResult = await attemptGroup(providers.map(async provider => {
+    const response = await fetch(provider.url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml"
+      },
+      signal: AbortSignal.timeout(4500)
+    });
+    if (!response.ok) throw new Error(provider.name + " HTTP " + response.status);
+    const results = provider.parse(await response.text());
+    if (!results.length) throw new Error(provider.name + " returned no parseable results");
+    return { query, results, source: provider.name };
+  }));
+
+  if (webResult?.results?.length) {
+    return { ...webResult, results: webResult.results.slice(0, 5) };
+  }
+
+  const fallback = await attemptGroup([
+    parseWikipedia(query).then(results => {
+      if (!results.length) throw new Error("Wikipedia returned no results");
+      return { query, results, source: "Wikipedia" };
+    }),
+    parseDuckApi(query).then(results => ({
+      query, results, source: "DuckDuckGo Instant Answers"
+    }))
+  ]);
+
+  if (fallback?.results?.length) {
+    return { ...fallback, results: fallback.results.slice(0, 5) };
+  }
+
+  throw new Error("All search providers failed: " + errors.join("; ").slice(0, 300));
+}
+
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
