@@ -2,6 +2,8 @@ import cors from "../lib/cors.cjs";
 const { applyAuroraCors } = cors;
 import aiProvider from "../lib/ai-provider.cjs";
 const { getPreferredProvider, setPreferredProvider, providerOrder } = aiProvider;
+import auroraCore from "../lib/aurora-core.cjs";
+const { createTaskPlan, buildCoreInstructions } = auroraCore;
 
 async function chatHandler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
@@ -45,6 +47,8 @@ async function chatHandler(req, res) {
     contents.push({ role: m.role === "assistant" ? "model" : "user", parts });
   }
 
+  const corePlan = createTaskPlan({ messages: body.messages, profile: body.profile, toolContext: body.toolContext });
+
   const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
   const candidates = [...new Set([configuredModel, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"])];
   const profile = body.profile && typeof body.profile === "object" ? body.profile : {};
@@ -75,7 +79,8 @@ async function chatHandler(req, res) {
     (profileContext ? "\nUse these user-provided preferences when relevant, without awkwardly repeating them:\n" + profileContext : "") +
     (activeScheduleInstructions ? "\nTEMPORARY SCHEDULE INSTRUCTIONS (only active during the scheduled time window; follow these for the current response unless they conflict with safety or the user’s latest explicit request):\n" + activeScheduleInstructions : "") +
     (liveToolContext ? "\nLIVE TOOL RESULTS (use these for the current request; they came from an AURORA capability that ran for this turn):\n" + liveToolContext + "\nUse this live result rather than claiming you cannot access the relevant information. Do not imply a tool ran when no result was supplied." : "") +
-    "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request.";
+    "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request." +
+    "\n\n" + buildCoreInstructions(corePlan);
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
     contents,
