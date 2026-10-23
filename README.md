@@ -50,3 +50,13 @@ The `/api/health` route reports which providers are configured and whether share
 ## Security note
 
 Origin checks are not authentication or rate limiting. Before sharing the app publicly, add user authentication, request limits, and abuse monitoring to protect API usage.
+
+
+## Image Studio provider
+
+AURORA Image Studio uses the server-side Black Forest Labs FLUX.2 Klein 4B API through `/api/image-generate`.
+
+- Add `BFL_API_KEY` as a **server-side Vercel environment variable** for Preview and Production as appropriate. Never use a `VITE_*` variable for this secret.
+- Hosted image generation may incur provider charges. Check Black Forest Labs' current pricing and account credits before enabling live generation.
+- Image results currently use temporary provider URLs. Save generated images promptly; persistent project storage is a follow-up item.
+- The UI offers create/edit mode, style presets, aspect ratios, and draft/standard/high sizes. The provider key is never sent to the browser.
