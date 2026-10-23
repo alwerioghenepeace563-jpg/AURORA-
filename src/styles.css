@@ -490,3 +490,5 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .imagegen-result-meta .primary-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
 .imagegen-result>p{margin:0;color:#93a8be;font-size:12px;line-height:1.5}
 @media(max-width:520px){.imagegen-controls{grid-template-columns:1fr}.imagegen-result-meta{align-items:flex-start;flex-direction:column}}
+
+.imagegen-provider-note{margin:0 0 8px;color:#a6bed4;font-size:12px;line-height:1.55;border:1px solid rgba(111,173,220,.18);border-radius:10px;padding:10px 12px;background:rgba(17,35,55,.35)}
