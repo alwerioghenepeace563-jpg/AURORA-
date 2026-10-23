@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "android:sync": "npm run build && npm run android:check && node scripts/patch-android-native.mjs && cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
-    "android:check": "node scripts/check-android-feature-parity.mjs"
+    "android:check": "node scripts/check-android-feature-parity.mjs",
+    "test:core": "node scripts/test-aurora-core.cjs && node scripts/test-aurora-tools.cjs && node scripts/test-aurora-runtime.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
