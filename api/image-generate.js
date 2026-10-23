@@ -85,7 +85,7 @@ export default async function handler(req, res) {
       return jsonError(res, 502, "The image provider returned an invalid task URL.");
     }
 
-    const deadline = Date.now() + 48000;
+    const deadline = Date.now() + 38000;
     let resultData = null;
     while (Date.now() < deadline) {
       await sleep(1200);
