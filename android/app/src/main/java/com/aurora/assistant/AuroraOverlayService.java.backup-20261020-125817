@@ -1,0 +1,135 @@
+package com.aurora.assistant;
+
+import android.app.Service;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.os.Build;
+import android.os.IBinder;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+
+public class AuroraOverlayService extends Service {
+    public static final String ACTION_SHOW = "com.aurora.assistant.OVERLAY_SHOW";
+    public static final String ACTION_HIDE = "com.aurora.assistant.OVERLAY_HIDE";
+
+    private WindowManager windowManager;
+    private WebView webView;
+    private boolean attached = false;
+
+    private int dp(float value) {
+        return (int)(value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        String action = intent == null ? ACTION_SHOW : intent.getAction();
+        if (ACTION_HIDE.equals(action)) {
+            removeOverlay();
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            android.util.Log.w("AURORAOverlay", "Cannot display overlay: draw-over-other-apps permission is missing.");
+            reportOverlayStatus(false, "Allow AURORA to display over other apps, then try again.");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        showOverlay();
+        return START_NOT_STICKY;
+    }
+
+    private void reportOverlayStatus(boolean shown, String note) {
+        Intent status = new Intent("com.aurora.assistant.OVERLAY_STATUS");
+        status.setPackage(getPackageName());
+        status.putExtra("shown", shown);
+        status.putExtra("note", note);
+        sendBroadcast(status);
+    }
+
+    private void showOverlay() {
+        if (attached) return;
+        try {
+            windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
+            webView = new WebView(this);
+            webView.setBackgroundColor(Color.TRANSPARENT);
+            webView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
+            WebSettings settings = webView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(false);
+            webView.addJavascriptInterface(new OverlayBridge(), "AuroraOverlay");
+
+            String html;
+            try (InputStream input = getAssets().open("aurora_overlay.html");
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[4096];
+                int count;
+                while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                html = output.toString(StandardCharsets.UTF_8.name());
+            }
+
+            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                dp(340), dp(480),
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+            );
+            params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            params.y = dp(28);
+            params.setTitle("AURORA floating assistant");
+
+            webView.loadDataWithBaseURL(
+                "https://aurora-ten-gold.vercel.app/",
+                html, "text/html", "UTF-8", null
+            );
+            windowManager.addView(webView, params);
+            attached = true;
+            reportOverlayStatus(true, "Floating assistant window attached successfully.");
+        } catch (Exception error) {
+            android.util.Log.e("AURORAOverlay", "Failed to display floating assistant.", error);
+            reportOverlayStatus(false, "Android could not display the floating assistant: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage()));
+            removeOverlay();
+            stopSelf();
+        }
+    }
+
+    private void removeOverlay() {
+        if (webView != null && windowManager != null && attached) {
+            try { windowManager.removeView(webView); } catch (Exception ignored) {}
+        }
+        attached = false;
+        if (webView != null) {
+            try { webView.destroy(); } catch (Exception ignored) {}
+            webView = null;
+        }
+    }
+
+    public class OverlayBridge {
+        @JavascriptInterface
+        public void dismiss() {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                removeOverlay();
+                stopSelf();
+            });
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        removeOverlay();
+        super.onDestroy();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) { return null; }
+}

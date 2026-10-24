@@ -16,9 +16,17 @@ type AuroraNativePlugin = {
   addListener(eventName: "speechError", listenerFunc: (event: { code: number; message: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechStatus", listenerFunc: (event: { status: string }) => void): Promise<{ remove: () => Promise<void> }>;
   requestMicrophonePermission(): Promise<{ granted: boolean }>;
+  hasOverlayPermission(): Promise<{ granted: boolean }>;
+  requestOverlayPermission(): Promise<{ opened: boolean; granted: boolean }>;
+  showOverlay(): Promise<{ requested: boolean; shown: boolean; note?: string }>;
+  hideOverlay(): Promise<{ hidden: boolean }>;
   consumeWakeWord(): Promise<{ detected: boolean }>;
+  consumePulseOpenRequest(): Promise<{ requested: boolean }>;
   startAssistantService(): Promise<{ started: boolean; note?: string }>;
-  stopAssistantService(): Promise<{ stopped: boolean }>;
+  stopAssistantService(): Promise<{ stopped: boolean }>;    requestContactsPermission(): Promise<{ granted: boolean }>;
+    searchContacts(options: { query: string }): Promise<{ contacts: Array<{ id?: string; name: string; number: string }> }>;
+    openDialer(options: { number: string }): Promise<{ opened: boolean }>;
+
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
@@ -31,10 +39,43 @@ type AuroraNativePlugin = {
 
 const AuroraNative = registerPlugin<AuroraNativePlugin>("AuroraNative");
 
+export async function requestAuroraContactsPermission(): Promise<{ granted: boolean }> {
+  try {
+    return await AuroraNative.requestContactsPermission();
+  } catch {
+    return { granted: false };
+  }
+}
+
+export async function searchAuroraContacts(query: string): Promise<Array<{ id?: string; name: string; number: string }>> {
+  const result = await AuroraNative.searchContacts({ query });
+  return result.contacts || [];
+}
+
+export async function openAuroraDialer(number: string): Promise<{ opened: boolean }> {
+  return AuroraNative.openDialer({ number });
+}
+
 export const auroraNative = {
   isAndroid: () => Capacitor.getPlatform() === "android",
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
+  hasOverlayPermission: async () => {
+    if (!Capacitor.isNativePlatform()) return { granted: false };
+    return AuroraNative.hasOverlayPermission();
+  },
+  requestOverlayPermission: async () => {
+    if (!Capacitor.isNativePlatform()) throw new Error("Overlay permission is available only in the Android app.");
+    return AuroraNative.requestOverlayPermission();
+  },
+  showOverlay: async () => {
+    if (!Capacitor.isNativePlatform()) throw new Error("AURORA Pulse floating overlay is available only in the Android app.");
+    return AuroraNative.showOverlay();
+  },
+  hideOverlay: async () => {
+    if (!Capacitor.isNativePlatform()) throw new Error("AURORA Pulse floating overlay is available only in the Android app.");
+    return AuroraNative.hideOverlay();
+  },
   requestMicrophonePermission: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Microphone permission is available only in the Android app."); return AuroraNative.requestMicrophonePermission(); },
   startSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.startSpeechRecognition(); },
   stopSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.stopSpeechRecognition(); },
@@ -42,6 +83,7 @@ export const auroraNative = {
   addSpeechErrorListener: (callback: (event: { code: number; message: string }) => void) => AuroraNative.addListener("speechError", callback),
   addSpeechStatusListener: (callback: (event: { status: string }) => void) => AuroraNative.addListener("speechStatus", callback),
   consumeWakeWord: async () => { if (!Capacitor.isNativePlatform()) return { detected: false }; return AuroraNative.consumeWakeWord(); },
+  consumePulseOpenRequest: async () => { if (!Capacitor.isNativePlatform()) return { requested: false }; return AuroraNative.consumePulseOpenRequest(); },
   startAssistantService: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA background service is available only in the Android app.");
     return AuroraNative.startAssistantService();

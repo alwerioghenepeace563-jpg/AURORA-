@@ -1,6 +1,6 @@
 // AURORA's shared capability tree: one orchestrator can combine local memory,
 // device context, weather, web/news, and navigation for a single useful answer.
-import { auroraApiUrl } from "./aurora-native";
+import { auroraApiUrl, requestAuroraContactsPermission, searchAuroraContacts, openAuroraDialer } from "./aurora-native";
 
 function formatPlace(address = {}) {
   return [address.road, address.suburb || address.neighbourhood,
@@ -260,6 +260,45 @@ const capabilityTools = [
 ];
 
 export async function runAuroraToolTree(userText) {
+  const contactCallMatch = String(userText || "").match(/^\\s*(?:hey\\s+aurora[, ]*)?(?:please\\s+)?(?:call|phone|ring|dial)\\s+(?:my\\s+)?(.+?)\\s*[?.!]*\\s*$/i);
+  if (contactCallMatch) {
+    const requestedName = contactCallMatch[1].trim().replace(/\\s+(?:now|please|for me)$/i, "").trim();
+    if (!requestedName) {
+      return { tool: "call_contact", context: "Please say the contact name, for example: call Mom." };
+    }
+    try {
+      const permission = await requestAuroraContactsPermission();
+      if (!permission.granted) {
+        return { tool: "call_contact", context: "AURORA needs Contacts permission to find that person. Allow Contacts permission, then try again." };
+      }
+      const found = await searchAuroraContacts(requestedName);
+      const unique = [];
+      const seen = new Set();
+      for (const contact of found) {
+        const key = String(contact.number || "").replace(/[^0-9+]/g, "");
+        if (!key) continue;
+        const identity = (contact.name || "").toLowerCase() + "|" + key;
+        if (!seen.has(identity)) {
+          seen.add(identity);
+          unique.push({ ...contact, number: contact.number });
+        }
+      }
+      if (!unique.length) {
+        return { tool: "call_contact", context: 'I could not find a phone number for "' + requestedName + '". Check the saved contact name and try again.' };
+      }
+      if (unique.length > 1) {
+        const choices = unique.slice(0, 5).map(c => (c.name || "Unknown contact") + " â€” " + c.number).join("; ");
+        return { tool: "call_contact", context: "I found more than one matching contact/number. Please say the exact name or choose one: " + choices };
+      }
+      const contact = unique[0];
+      await openAuroraDialer(contact.number);
+      return { tool: "call_contact", context: "I opened the phone dialler for " + (contact.name || requestedName) + " (" + contact.number + "). Review the number and tap Call when ready." };
+    } catch (error) {
+      return { tool: "call_contact", context: "I could not complete the contact lookup: " + (error?.message || "unknown error") + ". You can still open Contacts and try again." };
+    }
+  }
+
+
   const text = String(userText || "");
   const tool = capabilityTools.find(candidate => candidate.matches(text));
   if (!tool) return null;
