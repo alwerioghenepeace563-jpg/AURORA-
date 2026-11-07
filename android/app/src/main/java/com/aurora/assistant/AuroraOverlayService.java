@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -28,11 +29,31 @@ public class AuroraOverlayService extends Service {
     public static final String ACTION_HIDE = "com.aurora.assistant.OVERLAY_HIDE";
 
     private WindowManager windowManager;
-    private WebView webView;
+    private WebView orbView;
+    private WebView panelView;
     private boolean attached = false;
+    private boolean panelAttached = false;
 
-    private int dp(float value) {
-        return (int)(value * getResources().getDisplayMetrics().density + 0.5f);
+    private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
+    private int overlayType() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE; }
+    private WebView createOverlayWebView(String assetName) throws Exception {
+        WebView view = new WebView(this);
+        view.setBackgroundColor(Color.TRANSPARENT);
+        view.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
+        view.setVerticalScrollBarEnabled(false);
+        view.setHorizontalScrollBarEnabled(false);
+        WebSettings settings = view.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        view.addJavascriptInterface(new OverlayBridge(), "AuroraOverlay");
+        String html;
+        try (InputStream input = getAssets().open(assetName); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096]; int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            html = output.toString(StandardCharsets.UTF_8.name());
+        }
+        view.loadDataWithBaseURL("https://aurora-ten-gold.vercel.app/", html, "text/html", "UTF-8", null);
+        return view;
     }
 
     @Override
@@ -62,69 +83,47 @@ public class AuroraOverlayService extends Service {
     }
 
     private void showOverlay() {
-        if (attached) {
-            reportOverlayStatus(true, "Floating assistant window is already attached.");
-            return;
-        }
+        if (attached) { reportOverlayStatus(true, "AURORA Pulse is already running."); return; }
         try {
             windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
-            webView = new WebView(this);
-            webView.setBackgroundColor(Color.TRANSPARENT);
-            webView.setOverScrollMode(WebView.OVER_SCROLL_NEVER);
-            WebSettings settings = webView.getSettings();
-            settings.setJavaScriptEnabled(true);
-            settings.setDomStorageEnabled(false);
-            webView.addJavascriptInterface(new OverlayBridge(), "AuroraOverlay");
-
-            String html;
-            try (InputStream input = getAssets().open("aurora_overlay.html");
-                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                byte[] buffer = new byte[4096];
-                int count;
-                while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-                html = output.toString(StandardCharsets.UTF_8.name());
-            }
-
-            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                dp(340), dp(480),
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                    | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.TRANSLUCENT
-            );
-            params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-            params.y = dp(28);
-            params.setTitle("AURORA floating assistant");
-
-            webView.loadDataWithBaseURL(
-                "https://aurora-ten-gold.vercel.app/",
-                html, "text/html", "UTF-8", null
-            );
-            windowManager.addView(webView, params);
+            orbView = createOverlayWebView("aurora_pulse_orb.html");
+            panelView = createOverlayWebView("aurora_pulse_panel.html");
+            WindowManager.LayoutParams orb = new WindowManager.LayoutParams(dp(76), dp(76), overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
+            orb.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+            orb.y = dp(8);
+            orb.setTitle("AURORA Pulse Dynamic Island orb");
+            windowManager.addView(orbView, orb);
+            WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(300), overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, PixelFormat.TRANSLUCENT);
+            panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            panel.y = dp(20);
+            panel.setTitle("AURORA Pulse glass chat and tools");
+            windowManager.addView(panelView, panel);
+            panelView.setVisibility(View.GONE);
+            panelAttached = true;
             attached = true;
-            reportOverlayStatus(true, "Floating assistant window attached successfully.");
+            reportOverlayStatus(true, "AURORA Pulse orb attached; glass chat and tools open on demand.");
         } catch (Exception error) {
-            android.util.Log.e("AURORAOverlay", "Failed to display floating assistant.", error);
-            reportOverlayStatus(false, "Android could not display the floating assistant: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage()));
-            removeOverlay();
-            stopSelf();
+            android.util.Log.e("AURORAOverlay", "Failed to display AURORA Pulse.", error);
+            reportOverlayStatus(false, "Android could not display AURORA Pulse: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage()));
+            removeOverlay(); stopSelf();
         }
     }
 
     private void removeOverlay() {
-        if (webView != null && windowManager != null && attached) {
-            try { windowManager.removeView(webView); } catch (Exception ignored) {}
+        if (windowManager != null) {
+            if (panelView != null && panelAttached) { try { windowManager.removeView(panelView); } catch (Exception ignored) {} }
+            if (orbView != null && attached) { try { windowManager.removeView(orbView); } catch (Exception ignored) {} }
         }
-        attached = false;
-        if (webView != null) {
-            try { webView.destroy(); } catch (Exception ignored) {}
-            webView = null;
-        }
+        attached = false; panelAttached = false;
+        if (panelView != null) { try { panelView.destroy(); } catch (Exception ignored) {} panelView = null; }
+        if (orbView != null) { try { orbView.destroy(); } catch (Exception ignored) {} orbView = null; }
     }
 
     public class OverlayBridge {
+        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
+        @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.GONE); }); }
         @JavascriptInterface
         public void dismiss() {
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
