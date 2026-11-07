@@ -47,6 +47,10 @@ Never commit real keys or put them in frontend variables. Add them in Vercel Pro
 
 The `/api/health` route reports which providers are configured and whether shared provider-state storage is configured. It does not reveal API keys.
 
+## Deployment verification
+
+Every new commit pushed to the connected Git branch should trigger a new Vercel deployment. Check the deployment status before treating changes as live.
+
 ## Security note
 
 Origin checks are not authentication or rate limiting. Before sharing the app publicly, add user authentication, request limits, and abuse monitoring to protect API usage.
