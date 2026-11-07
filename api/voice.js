@@ -58,9 +58,10 @@ export default async function handler(req, res) {
       // Return only short, sanitized diagnostic fields. Never echo request headers,
       // API keys, the full provider response, or arbitrary nested provider data.
       const detail = providerPayload?.detail;
-      const providerErrorType = typeof detail?.status === "string"
-        ? detail.status
-        : typeof detail?.type === "string" ? detail.type : undefined;
+      const providerErrorCode = typeof detail?.code === "string" ? detail.code : undefined;
+      const providerErrorType = typeof detail?.type === "string"
+        ? detail.type
+        : typeof detail?.status === "string" ? detail.status : undefined;
       let providerMessage = typeof detail?.message === "string"
         ? detail.message
         : typeof detail === "string" ? detail
@@ -69,14 +70,15 @@ export default async function handler(req, res) {
       if (providerMessage) {
         providerMessage = providerMessage
           .replace(/xi-api-key|authorization/gi, "[credential header]")
-          .replace(/(Bearer\\s+)[A-Za-z0-9._-]+/gi, "$1[redacted]")
+          .replace(/(Bearer\s+)[A-Za-z0-9._-]+/gi, "$1[redacted]")
           .replace(/[A-Za-z0-9_-]{24,}/g, "[redacted]")
-          .replace(/https?:\\/\\/\\S+/gi, "[provider link]")
+          .replace(/https?:\/\/\S+/gi, "[provider link]")
           .slice(0, 240);
       }
       console.error("Voice provider request failed:", JSON.stringify({
         status: upstream.status,
         type: providerErrorType,
+        code: providerErrorCode,
         message: providerMessage
       }));
 
@@ -92,6 +94,7 @@ export default async function handler(req, res) {
         code: "ELEVENLABS_HTTP_ERROR",
         providerStatus: upstream.status,
         ...(providerErrorType ? { providerErrorType } : {}),
+        ...(providerErrorCode ? { providerErrorCode } : {}),
         ...(providerMessage ? { providerMessage } : {}),
         voice: voiceName
       });
