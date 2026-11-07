@@ -95,8 +95,9 @@ public class AuroraOverlayService extends Service {
             orb.setTitle("AURORA Pulse Dynamic Island orb");
             windowManager.addView(orbView, orb);
             WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(300), overlayType(),
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM, PixelFormat.TRANSLUCENT);
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
             panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            panel.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
             panel.y = dp(20);
             panel.setTitle("AURORA Pulse glass chat and tools");
             windowManager.addView(panelView, panel);
