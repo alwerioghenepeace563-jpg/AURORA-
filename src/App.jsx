@@ -353,7 +353,10 @@ export default function App() {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
-  const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || "jessica"; } catch { return "jessica"; } });
+  const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || ""; } catch { return ""; } });
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [voicesLoading, setVoicesLoading] = useState(false);
+  const [voicesError, setVoicesError] = useState("");
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
   const [pulseOpen, setPulseOpen] = useState(false);
@@ -658,6 +661,29 @@ export default function App() {
   }, [selectedVoice]);
 
   useEffect(() => {
+    let cancelled = false;
+    setVoicesLoading(true);
+    fetch(auroraApiUrl("/api/voices"), { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Could not load ElevenLabs voices.");
+        return Array.isArray(data.voices) ? data.voices : [];
+      })
+      .then((voices) => {
+        if (cancelled) return;
+        setAvailableVoices(voices);
+        setVoicesError("");
+        const saved = (() => { try { return localStorage.getItem("aurora-selected-voice") || ""; } catch { return ""; } })();
+        if (!voices.some((voice) => voice.voice_id === saved)) {
+          setSelectedVoice(voices[0]?.voice_id || "");
+        }
+      })
+      .catch((error) => { if (!cancelled) setVoicesError(error.message || "Could not load available voices."); })
+      .finally(() => { if (!cancelled) setVoicesLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
 
@@ -919,7 +945,7 @@ export default function App() {
       const response = await fetch(auroraApiUrl("/api/voice"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: makeSpeechFriendly(text), voice: selectedVoice })
+        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice })
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -1566,7 +1592,7 @@ export default function App() {
               {showSettings && <aside className="settings-panel">
                 <div className="settings-header"><div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div><button className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button></div>
                 <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
-                <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="jessica">Jessica</option><option value="bella">Bella</option><option value="laura">Laura</option><option value="lucian">Lucian Rock</option></select><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>Choose which voice AURORA uses for spoken answers. Your choice is saved on this device.</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
+                <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} disabled={voicesLoading || availableVoices.length === 0} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="">{voicesLoading ? "Loading voices from ElevenLabs…" : availableVoices.length ? "Choose a voice" : "No voices available"}</option>{availableVoices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}{voice.labels?.accent ? " · " + voice.labels.accent : ""}{voice.labels?.gender ? " · " + voice.labels.gender : ""}</option>)}</select><div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}><button type="button" className="setting-row" style={{ flex: 1, justifyContent: "center", minHeight: "38px" }} disabled={!availableVoices.find((voice) => voice.voice_id === selectedVoice)?.preview_url} onClick={() => { const voice = availableVoices.find((item) => item.voice_id === selectedVoice); if (voice?.preview_url) { const preview = new Audio(voice.preview_url); preview.play().catch(() => setNotice("This voice preview could not be played on this device.")); } }}>Preview selected voice</button><button type="button" className="setting-row" style={{ minHeight: "38px", padding: "0 12px" }} disabled={voicesLoading} onClick={() => { setVoicesError(""); setVoicesLoading(true); fetch(auroraApiUrl("/api/voices"), { cache: "no-store" }).then(async (response) => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || "Could not refresh voices."); return Array.isArray(data.voices) ? data.voices : []; }).then(setAvailableVoices).catch((error) => setVoicesError(error.message || "Could not refresh voices.")).finally(() => setVoicesLoading(false)); }}>Refresh</button></div><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>{voicesError || (availableVoices.length ? "Choose a voice and AURORA will use that exact voice for spoken answers. Your selection is saved on this device." : "AURORA loads voices directly from the ElevenLabs account connected to its server.")}</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => { navigate("profile"); setTimeout(() => document.getElementById("aurora-updater")?.scrollIntoView({ behavior: "smooth", block: "center" }), 180); }}><span className="setting-icon"><RotateCcw size={17} /></span><span className="setting-text"><strong>AURORA Updater</strong><small>Check for the latest Android version</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 <div className="privacy-note"><ShieldCheck size={17} /><div><strong>Your privacy matters</strong><p>Your API keys stay on the server, never in the browser.</p></div></div>
                 <div className="panel-bottom"><span>AURORA INTERFACE</span><span>V 0.2</span></div>
