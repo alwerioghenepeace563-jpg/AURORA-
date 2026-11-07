@@ -40,8 +40,8 @@ jobs:
         run: npm run build
       - name: Verify Android feature integration
         run: npm run android:check
-      - name: Generate Android project
-        run: npx cap add android
+      - name: Confirm Android project is present
+        run: test -f android/app/build.gradle && test -f android/app/src/main/AndroidManifest.xml
       - name: Install native assistant foundation
         run: node scripts/patch-android-native.mjs
       - name: Sync Capacitor
