@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity, Apple, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Calculator, Copy,
+  Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, CalendarDays, Calculator, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
   SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned
@@ -297,6 +297,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
+  const [guestMode, setGuestMode] = useState(false);
   const [authVerified, setAuthVerified] = useState(false);
   const [publicAuthConfig, setPublicAuthConfig] = useState(null);
   useEffect(() => {
@@ -748,6 +749,7 @@ export default function App() {
         const session = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at || (Math.floor(Date.now()/1000) + (data.expires_in || 3600)), user: data.user };
         localStorage.setItem("aurora-auth-session", JSON.stringify(session));
         setAuthSession(session);
+        setGuestMode(false);
         setAuthMessage("");
       } else {
         setAuthMode("signin");
@@ -774,6 +776,7 @@ export default function App() {
   function handleSignOut() {
     try { localStorage.removeItem("aurora-auth-session"); } catch {}
     setAuthSession(null);
+    setGuestMode(false);
     setAuthVerified(false);
     setAdminData(null);
     setPage("home");
@@ -1397,28 +1400,56 @@ export default function App() {
     { id: "concise", title: "Short & direct", description: "Quick answers without extra talk", Icon: SlidersHorizontal }
   ];
 
-  // Guest-first mode: sign-in is optional and must never block normal app access.
-  if (false) {
+  // Require sign-in on first launch, while keeping a clear guest route.
+  if (!authSession && !guestMode) {
     return (
       <div className="auth-screen">
-        <div className="auth-glow auth-glow-one" /><div className="auth-glow auth-glow-two" />
-        <section className="auth-card">
-          <div className="auth-brand"><div className="auth-brand-orb"><Orb compact /></div><span>AURORA</span><small>YOUR SPACE. YOUR INTELLIGENCE.</small></div>
-          <div className="auth-heading"><p className="panel-eyebrow">{authMode === "signup" ? "START YOUR JOURNEY" : "WELCOME BACK"}</p><h1>{authMode === "signup" ? "Create your account" : "Your world, in focus."}</h1><p>{authMode === "signup" ? "Create a private space for your ideas, plans and conversations." : "Sign in to continue with your personal AI companion."}</p></div>
-          <button className="auth-provider-button" type="button" onClick={() => handleOAuth("google")}><span className="auth-google-mark">G</span> Continue with Google</button>
-          <button className="auth-provider-button" type="button" onClick={() => handleOAuth("apple")}><span className="auth-apple-mark"><Apple size={19}/></span> Continue with Apple</button>
-          <div className="auth-divider"><span /> <small>OR CONTINUE WITH EMAIL</small> <span /></div>
-          <form className="auth-form" onSubmit={handleEmailAuth}>
-            <label>Email address<div className="auth-input-wrap"><Mail size={17}/><input type="email" autoComplete="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} placeholder="you@example.com" required/></div></label>
-            <label>Password<div className="auth-input-wrap"><LockKeyhole size={17}/><input type={authShowPassword ? "text" : "password"} autoComplete={authMode === "signup" ? "new-password" : "current-password"} minLength={6} value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} placeholder="At least 6 characters" required/><button type="button" onClick={()=>setAuthShowPassword(v=>!v)} aria-label={authShowPassword ? "Hide password" : "Show password"}>{authShowPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></label>
-            {authMessage && <p className="auth-message" role="status">{authMessage}</p>}
-            {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Secure sign-in needs Supabase project keys in Vercel before login can work.</p>}
-            <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please waitâ€¦" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUp size={17}/></button>
-          </form>
-          <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"} <button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>
-          <p className="auth-legal"><ShieldCheck size={13}/> Your account is protected by secure authentication.</p>
-        </section>
-        <p className="auth-footer">AURORA Â· YOUR SPACE, YOUR INTELLIGENCE</p>
+        <div className="auth-orbit auth-orbit-one" />
+        <div className="auth-orbit auth-orbit-two" />
+        <div className="auth-layout">
+          <aside className="auth-showcase">
+            <div className="auth-showcase-top">
+              <span className="auth-symbol"><span /></span>
+              <span className="auth-wordmark">AURORA<span>.</span></span>
+            </div>
+            <div className="auth-showcase-copy">
+              <p className="auth-overline">PERSONAL INTELLIGENCE</p>
+              <h1>Make space for<br/><span>what matters.</span></h1>
+              <p>Your ideas, plans and conversations — brought together in one intelligent space.</p>
+            </div>
+            <div className="auth-showcase-orb"><Orb compact /></div>
+            <div className="auth-showcase-foot"><span className="auth-live-dot" /> YOUR SPACE. YOUR INTELLIGENCE.</div>
+          </aside>
+          <main className="auth-panel">
+            <section className="auth-card">
+              <div className="auth-mobile-brand"><span className="auth-symbol"><span /></span><span className="auth-wordmark">AURORA<span>.</span></span></div>
+              <div className="auth-heading">
+                <p className="auth-overline">{authMode === "signup" ? "CREATE YOUR SPACE" : "WELCOME BACK"}</p>
+                <h2>{authMode === "signup" ? "Your next chapter starts here." : "Good to have you back."}</h2>
+                <p>{authMode === "signup" ? "Create an account to keep your AURORA space in sync." : "Sign in and pick up right where you left off."}</p>
+              </div>
+              <button className="auth-google-button" type="button" onClick={() => handleOAuth("google")}>
+                <span className="auth-google-mark">G</span><span>Continue with Google</span><ArrowUpRight size={17}/>
+              </button>
+              <div className="auth-divider"><span /> <small>OR USE YOUR EMAIL</small> <span /></div>
+              <form className="auth-form" onSubmit={handleEmailAuth}>
+                <label>Email address
+                  <div className="auth-input-wrap"><Mail size={17}/><input type="email" autoComplete="email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} placeholder="name@example.com" required/></div>
+                </label>
+                <label>Password
+                  <div className="auth-input-wrap"><LockKeyhole size={17}/><input type={authShowPassword ? "text" : "password"} autoComplete={authMode === "signup" ? "new-password" : "current-password"} minLength={6} value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} placeholder="Enter your password" required/><button type="button" onClick={()=>setAuthShowPassword(v=>!v)} aria-label={authShowPassword ? "Hide password" : "Show password"}>{authShowPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div>
+                </label>
+                {authMessage && <p className="auth-message" role="status">{authMessage}</p>}
+                {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Sign-in configuration is still loading or unavailable. Please try again shortly.</p>}
+                <button className="auth-submit" type="submit" disabled={authBusy || !authConfigured}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUpRight size={18}/></button>
+              </form>
+              <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"}<button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>
+              <button className="auth-guest-button" type="button" onClick={() => { setGuestMode(true); setAuthMessage(""); }}>Continue as guest <ArrowUpRight size={16}/></button>
+              <p className="auth-legal"><ShieldCheck size={13}/> Your space stays on this device when you use guest mode.</p>
+            </section>
+            <p className="auth-footer">AURORA <span>·</span> BUILT FOR YOUR EVERY DAY</p>
+          </main>
+        </div>
       </div>
     );
   }
