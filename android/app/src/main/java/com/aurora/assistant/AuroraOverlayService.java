@@ -11,10 +11,13 @@ import java.util.List;
 import java.util.Map;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.DisplayCutout;
+import android.view.WindowInsets;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -94,6 +97,24 @@ public class AuroraOverlayService extends Service {
             orb.y = dp(8);
             orb.setTitle("AURORA Pulse Dynamic Island orb");
             windowManager.addView(orbView, orb);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                orbView.post(() -> {
+                    try {
+                        WindowInsets insets = orbView.getRootWindowInsets();
+                        DisplayCutout cutout = insets == null ? null : insets.getDisplayCutout();
+                        if (cutout != null && !cutout.getBoundingRects().isEmpty()) {
+                            Rect cameraArea = cutout.getBoundingRects().get(0);
+                            WindowManager.LayoutParams positioned = (WindowManager.LayoutParams) orbView.getLayoutParams();
+                            positioned.gravity = Gravity.TOP | Gravity.LEFT;
+                            positioned.x = Math.max(0, cameraArea.centerX() - dp(38));
+                            positioned.y = Math.max(0, cameraArea.centerY() - dp(38));
+                            windowManager.updateViewLayout(orbView, positioned);
+                        }
+                    } catch (Exception cutoutError) {
+                        android.util.Log.d("AURORAOverlay", "Using centered top orb position.", cutoutError);
+                    }
+                });
+            }
             WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(300), overlayType(),
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
             panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
