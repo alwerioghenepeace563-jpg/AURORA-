@@ -22,20 +22,18 @@ export default async function handler(req, res) {
   }
 
   const voiceName = typeof body?.voice === "string" ? body.voice.toLowerCase() : "jessica";
-  const voiceIds = {
-    // A configured default voice keeps cloud speech working even when an
-    // optional named voice has not been given its own Voice ID yet.
+  const legacyVoiceIds = {
     jessica: process.env.ELEVENLABS_JESSICA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID,
     bella: process.env.ELEVENLABS_BELLA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID,
     laura: process.env.ELEVENLABS_LAURA_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID,
     lucian: process.env.ELEVENLABS_LUCIAN_VOICE_ID || process.env.ELEVENLAB_LUCIAN_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID
   };
-  if (!Object.prototype.hasOwnProperty.call(voiceIds, voiceName)) {
-    return res.status(400).json({ error: "Choose Jessica, Bella, Laura, or Lucian.", code: "INVALID_VOICE" });
-  }
-  const voiceId = voiceIds[voiceName];
-  if (!voiceId) {
-    return res.status(503).json({ error: "The selected voice is not configured yet. Check the voice ID mapping for " + voiceName + ".", code: "VOICE_ID_MISSING", voice: voiceName });
+  // New UI sends the exact voice_id returned by /api/voices. Keep legacy
+  // named selections working for older app builds during rollout.
+  const requestedVoiceId = typeof body?.voiceId === "string" ? body.voiceId.trim() : "";
+  const voiceId = requestedVoiceId || legacyVoiceIds[voiceName];
+  if (!voiceId || voiceId.length > 160 || !/^[A-Za-z0-9_-]+$/.test(voiceId)) {
+    return res.status(400).json({ error: "Choose a voice from the voices available to your connected ElevenLabs account.", code: "INVALID_VOICE_ID" });
   }
 
   try {
