@@ -923,14 +923,21 @@ export default function App() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Voice is not configured yet.");
+        const diagnostic = [data.code, data.providerStatus ? "HTTP " + data.providerStatus : ""].filter(Boolean).join(" / ");
+        throw new Error((data.error || "Voice request failed.") + (diagnostic ? " (" + diagnostic + ")" : ""));
+      }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (!contentType.startsWith("audio/")) {
+        const detail = contentType || "unknown content type";
+        throw new Error("The voice API returned " + detail + " instead of audio (INVALID_AUDIO_RESPONSE).");
       }
       const blob = await response.blob();
+      if (!blob.size) throw new Error("The voice API returned an empty audio file (EMPTY_AUDIO_RESPONSE).");
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); };
+      audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); setNotice("Cloud voice audio was received, but this device could not decode or play it."); };
       await audio.play();
       setSpeaking(true);
     } catch (error) {
@@ -950,7 +957,7 @@ export default function App() {
           utterance.onerror = () => { setSpeaking(false); setNotice("Read aloud is unavailable on this device right now."); };
           setSpeaking(true);
           window.speechSynthesis.speak(utterance);
-          setNotice("Cloud voice unavailable; using this deviceâ€™s voice for now.");
+          setNotice("Cloud voice failed: " + (error?.message || "unknown error") + ". Using this device voice for now.");
           return;
         }
       } catch {}
