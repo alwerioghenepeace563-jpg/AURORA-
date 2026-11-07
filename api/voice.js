@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   }
 
   const key = process.env.ELEVENLAB_API_KEY || process.env.ELEVENLABS_API_KEY;
-  if (!key) return res.status(503).json({ error: "Voice service is not configured." });
+  if (!key) return res.status(503).json({ error: "Voice service is not configured.", code: "VOICE_KEY_MISSING" });
 
   let body = req.body;
   if (typeof body === "string") {
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
   const text = body?.text;
   if (typeof text !== "string" || !text.trim() || text.length > 2500) {
-    return res.status(400).json({ error: "Text must be between 1 and 2500 characters." });
+    return res.status(400).json({ error: "Text must be between 1 and 2500 characters.", code: "INVALID_TEXT" });
   }
 
   const voiceName = typeof body?.voice === "string" ? body.voice.toLowerCase() : "jessica";
@@ -31,11 +31,11 @@ export default async function handler(req, res) {
     lucian: process.env.ELEVENLABS_LUCIAN_VOICE_ID || process.env.ELEVENLAB_LUCIAN_VOICE_ID || process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID
   };
   if (!Object.prototype.hasOwnProperty.call(voiceIds, voiceName)) {
-    return res.status(400).json({ error: "Choose Jessica, Bella, Laura, or Lucian." });
+    return res.status(400).json({ error: "Choose Jessica, Bella, Laura, or Lucian.", code: "INVALID_VOICE" });
   }
   const voiceId = voiceIds[voiceName];
   if (!voiceId) {
-    return res.status(503).json({ error: "The selected voice is not configured yet. Add its Voice ID in Vercel settings." });
+    return res.status(503).json({ error: "The selected voice is not configured yet. Check the voice ID mapping for " + voiceName + ".", code: "VOICE_ID_MISSING", voice: voiceName });
   }
 
   try {
@@ -59,9 +59,15 @@ export default async function handler(req, res) {
       else if (upstream.status === 404) message = "ElevenLabs could not find the selected Voice ID. Check the Voice ID assigned to this voice in Vercel.";
       else if (upstream.status === 429) message = "Voice usage limit reached. Try again later.";
       else if (upstream.status === 400) message = "ElevenLabs rejected the voice request. Check the voice ID and model settings.";
-      return res.status(upstream.status === 429 ? 429 : 502).json({ error: message });
+      return res.status(upstream.status === 429 ? 429 : 502).json({ error: message, code: "ELEVENLABS_HTTP_ERROR", providerStatus: upstream.status, voice: voiceName });
     }
     const audio = Buffer.from(await upstream.arrayBuffer());
+    if (!audio.length) {
+      console.error("ElevenLabs returned an empty audio response.");
+      return res.status(502).json({ error: "ElevenLabs accepted the request but returned an empty audio file.", code: "EMPTY_AUDIO_RESPONSE", voice: voiceName });
+    }
+    res.setHeader("X-AURORA-VOICE-PROVIDER", "elevenlabs");
+    res.setHeader("X-AURORA-VOICE", voiceName);
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Content-Length", String(audio.length));
     res.setHeader("Cache-Control", "no-store");
@@ -70,7 +76,8 @@ export default async function handler(req, res) {
     console.error("AURORA voice function error:", error);
     const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
     return res.status(502).json({
-      error: timedOut ? "The cloud voice provider took too long to respond. Try again; device voice fallback remains available." : "Could not reach the voice service."
+      error: timedOut ? "ElevenLabs timed out before returning audio." : "AURORA could not reach ElevenLabs. Check the deployment network and provider availability.",
+      code: timedOut ? "ELEVENLABS_TIMEOUT" : "VOICE_NETWORK_ERROR"
     });
   }
 }
