@@ -923,7 +923,13 @@ export default function App() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        const diagnostic = [data.code, data.providerStatus ? "HTTP " + data.providerStatus : ""].filter(Boolean).join(" / ");
+        const diagnostic = [
+          data.code,
+          data.providerStatus ? "HTTP " + data.providerStatus : "",
+          data.providerErrorType,
+          data.providerErrorCode,
+          data.providerMessage
+        ].filter(Boolean).join(" / ");
         throw new Error((data.error || "Voice request failed.") + (diagnostic ? " (" + diagnostic + ")" : ""));
       }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
