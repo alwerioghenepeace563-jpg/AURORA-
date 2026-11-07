@@ -54,8 +54,9 @@ export default async function handler(req, res) {
       const providerDetails = await upstream.text().catch(() => "");
       console.error("Voice provider request failed, status:", upstream.status, providerDetails.slice(0, 500));
       let message = "Voice service could not generate audio.";
-      if (upstream.status === 401 || upstream.status === 403) message = "ElevenLabs rejected the API key or this voice is not accessible to the account.";
-      else if (upstream.status === 404) message = "ElevenLabs could not find this voice ID. Check the Lucian Voice ID in Vercel.";
+      if (upstream.status === 401) message = "ElevenLabs rejected the API key. Check that ELEVENLABS_API_KEY is the active API key for this account.";
+      else if (upstream.status === 403) message = "This ElevenLabs API key does not have permission to use the selected voice or text-to-speech service.";
+      else if (upstream.status === 404) message = "ElevenLabs could not find the selected Voice ID. Check the Voice ID assigned to this voice in Vercel.";
       else if (upstream.status === 429) message = "Voice usage limit reached. Try again later.";
       else if (upstream.status === 400) message = "ElevenLabs rejected the voice request. Check the voice ID and model settings.";
       return res.status(upstream.status === 429 ? 429 : 502).json({ error: message });
