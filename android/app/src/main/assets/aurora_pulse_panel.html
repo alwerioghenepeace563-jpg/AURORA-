@@ -2,7 +2,153 @@
 :root{--glass-alpha:.64;--ink:#edf4ff;--muted:#9eabc0;--cyan:#62e8f4}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--ink);font:14px system-ui,-apple-system,Segoe UI,sans-serif}.shell{height:100%;padding:12px;border:1px solid #a7c8ff35;border-radius:25px;background:rgba(10,16,32,var(--glass-alpha));backdrop-filter:blur(24px) saturate(145%);-webkit-backdrop-filter:blur(24px) saturate(145%);box-shadow:0 14px 44px #0005,inset 0 1px #ffffff18;display:flex;flex-direction:column;gap:9px}.top{display:flex;align-items:center;gap:8px}.brand{font-weight:800;letter-spacing:.12em;font-size:12px}.status{margin-left:auto;color:#6ce6bd;font-size:10px}.close{border:0;background:#ffffff12;color:#fff;border-radius:50%;width:28px;height:28px;font-size:17px}.reply{display:none;max-height:100px;overflow:auto;padding:8px 10px;border-radius:13px;background:#ffffff10;color:#e8efff;font-size:12px;line-height:1.45;white-space:pre-wrap}.composer{display:flex;align-items:center;gap:8px;margin-top:auto;padding:8px 9px;border-radius:17px;background:#ffffff12;border:1px solid #ffffff20}input[type=text]{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font:14px system-ui}input::placeholder{color:#a9b5c8}.send,.tools{border:0;color:#fff;background:linear-gradient(135deg,#27cde6,#8161ed);border-radius:50%;width:36px;height:36px;font-size:16px}.bottom{display:flex;align-items:center;justify-content:space-between}.hint{font-size:9px;letter-spacing:.12em;color:#9aa9c2}.tools{width:34px;height:34px;background:#ffffff16;border:1px solid #ffffff26;color:#d7d1ff}.cards{display:none;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:8px;border-radius:15px;background:#080e1dcc;border:1px solid #ffffff1c}.cards.open{display:grid}.card{min-height:55px;border:1px solid #ffffff1b;border-radius:12px;background:#ffffff0b;color:#eaf1ff;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}.card b{font-size:17px;font-weight:500;color:var(--cyan)}.settings{display:none;align-items:center;gap:8px;padding:4px 2px;color:#aebbd0;font-size:10px}.settings.open{display:flex}.settings input{accent-color:#8d78ff}
 </style></head><body><main class="shell"><div class="top"><span style="font-size:17px;color:#71e5f5">✧</span><span class="brand">AURORA PULSE</span><span class="status">● READY</span><button class="close" aria-label="Close panel" onclick="hidePanel()">×</button></div><div id="reply" class="reply" role="status" aria-live="polite"></div><div id="cards" class="cards"><button class="card" onclick="tool('Weather')"><b>☼</b>Weather</button><button class="card" onclick="tool('Calendar')"><b>▦</b>Calendar</button><button class="card" onclick="tool('Tasks')"><b>✓</b>Tasks</button><button class="card" onclick="tool('Email')"><b>✉</b>Email</button><button class="card" onclick="tool('Open Apps')"><b>▦</b>Apps</button><button class="card" onclick="tool('More tools')"><b>✧</b>More</button></div><div id="settings" class="settings"><span>Glass opacity</span><input id="opacity" type="range" min="15" max="90" value="64" oninput="setOpacity(this.value)"><span id="opacityValue">64%</span></div><div class="composer"><input id="prompt" type="text" placeholder="Ask AURORA…" autocomplete="off" aria-label="Ask AURORA"><button class="send" onclick="sendPrompt()" aria-label="Send">➤</button></div><div class="bottom"><span class="hint">YOUR AI, OVER YOUR SCREEN</span><div style="display:flex;gap:7px"><button class="tools" onclick="toggleSettings()" aria-label="Glass settings">⚙</button><button class="tools" onclick="toggleTools()" aria-label="Open tools">▦</button></div></div></main><script>
 function hidePanel(){if(window.AuroraOverlay&&AuroraOverlay.hidePanel)AuroraOverlay.hidePanel()}function toggleTools(){document.getElementById('cards').classList.toggle('open')}function toggleSettings(){document.getElementById('settings').classList.toggle('open')}function setOpacity(v){document.documentElement.style.setProperty('--glass-alpha',String(Number(v)/100));document.getElementById('opacityValue').textContent=v+'%';try{localStorage.setItem('aurora-pulse-opacity',v)}catch(e){}}try{const v=localStorage.getItem('aurora-pulse-opacity');if(v){document.getElementById('opacity').value=v;setOpacity(v)}}catch(e){}
+    async function tryHandleNativeAppCommand(text) {
+      const cleaned = String(text || '').trim().replace(/[.!?]+$/, '').replace(/\s+/g, ' ');
+      const match = cleaned.match(/^(?:please\s+)?(?:aurora\s+)?(?:open|launch|start|go to|switch to)\s+(?:my\s+|the\s+)?(.+)$/i);
+      if (!match) return null;
+
+      const requested = match[1].trim().replace(/\s+(?:app|application)$/i, '').trim();
+      if (!requested) return { handled: true, reply: 'Which app would you like me to open?' };
+
+      if (!window.AuroraOverlay ||
+          typeof window.AuroraOverlay.getInstalledApps !== 'function' ||
+          typeof window.AuroraOverlay.openApp !== 'function') {
+        return { handled: true, reply: 'Native app launching is not available in this overlay build yet.' };
+      }
+
+      const aliases = {
+        whatsapp: ['whatsapp', 'whats app', "what's app", 'wa'],
+        whatsappbusiness: ['whatsapp business', 'whats app business', "what's app business", 'business whatsapp', 'wa business'],
+        contacts: ['contacts', 'contact', 'my contacts', 'address book', 'people'],
+        phone: ['phone', 'dialer', 'telephone', 'calling app'],
+        messages: ['messages', 'messaging', 'text messages', 'sms'],
+        camera: ['camera'],
+        gallery: ['gallery', 'photos', 'my pictures', 'pictures'],
+        settings: ['settings', 'phone settings', 'system settings'],
+        calculator: ['calculator'],
+        clock: ['clock', 'alarm', 'timer'],
+        files: ['files', 'file manager', 'my files', 'downloads'],
+        chrome: ['chrome', 'google chrome'],
+        maps: ['maps', 'google maps', 'navigation']
+      };
+
+      const packageHints = {
+        whatsapp: ['com.whatsapp'],
+        whatsappbusiness: ['com.whatsapp.w4b']
+      };
+
+      const wanted = normalizeAppName(requested);
+      const key = Object.keys(aliases).find(aliasKey =>
+        aliases[aliasKey].some(alias => normalizeAppName(alias) === wanted)
+      );
+      const targets = key ? aliases[key].map(normalizeAppName) : [wanted];
+      const packages = key ? (packageHints[key] || []).map(normalizeAppName) : [];
+
+      let apps;
+      try {
+        const raw = window.AuroraOverlay.getInstalledApps();
+        apps = JSON.parse(String(raw || '[]'));
+      } catch {
+        return { handled: true, reply: 'I could not read the phoneÃ¢â‚¬â„¢s installed-app list. Please try again.' };
+      }
+
+      if (!Array.isArray(apps)) apps = [];
+      const matches = apps.filter(app => {
+        if (!app || !app.name || !app.packageName) return false;
+        const name = normalizeAppName(app.name);
+        const pkg = normalizeAppName(app.packageName);
+        return targets.includes(name) || packages.includes(pkg) ||
+          (!key && pkg === wanted);
+      });
+
+      const unique = [...new Map(matches.map(app => [app.packageName, app])).values()];
+
+      if (!unique.length) {
+        const displayName = key === 'whatsappbusiness' ? 'WhatsApp Business' :
+          key === 'whatsapp' ? 'WhatsApp' : requested;
+        return { handled: true, reply: 'I could not find an installed, launchable app matching ' + displayName + '. I have not opened a different app instead.' };
+      }
+
+      if (unique.length > 1) {
+        return { handled: true, reply: 'I found multiple matching apps: ' +
+          unique.slice(0, 6).map(app => app.name).join(', ') +
+          '. Please specify which one you want.' };
+      }
+
+      try {
+        const rawResult = window.AuroraOverlay.openApp(unique[0].packageName);
+        const result = JSON.parse(String(rawResult || '{}'));
+        return {
+          handled: true,
+          reply: result.opened ? ('Opening ' + (result.appName || unique[0].name) + '.') :
+            (result.message || ('Android could not open ' + unique[0].name + '.'))
+        };
+      } catch {
+        return { handled: true, reply: 'Android could not confirm that ' + unique[0].name + ' opened.' };
+      }
+    }
+
+  
+  // AURORA Pulse adapter: uses the same deployed search and weather APIs as the main app.
+  // GPS and on-device memory remain unavailable here until an explicit native bridge is added.
+  async function getOverlayToolContext(text) {
+    const apiBase = 'https://aurora-ten-gold.vercel.app';
+    const userText = String(text || '').trim();
+
+    const searchMatch = /\b(search (?:the web )?for|look up|find online|search online|latest news|news today|what's happening in|what is happening in)\b/i.test(userText);
+    if (searchMatch) {
+      const query = userText.replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:search (?:the web )?for|look up|find online|search online)\s*/i, '').trim() || userText;
+      const response = await fetch(apiBase + '/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'AURORA web search failed.');
+      const results = Array.isArray(data.results) ? data.results.slice(0, 5) : [];
+      return 'Tool: web_search. Query: ' + query + '; source: ' + (data.source || 'web search') +
+        '\n' + results.map((item, index) =>
+          (index + 1) + '. ' + (item.title || 'Untitled result') +
+          '\n' + (item.snippet || '') + '\nURL: ' + (item.url || '')
+        ).join('\n\n');
+    }
+
+    const weatherMatch = /\b(weather|forecast|temperature outside|is it raining|will it rain|rain today)\b/i.test(userText);
+    if (weatherMatch) {
+      const match = userText.match(/\b(?:weather|forecast|temperature outside|is it raining|will it rain|rain today)\b(?:\s+(?:like\s+)?(?:in|for|at)\s+([^?.!,]+))?/i);
+      let city = (match && match[1] ? match[1] : '').trim();
+      if (/^(here|my location|where i am|outside|today|now)$/i.test(city)) city = '';
+      city = city.replace(/\b(today|tomorrow|right now|now)\b.*$/i, '').trim();
+      if (!city) {
+        throw new Error('Please name a city or town for the weather report, for example: Ã¢â‚¬Å“Weather in Benin City.Ã¢â‚¬Â Pulse does not yet share the main appÃ¢â‚¬â„¢s GPS-location tool.');
+      }
+      const response = await fetch(apiBase + '/api/weather?city=' + encodeURIComponent(city));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'AURORA weather lookup failed.');
+      return 'Tool: live_weather. Verified API result: ' + JSON.stringify(data);
+    }
+
+    const mapsMatch = /\b(directions to|route to|navigate to|how do i get to|take me to|show (?:me )?(?:the )?map|open (?:google )?maps|satellite view|street view|where is|map of)\b/i.test(userText);
+    if (mapsMatch) {
+      const match = userText.match(/\b(?:directions to|route to|navigate to|how do i get to|take me to|map of|where is)\s+(.+?)(?:\s+(?:today|tomorrow|this morning|this afternoon|tonight|now|later|next week)\b|[?.!,]|$)/i);
+      const destination = match && match[1] ? match[1].trim() : '';
+      if (/\b(where am i|my current location|current location|my position)\b/i.test(userText)) {
+        throw new Error('Pulse does not yet have the main appÃ¢â‚¬â„¢s GPS-location bridge. You can still open Google Maps and use its location permission.');
+      }
+      const mapUrl = destination
+        ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(destination)
+        : 'https://www.google.com/maps';
+      const directionsUrl = destination
+        ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destination)
+        : mapUrl;
+      return 'Tool: maps_navigation. Give the user these direct links:\nMap: ' + mapUrl + '\nDirections: ' + directionsUrl;
+    }
+
+    return '';
+  }
+
+
 function showReply(t){const e=document.getElementById('reply');e.style.display='block';e.textContent=t}
 async function tool(n){const p=document.getElementById('prompt');const q={'Weather':'What is the weather?','Calendar':'Open my calendar','Tasks':'Show my tasks','Email':'Open my email','More tools':'Show me more tools'};document.getElementById('cards').classList.remove('open');if(n==='Open Apps'){let a=[];try{a=JSON.parse(AuroraOverlay.getInstalledApps()||'[]')}catch(e){}showReply(a.slice(0,10).map(x=>x.name).join(' • ')||'No launchable apps found. Ask me to open an app by name.');return}p.value=q[n]||n;sendPrompt()}
-async function sendPrompt(){const p=document.getElementById('prompt'),t=p.value.trim();if(!t)return;showReply('AURORA is thinking…');document.querySelector('.send').disabled=true;try{const r=await fetch('https://aurora-ten-gold.vercel.app/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:t}],profile:{}})});const raw=await r.text();let d={};try{d=JSON.parse(raw)}catch(e){}if(!r.ok)throw new Error(d.error||('Chat API HTTP '+r.status));showReply(String(d.reply||'AURORA returned an empty response.'));p.value=''}catch(e){showReply(e.message||'Could not reach AURORA.')}finally{document.querySelector('.send').disabled=false}}document.getElementById('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sendPrompt()}});
+async function sendPrompt(){const p=document.getElementById('prompt'),t=p.value.trim();if(!t)return;showReply('AURORA is thinking…');document.querySelector('.send').disabled=true;try{const nativeAction=await tryHandleNativeAppCommand(t);if(nativeAction&&nativeAction.handled){showReply(nativeAction.reply);p.value='';return}const toolContext=await getOverlayToolContext(t);const r=await fetch('https://aurora-ten-gold.vercel.app/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:t}],profile:{},toolContext})});const raw=await r.text();let d={};try{d=JSON.parse(raw)}catch(e){}if(!r.ok)throw new Error(d.error||('Chat API HTTP '+r.status));showReply(String(d.reply||'AURORA returned an empty response.'));p.value=''}catch(e){showReply(e.message||'Could not reach AURORA.')}finally{document.querySelector('.send').disabled=false}}document.getElementById('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sendPrompt()}});
 </script></body></html>
