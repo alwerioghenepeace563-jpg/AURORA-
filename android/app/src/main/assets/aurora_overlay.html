@@ -523,6 +523,35 @@ main > section:last-child {
   z-index: 99999 !important;
 }
 /* END AURORA_PULSE_LAYOUT_REPAIR_V1 */
+/* AURORA PULSE — premium compact floating assistant panel */
+.phone-ambient-glow { padding:12px!important;border-radius:25px!important;background:linear-gradient(155deg,rgba(13,19,34,.98),rgba(8,12,22,.98))!important;border-color:rgba(45,212,230,.28)!important; }
+.phone-ambient-glow > div { background:radial-gradient(ellipse at 50% 35%,rgba(45,212,230,.12),transparent 46%),linear-gradient(160deg,#0d1322,#080c16)!important;border-radius:19px!important; }
+.phone-ambient-glow > div > div:nth-child(3) { justify-content:space-between!important;align-items:stretch!important;gap:8px!important;padding:18px 5px 10px!important; }
+.aurora-overlay-brand { display:flex;align-items:center;gap:10px;width:100%;padding:3px 4px 12px; }
+.aurora-brand-mark { width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:linear-gradient(140deg,#2dd4e6,#7664ed);color:#fff;font-size:19px;font-weight:800;box-shadow:0 0 22px rgba(45,212,230,.22); }
+.aurora-brand-copy { display:flex;flex-direction:column;gap:3px; }
+.aurora-brand-name { color:#f1f5ff;font-size:14px;font-weight:800;letter-spacing:.22em;line-height:1; }
+.aurora-brand-subtitle { color:#8290a9;font-size:8px;font-weight:700;letter-spacing:.14em; }
+.aurora-ready { margin-left:auto;display:flex;align-items:center;gap:6px;color:#9baac1;font-size:8px;font-weight:700;letter-spacing:.12em;padding:7px 9px;border:1px solid rgba(45,212,230,.18);border-radius:99px;background:rgba(45,212,230,.06); }
+.aurora-ready span { width:6px;height:6px;border-radius:50%;background:#36dfb1;box-shadow:0 0 9px #36dfb1; }
+.phone-ambient-glow .jarvis-orb { position:relative;align-self:center;display:grid;place-items:center;flex:0 0 104px!important;width:104px!important;height:104px!important;min-width:104px!important;min-height:104px!important;margin:4px auto!important;padding:0;border:1px solid rgba(102,227,255,.4);background:radial-gradient(circle at 38% 32%,#efffff 0%,#9af4ff 12%,#28b9d8 35%,#5149a9 67%,#111a36 100%)!important;box-shadow:0 0 24px rgba(45,212,230,.35),0 0 65px rgba(121,91,255,.2),inset 0 0 22px rgba(255,255,255,.35)!important;cursor:pointer; }
+.aurora-orb-core { width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#bafaff 28%,#42cfe7 62%,#7765ed);box-shadow:0 0 20px rgba(130,245,255,.9); }
+.aurora-orb-ring { position:absolute;inset:-9px;border:1px solid rgba(45,212,230,.22);border-radius:50%;animation:auroraRing 4s ease-in-out infinite; }
+.aurora-orb-ring-two { inset:-17px;border-color:rgba(183,156,255,.18);animation-delay:1.2s; }
+@keyframes auroraRing { 0%,100%{transform:scale(.96);opacity:.35}50%{transform:scale(1.05);opacity:.9} }
+.aurora-orb-caption { color:#7f8da7;font-size:8px;font-weight:700;letter-spacing:.2em;text-align:center;margin-top:-2px; }
+.phone-ambient-glow #auroraReply { max-height:145px!important;border-radius:17px!important;padding:12px!important;font-size:12px!important;line-height:1.55!important;background:rgba(13,19,34,.88)!important;border-color:rgba(45,212,230,.17)!important; }
+.phone-ambient-glow > div > div:nth-child(4) { padding:8px 0 0!important; }
+.aurora-input-shell { display:flex;flex-direction:column;gap:8px;width:100%;padding:11px 12px 9px;border:1px solid rgba(105,125,164,.22);border-radius:19px;background:rgba(13,19,34,.94);box-shadow:0 8px 28px rgba(0,0,0,.2); }
+.phone-ambient-glow .aurora-prompt { padding:7px 3px 11px!important;font-size:14px!important;border-bottom:1px solid rgba(105,125,164,.2)!important; }
+.aurora-input-actions { display:flex;align-items:center;justify-content:space-between; }
+.aurora-input-hint { color:#75839b;font-size:8px;font-weight:700;letter-spacing:.12em; }
+.aurora-input-hint i { color:#2dd4e6;margin-right:5px; }
+.phone-ambient-glow #auroraSend { width:38px!important;height:38px!important;min-width:38px!important;flex:0 0 38px!important;border-radius:13px!important; }
+.phone-ambient-glow #auroraSend:disabled { opacity:.55; }
+.aurora-overlay-close { top:10px!important;right:10px!important;width:27px!important;height:27px!important;border-color:rgba(132,151,190,.28)!important;color:#aab6cb!important;background:rgba(13,19,34,.94)!important;font-size:16px!important; }
+@media(max-height:420px){.phone-ambient-glow > div > div:nth-child(3){padding-top:8px!important;gap:4px!important}.phone-ambient-glow .jarvis-orb{flex-basis:72px!important;width:72px!important;height:72px!important;min-width:72px!important;min-height:72px!important}.aurora-orb-ring{inset:-5px}.aurora-orb-ring-two{inset:-10px}}
+
 </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between items-center p-4 md:p-8">
@@ -636,58 +665,33 @@ main > section:last-child {
           <div class="relative z-20 px-4 space-y-3 mt-auto mb-2 flex flex-col items-center">
             
             <div id="auroraReply" role="status" aria-live="polite"></div>
-            <!-- Weather Card -->
-            <div id="weatherCard" class="glass-panel w-full p-3 rounded-2xl flex items-center justify-between text-white transition-all">
-              <div class="flex items-center gap-3">
-                <i class="fa-solid fa-cloud-sun text-amber-300 text-2xl"></i>
-                <div>
-                  <p class="text-xs font-semibold">72Ã‚Â°F, Sunny</p>
-                  <p class="text-[10px] text-slate-300">Sunny, Los Angeles</p>
-                </div>
+            <div class="aurora-overlay-brand">
+              <div class="aurora-brand-mark">A</div>
+              <div class="aurora-brand-copy">
+                <div class="aurora-brand-name">AURORA</div>
+                <div class="aurora-brand-subtitle">PERSONAL INTELLIGENCE</div>
               </div>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 border border-white/10">AURORA Weather</span>
+              <span class="aurora-ready"><span></span> READY</span>
             </div>
-
-            <!-- Plugin Chips Row -->
-            <div class="w-full flex justify-start gap-2 overflow-x-auto py-1">
-              <div id="chip-calendar-ui" class="glass-chip px-3 py-1 rounded-full text-[11px] text-cyan-300 border border-cyan-400/30 flex items-center gap-1.5 shadow-sm">
-                <i class="fa-regular fa-calendar"></i> Calendar
-              </div>
-              <div id="chip-tasks-ui" class="glass-chip px-3 py-1 rounded-full text-[11px] text-purple-300 border border-purple-400/30 flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-list-check"></i> Tasks
-              </div>
-              <div id="chip-email-ui" class="glass-chip px-3 py-1 rounded-full text-[11px] text-blue-300 border border-blue-400/30 flex items-center gap-1.5 shadow-sm">
-                <i class="fa-regular fa-envelope"></i> Email
-              </div>
-            </div>
-
-            <!-- Floating JARVIS Holographic Orb -->
-            <div class="w-16 h-16 rounded-full jarvis-orb flex items-center justify-center my-1 cursor-pointer transition transform hover:scale-110" onclick="triggerOrbPulse()">
-              <div class="w-6 h-6 rounded-full bg-white/80 blur-[2px]"></div>
-            </div>
+            <div id="auroraReply" role="status" aria-live="polite"></div>
+            <button type="button" class="jarvis-orb" aria-label="Activate AURORA" onclick="triggerOrbPulse()">
+              <span class="aurora-orb-core"></span>
+              <span class="aurora-orb-ring aurora-orb-ring-one"></span>
+              <span class="aurora-orb-ring aurora-orb-ring-two"></span>
+            </button>
+            <div class="aurora-orb-caption">YOUR AI COMPANION</div>
 
           </div>
 
           <!-- Bottom JARVIS Glass Dock -->
           <div class="relative z-20 p-3 pt-0">
-            <div class="glass-panel p-2.5 rounded-3xl flex flex-col gap-2">
-              <input type="text" id="promptDisplay" class="aurora-prompt" placeholder="Ask AURORA..." aria-label="Ask AURORA" autocomplete="off">
-              
-              <!-- Input Action Bar -->
-              <div class="flex items-center justify-between text-slate-300 pt-1 border-t border-white/10 text-xs">
-                <div class="flex items-center gap-3 px-1">
-                  <button class="hover:text-cyan-400 transition"><i class="fa-solid fa-plus"></i></button>
-                  <button class="hover:text-cyan-400 transition"><i class="fa-solid fa-paperclip"></i></button>
-                  <button class="hover:text-cyan-400 transition"><i class="fa-solid fa-cubes"></i></button>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button class="w-7 h-7 rounded-full bg-slate-800/80 border border-white/10 flex items-center justify-center hover:text-cyan-400 transition">
-                    <i class="fa-solid fa-microphone"></i>
-                  </button>
-                  <button id="auroraSend" type="button" onclick="sendOverlayPrompt()" class="w-7 h-7 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 text-white flex items-center justify-center shadow-md">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i>
-                  </button>
-                </div>
+            <div class="aurora-input-shell">
+              <input type="text" id="promptDisplay" class="aurora-prompt" placeholder="Ask AURORA anything…" aria-label="Ask AURORA" autocomplete="off">
+              <div class="aurora-input-actions">
+                <span class="aurora-input-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> AI ASSISTANT</span>
+                <button id="auroraSend" type="button" onclick="sendOverlayPrompt()" aria-label="Send message">
+                  <i class="fa-solid fa-arrow-up"></i>
+                </button>
               </div>
             </div>
             
