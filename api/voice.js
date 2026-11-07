@@ -51,15 +51,50 @@ export default async function handler(req, res) {
     });
 
     if (!upstream.ok) {
-      const providerDetails = await upstream.text().catch(() => "");
-      console.error("Voice provider request failed, status:", upstream.status, providerDetails.slice(0, 500));
+      const providerBody = await upstream.text().catch(() => "");
+      let providerPayload = null;
+      try { providerPayload = JSON.parse(providerBody); } catch { providerPayload = null; }
+
+      // Return only short, sanitized diagnostic fields. Never echo request headers,
+      // API keys, the full provider response, or arbitrary nested provider data.
+      const detail = providerPayload?.detail;
+      const providerErrorType = typeof detail?.status === "string"
+        ? detail.status
+        : typeof detail?.type === "string" ? detail.type : undefined;
+      let providerMessage = typeof detail?.message === "string"
+        ? detail.message
+        : typeof detail === "string" ? detail
+        : typeof providerPayload?.message === "string" ? providerPayload.message
+        : undefined;
+      if (providerMessage) {
+        providerMessage = providerMessage
+          .replace(/xi-api-key|authorization/gi, "[credential header]")
+          .replace(/(Bearer\\s+)[A-Za-z0-9._-]+/gi, "$1[redacted]")
+          .replace(/[A-Za-z0-9_-]{24,}/g, "[redacted]")
+          .replace(/https?:\\/\\/\\S+/gi, "[provider link]")
+          .slice(0, 240);
+      }
+      console.error("Voice provider request failed:", JSON.stringify({
+        status: upstream.status,
+        type: providerErrorType,
+        message: providerMessage
+      }));
+
       let message = "Voice service could not generate audio.";
-      if (upstream.status === 401) message = "ElevenLabs rejected the API key. Check that ELEVENLABS_API_KEY is the active API key for this account.";
+      if (upstream.status === 401) message = "ElevenLabs rejected the API key. Check the active ELEVENLAB_API_KEY or ELEVENLABS_API_KEY value in Vercel.";
+      else if (upstream.status === 402) message = "ElevenLabs returned HTTP 402. Check the provider details below; this response alone does not tell us which account or billing condition caused it.";
       else if (upstream.status === 403) message = "This ElevenLabs API key does not have permission to use the selected voice or text-to-speech service.";
       else if (upstream.status === 404) message = "ElevenLabs could not find the selected Voice ID. Check the Voice ID assigned to this voice in Vercel.";
       else if (upstream.status === 429) message = "Voice usage limit reached. Try again later.";
       else if (upstream.status === 400) message = "ElevenLabs rejected the voice request. Check the voice ID and model settings.";
-      return res.status(upstream.status === 429 ? 429 : 502).json({ error: message, code: "ELEVENLABS_HTTP_ERROR", providerStatus: upstream.status, voice: voiceName });
+      return res.status(upstream.status === 429 ? 429 : 502).json({
+        error: message,
+        code: "ELEVENLABS_HTTP_ERROR",
+        providerStatus: upstream.status,
+        ...(providerErrorType ? { providerErrorType } : {}),
+        ...(providerMessage ? { providerMessage } : {}),
+        voice: voiceName
+      });
     }
     const audio = Buffer.from(await upstream.arrayBuffer());
     if (!audio.length) {
