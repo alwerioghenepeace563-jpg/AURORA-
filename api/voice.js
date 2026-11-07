@@ -84,7 +84,7 @@ export default async function handler(req, res) {
       if (upstream.status === 401) message = "ElevenLabs rejected the API key. Check the active ELEVENLAB_API_KEY or ELEVENLABS_API_KEY value in Vercel.";
       else if (upstream.status === 402) message = "ElevenLabs returned HTTP 402. Check the provider details below; this response alone does not tell us which account or billing condition caused it.";
       else if (upstream.status === 403) message = "This ElevenLabs API key does not have permission to use the selected voice or text-to-speech service.";
-      else if (upstream.status === 404) message = "ElevenLabs could not find the selected Voice ID. Check the Voice ID assigned to this voice in Vercel.";
+      else if (upstream.status === 404) message = "ElevenLabs could not find the selected voice. Refresh the available voices in AURORA and choose another one.";
       else if (upstream.status === 429) message = "Voice usage limit reached. Try again later.";
       else if (upstream.status === 400) message = "ElevenLabs rejected the voice request. Check the voice ID and model settings.";
       return res.status(upstream.status === 429 ? 429 : 502).json({
