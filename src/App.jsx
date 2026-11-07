@@ -484,32 +484,13 @@ export default function App() {
     finally { setNativeBusy(false); }
   }
 
-  async function launchNativePulseOverlay() {
-    if (!AuroraNative.isAndroid()) {
-      setNativeNotice("The floating overlay is available in the Android app. Opening the in-app Pulse panel instead.");
-      setPulseOpen(true);
-      return;
-    }
-
-    try {
-      const permission = await AuroraNative.hasOverlayPermission();
-
-      if (!permission?.granted) {
-        await AuroraNative.requestOverlayPermission();
-        setNativeNotice("Allow AURORA to display over other apps in Android settings. Return here and tap Launch floating overlay again.");
-        return;
-      }
-
-      const result = await AuroraNative.showOverlay();
-      setNativeNotice(
-        result?.shown
-          ? "AURORA Pulse reports that the overlay is visible."
-          : result?.note || "Overlay request sent. Check whether AURORA Pulse appears over your screen."
-      );
-    } catch (error) {
-      setNativeNotice(error?.message || "Could not launch the AURORA Pulse floating overlay.");
-    }
+  function launchNativePulseOverlay() {
+    // AURORA Pulse has one UI: the in-app panel opened from Profile.
+    // Invocation must reveal that same panel instead of launching a second native WebView overlay.
+    setPulseOpen(true);
+    setNativeNotice("AURORA Pulse opened inside the app.");
   }
+
   async function openNativeApp(packageName) {
     try { await AuroraNative.openApp({ packageName }); setNativeNotice("Opening appâ€¦"); }
     catch (error) { setNativeNotice(error?.message || "That app could not be opened."); }
@@ -1794,7 +1775,7 @@ export default function App() {
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
-              <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your floating AI assistant panel</small></span><span className="pulse-launch-arrow">â†—</span></button>
+              <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your in-app AI assistant panel</small></span><span className="pulse-launch-arrow">â†—</span></button>
 
               <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>{profile.nickname || profile.name || "Your profile"}</h2><p>Personal details and preferences</p></div><span className="coming-pill">ON THIS DEVICE</span></div>
               <form className="profile-form" onSubmit={(event) => { event.preventDefault(); setProfileSaved(true); setTimeout(() => setProfileSaved(false), 2400); }}>
