@@ -24,19 +24,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p signing-key-package
-          keytool -genkeypair -v \\
-            -keystore signing-key-package/aurora-debug.keystore \\
-            -storepass android \\
-            -keypass android \\
-            -alias androiddebugkey \\
-            -keyalg RSA \\
-            -keysize 2048 \\
-            -validity 10000 \\
-            -dname "CN=Android Debug,O=Android,C=US"
-          keytool -list -v \\
-            -keystore signing-key-package/aurora-debug.keystore \\
-            -storepass android \\
-            -alias androiddebugkey > signing-key-package/CERTIFICATE-INFO.txt
+          keytool -genkeypair -v -keystore signing-key-package/aurora-debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          keytool -list -v -keystore signing-key-package/aurora-debug.keystore -storepass android -alias androiddebugkey > signing-key-package/CERTIFICATE-INFO.txt
 
       - name: Prepare key instructions
         shell: bash
