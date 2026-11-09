@@ -186,3 +186,14 @@ Then mark it final, preserve it in the completed-layer register, and continue re
 - Added reduced-motion styling for users who request less motion.
 - Added Pulse lifecycle/accessibility regression source checks to the core test chain.
 - Physical TalkBack, keyboard, reduced-motion, and Android background/resume verification remain pending.
+
+
+**Wave 6 — Adaptive device conditions and offline resilience (code committed; physical-device validation pending):**
+- Added one shared environment monitor to the runtime, available to Main Chat, Pulse, and voice through the same runtime singleton.
+- Tracks online/offline state, coarse effective network class, data-saver preference, and device memory class when supported. Battery percentage/charging is detected only when the platform exposes the Battery Status API.
+- Unsupported or denied APIs remain explicitly unknown; no battery polling, precise network telemetry, or content collection is introduced.
+- Emits bounded operational metadata through the shared event bus. Low-memory, slow-network, data-saver, or critically low-battery conditions select a conservative adaptive mode for future surface consumers.
+- Handles supported memory-pressure events and cleans up every listener on disposal.
+- Added a focused regression test for offline/online changes, low-memory adaptation, unsupported API fallbacks, metadata-only events, and listener cleanup; included it in the core test chain.
+- The monitor is observational/advisory: it does not disable user actions, replay interrupted tasks, or silently change permissions. Existing review-only recovery and fresh-confirmation rules remain authoritative.
+- Still pending: confirm real Battery API support on target Android builds, validate memory pressure/network transitions on low-memory devices, and run physical TalkBack/voice/Pulse lifecycle checks. APK builds, signing, and keystore work remain deferred.
