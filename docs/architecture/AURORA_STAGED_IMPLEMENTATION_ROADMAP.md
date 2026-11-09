@@ -58,7 +58,20 @@ The machine-readable source of truth is `src/core/aurora-layer-registry.js`. Tes
 
 ### Stage 2 — Shared contracts and enforcement
 
-Strengthen the common capability descriptor and request/result contracts; map permission, consent, risk, approval, verification, timeout, cancellation, and idempotency requirements across every active capability. Ensure Main, Pulse, voice, workflows, and extensions use the same enforcement path. Audit existing direct paths before changing them.
+<badge>In progress — shared contract foundation committed</badge>
+
+Implemented in the common engine:
+- Capability descriptors now accept validated, stable permission and consent requirement identifiers.
+- A declared permission/consent requirement fails closed if no policy handler exists or the handler denies it.
+- The shared Android capability runtime checks Contacts, Accessibility, Notification Access, and Camera permissions through the common authorization gate rather than leaving those checks scattered inside individual action bodies.
+- The shared runtime delegates declared consent checks to the default-deny, revocable consent registry.
+- High-risk actions continue through the shared approval broker.
+- Capabilities can require a verifier at registration; a capability cannot claim verified completion unless its verifier succeeds.
+- The execution receipt distinguishes verified completion from completion without a verifier.
+
+Automated coverage has been added for missing-policy denial, consent denial, permitted execution, verifier success/failure, and invalid contracts.
+
+**Remaining before Stage 2 can close:** audit and declare the correct permission/consent requirements for every adapter in all 12 families; ensure Main, Pulse, voice, workflows, and extensions use the same policy path; add per-adapter verification, timeout, cancellation, and idempotency contracts; run the full core suite and Android build/device checks. The 12 layers remain active until their individual Stage 2 checks pass.
 
 ### Stage 3 — Secure state and context
 
