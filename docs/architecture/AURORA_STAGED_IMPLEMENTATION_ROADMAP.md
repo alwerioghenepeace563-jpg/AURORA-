@@ -126,7 +126,7 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Implementation wave 5 completed:** Native contacts permission and search are implemented against Android's contacts provider with a 20-result cap and minimal returned fields. Phone-call preparation now opens Android ACTION_DIAL; AURORA never places a call silently.
 
-**Implementation wave 6 completed:** Removed duplicate SMS capability registration and consolidated text sharing under one canonical communication capability. Added a CI regression guard that checks the production capability catalogue for unique IDs and protects required calendar, file, media, notification, maps and voice adapters from accidental removal.
+**Implementation wave 6 completed:** Automated source-contract coverage checks that Android plugin methods, TypeScript bridge methods, service actions, independent window attachment state, and lifecycle status reporting stay in parity; the focused check is included in the core test chain.  Removed duplicate SMS capability registration and consolidated text sharing under one canonical communication capability. Added a CI regression guard that checks the production capability catalogue for unique IDs and protects required calendar, file, media, notification, maps and voice adapters from accidental removal.
 
 **Implementation wave 7 completed:** Added a native, read-only calendar search adapter for upcoming events (next 90 days, maximum 20 results, optional title filter). It requests Android Calendar permission through the shared authorization gate, requires explicit Action Engine approval, returns only bounded event metadata, and keeps results local without persisting or uploading calendar contents.
 
