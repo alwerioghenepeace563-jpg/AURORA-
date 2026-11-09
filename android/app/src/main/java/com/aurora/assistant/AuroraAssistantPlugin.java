@@ -761,6 +761,68 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getDeviceCapabilityInventory(PluginCall call) {
+        try {
+            PackageManager pm = getContext().getPackageManager();
+            JSObject hardware = new JSObject();
+            hardware.put("camera", pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY));
+            hardware.put("cameraFlash", pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH));
+            hardware.put("microphone", pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE));
+            hardware.put("telephony", pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+            hardware.put("bluetooth", pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
+            hardware.put("wifi", pm.hasSystemFeature(PackageManager.FEATURE_WIFI));
+            hardware.put("gps", pm.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS));
+            hardware.put("nfc", pm.hasSystemFeature(PackageManager.FEATURE_NFC));
+
+            JSObject permissions = new JSObject();
+            permissions.put("camera", ContextCompat.checkSelfPermission(getContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("microphone", ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("contacts", ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("calendarRead", ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("locationCoarse", ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("locationFine", ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("notifications", Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED);
+
+            String enabledNotifications = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+            String expectedListener = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+            boolean notificationAccess = false;
+            if (enabledNotifications != null) {
+                for (String item : enabledNotifications.split(":")) {
+                    if (expectedListener.equalsIgnoreCase(item)) { notificationAccess = true; break; }
+                }
+            }
+            String enabledAccessibility = Settings.Secure.getString(getContext().getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            String expectedAccessibility = getContext().getPackageName() + "/" + AuroraAccessibilityService.class.getName();
+            boolean accessibility = false;
+            if (enabledAccessibility != null) {
+                for (String item : enabledAccessibility.split(":")) {
+                    if (expectedAccessibility.equalsIgnoreCase(item) || item.toLowerCase(java.util.Locale.ROOT).contains("auroraaccessibilityservice")) { accessibility = true; break; }
+                }
+            }
+            JSObject specialAccess = new JSObject();
+            specialAccess.put("overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(getContext()));
+            specialAccess.put("notificationListener", notificationAccess);
+            specialAccess.put("accessibilityService", accessibility);
+
+            JSObject device = new JSObject();
+            device.put("manufacturer", Build.MANUFACTURER);
+            device.put("model", Build.MODEL);
+            device.put("sdk", Build.VERSION.SDK_INT);
+            JSObject result = new JSObject();
+            result.put("platform", "android");
+            result.put("device", device);
+            result.put("hardware", hardware);
+            result.put("permissions", permissions);
+            result.put("specialAccess", specialAccess);
+            result.put("readOnly", true);
+            result.put("capturedAt", System.currentTimeMillis());
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Could not inspect Android device capabilities.", e);
+        }
+    }
+
+    @PluginMethod
     public void getDeviceStatus(PluginCall call) {
         try {
             Intent battery = getContext().registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
