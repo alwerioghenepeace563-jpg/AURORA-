@@ -393,6 +393,14 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added an approval-gated share-sheet handoff for a selected content URI. The user chooses the destination and confirms; AURORA does not transmit the file itself.
 - Added bridge and Action Engine capabilities plus source-level regression assertions.
 
+
+**Implementation wave 6 — User-invoked camera preview capture (code committed; automated regression added):**
+- Added an explicit Android system-camera handoff. The user must open the camera and take the photo; cancellation is reported without creating an image.
+- Returns only the thumbnail preview supplied by Android's camera intent, JPEG encoded and bounded to 2 MB. It does not claim to save or return a full-resolution photo.
+- Registered the operation in the shared Action Engine as high-risk and approval-gated. No silent capture, background camera use, broad media access or upload is introduced.
+- Added bridge and regression coverage for the intent handoff, preview-only contract, size bound and approval requirement.
+- Full-resolution capture/storage and physical camera behavior remain separate device-validation work; OEM camera apps may return no thumbnail and are reported as unsupported rather than treated as success.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
