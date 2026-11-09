@@ -9,7 +9,8 @@ const isProject = value => isRecord(value) && isText(value.id) && isText(value.t
 const isAsset = value => isRecord(value) && isText(value.id) && isText(value.projectId) && isText(value.type) && isText(value.title) && isText(value.createdAt);
 const isDraft = value => isRecord(value) && isText(value.id) && isText(value.projectId) && isText(value.title) && isText(value.content) && Array.isArray(value.revisions) && isText(value.updatedAt);
 const isDeck = value => isRecord(value) && isText(value.id) && isText(value.title) && Array.isArray(value.cards) && isText(value.createdAt);
-const validState = value => isRecord(value) && value.version === 1 && isArrayOf(value.projects, isProject) && isArrayOf(value.assets, isAsset) && isArrayOf(value.drafts, isDraft) && isArrayOf(value.decks, isDeck);
+const isQuizAttempt = value => isRecord(value) && isText(value.id) && isText(value.quizTitle) && isText(value.createdAt) && Number.isInteger(value.total) && Number.isInteger(value.correct) && Number.isInteger(value.percentage) && Array.isArray(value.results);
+const validState = value => isRecord(value) && value.version === 1 && isArrayOf(value.projects, isProject) && isArrayOf(value.assets, isAsset) && isArrayOf(value.drafts, isDraft) && isArrayOf(value.decks, isDeck) && (value.quizAttempts === undefined || isArrayOf(value.quizAttempts, isQuizAttempt));
 
 function parseTimestamp(value) {
   const match = String(value || "").match(/^(\d{2,}):(\d{2}):(\d{2})[,.](\d{3})$/);
@@ -56,7 +57,11 @@ function createAuroraCreativeUniverse(options = {}) {
   const now = options.now || (() => new Date().toISOString());
   let sequence = 0;
   const createId = options.createId || (prefix => prefix + "-" + Math.random().toString(36).slice(2,10) + "-" + (++sequence));
-  const read = () => readStoredJson(storage, STORAGE_KEY, { version:1, projects:[], assets:[], drafts:[], decks:[] }, validState, "AURORA creative universe");
+  const read = () => {
+    const state = readStoredJson(storage, STORAGE_KEY, { version:1, projects:[], assets:[], drafts:[], decks:[], quizAttempts:[] }, validState, "AURORA creative universe");
+    if (!Array.isArray(state.quizAttempts)) state.quizAttempts = [];
+    return state;
+  };
   const write = state => { if (storage?.setItem) storage.setItem(STORAGE_KEY, JSON.stringify(state)); };
   const requireApproval = input => { if (input?.userApproved !== true) throw new Error("Explicit user approval is required."); };
   const requireConfirm = input => { if (input?.confirmed !== true) throw new Error("Explicit confirmation is required."); };
@@ -177,6 +182,53 @@ function createAuroraCreativeUniverse(options = {}) {
     const results=quiz.questions.map((q,index)=>{const submitted=bounded(answers[index],1000);const correct=submitted.trim().toLocaleLowerCase()===q.answer.trim().toLocaleLowerCase();return {index,correct,submitted,expectedAnswer:q.answer};});
     return {total:results.length,correct:results.filter(r=>r.correct).length,percentage:results.length?Math.round(results.filter(r=>r.correct).length/results.length*100):0,results};
   }
+  function saveQuizAttempt(quiz, answers = {}, options = {}) {
+    requireApproval(options);
+    const grade = gradeQuiz(quiz, answers);
+    const state = read();
+    const attempt = {
+      id: createId("quiz-attempt"),
+      quizId: bounded(quiz.id, 100),
+      quizTitle: bounded(quiz.title || "Practice quiz", 100),
+      subject: bounded(quiz.subject, 60),
+      total: grade.total,
+      correct: grade.correct,
+      percentage: grade.percentage,
+      results: grade.results.slice(0, 100).map(result => ({
+        index: result.index,
+        prompt: bounded(quiz.questions[result.index]?.prompt, 1000),
+        submitted: bounded(result.submitted, 1000),
+        correct: result.correct,
+        expectedAnswer: bounded(result.expectedAnswer, 1000)
+      })),
+      createdAt: now(),
+      storage: "local"
+    };
+    state.quizAttempts.unshift(attempt);
+    state.quizAttempts = state.quizAttempts.slice(0, 500);
+    write(state);
+    return { ...attempt, results: attempt.results.map(result => ({ ...result })) };
+  }
+  function listQuizAttempts(filters = {}) {
+    const state = read();
+    const subject = bounded(filters.subject, 60).toLowerCase();
+    const limit = Number.isInteger(filters.limit) ? Math.max(1, Math.min(100, filters.limit)) : 30;
+    return state.quizAttempts.filter(attempt => !subject || attempt.subject.toLowerCase() === subject)
+      .slice(0, limit).map(attempt => ({ ...attempt, results: attempt.results.map(result => ({ ...result })) }));
+  }
+  function quizPerformance(filters = {}) {
+    const attempts = listQuizAttempts({ subject: filters.subject, limit: 100 });
+    const scores = attempts.map(attempt => attempt.percentage);
+    return {
+      attemptCount: attempts.length,
+      averagePercentage: scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0,
+      bestPercentage: scores.length ? Math.max(...scores) : 0,
+      latestPercentage: scores[0] ?? null,
+      totalQuestions: attempts.reduce((sum, attempt) => sum + attempt.total, 0),
+      correctAnswers: attempts.reduce((sum, attempt) => sum + attempt.correct, 0),
+      localOnly: true
+    };
+  }
   function buildProjectContext(projectId, options = {}) {
     const state = read();
     const project = state.projects.find(item => item.id === projectId);
@@ -213,8 +265,8 @@ function createAuroraCreativeUniverse(options = {}) {
     ];
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
-  function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
-  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,buildProjectContext,search,status});
+  function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,quizAttemptCount:s.quizAttempts.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
+  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,buildProjectContext,search,status});
 }
 const auroraCreativeUniverse=createAuroraCreativeUniverse();
 export { createAuroraCreativeUniverse, auroraCreativeUniverse, STORAGE_KEY as AURORA_CREATIVE_UNIVERSE_STORAGE_KEY, parseSubtitles, renderSubtitles };
