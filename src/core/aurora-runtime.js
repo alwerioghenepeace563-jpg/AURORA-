@@ -56,6 +56,16 @@ function parseCalendarIntent(message, now = new Date()) {
 
 async function routeMessage(text) {
   const message = String(text || "").trim();
+  if (/\b(?:enable|set up|configure|manage)\s+(?:aurora\s+)?notification access\b/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "notifications.open_access_settings", input: {} });
+    return receipt.status === "completed" ? { tool: "android_notification_settings", context: "Android's Notification Access settings are open. Enable or disable AURORA there whenever you choose." } : { error: receipt.error?.message || "Could not open notification settings." };
+  }
+
+  if (/\b(?:clear|delete|erase)\s+(?:aurora'?s?\s+)?(?:recent\s+)?notification cache\b/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "notifications.clear_recent", input: {} });
+    return receipt.status === "completed" ? { tool: "android_notifications", context: "AURORA's locally stored notification previews were cleared. Android notifications themselves were not dismissed." } : { error: receipt.error?.message || "Could not clear AURORA's notification cache." };
+  }
+
   // Device and productivity commands are parsed into registered, typed capabilities.
   if (/^(?:what(?:'s| is)\s+)?(?:my\s+)?(?:battery|device status|phone status)\??$/i.test(message)) {
     const receipt = await actionEngine.execute({ capabilityId: "device.get_status", input: {} });
@@ -89,10 +99,15 @@ async function routeMessage(text) {
 
   // Explicit app-launch requests use a fixed package allowlist; package IDs are never model supplied.
   const appTargets = [
+    { pattern: /\bwhatsapp business\b/i, packageName: "com.whatsapp.w4b", label: "WhatsApp Business" },
     { pattern: /\bwhats?app\b/i, packageName: "com.whatsapp", label: "WhatsApp" },
-    { pattern: /\bfacebook(?: lite)?\b/i, packageName: "com.facebook.katana", label: "Facebook" },
+    { pattern: /\bfacebook lite\b/i, packageName: "com.facebook.lite", label: "Facebook Lite" },
+    { pattern: /\bfacebook\b/i, packageName: "com.facebook.katana", label: "Facebook" },
     { pattern: /\bchrome\b/i, packageName: "com.android.chrome", label: "Chrome" },
     { pattern: /\byoutube\b/i, packageName: "com.google.android.youtube", label: "YouTube" },
+    { pattern: /\bgmail\b/i, packageName: "com.google.android.gm", label: "Gmail" },
+    { pattern: /\bgoogle maps\b|\bmaps\b/i, packageName: "com.google.android.apps.maps", label: "Google Maps" },
+    { pattern: /\bmessages\b/i, packageName: "com.google.android.apps.messaging", label: "Messages" },
     { pattern: /\bsettings\b/i, packageName: "com.android.settings", label: "Settings" }
   ];
   if (/^\s*(?:hey aurora[, ]*)?(?:please\s+)?(?:open|launch)\s+/i.test(message)) {
