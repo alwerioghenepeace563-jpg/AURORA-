@@ -43,7 +43,7 @@ const actionEngine = createAuroraCapabilityRuntime({
   }
 });
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
-const memorySync = createAuroraMemorySync(auroraMemory);
+const memorySync = createAuroraMemorySync(auroraMemory, { isConsentGranted: () => auroraConsents.isGranted("memory.cloud_sync", "supabase") });
 const appEnv = import.meta.env || {};
 const supabaseMemoryAdapter = createAuroraSupabaseMemoryAdapter({
   url: appEnv.VITE_SUPABASE_URL || appEnv.VITE_SUPABASE_API || "",
