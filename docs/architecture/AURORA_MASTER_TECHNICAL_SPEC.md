@@ -755,3 +755,18 @@ The Android capability registry now includes `files.pick_document`. It invokes A
 The shared runtime also routes explicit app-launch phrases through a fixed package allowlist (WhatsApp, Facebook, Chrome, YouTube and Android Settings). It never accepts arbitrary package identifiers from a model response. Explicit file/document requests open the system picker. Navigation and media phrases continue through their registered adapters. Chat, voice and Pulse should continue to call the same `auroraRuntime.routeMessage` entry point; these remain internal capabilities rather than new app pages.
 
 **Privacy boundary:** the picker is the user's selection boundary. AURORA reads only the selected supported text file and returns its bounded text preview to the caller. No background scan, recursive file enumeration, or silent upload is performed by this adapter.
+
+## 20. Notification intelligence, device status and expanded intent routing
+
+The Android capability registry now includes:
+- `notifications.open_access_settings`: opens Android's Notification Access settings; the user explicitly enables or disables access there.
+- `notifications.read_recent`: requires Android Notification Access and AURORA's high-risk approval gate. The listener keeps at most 20 recent notification previews in app-local preferences; it excludes AURORA's own and ongoing notifications, limits text length, and does not upload or forward notification content to a server.
+- `notifications.clear_recent`: approval-gated deletion of AURORA's local notification preview cache. This does not dismiss notifications from Android's notification shade.
+- `device.get_status`: returns basic device model, Android SDK, battery percentage and charging state.
+- `device.set_flashlight`: handles explicit on/off commands through CameraManager and requests Android camera permission before changing the torch.
+
+The notification listener is protected by Android's `BIND_NOTIFICATION_LISTENER_SERVICE` permission. AURORA cannot silently grant itself notification access; the user must enable it in Android Settings. Revoking access in Settings stops new notification capture. The local cache can be cleared from AURORA.
+
+The shared runtime also recognizes supported phrases for battery/device status, flashlight on/off, recent notifications, and calendar scheduling. Calendar phrases are accepted only when the date and 12-hour time are explicit (today, tomorrow, weekday, or ISO date); events are opened in Android's calendar editor and still require the user to review and save. The normal approval broker is used before sensitive notification reads and cache deletion.
+
+These additions remain internal capabilities. They do not create new navigation pages, and they preserve the shared chat/voice/Pulse runtime.
