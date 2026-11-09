@@ -392,6 +392,37 @@ function createAuroraCapabilityRuntime(options = {}) {
 
 
   engine.registerCapability({
+    id: "device.read_clipboard",
+    label: "Read clipboard text",
+    category: "device",
+    description: "On explicit request, read plain text currently on Android's clipboard, capped at 8000 characters. Requires approval, is not stored, and may be restricted by Android foreground rules.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Clipboard access requires Android." }),
+    execute: async () => {
+      const result = await auroraNative.readClipboardText();
+      return { available: result?.available === true, text: result?.text || "", truncated: result?.truncated === true, notStored: true, note: result?.note || null };
+    }
+  });
+
+  engine.registerCapability({
+    id: "device.write_clipboard",
+    label: "Copy text to clipboard",
+    category: "device",
+    description: "Replace Android's clipboard with text explicitly provided by the user, capped at 8000 characters. Requires approval.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => requiredString(input?.text, "Clipboard text") === true && input.text.length <= 8000 || "Clipboard text must contain 1 to 8000 characters.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Clipboard access requires Android." }),
+    execute: async ({ text }) => {
+      const result = await auroraNative.writeClipboardText({ text });
+      if (!result?.written) throw new Error("Android did not confirm clipboard update.");
+      return { written: true, characters: result.characters, systemClipboard: true };
+    }
+  });
+
+  engine.registerCapability({
     id: "files.pick_media",
     label: "Choose an image, video or audio file",
     category: "files",
