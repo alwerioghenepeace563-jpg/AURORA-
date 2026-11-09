@@ -827,6 +827,7 @@ const auroraRuntime = Object.freeze({
   listStudyPlans: (filters) => auroraLearningUniverse.listPlans(filters),
   updateStudyTopic: (planId, topicId, status, options) => auroraLearningUniverse.updateTopic(planId, topicId, status, options),
   logStudySession: (input) => auroraLearningUniverse.logPractice(input),
+  listStudySessions: (filters) => auroraLearningUniverse.listSessions(filters),
   studyProgress: (planId) => auroraLearningUniverse.progress(planId),
   deleteStudyPlan: (planId, options) => auroraLearningUniverse.removePlan(planId, options),
   addKnowledgeSource: (input) => auroraKnowledgeUniverse.add(input),
