@@ -28,7 +28,7 @@
     "test:aurora-stage8": "node scripts/test-aurora-stage8-workflow-observability.cjs",
     "test:aurora-stage9": "node scripts/test-aurora-knowledge-universe.cjs && node scripts/test-aurora-stage9-import-boundary.cjs",
     "test:aurora-stage10": "node scripts/test-aurora-stage10-capability-inventory.cjs",
-    "test:aurora-stage11": "node scripts/test-aurora-learning-universe.cjs"
+    "test:aurora-stage11": "node scripts/test-aurora-learning-universe.cjs && node scripts/test-aurora-creative-universe.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
