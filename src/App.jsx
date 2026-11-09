@@ -1356,6 +1356,7 @@ export default function App() {
       try {
         if (auroraNative.isAndroid()) {
           await auroraNative.stopSpeechRecognition();
+          if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; }
           nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
           nativeSpeechListenersRef.current = [];
         } else {
@@ -1377,13 +1378,14 @@ export default function App() {
         nativeSpeechListenersRef.current = [];
         let releaseInterruption = () => {};
         const cleanup = () => {
-          releaseInterruption(); releaseInterruption = () => {};
+          releaseInterruption(); releaseInterruption = () => {}; mainInterruptionReleaseRef.current = null;
           try { void auroraNative.stopSpeechRecognition(); } catch {}
           nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
           nativeSpeechListenersRef.current = [];
           setListening(false);
         };
         releaseInterruption = auroraRuntime.interactions.register("main_chat", cleanup);
+        mainInterruptionReleaseRef.current = releaseInterruption;
         nativeSpeechListenersRef.current.push(await auroraNative.addSpeechResultListener((event) => {
           const spokenText = event?.transcript?.trim() || "";
           cleanup();
