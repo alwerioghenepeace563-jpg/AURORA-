@@ -1,0 +1,24 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const workspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx", "utf8");
+const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
+
+assert.match(workspace, /Speech-to-text capture/);
+assert.match(workspace, /requestMicrophonePermission\(\)/);
+assert.match(workspace, /addSpeechResultListener/);
+assert.match(workspace, /addSpeechErrorListener/);
+assert.match(workspace, /startSpeechRecognition\(\)/);
+assert.match(workspace, /stopSpeechRecognition\(\)/);
+assert.match(workspace, /window\.SpeechRecognition\s*\|\|\s*window\.webkitSpeechRecognition/);
+assert.match(workspace, /type:"transcript"/);
+assert.match(workspace, /userApproved:true/);
+assert.match(workspace, /review the recognised text before saving/i);
+assert.match(bridge, /startSpeechRecognition\(\): Promise/);
+assert.match(bridge, /addSpeechResultListener/);
+assert.match(bridge, /addSpeechErrorListener/);
+assert.match(nativePatch, /SpeechRecognizer\.isRecognitionAvailable/);
+assert.match(nativePatch, /notifyListeners\("speechResult"/);
+assert.match(nativePatch, /notifyListeners\("speechError"/);
+assert.match(nativePatch, /Grant microphone permission first/);
+console.log("AURORA Stage 11 speech-to-text integration checks passed.");
