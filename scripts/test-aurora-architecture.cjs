@@ -127,7 +127,7 @@ const path = require("node:path");
   assert.ok(stagedRoadmap.includes("removed from the active upgrade queue"), "Final layers must leave the active queue only after acceptance.");
   assert.ok(stagedRoadmap.includes("Stage 1 — Whole-system baseline"), "Stage one checkpoint must be documented.");
   assert.ok(stagedRoadmap.includes("Stage 2 — Shared contracts and enforcement"), "Stage two contract work must be tracked.");
-  assert.ok(stagedRoadmap.includes("The 12 layers remain active"), "No layer may be dropped before its own stage checks pass.");
+  assert.ok(stagedRoadmap.includes("All 12 layers remain active"), "No layer may be dropped before its own stage checks pass.");
   const actionEngineSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-action-engine.js"), "utf8");
   assert.ok(actionEngineSource.includes("permissionRequirements"), "Shared action contracts must declare permission requirements.");
   assert.ok(actionEngineSource.includes("consentRequirements"), "Shared action contracts must declare consent requirements.");
