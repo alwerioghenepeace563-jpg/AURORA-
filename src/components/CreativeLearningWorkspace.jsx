@@ -167,6 +167,7 @@ function CreativeLearningWorkspace({ authSession }){
  const saveMediaAnalysis=()=>{if(!selected){setNotice("Select a project before saving this analysis.");return;}if(!analysisOutput.trim()){setNotice("Analyse a file first.");return;}run(()=>auroraRuntime.saveCreativeDraft({projectId:selected,title:"Media analysis — "+(analysisFile?.name||"selected file"),content:analysisOutput,userApproved:true}),"Reviewed media analysis saved as a project draft.");};
  const transcribeImportedMedia=async()=>{
   if(!mediaFile){setNotice("Choose an audio file first.");return;}
+  if(!authSession?.access_token){setNotice("Sign in to AURORA to create or resume a cloud-saved VoiceText job.");return;}
   const supported=["audio/mpeg","audio/mp4","audio/wav","audio/x-wav","audio/webm","audio/ogg","audio/aac"];
   if(!supported.includes(mediaFile.type)){setNotice("Choose MP3, M4A, WAV, WebM, OGG or AAC audio.");return;}
   setMediaBusy(true);setMediaProgress("Preparing audio…");setNotice("Preparing a segmented VoiceText transcription. Long recordings are processed in small sections, without sending the entire file in one request.");
