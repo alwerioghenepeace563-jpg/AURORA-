@@ -66,6 +66,27 @@ const STAGE_THREE_LAYER_AUDIT = Object.freeze({
   reliability_operations: Object.freeze(["six local stores fail closed on corruption", "extension and protected vault corruption tests", "sync revocation disables further uploads"])
 });
 
+const STAGE_FOUR_LAYER_AUDIT = Object.freeze({
+ android_device:Object.freeze(["lifecycle events observed","device actions cancel cooperatively","no automatic replay"]),
+ voice_multimodal:Object.freeze(["shared lifecycle events","interrupted voice tasks review-only"]),
+ screen_accessibility:Object.freeze(["accessibility lifecycle observable","diagnostics exclude screen contents"]),
+ communication_people:Object.freeze(["communication cancellation propagated","fresh confirmation for recovery"]),
+ location_travel:Object.freeze(["route interruption observable","no background route replay"]),
+ calendar_productivity:Object.freeze(["task cancellation journaled","recovery requires fresh confirmation"]),
+ files_knowledge:Object.freeze(["file failures observable without document contents","recovery uses task summaries"]),
+ media_creative:Object.freeze(["media cancellation propagated","diagnostics exclude media payloads"]),
+ intelligence_personalisation:Object.freeze(["shared reliability service","bounded metadata-only diagnostics"]),
+ extensions_interoperability:Object.freeze(["extension cancellation signal","extension failures isolated"]),
+ safety_privacy_security:Object.freeze(["recovery preserves approval gates","no automatic consequential retry"]),
+ reliability_operations:Object.freeze(["unified lifecycle/connectivity","bounded failure diagnostics","review-only recovery"])
+});
+const STAGE_FOUR_CHECKPOINT = Object.freeze({
+ id:4,name:"Reliability and recovery",status:"in_progress",
+ scope:"Foundational wave: unified app lifecycle/connectivity events, bounded metadata-only diagnostics, cooperative task cancellation and review-only recovery. No unattended retries or automatic replay.",
+ validationBoundary:"Code-level implementation and automated tests across all 12 active families; physical Android lifecycle and interruption validation remains later release/device work.",
+ deliverables:Object.freeze(["Unify visibility, foreground/background, online/offline, pagehide and pageshow events.","Capture bounded metadata-only failure diagnostics; never copy sensitive payloads.","Propagate task cancellation to active Action Engine work and stop later steps.","Keep failed/interrupted tasks review-only; never replay automatically.","Require fresh confirmation and normal policy gates before resumed work.","Audit all 12 active capability families."])
+});
+
 const STAGE_THREE_DEFERRED_RELEASE_VALIDATION = Object.freeze({
   status: "deferred",
   reason: "The user has chosen to complete the full app before physical-device release validation. These checks do not block progression to Stage 4, but must pass before release sign-off.",
@@ -129,9 +150,10 @@ function createAuroraLayerRegistry() {
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
+    stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -144,6 +166,7 @@ function createAuroraLayerRegistry() {
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
       nextStage: 4,
+      stageFourStatus: STAGE_FOUR_CHECKPOINT.status,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
       stageThreeStatus: STAGE_THREE_CHECKPOINT.status,
@@ -154,4 +177,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
