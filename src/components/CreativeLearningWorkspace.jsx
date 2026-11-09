@@ -23,7 +23,7 @@ function CreativeLearningWorkspace(){
  const speechHandles=useRef([]),browserRecognition=useRef(null);
  const [lessonPlanId,setLessonPlanId]=useState(""),[lessonTopic,setLessonTopic]=useState(""),[lessonOutput,setLessonOutput]=useState(""),[lessonBusy,setLessonBusy]=useState(false),[syllabusText,setSyllabusText]=useState(""),[syllabusTitle,setSyllabusTitle]=useState("My supplied syllabus or course outline"),[syllabusQuizBusy,setSyllabusQuizBusy]=useState(false);
  const [analysisFile,setAnalysisFile]=useState(null),[analysisOutput,setAnalysisOutput]=useState(""),[analysisBusy,setAnalysisBusy]=useState(false);
- const [mediaFile,setMediaFile]=useState(null),[mediaTranscript,setMediaTranscript]=useState(""),[mediaBusy,setMediaBusy]=useState(false);
+ const [mediaFile,setMediaFile]=useState(null),[mediaTranscript,setMediaTranscript]=useState(""),[mediaBusy,setMediaBusy]=useState(false),[mediaResumeOffset,setMediaResumeOffset]=useState(0),[mediaProgress,setMediaProgress]=useState("");
  const [mediaSearchQuery,setMediaSearchQuery]=useState(""),[mediaSearchResults,setMediaSearchResults]=useState([]),[mediaSearchBusy,setMediaSearchBusy]=useState(false),[mediaSearchSource,setMediaSearchSource]=useState(""),[mediaSearchKind,setMediaSearchKind]=useState("image"),[mediaDownloading,setMediaDownloading]=useState("");
  const [imagePrompt,setImagePrompt]=useState(""),[imageAspect,setImageAspect]=useState("1:1"),[imageBusy,setImageBusy]=useState(false),[generatedImage,setGeneratedImage]=useState(null);
  const [notice,setNotice]=useState("");
@@ -168,25 +168,80 @@ function CreativeLearningWorkspace(){
  const transcribeImportedMedia=async()=>{
   if(!mediaFile){setNotice("Choose an audio file first.");return;}
   const supported=["audio/mpeg","audio/mp4","audio/wav","audio/x-wav","audio/webm","audio/ogg","audio/aac"];
-  if(!supported.includes(mediaFile.type)||mediaFile.size>3000000){setNotice("Choose MP3, M4A, WAV, WebM, OGG or AAC audio up to approximately 3 MB. Larger recordings need resumable cloud upload support.");return;}
-  setMediaBusy(true);setNotice("Sending your selected recording to AURORA VoiceText. Its transcription engine is processing it…");
-  try{
-   const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("The selected audio file could not be read."));reader.readAsDataURL(mediaFile);});
-   if(!data)throw new Error("The selected audio file could not be encoded.");
-   const response=await fetch(auroraApiUrl("/api/voicetext-transcribe"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audioBase64:data,mimeType:mediaFile.type,languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",requestId:globalThis.crypto?.randomUUID?.()||String(Date.now())})});
+  if(!supported.includes(mediaFile.type)){setNotice("Choose MP3, M4A, WAV, WebM, OGG or AAC audio.");return;}
+  setMediaBusy(true);setMediaProgress("Preparing audio…");setNotice("Preparing a segmented VoiceText transcription. Long recordings are processed in small sections, without sending the entire file in one request.");
+  let audio=null,context=null,objectUrl="",completedSections=0;
+  const formatTime=seconds=>{const value=Math.max(0,Math.floor(Number(seconds)||0));return String(Math.floor(value/60)).padStart(2,"0")+":"+String(value%60).padStart(2,"0");};
+  const readBase64=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("An audio section could not be read."));reader.readAsDataURL(blob);});
+  const sendSection=async(blob,offset,index)=>{
+   const data=await readBase64(blob);
+   if(!data||data.length>4000000)throw new Error("Audio section "+index+" exceeded the safe upload size. The previous sections are saved in the transcript; resume to continue.");
+   const response=await fetch(auroraApiUrl("/api/voicetext-transcribe"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audioBase64:data,mimeType:blob.type||"audio/webm",languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",requestId:(globalThis.crypto?.randomUUID?.()||String(Date.now()))+"-"+index})});
    const result=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(result.error||"AURORA VoiceText could not transcribe this recording.");
+   if(!response.ok)throw new Error(result.error||"VoiceText could not transcribe section "+index+".");
    const transcript=typeof result.text==="string"?result.text.trim():"";
-   if(!transcript)throw new Error("AURORA VoiceText returned an empty transcript.");
+   if(!transcript)throw new Error("VoiceText returned an empty transcript for section "+index+".");
    const segments=Array.isArray(result.segments)?result.segments:[];
-   const withSpeakers=segments.length?segments.map(segment=>{
-    const stamp=Number.isFinite(segment.start)?"["+Math.floor(segment.start/60).toString().padStart(2,"0")+":"+Math.floor(segment.start%60).toString().padStart(2,"0")+"] ":"";
+   const formatted=segments.length?segments.map(segment=>{
+    const stamp=Number.isFinite(segment.start)?"["+formatTime(offset+segment.start)+"] ":"";
     return (segment.speaker?segment.speaker+": ":"")+stamp+String(segment.text||"").trim();
-   }).filter(Boolean).join("\n"):"";
-   setMediaTranscript(withSpeakers||transcript);
-   setNotice("Transcript received from AURORA VoiceText"+(result.language?" · "+result.language:"")+". Review the wording and speaker labels before saving.");
-  }catch(error){setNotice(error?.message||"VoiceText transcription failed. Your original recording was not saved by this action.");}
-  finally{setMediaBusy(false);}
+   }).filter(Boolean).join("\n"):"["+formatTime(offset)+"] "+transcript;
+   setMediaTranscript(current=>[current,formatted].filter(Boolean).join("\n\n"));
+  };
+  try{
+   const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
+   if(!AudioContextCtor||typeof MediaRecorder==="undefined")throw new Error("This browser does not support segmented audio capture. Use a supported Android Chrome browser for long recordings.");
+   const mimeCandidates=["audio/webm;codecs=opus","audio/webm","audio/mp4"];
+   const recorderMime=mimeCandidates.find(type=>MediaRecorder.isTypeSupported(type));
+   if(!recorderMime)throw new Error("This browser has no supported audio recording format for segmented transcription.");
+   objectUrl=URL.createObjectURL(mediaFile);audio=new Audio();audio.preload="auto";audio.src=objectUrl;
+   await new Promise((resolve,reject)=>{
+    if(audio.readyState>=1){resolve();return;}
+    const loaded=()=>{cleanup();resolve();},failed=()=>{cleanup();reject(new Error("The selected audio file could not be opened for segmented playback."));};
+    const cleanup=()=>{audio.removeEventListener("loadedmetadata",loaded);audio.removeEventListener("error",failed);};
+    audio.addEventListener("loadedmetadata",loaded,{once:true});audio.addEventListener("error",failed,{once:true});audio.load();
+   });
+   if(!Number.isFinite(audio.duration)||audio.duration<=0)throw new Error("The recording duration could not be determined.");
+   const duration=audio.duration;
+   let offset=mediaResumeOffset;
+   if(offset>=duration-0.5){offset=0;setMediaResumeOffset(0);setMediaTranscript("");}
+   audio.currentTime=Math.min(offset,duration);
+   context=new AudioContextCtor();const source=context.createMediaElementSource(audio),capture=context.createMediaStreamDestination(),mute=context.createGain();
+   mute.gain.value=0;source.connect(capture);source.connect(mute);mute.connect(context.destination);await context.resume();
+   await audio.play();
+   let sectionNumber=Math.floor(offset/20)+1;
+   while(!audio.ended&&audio.currentTime<duration){
+    const sectionStart=audio.currentTime,recorder=new MediaRecorder(capture.stream,{mimeType:recorderMime}),parts=[];
+    const stopped=new Promise((resolve,reject)=>{recorder.ondataavailable=event=>{if(event.data?.size)parts.push(event.data);};recorder.onerror=()=>reject(new Error("Audio capture stopped unexpectedly."));recorder.onstop=()=>resolve(new Blob(parts,{type:recorder.mimeType||recorderMime}));});
+    recorder.start();
+    await new Promise(resolve=>{
+     let finished=false;const finish=()=>{if(finished)return;finished=true;clearTimeout(timer);audio.removeEventListener("ended",finish);resolve();};
+     const timer=setTimeout(finish,20000);audio.addEventListener("ended",finish,{once:true});
+    });
+    const sectionEnd=audio.currentTime;
+    if(recorder.state!=="inactive")recorder.stop();
+    const sectionBlob=await stopped;
+    audio.pause();
+    if(!sectionBlob.size)throw new Error("Audio section "+sectionNumber+" was empty. Resume to try again.");
+    setMediaProgress("Transcribing section "+sectionNumber+" · "+formatTime(sectionStart)+"–"+formatTime(sectionEnd));
+    await sendSection(sectionBlob,sectionStart,sectionNumber);
+    completedSections++;setMediaResumeOffset(sectionEnd);
+    setMediaProgress("Completed "+completedSections+" section"+(completedSections===1?"":"s")+" · "+formatTime(sectionEnd)+" of "+formatTime(duration));
+    sectionNumber++;
+    if(sectionEnd>=duration-0.15||audio.ended)break;
+    await audio.play();
+   }
+   setMediaResumeOffset(duration);setMediaProgress("Completed · "+completedSections+" section"+(completedSections===1?"":"s")+" · "+formatTime(duration));
+   setNotice("VoiceText finished the segmented recording. Review the combined transcript before saving it.");
+  }catch(error){
+   setNotice((error?.message||"Segmented VoiceText transcription stopped.")+(completedSections?" Completed sections are preserved; tap Resume transcription to continue.":""));
+   setMediaProgress(completedSections?"Paused after "+completedSections+" completed sections.":"Ready to retry.");
+  }finally{
+   try{audio?.pause();if(audio)audio.removeAttribute("src");audio?.load();}catch{}
+   try{await context?.close();}catch{}
+   if(objectUrl)URL.revokeObjectURL(objectUrl);
+   setMediaBusy(false);
+  }
  };
  const saveImportedTranscript=()=>{if(!selected){setNotice("Select a project before saving the transcript.");return;}if(!mediaTranscript.trim()){setNotice("Transcribe a media file first.");return;}run(()=>auroraRuntime.addCreativeAsset({projectId:selected,type:"transcript",title:"Transcript — "+(mediaFile?.name||"imported media"),text:mediaTranscript,sourceLabel:"User-selected audio/video; AI-generated transcript reviewed by user",userApproved:true}),"Reviewed transcript and summary saved locally to the selected project.");};
 
@@ -233,7 +288,7 @@ function CreativeLearningWorkspace(){
    <div className="clw-panel"><h3><Plus size={16}/> New project</h3><label>Project name<input value={projectTitle} onChange={e=>setProjectTitle(e.target.value)} placeholder="e.g. Cell biology explainer"/></label><label>Type<select value={projectType} onChange={e=>setProjectType(e.target.value)}>{projectTypes.map(v=><option key={v}>{v}</option>)}</select></label><label>Goal<textarea value={projectGoal} onChange={e=>setProjectGoal(e.target.value)} rows={2} placeholder="What are you making or learning?"/></label><button className="clw-primary" onClick={createProject} disabled={!projectTitle.trim()}><Plus size={15}/> Create project</button></div>
    <div className="clw-panel"><h3>Project library</h3>{projects.length===0?<p className="clw-empty">Your projects will appear here.</p>:projects.map(p=><div className={"clw-project "+(p.id===selected?"selected":"")} key={p.id}><button className="clw-project-pick" onClick={()=>setSelected(p.id)}><strong>{p.title}</strong><small>{p.type} · {p.status}</small></button><button className="clw-icon-button" onClick={()=>removeProject(p)} aria-label={"Delete "+p.title}><Trash2 size={15}/></button></div>)}</div>
    <div className="clw-panel clw-wide"><h3>Bring in project material</h3><p className="clw-help">Choose media or documents through Android's system picker. AURORA stores a reference, not a copy of the full media file.</p><div className="clw-media-actions"><button onClick={()=>importMedia("image")} disabled={!selected}>Import image reference</button><button onClick={()=>importMedia("video")} disabled={!selected}>Import video reference</button><button onClick={()=>importMedia("audio")} disabled={!selected}>Import audio reference</button><button onClick={importDocument} disabled={!selected}>Choose document</button></div></div>
-   <div className="clw-panel clw-wide"><h3>VoiceText transcription</h3><p className="clw-help">Select an audio recording and send it to AURORA VoiceText for transcription. Upload occurs only when you press Transcribe. Supported formats: MP3, M4A, WAV, WebM, OGG and AAC; maximum 1.2 MB for this first connected workflow. VoiceText returns the transcript and available speaker/timestamp segments. Video handoff and larger resumable files are planned for a later integration wave.</p><label className="clw-file">Choose audio recording<input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/aac,.mp3,.m4a,.wav,.webm,.ogg,.aac" onChange={e=>setMediaFile(e.target.files?.[0]||null)}/></label>{mediaFile&&<p className="clw-help">{mediaFile.name} · {Math.round(mediaFile.size/1024)} KB</p>}<div className="clw-actions"><button className="clw-primary" onClick={transcribeImportedMedia} disabled={!mediaFile||mediaBusy}>{mediaBusy?"Transcribing…":"Transcribe with VoiceText"}</button><button onClick={saveImportedTranscript} disabled={!mediaTranscript.trim()}>Save transcript to project</button></div>{mediaTranscript&&<label>Review and edit transcript and summary<textarea rows={12} value={mediaTranscript} onChange={e=>setMediaTranscript(e.target.value)}/></label>}</div>
+   <div className="clw-panel clw-wide"><h3>VoiceText transcription</h3><p className="clw-help">Select an audio recording and press Transcribe. Long recordings are captured and sent to VoiceText in sequential 20-second sections, so the full file is never packed into one oversized request. Progress is shown as sections complete; if a section fails, completed transcript sections remain available and you can resume. Supported formats: MP3, M4A, WAV, WebM, OGG and AAC. Upload begins only after you press Transcribe.</p><label className="clw-file">Choose audio recording<input type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/aac,.mp3,.m4a,.wav,.webm,.ogg,.aac" onChange={e=>{setMediaFile(e.target.files?.[0]||null);setMediaTranscript("");setMediaResumeOffset(0);setMediaProgress("");}}/></label>{mediaFile&&<p className="clw-help">{mediaFile.name} · {Math.round(mediaFile.size/1024)} KB{mediaFile.size>=3000000?" · Large recording — processed in sections":""}</p>}{mediaProgress&&<p className="clw-help" role="status">{mediaProgress}</p>}<div className="clw-actions"><button className="clw-primary" onClick={transcribeImportedMedia} disabled={!mediaFile||mediaBusy}>{mediaBusy?(mediaProgress||"Transcribing…"):mediaResumeOffset>0&&mediaResumeOffset<(mediaFile?.duration||Infinity)?"Resume transcription":mediaResumeOffset>0?"Transcribe again":"Transcribe with VoiceText"}</button><button onClick={saveImportedTranscript} disabled={!mediaTranscript.trim()}>Save transcript to project</button></div>{mediaTranscript&&<label>Review and edit transcript and summary<textarea rows={12} value={mediaTranscript} onChange={e=>setMediaTranscript(e.target.value)}/></label>}</div>
    <div className="clw-panel clw-wide"><h3>Image and PDF understanding</h3><p className="clw-help">Choose one image or PDF and ask AURORA to analyse its visible or document content. Files are sent to the configured AURORA AI service only when you press Analyse. Images are limited to 3 MB; PDFs to 3 MB. Review results for errors before saving.</p><label className="clw-file">Choose image or PDF<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e=>setAnalysisFile(e.target.files?.[0]||null)}/></label>{analysisFile&&<p className="clw-help">{analysisFile.name} · {Math.round(analysisFile.size/1024)} KB</p>}<div className="clw-actions"><button className="clw-primary" onClick={analyseSelectedMedia} disabled={!analysisFile||analysisBusy}>{analysisBusy?"Analysing…":"Analyse selected file"}</button><button onClick={saveMediaAnalysis} disabled={!analysisOutput.trim()}>Save analysis as draft</button></div>{analysisOutput&&<label>Review and edit analysis<textarea rows={10} value={analysisOutput} onChange={e=>setAnalysisOutput(e.target.value)}/></label>}</div>
    <div className="clw-panel clw-wide"><h3><Mic size={16}/> Speech-to-text capture</h3><p className="clw-help">Start recognition only when you tap the button. Android uses the installed speech-recognition service; supported browsers use their speech API. Results may depend on device language support and connectivity. AURORA does not save raw audio here—review the text before saving.</p><label>Transcript title<input value={transcriptTitle} onChange={e=>setTranscriptTitle(e.target.value)}/></label><label>Recognised text<textarea rows={6} value={transcriptText} onChange={e=>setTranscriptText(e.target.value)} placeholder="Your recognised words will appear here. You can also type or paste a transcript."/></label><div className="clw-media-actions"><button className="clw-primary" onClick={startTranscription} disabled={!selected||speechListening}><Mic size={14}/> Start listening</button><button onClick={stopTranscription} disabled={!speechListening}><Square size={14}/> Stop</button><button onClick={saveTranscript} disabled={!selected||!transcriptText.trim()}><FileText size={14}/> Save transcript</button></div></div>
    <div className="clw-panel clw-wide"><h3>Draft studio</h3>{!activeProject?<p className="clw-empty">Create or select a project to save drafts.</p>:<><p className="clw-context">Project: <strong>{activeProject.title}</strong></p><label>Draft title<input value={draftTitle} onChange={e=>setDraftTitle(e.target.value)}/></label><label>Your writing<textarea rows={6} value={draftText} onChange={e=>setDraftText(e.target.value)} placeholder="Paste a script, outline, notes or a draft here..."/></label><button className="clw-primary" onClick={saveDraft} disabled={!draftText.trim()}><Save size={15}/> Save draft</button><div className="clw-list">{projectDrafts.map(d=><article key={d.id}><strong>{d.title}</strong><p>{d.content.slice(0,180)}</p><small>{d.revisions.length} previous version(s)</small>{d.revisions.length>0&&<button onClick={()=>{if(window.confirm("Restore the most recently saved version of this draft? The current version will be kept in history."))run(()=>auroraRuntime.restoreCreativeDraftRevision(d.id,0,{confirmed:true}),"Previous draft version restored.");}}>Restore previous version</button>}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"draft",id:d.id,userApproved:true}),"Draft added to Knowledge Universe.")}>Save to Knowledge Universe</button></article>)}</div><h3>Source-aware project context</h3><p className="clw-help">Assemble only this project’s saved drafts and selected references into a bounded, source-labelled context pack. No AI analysis or media extraction is claimed.</p><div className="clw-actions"><button onClick={buildContext}>Build project context</button>{contextPreview&&<button onClick={copyContext}>Copy context</button>}</div>{contextPreview&&<textarea className="clw-context-preview" rows={8} readOnly value={contextPreview}/>}<h3>Project references</h3>{projectAssets.map(a=><div className="clw-reference" key={a.id}>{a.title} <small>· {a.type}</small>{a.uri&&a.mimeType&&<button onClick={()=>shareAsset(a)}>Share…</button>}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"asset",id:a.id,userApproved:true}),"Reference added to Knowledge Universe.")}>Save to Knowledge Universe</button></div>)}</>}</div>
