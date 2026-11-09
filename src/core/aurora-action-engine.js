@@ -26,7 +26,12 @@ function normalizeTimeout(value) {
 function raceWithSignal(operation, signal) {
   if (!signal) return operation;
   if (signal.aborted) return Promise.reject(signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled."));
-  return Promise.race([operation, new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled.")), { once: true }))]);
+  return new Promise((resolve, reject) => {
+    const onAbort = () => { cleanup(); reject(signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled.")); };
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
+    Promise.resolve(operation).then(value => { cleanup(); resolve(value); }, error => { cleanup(); reject(error); });
+  });
 }
 function normalizeRequirements(value, label) {
   if (value == null) return Object.freeze([]);
