@@ -30,7 +30,10 @@ function createAuroraProtectedMemory(options = {}) {
     if (!raw) return [];
     try {
       const ids = JSON.parse(raw);
-      return Array.isArray(ids) ? [...new Set(ids.filter(id => typeof id === "string" && SAFE_ID.test(id)))].slice(0, MAX_RECORDS) : [];
+      if (!Array.isArray(ids) || ids.length > MAX_RECORDS || ids.some(id => typeof id !== "string" || !SAFE_ID.test(id)) || new Set(ids).size !== ids.length) {
+        throw new Error("Protected memory index has an invalid structure; no records were changed.");
+      }
+      return ids;
     } catch {
       throw new Error("Protected memory index is unreadable; no records were changed.");
     }
@@ -68,8 +71,17 @@ function createAuroraProtectedMemory(options = {}) {
     if (!SAFE_ID.test(String(id))) throw new Error("Protected memory ID is invalid.");
     const raw = await read(RECORD_PREFIX + id);
     if (!raw) return null;
-    try { return Object.freeze(JSON.parse(raw)); }
-    catch { throw new Error("Protected memory record is unreadable."); }
+    try {
+      const record = JSON.parse(raw);
+      if (!record || typeof record !== "object" || Array.isArray(record) ||
+          record.id !== String(id) || typeof record.title !== "string" ||
+          typeof record.content !== "string" || record.content.length > MAX_CONTENT ||
+          typeof record.kind !== "string" || record.storage !== "android-keystore-encrypted" ||
+          typeof record.createdAt !== "string" || typeof record.updatedAt !== "string") {
+        throw new Error("invalid protected record schema");
+      }
+      return Object.freeze(record);
+    } catch { throw new Error("Protected memory record is unreadable or invalid; no data was changed."); }
   }
   async function list() {
     assertAvailable();
