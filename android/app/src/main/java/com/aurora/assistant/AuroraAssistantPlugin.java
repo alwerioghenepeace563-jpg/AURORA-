@@ -12,6 +12,8 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.provider.Settings;
 import android.net.Uri;
+import android.location.Location;
+import android.location.LocationManager;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -33,7 +35,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "contacts", strings = { Manifest.permission.READ_CONTACTS }), @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }), @Permission(alias = "calendar_read", strings = { Manifest.permission.READ_CALENDAR }) })
+@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "contacts", strings = { Manifest.permission.READ_CONTACTS }), @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }), @Permission(alias = "calendar_read", strings = { Manifest.permission.READ_CALENDAR }), @Permission(alias = "location", strings = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION }) })
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
@@ -146,6 +148,21 @@ public class AuroraAssistantPlugin extends Plugin {
         call.resolve(new JSObject()
             .put("shown", state.getBoolean("pulse_overlay_shown", false))
             .put("note", state.getString("pulse_overlay_note", "AURORA Pulse has not been started.")));
+    }
+
+    @PluginMethod
+    public void requestLocationPermission(PluginCall call) {
+        boolean granted = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (granted) { call.resolve(new JSObject().put("granted", true)); return; }
+        requestPermissionForAlias("location", call, "locationPermissionCallback");
+    }
+
+    @PermissionCallback
+    private void locationPermissionCallback(PluginCall call) {
+        boolean granted = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            || ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        call.resolve(new JSObject().put("granted", granted));
     }
 
     @PluginMethod
@@ -700,6 +717,41 @@ public class AuroraAssistantPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("cleared", true);
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getCurrentLocation(PluginCall call) {
+        boolean coarse = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean fine = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!coarse && !fine) { call.reject("Grant location permission before requesting your location."); return; }
+        try {
+            LocationManager manager = (LocationManager) getContext().getSystemService(android.content.Context.LOCATION_SERVICE);
+            if (manager == null) { call.reject("Android location services are unavailable."); return; }
+            Location best = null;
+            for (String provider : manager.getProviders(true)) {
+                try {
+                    Location candidate = manager.getLastKnownLocation(provider);
+                    if (candidate != null && (best == null || candidate.getTime() > best.getTime())) best = candidate;
+                } catch (SecurityException ignored) { }
+            }
+            if (best == null) { call.reject("No recent device location is available yet. Enable location services and try again."); return; }
+            long ageMs = Math.max(0L, System.currentTimeMillis() - best.getTime());
+            JSObject result = new JSObject();
+            result.put("latitude", best.getLatitude());
+            result.put("longitude", best.getLongitude());
+            result.put("accuracyMeters", best.hasAccuracy() ? best.getAccuracy() : -1);
+            result.put("provider", best.getProvider() == null ? "unknown" : best.getProvider());
+            result.put("timestamp", best.getTime());
+            result.put("ageMs", ageMs);
+            result.put("fresh", ageMs <= 120000L);
+            result.put("precision", fine ? "fine" : "coarse");
+            result.put("backgroundTracking", false);
+            call.resolve(result);
+        } catch (SecurityException e) {
+            call.reject("Android denied access to the device location.", e);
+        } catch (Exception e) {
+            call.reject("Could not read the device's last known location.", e);
+        }
     }
 
     @PluginMethod
