@@ -66,7 +66,7 @@ actionEngine.registerCapability({
 async function routeMessage(text) {
   const message = String(text || "").trim();
 
-  const confirmTask = message.match(/^(?:please\s+)?(?:confirm|run|execute)\s+(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})$/i);
+  const confirmTask = message.match(/^(?:please\s+)?(?:confirm|run|execute)\s+(?:(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})|(?:the\s+)?plan)$/i);
   if (confirmTask) {
     const taskId = confirmTask[1] || latestPendingTaskId;
     if (!latestPendingTaskId || taskId !== latestPendingTaskId) {
@@ -82,7 +82,7 @@ async function routeMessage(text) {
     };
   }
 
-  const cancelTask = message.match(/^(?:please\s+)?(?:cancel|discard)\s+(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})$/i);
+  const cancelTask = message.match(/^(?:please\s+)?(?:cancel|discard)\s+(?:(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})|(?:the\s+)?plan)$/i);
   if (cancelTask) {
     if ((cancelTask[1] || latestPendingTaskId) !== latestPendingTaskId || !latestPendingTaskId) return { tool: "aurora_task", context: "That is not the current pending task plan." };
     latestPendingTaskId = null;
