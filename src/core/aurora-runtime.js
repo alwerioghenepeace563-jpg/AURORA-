@@ -89,7 +89,11 @@ async function routeMessage(text) {
     return { tool: "aurora_task_cancelled", context: "The pending task plan was discarded. No actions were run." };
   }
 
+  latestPendingTaskId = null;
   const proposedPlan = planAuroraActions(message, actionEngine.listCapabilities());
+  if (proposedPlan?.unsupported) {
+    return { tool: "aurora_task_plan", status: "needs_clarification", context: "I detected a multi-action request, but I could not safely identify every step. No actions were run. Please separate or clarify these parts: " + proposedPlan.unsupportedClauses.join("; ") + "." };
+  }
   if (proposedPlan) {
     const plan = taskOrchestrator.createPlan(proposedPlan);
     latestPendingTaskId = plan.id;
