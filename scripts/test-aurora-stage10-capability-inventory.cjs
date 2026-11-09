@@ -193,6 +193,21 @@ assert.ok(capabilityRuntime.includes("otherNotificationsAffected: false"));
 console.log("AURORA Stage 10 notification tests passed: explicit approval, active-item validation and open-only behavior.");
 
 
+// Stage 10 Wave 13: approval-gated Android active media-session transport controls.
+assert.ok(notificationService.includes("controlActiveMedia(String requestedAction)"));
+for (const action of ["play_pause", "next", "previous"]) assert.ok(notificationService.includes('"'+action+'"'));
+assert.ok(notificationService.includes("Notification.EXTRA_MEDIA_SESSION"));
+assert.ok(notificationService.includes("MediaController.TransportControls"));
+assert.ok(notificationService.includes("controls.skipToNext()"));
+assert.ok(notificationService.includes("controls.skipToPrevious()"));
+assert.ok(nativeJava.includes("public void controlActiveMedia(PluginCall call)"));
+assert.ok(nativeBridge.includes("controlActiveMedia(options:"));
+assert.ok(nativeBridge.includes("controlActiveMedia: async"));
+assert.ok(capabilityRuntime.includes('id: "media.control_active_session"'));
+assert.ok(capabilityRuntime.includes('permissionRequirements: ["android.notification_access"]'));
+assert.ok(capabilityRuntime.includes("approvalRequired: true"));
+console.log("AURORA Stage 10 media-session tests passed: selected active session only, supported transport actions, Notification Access and explicit approval.");
+
 // Stage 10 Wave 12: expanded read-only device health diagnostics.
 assert.ok(nativeJava.includes("public void getDeviceStatus(PluginCall call)"));
 assert.ok(nativeJava.includes("BatteryManager.EXTRA_TEMPERATURE"));
