@@ -46,3 +46,12 @@ Generate the secret privately (for example with a password manager). Do not send
 ## Verification
 
 Run `npm run test:aurora-voicetext-bridge` in the main AURORA repository and `npm test` in VoiceText. A successful static contract test does not replace a live provider test with both Vercel secrets configured.
+
+
+### Stage 11 wave 19 — durable, account-scoped transcription recovery
+- Reused VoiceText's existing Supabase-backed `voicetext_recordings` table and private `voicetext-recordings` bucket; no duplicate Main AURORA media table or bucket is introduced.
+- VoiceText now stores an owner account ID on each job and scopes job status reads and checkpoint updates to that owner.
+- The Main AURORA server validates the caller's Supabase access token against Supabase Auth before proxying job creation, processing or status requests. The owner ID is derived from the verified Supabase response, never trusted from browser input.
+- Creative Studio now sends the signed-in session to the Main AURORA proxy. The existing local job-ID key enables recovery after an app restart when the user reselects the same original file.
+- Every accepted audio section and cumulative transcript remain stored in the private VoiceText Supabase job store. This is durable checkpointing and manual resume, not an unattended worker: the app must remain active while it sends further sections.
+- Added account-ownership contract tests and updated setup documentation. Live Supabase migration, service-role configuration, CI and device behaviour still require verification.
