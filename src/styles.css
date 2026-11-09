@@ -656,3 +656,4 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .clw-quiz-result{display:grid;gap:8px}
 .clw-quiz-feedback{border-top:1px solid var(--glass-border,rgba(255,255,255,.1));padding-top:6px}
 @media(max-width:520px){.clw-quiz-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.clw-caption-hit{border:1px solid var(--glass-border,rgba(255,255,255,.1));border-radius:11px;padding:10px}.clw-caption-hit p{white-space:pre-wrap;line-height:1.5;font-size:13px}.clw-caption-hit small{color:var(--text-secondary,#a8a9b8);font-size:11px}
