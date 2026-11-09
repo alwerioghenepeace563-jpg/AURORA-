@@ -11,7 +11,7 @@ for(const s of ["AURORA Media Browser & Download Centre","Search downloadable me
 console.log("AURORA Stage 11 media browser and download checks passed.");
 
 assert.match(workspace, /\[mediaSearchKind,setMediaSearchKind\]=useState\("image"\)/);
-assert.match(workspace, /\[mediaDownloading,setMediaDownloading\]=useState\(" "\)/);
+assert.match(workspace, /\[mediaDownloading,setMediaDownloading\]=useState\(""\)/);
 assert.match(workspace, /value={mediaSearchKind} onChange={e=>setMediaSearchKind\(e.target.value\)}/);
 assert.match(workspace, /type="\+mediaSearchKind/);
 assert.match(workspace, /item.downloadUrl/);
