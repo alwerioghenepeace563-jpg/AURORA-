@@ -134,7 +134,11 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Implementation wave 9 completed:** Wired the location capability into the shared chat runtime with a two-step consent flow (`prepare location access` then `confirm location access`) before Android permission is requested. A direct `where am I` request then executes through the shared Action Engine and its fresh approval broker, returning timestamp and freshness-aware results. The Stage 5 regression test now checks the consent path and chat routing as well as native bridge parity and all 12 family audit entries.
 
-**Remaining Stage 5 work:** Run and resolve the full automated core/architecture CI suite, then complete the cross-surface acceptance audit for Main, Pulse and voice. Document/media workflows remain bounded by explicit user selection and provider/platform support. No Stage 4 work is reopened.
+**Stage 5 COMPLETE — 2026-11-09 (code-level checkpoint):** All 12 capability families have coordinated audit coverage; the native Pulse bridge, calendar search, permission-gated one-shot location adapter, shared Action Engine approval/consent contracts, and chat-runtime location consent flow are implemented. The full GitHub Actions core/architecture test chain and web production build passed on commit `a42da3eb4f889ac1dc4e335fe5faae292bcf648b` (run 42597055150). Existing document/media actions remain deliberately user-selected and provider/platform bounded. This closes Stage 5 at the capability-adapter layer. **Not claimed:** APK compilation, physical-device behavior, or release readiness.
+
+### Stage 6 — Surface integration and device validation
+
+Connect Main, Pulse, voice, and future surfaces to the same runtime; add only necessary controls, then validate on supported Android versions and lower-memory devices. Verify accessibility, battery, offline behavior, failure recovery, and signing identity. Stage 6 is where cross-surface acceptance and device validation happen; it does not reopen completed Stage 5 adapter work.
 
 ### Stage 6 — Surface integration and device validation
 
