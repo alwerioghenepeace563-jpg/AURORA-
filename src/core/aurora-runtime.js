@@ -170,7 +170,8 @@ actionEngine.registerCapability({
 });
 
 
-async function routeMessage(text) {
+async function routeMessage(text, options = {}) {
+  const requestSurface = ["main_chat", "pulse", "voice"].includes(options?.surface) ? options.surface : "main_chat";
   const message = String(text || "").trim();
 
   const reminderMatch = message.match(/^remind me to (.{2,180}) in (\d{1,5})\s*(minutes?|mins?|hours?|hrs?|days?)$/i);
@@ -488,9 +489,18 @@ async function routeMessage(text) {
     const receipt = await actionEngine.execute({ capabilityId: "files.pick_document", input: {} });
     if (receipt.status !== "completed") return { error: receipt.error?.message || "The file picker could not open." };
     if (receipt.result?.cancelled) return { tool: "android_file_picker", context: "File selection was cancelled." };
-    return { tool: "android_file_picker", context: receipt.result?.textIncluded
-      ? "The user selected " + receipt.result.name + ". Its text content is available for the next assistant step.\n\n" + receipt.result.text
-      : "The user selected " + receipt.result?.name + ". " + (receipt.result?.note || "This file type is not available as a plain-text preview.") };
+    if (!receipt.result?.textIncluded || typeof receipt.result.text !== "string") {
+      return { tool: "android_file_picker", context: "The user selected " + receipt.result?.name + ". " + (receipt.result?.note || "This file type is not available as a plain-text preview.") };
+    }
+    const contextSession = contextSessions.begin({ source: "document", surface: requestSurface, userInitiated: true, ttlMs: 30000 });
+    let documentContext;
+    try {
+      documentContext = contextSessions.consume(contextSession.id, receipt.result.text);
+    } catch (captureError) {
+      contextSessions.revoke(contextSession.id);
+      return { error: captureError?.message || "The selected document context could not be prepared." };
+    }
+    return { tool: "android_file_picker", context: "The user selected " + receipt.result.name + ". Its bounded text content is available for the next assistant step.\n\n" + documentContext.text, contextMetadata: { source: documentContext.source, characterCount: documentContext.text.length, truncated: documentContext.truncated } };
   }
 
   // Explicit navigation requests use the registered native capability adapters.
