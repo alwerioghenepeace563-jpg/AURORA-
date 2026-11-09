@@ -488,6 +488,21 @@ for (const method of requiredNativeMethods) {
   }
 }
 
+for (const [fileName, required] of [
+  ["AuroraSecureStoragePlugin.java", ["getOrCreateKey", "AES/GCM/NoPadding", "getNoBackupFilesDir", "void set(PluginCall call)", "void get(PluginCall call)", "void remove(PluginCall call)"]],
+  ["AuroraReminderPlugin.java", ["void requestNotificationPermission(PluginCall call)", "void schedule(PluginCall call)", "void cancel(PluginCall call)", "void list(PluginCall call)"]],
+  ["AuroraReminderReceiver.java", ["class AuroraReminderReceiver", "BOOT_COMPLETED", "setAndAllowWhileIdle"]]
+]) {
+  const filePath = path.join(javaRoot, fileName);
+  if (!fs.existsSync(filePath)) throw new Error("Missing required native foundation: " + fileName);
+  const source = fs.readFileSync(filePath, "utf8");
+  for (const marker of required) if (!source.includes(marker)) throw new Error(fileName + " is missing required implementation marker: " + marker);
+}
+const manifest = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
+if (!manifest.includes(".AuroraReminderReceiver") || !manifest.includes("android.permission.RECEIVE_BOOT_COMPLETED")) {
+  throw new Error("Reminder receiver or reboot permission is missing from AndroidManifest.xml");
+}
+
 const xmlDir = path.join(android, "app/src/main/res/xml");
 fs.mkdirSync(xmlDir, { recursive: true });
 fs.writeFileSync(path.join(xmlDir, "aurora_accessibility_service.xml"), `<?xml version="1.0" encoding="utf-8"?>
