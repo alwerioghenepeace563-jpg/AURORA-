@@ -1,0 +1,26 @@
+const assert=require("node:assert/strict");
+(async()=>{
+ const {createAuroraEventBus}=await import("../src/core/aurora-event-bus.js");
+ const {createAuroraEnvironmentMonitor}=await import("../src/core/aurora-environment-monitor.js");
+ const listeners=new Map();
+ const target={addEventListener:(n,f)=>{if(!listeners.has(n))listeners.set(n,new Set());listeners.get(n).add(f);},removeEventListener:(n,f)=>listeners.get(n)?.delete(f)};
+ const nav={onLine:true,deviceMemory:2,connection:{effectiveType:"4g",saveData:false,...target}};
+ const events=createAuroraEventBus(),seen=[];events.subscribe("app.environment.changed",e=>seen.push(e));
+ const monitor=createAuroraEnvironmentMonitor({events,navigator:nav,window:target});
+ assert.equal(monitor.getStatus().connectivity,"online");
+ assert.equal(monitor.getStatus().deviceMemoryGb,2);
+ assert.equal(monitor.getStatus().adaptiveMode,"conserve");
+ nav.onLine=false;for(const fn of listeners.get("offline")||[])fn();
+ assert.equal(monitor.getStatus().connectivity,"offline");
+ nav.connection.effectiveType="2g";for(const fn of listeners.get("change")||[])fn();
+ assert.equal(monitor.getStatus().networkType,"2g");
+ assert.ok(seen.length>=3);
+ assert.equal("transcript" in seen.at(-1).payload,false);
+ assert.equal(monitor.dispose(),true);assert.equal(monitor.dispose(),false);
+ assert.equal(listeners.get("offline").size,0);
+ const unknown=createAuroraEnvironmentMonitor({events,navigator:{},window:null});
+ assert.equal(unknown.getStatus().deviceMemoryGb,null);
+ assert.equal(unknown.getStatus().batteryPercent,null);
+ unknown.dispose();
+ console.log("AURORA environment monitor tests passed.");
+})().catch(error=>{console.error(error);process.exitCode=1;});
