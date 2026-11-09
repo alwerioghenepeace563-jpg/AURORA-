@@ -1,0 +1,70 @@
+package com.aurora.assistant;
+
+import android.service.notification.NotificationListenerService;
+import android.service.notification.StatusBarNotification;
+import android.content.Context;
+import android.os.Bundle;
+import android.app.Notification;
+import com.getcapacitor.JSObject;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class AuroraNotificationListenerService extends NotificationListenerService {
+    private static final String PREFS = "aurora_notification_cache";
+    private static final String KEY = "recent";
+    private static final int MAX_ITEMS = 20;
+
+    @Override
+    public void onNotificationPosted(StatusBarNotification sbn) {
+        if (sbn == null || sbn.getPackageName() == null || sbn.getPackageName().equals(getPackageName())) return;
+        Notification notification = sbn.getNotification();
+        if (notification == null || (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0) return;
+        Bundle extras = notification.extras;
+        String title = extras == null ? "" : String.valueOf(extras.getCharSequence(Notification.EXTRA_TITLE, ""));
+        CharSequence textValue = extras == null ? "" : extras.getCharSequence(Notification.EXTRA_BIG_TEXT);
+        if (textValue == null || textValue.length() == 0) textValue = extras == null ? "" : extras.getCharSequence(Notification.EXTRA_TEXT, "");
+        String text = textValue == null ? "" : textValue.toString();
+        if (title.trim().isEmpty() && text.trim().isEmpty()) return;
+        try {
+            synchronized (AuroraNotificationListenerService.class) {
+                JSONArray old = readArray(this);
+                JSONArray next = new JSONArray();
+                JSONObject item = new JSONObject();
+                item.put("packageName", sbn.getPackageName());
+                item.put("title", limit(title, 180));
+                item.put("text", limit(text, 500));
+                item.put("postedAt", sbn.getPostTime());
+                item.put("key", sbn.getKey());
+                next.put(item);
+                for (int i = 0; i < old.length() && next.length() < MAX_ITEMS; i++) {
+                    JSONObject previous = old.optJSONObject(i);
+                    if (previous != null && !sbn.getKey().equals(previous.optString("key"))) next.put(previous);
+                }
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY, next.toString()).apply();
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private static String limit(String value, int max) {
+        if (value == null) return "";
+        String clean = value.replaceAll("[\\r\\n\\t]+", " ").trim();
+        return clean.length() > max ? clean.substring(0, max) : clean;
+    }
+
+    private static JSONArray readArray(Context context) {
+        try { return new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]")); }
+        catch (Exception ignored) { return new JSONArray(); }
+    }
+
+    public static JSObject readRecent(Context context) {
+        JSObject result = new JSObject();
+        result.put("items", readArray(context).toString());
+        result.put("localOnly", true);
+        result.put("limit", MAX_ITEMS);
+        return result;
+    }
+
+    public static void clearRecent(Context context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply();
+    }
+}
