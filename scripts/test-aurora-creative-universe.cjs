@@ -52,6 +52,15 @@ const assert = require("node:assert/strict");
  creative.saveQuizAttempt(failedQuiz,{0:"wrong answer"},{userApproved:true});
  assert.equal(creative.quizPerformance({subject:"biology"}).attemptCount,1);
  assert.equal(creative.quizPerformance().averagePercentage,50);
+ const insights=creative.learningInsights();
+ assert.equal(insights.localOnly,true);
+ assert.equal(insights.attempts,2);
+ assert.equal(insights.subjects[0].subject,"Biology");
+ assert.equal(insights.subjects[0].averagePercentage,0);
+ assert.equal(insights.reviewTargets[0].prompt,"What is a cell?");
+ assert.equal(insights.reviewTargets[0].missed,1);
+ assert.equal(insights.reviewTargets[0].missRate,50);
+
  assert.equal(creative.search("What is a cell").some(item=>item.kind==="quiz_attempt"),true);
  const legacyValues=new Map([["aurora.creative.universe.v1",JSON.stringify({version:1,projects:[],assets:[],drafts:[],decks:[]})]]);
  const migrated=createAuroraCreativeUniverse({storage:{getItem:k=>legacyValues.get(k)??null,setItem:(k,v)=>legacyValues.set(k,v)}});
