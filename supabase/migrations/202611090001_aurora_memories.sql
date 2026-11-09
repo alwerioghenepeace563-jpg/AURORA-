@@ -32,3 +32,7 @@ create policy "Users can delete their own AURORA memories"
 
 create index if not exists aurora_memories_user_updated_idx
   on public.aurora_memories (user_id, updated_at desc);
+
+-- The anon role cannot access this table; authenticated access is still constrained by RLS.
+revoke all on public.aurora_memories from anon;
+grant select, insert, update, delete on public.aurora_memories to authenticated;
