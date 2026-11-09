@@ -37,7 +37,7 @@ The migration `supabase/migrations/202611090001_aurora_memories.sql` creates the
 - Reminders may arrive later than the requested minute because they are inexact alarms. Exact-alarm permission is intentionally not requested.
 - This is reminder scheduling, not an autonomous arbitrary-action workflow. Device-changing or external actions still require a fresh AURORA approval.
 
-Supported initial phrasing: `remind me to revise biology in 30 minutes`, `remind me to call the dentist in 2 hours`, or `remind me to review notes in 1 day`.
+Supported initial phrasing: `remind me to revise biology in 30 minutes`, `remind me to call the dentist in 2 hours`, or `remind me to review notes in 1 day`. Say `show reminders` to list scheduled reminders, or `cancel reminder <id>` to cancel one.
 
 ## Wake word
 
