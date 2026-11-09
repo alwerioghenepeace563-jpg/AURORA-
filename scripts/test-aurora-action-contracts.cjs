@@ -55,5 +55,30 @@ const assert = require("node:assert/strict");
 
   const listed = allowed.listCapabilities().find(item => item.id === "test.authorized");
   assert.deepEqual(listed.permissionRequirements, ["android.contacts"]);
+  assert.equal(listed.timeoutMs, 15000);
+  assert.equal(listed.idempotency, "request-id");
+  assert.throws(() => allowed.registerCapability({ id: "test.invalid_timeout", timeoutMs: 99, execute: async () => ({}) }), /timeoutMs/i);
+
+  const cancellable = createAuroraActionEngine();
+  cancellable.registerCapability({
+    id: "test.cancel_action", timeoutMs: 5000,
+    execute: async (_input, context) => new Promise(resolve => context.signal.addEventListener("abort", () => resolve({ stopped: true }), { once: true }))
+  });
+  const pendingCancellation = cancellable.execute({ capabilityId: "test.cancel_action", requestId: "contract-cancel" });
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(cancellable.cancel("contract-cancel"), true);
+  const cancelledReceipt = await pendingCancellation;
+  assert.equal(cancelledReceipt.status, "failed");
+  assert.equal(cancelledReceipt.error.code, "ACTION_CANCELLED");
+
+  const timed = createAuroraActionEngine();
+  timed.registerCapability({
+    id: "test.timeout_action", timeoutMs: 100,
+    execute: async (_input, context) => new Promise(resolve => context.signal.addEventListener("abort", () => resolve({ stopped: true }), { once: true }))
+  });
+  const timeoutReceipt = await timed.execute({ capabilityId: "test.timeout_action", requestId: "contract-timeout" });
+  assert.equal(timeoutReceipt.status, "failed");
+  assert.equal(timeoutReceipt.error.code, "ACTION_TIMEOUT");
+
   console.log("AURORA action contract tests passed: fail-closed permission/consent gates, verified completion, and registration validation.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
