@@ -29,8 +29,10 @@ import { createAuroraSecureStore } from "./aurora-secure-store";
 import { createAuroraProtectedMemory } from "./aurora-protected-memory";
 import { createAuroraReliabilityCoordinator } from "./aurora-reliability-coordinator";
 import { createAuroraSurfaceGateway } from "./aurora-surface-gateway";
+import { connectAuroraApprovalEvents } from "./aurora-approval-event-bridge";
 
 const approvalBroker = createAuroraApprovalBroker();
+connectAuroraApprovalEvents(approvalBroker, auroraEvents);
 const actionEngine = createAuroraCapabilityRuntime({
   approve: (proposal) => approvalBroker.request(proposal),
   authorize: async ({ capability }) => {
