@@ -700,3 +700,11 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - The app persists only the job ID and source-file fingerprint locally. After closing/reopening, the user reselects the same original recording; AURORA retrieves the saved transcript and completed-section count, then resumes at the next unprocessed section without repeating completed work.
 - Added backend setup documentation for the private table, Storage bucket, server-only service-role key and optional anon key. Existing integration credentials remain server-only.
 - This is durable resumability, not unattended background execution: audio capture and section submission still require the app to remain active. A server-side worker/queue, true background continuation, live provider round-trip and physical-device validation remain separate work. Supabase migration application and VoiceText server environment configuration are required before runtime use.
+
+
+### Stage 11 wave 20 — local video audio extraction into VoiceText
+- Expanded the Creative Studio media picker to accept MP4, WebM and MOV containers alongside supported audio formats.
+- For a selected video, AURORA uses the browser's local video element and audio graph to capture only the audio track into the existing 20-second section pipeline. The original video is not uploaded to VoiceText; only bounded audio sections enter the authenticated, account-scoped durable job workflow.
+- Reuses the same Supabase-backed checkpoint and resume path, so video-derived audio jobs can resume after reselecting the same source file.
+- Added static regression checks for video MIME types, video-element extraction and audio-only section submission.
+- This is transcription of a video's audio, not visual video understanding. Container/codec compatibility depends on the browser and device; silent or undecodable tracks cannot be transcribed. Background execution after AURORA closes, live provider round-trip, migration application and physical Android validation remain separate gates.
