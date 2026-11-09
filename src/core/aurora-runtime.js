@@ -448,9 +448,11 @@ async function routeMessage(text, options = {}) {
       tool: "aurora_task_status",
       taskId: item.taskId,
       status: item.status,
+      verificationStatus: item.result?.verificationStatus || "unknown",
+      steps: (item.result?.steps || []).map(step => ({ stepId: step.stepId, status: step.status, verificationStatus: step.verificationStatus || "unknown" })),
       updatedAt: item.updatedAt,
       events: item.events,
-      context: "Task status: " + item.status + ". Last updated " + (item.updatedAt || "unknown") + ". Recorded activity: " + (item.events || []).slice(-8).map(event => event.type + (event.status ? " (" + event.status + ")" : "")).join("; ") + ". This is a local metadata-only history; it does not resume or repeat any action."
+      context: "Task status: " + item.status + ". Verification: " + (item.result?.verificationStatus || "unknown") + ". Last updated " + (item.updatedAt || "unknown") + ". Recorded activity: " + (item.events || []).slice(-8).map(event => event.type + (event.status ? " (" + event.status + ")" : "")).join("; ") + ". This is a local metadata-only history; it does not resume or repeat any action."
     };
   }
 
