@@ -606,6 +606,30 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_knowledge_timeline", items: items.map(item => ({ id: item.id, title: item.title, type: item.type, updatedAt: item.updatedAt, projectId: item.projectId })), context: items.length ? "Your recent approved knowledge sources, newest first." : "Your knowledge timeline is empty." };
   }
 
+  const knowledgeRecordMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\\s+)?(?:show|open) knowledge source ([a-zA-Z0-9_.-]{3,100})$/i);
+  if (knowledgeRecordMatch) {
+    const item = auroraKnowledgeUniverse.get(knowledgeRecordMatch[1]);
+    return item
+      ? { tool: "aurora_knowledge_source", record: item, context: "This is the saved local source, including its provenance and revision history. It has not been opened externally." }
+      : { tool: "aurora_knowledge_source", status: "not_found", context: "I couldn't find that source ID in your local knowledge universe." };
+  }
+
+  const relatedKnowledgeMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\\s+)?(?:show|find) related (?:knowledge|sources) for ([a-zA-Z0-9_.-]{3,100})$/i);
+  if (relatedKnowledgeMatch) {
+    const result = auroraKnowledgeUniverse.related(relatedKnowledgeMatch[1], { maxDepth: 3, limit: 50 });
+    return result
+      ? { tool: "aurora_related_knowledge", record: { id: result.record.id, title: result.record.title }, links: result.links, related: result.related.map(item => ({ id: item.id, title: item.title, type: item.type, summary: item.summary, source: item.source })), context: result.related.length ? "Connected approved sources found across up to three relationship steps." : "This source has no connected knowledge records yet." }
+      : { tool: "aurora_related_knowledge", status: "not_found", context: "I couldn't find that source ID in your local knowledge universe." };
+  }
+
+  const connectKnowledgeMatch = message.match(/^connect knowledge ([a-zA-Z0-9_.-]{3,100}) to ([a-zA-Z0-9_.-]{3,100}) as ([a-z][a-z0-9_.-]{1,47})$/i);
+  if (connectKnowledgeMatch) {
+    try {
+      const edge = auroraKnowledgeUniverse.link({ from: connectKnowledgeMatch[1], to: connectKnowledgeMatch[2], relation: connectKnowledgeMatch[3] });
+      return { tool: "aurora_knowledge_link", link: edge, context: edge.duplicate ? "That relationship already exists." : "Connected the two saved sources in your local knowledge universe." };
+    } catch (error) { return { error: error?.message || "I couldn't connect those knowledge sources." }; }
+  }
+
   const forgetMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?forget (?:the memory|what i said|that) (?:about\s+)?(.+?)\??$/i);
   if (forgetMatch?.[1]) {
     const search = await actionEngine.execute({ capabilityId: "memory.search", input: { query: forgetMatch[1].trim() } });
