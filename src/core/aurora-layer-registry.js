@@ -264,6 +264,7 @@ function createAuroraLayerRegistry() {
     stageThreeEvidence: [...(STAGE_THREE_LAYER_AUDIT[item.id] || [])],
     stageFiveEvidence: [...(STAGE_FIVE_LAYER_AUDIT[item.id] || [])],
     stageSixEvidence: [...(STAGE_SIX_LAYER_AUDIT[item.id] || [])],
+    stageSevenEvidence: [...(STAGE_SEVEN_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
