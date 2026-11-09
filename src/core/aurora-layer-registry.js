@@ -208,6 +208,36 @@ const STAGE_SEVEN_CHECKPOINT = Object.freeze({
   deferredDeviceValidation: STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION
 });
 
+const STAGE_EIGHT_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["task status and recovery review exposed through the shared runtime", "device handoffs remain sequenced and approval-gated", "no task recovery replays device actions automatically"]),
+  voice_multimodal: Object.freeze(["task activity can be queried through the shared assistant runtime", "task and workflow previews remain surface-independent", "voice confirmation is required before a prepared plan executes"]),
+  screen_accessibility: Object.freeze(["review commands expose task metadata without capturing screen content", "selected screen context remains opt-in and scoped to the requesting task", "recovery views do not replay accessibility reads"]),
+  communication_people: Object.freeze(["workflow inventory exposes only saved workflow metadata", "message, call and share steps retain native approval gates", "workflow removal never sends or repeats communication actions"]),
+  location_travel: Object.freeze(["task status reports map handoff state without refreshing location", "location and directions actions remain fresh-request and permission gated", "recovery requires a newly reviewed plan"]),
+  calendar_productivity: Object.freeze(["saved workflows can be listed and removed by exact title", "task status and event history are available across assistant surfaces", "scheduled routines remain reminders rather than unattended workflow execution"]),
+  files_knowledge: Object.freeze(["task journal persists bounded metadata only", "file and document contents are excluded from recovery history", "reviewed recovery requires a fresh context selection"]),
+  media_creative: Object.freeze(["workflow inventory includes media workflow metadata only", "media handoffs are not repeated during recovery", "task history excludes raw media payloads"]),
+  intelligence_personalisation: Object.freeze(["task status and recovery inspection share one runtime", "saved workflows remain local and user-managed", "memory and private task inputs are excluded from activity summaries"]),
+  extensions_interoperability: Object.freeze(["workflow plans resolve current registered capabilities before preparation", "removed or unavailable capabilities fail closed during instantiation", "extension actions retain Action Engine authorization"]),
+  safety_privacy_security: Object.freeze(["status and recovery commands are read-only", "recovery never auto-resumes or replays external actions", "fresh confirmation is required for every new plan", "journal stores metadata only and excludes task text and action inputs"]),
+  reliability_operations: Object.freeze(["task status exposes bounded recent journal events", "interrupted task inspection distinguishes completed from unverified steps", "workflow removal and task cancellation remain separate", "new Stage 8 command regressions are required in core CI"])
+});
+const STAGE_EIGHT_CHECKPOINT = Object.freeze({
+  id: 8,
+  name: "Proactive intelligence and coordinated workflows",
+  status: "in_progress",
+  startedAt: "2026-11-09",
+  scope: "Stage 8 is active across all 12 capability families. The first implementation wave adds cross-surface task activity/status inspection, explicit recovery review, and user-managed saved workflow inventory/removal. Existing workflow preparation remains preview-first and every execution requires fresh confirmation.",
+  validationBoundary: "This is an implementation checkpoint, not Stage 8 completion. The new core CI suite must pass, and further coordinated workflow improvements remain in scope. Physical Android behavior remains a separate device-validation gate.",
+  deliverables: Object.freeze([
+    "Expose task status and bounded activity history from Main Chat, Pulse, and voice through the shared runtime.",
+    "Allow explicit review of interrupted task progress without automatic resumption or replay.",
+    "Allow users to list and remove saved workflows by exact title.",
+    "Keep workflow storage local, metadata-only task journaling, fresh execution confirmation, and existing capability approval gates.",
+    "Continue coordinated improvements across all 12 capability families with focused regression coverage."
+  ])
+});
+
 const STAGE_FIVE_LAYER_AUDIT = Object.freeze({
   android_device: Object.freeze(["Android app launch and device status adapters", "flashlight control behind camera permission", "Pulse overlay native show/hide/status bridge", "one-shot location read with explicit freshness metadata"]),
   voice_multimodal: Object.freeze(["native speech recognition start/stop", "native speech synthesis start/stop", "shared speech lifecycle events", "foreground assistant service approval gate"]),
@@ -265,11 +295,12 @@ function createAuroraLayerRegistry() {
     stageFiveEvidence: [...(STAGE_FIVE_LAYER_AUDIT[item.id] || [])],
     stageSixEvidence: [...(STAGE_SIX_LAYER_AUDIT[item.id] || [])],
     stageSevenEvidence: [...(STAGE_SEVEN_LAYER_AUDIT[item.id] || [])],
+    stageEightEvidence: [...(STAGE_EIGHT_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
@@ -278,6 +309,7 @@ function createAuroraLayerRegistry() {
     stageSixDeferredDeviceValidation: STAGE_SIX_DEFERRED_DEVICE_VALIDATION,
     stageSevenAudit: STAGE_SEVEN_LAYER_AUDIT,
     stageSevenDeferredDeviceValidation: STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION,
+    stageEightAudit: STAGE_EIGHT_LAYER_AUDIT,\n    stageEightCheckpoint: STAGE_EIGHT_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -293,6 +325,8 @@ function createAuroraLayerRegistry() {
       stageSevenStatus: STAGE_SEVEN_CHECKPOINT.status,
       stageSevenCodeComplete: STAGE_SEVEN_CHECKPOINT.status === "complete",
       stageSevenAuditedLayers: families.filter((item) => (STAGE_SEVEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
+      stageEightStatus: STAGE_EIGHT_CHECKPOINT.status,
+      stageEightAuditedLayers: families.filter((item) => (STAGE_EIGHT_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageSixStatus: STAGE_SIX_CHECKPOINT.status,
       stageSixCodeComplete: STAGE_SIX_CHECKPOINT.status === "complete",
       stageSixAuditedLayers: families.filter((item) => (STAGE_SIX_LAYER_AUDIT[item.id] || []).length >= 2).length,
@@ -310,4 +344,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
