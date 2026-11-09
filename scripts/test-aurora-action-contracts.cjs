@@ -76,6 +76,34 @@ const assert = require("node:assert/strict");
   assert.equal(cancelledReceipt.status, "failed");
   assert.equal(cancelledReceipt.error.code, "ACTION_CANCELLED");
 
+  async function assertPreflightTimeout(label, configure) {
+    const engine = createAuroraActionEngine(configure.engineOptions || {});
+    let failureEvents = 0;
+    engine.subscribe(event => { if (event.type === "action.failed") failureEvents++; });
+    engine.registerCapability({
+      id: "test.preflight_" + label,
+      timeoutMs: 100,
+      ...(configure.capability || {}),
+      execute: async () => { throw new Error("Execution must not start after preflight timeout."); }
+    });
+    const receipt = await engine.execute({ capabilityId: "test.preflight_" + label, requestId: "contract-preflight-" + label });
+    assert.equal(receipt.status, "failed", label + " timeout must return a failure receipt.");
+    assert.equal(receipt.error.code, "ACTION_TIMEOUT", label + " timeout must preserve ACTION_TIMEOUT.");
+    assert.equal(failureEvents, 1, label + " timeout must publish exactly one failure event.");
+    assert.equal(engine.getReceipt("contract-preflight-" + label), receipt);
+  }
+
+  await assertPreflightTimeout("availability", {
+    capability: { availability: () => new Promise(() => {}) }
+  });
+  await assertPreflightTimeout("validation", {
+    capability: { validate: () => new Promise(() => {}) }
+  });
+  await assertPreflightTimeout("authorization", {
+    engineOptions: { authorize: () => new Promise(() => {}) },
+    capability: { permissionRequirements: ["android.contacts"] }
+  });
+
   const timed = createAuroraActionEngine();
   timed.registerCapability({
     id: "test.timeout_action", timeoutMs: 100,
