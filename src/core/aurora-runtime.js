@@ -376,7 +376,7 @@ async function routeMessage(text, options = {}) {
       : { tool: "aurora_task_review", status: "not_found", context: "I couldn't find a recoverable plan for that task in the local journal." };
   }
 
-  if (/^(?:show|list) (?:my )?(?:saved )?workflows\\??$/i.test(message)) {
+  if (/^(?:show|list) (?:my )?(?:saved )?workflows\??$/i.test(message)) {
     const items = auroraWorkflows.list();
     return {
       tool: "aurora_workflows",
