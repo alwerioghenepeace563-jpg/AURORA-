@@ -258,11 +258,11 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 
 **Stage 7 acceptance rule:** implement coordinated capability changes across all 12 families, add focused and cross-layer regression tests, pass the full core/architecture CI and web build, and label native/device-dependent behavior as unverified until physical Android checks are actually performed. Do not build APKs, change signing material, or deploy during this stage unless the user explicitly asks.
 
-### Stage 8 — Proactive intelligence and coordinated workflows (active)
+### Stage 8 — Proactive intelligence and coordinated workflows (code and CI complete; device validation deferred)
 
 **Whole-system objective:** Make AURORA consistently useful across Main Chat, Pulse, voice, and Android by turning the existing context, memory, task planner, specialist coordinator, workflow registry, reminders, and capability catalogue into coherent user-controlled end-to-end workflows.
 
-**Implementation wave 1 — Cross-surface workflow observability and user controls (code committed; CI pending):**
+**Implementation wave 1 — Cross-surface workflow observability and user controls (code committed; core CI and web build passed):**
 - Main Chat, Pulse, and voice share new read-only task status and bounded activity-history commands through the same runtime.
 - Users can explicitly inspect an interrupted task by ID. Recovery inspection distinguishes completed steps from steps whose external outcome cannot be verified; it never resumes or repeats actions.
 - Users can list saved workflows and remove a workflow by its exact title. Ambiguous or missing titles fail closed.
@@ -307,7 +307,7 @@ Stage 8 will advance all 12 capability families together:
 - If the task is not active, AURORA reports that no cancellation action was taken.
 - Added Stage 8 regression coverage and architecture evidence across all 12 capability families.
 
-**Implementation wave 6 — Verified outcomes and stable retry identity (code committed; latest CI pending):**
+**Implementation wave 6 — Verified outcomes and stable retry identity (code committed; core CI and web build passed):**
 - The Action Engine now passes a stable provider idempotency key into each capability adapter. A permitted retry uses the same key as the original task step, allowing adapters to deduplicate the same logical operation instead of treating every attempt as a new operation.
 - This is not permission to retry arbitrary actions: only explicitly declared idempotent adapters remain eligible, the user must confirm, and retries remain capped.
 - Each task step now reports one of three truthful states: verified, unverified, or not applicable. The task summary reports verified, partially verified, unverified, or not applicable.
@@ -323,7 +323,7 @@ Stage 8 will advance all 12 capability families together:
 - Retry results are reported from the action receipt, and any further action requires fresh confirmation.
 - Added orchestrator tests and shared-runtime command regression coverage; Stage 8 evidence updated across all 12 capability families.
 
-**Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build on the latest Stage 8 commit; user confirmation, permission, consent, cancellation, stable idempotency, truthful verification and review-only recovery remain enforced. Device certification stays a separate release gate.
+**Stage 8 completion checkpoint (2026-11-09):** all 12 capability families have coordinated workflow evidence. Commit `8f12f8766ffbb0e15f9ce110baae8ca787745cdc` passed dependency installation, enforcing dependency audit, the complete core/architecture test chain (including Stage 8 regressions), and the web production build in GitHub Actions run `42612785412`. User confirmation, permission, consent, cancellation, stable idempotency, truthful verification and review-only recovery are covered by the passing code/test checkpoint. Physical Android behavior, microphone/device integration and release certification remain explicitly deferred; no APK or release readiness is claimed.
 
 ## Complete vision roadmap and remaining stages
 
@@ -339,7 +339,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 | 6. Connected ecosystem | 12–13 | Opt-in predictive/sensor intelligence, connected devices and interoperable extensions |
 | 7. Experimental intelligence | 14 | Extensible research capabilities, evaluation, controlled experiments and safe rollout |
 
-### Stage 9 — Personal Knowledge Universe
+### Stage 9 — Personal Knowledge Universe (next active stage)
 - Build a durable relationship graph connecting user-approved notes, documents, projects, tasks, conversations, saved websites, recordings, images and events.
 - Support questions such as “find everything related to this project”, “what decisions did I make?” and “compare the original idea with the latest version”.
 - Add source citations/provenance, duplicate detection, timeline views, scoped search, user correction and deletion.
