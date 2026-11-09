@@ -118,6 +118,32 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "communication.prepare_email",
+    label: "Prepare an email",
+    category: "communication",
+    description: "Open Android's email composer with validated recipients, subject and draft text. AURORA never sends the email; the user reviews and taps Send.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => {
+      const valid = requiredString(input?.to, "Email recipient");
+      if (valid !== true) return valid;
+      const recipients = input.to.split(/[,;]/).map((address) => address.trim()).filter(Boolean);
+      if (!recipients.length || recipients.length > 10 || recipients.length !== input.to.split(/[,;]/).length) return "Provide 1 to 10 valid email recipients.";
+      const emailPattern = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+      if (recipients.some((address) => !emailPattern.test(address))) return "Check the email recipient addresses.";
+      if (input?.subject != null && (typeof input.subject !== "string" || input.subject.length > 200)) return "Email subject must be text no longer than 200 characters.";
+      if (input?.body != null && (typeof input.body !== "string" || input.body.length > 8000)) return "Email draft must be text no longer than 8000 characters.";
+      return true;
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Email composer handoff requires the Android app." }),
+    execute: async ({ to, subject = "", body = "" }) => {
+      const result = await auroraNative.prepareEmail(to.trim(), subject, body);
+      if (!result?.opened) throw new Error("Android did not confirm that the email composer opened.");
+      return { ...result, requiresUserReview: true, requiresUserSend: true, sentByAurora: false };
+    }
+  });
+
+  engine.registerCapability({
     id: "communication.share_text",
     label: "Share text",
     category: "communication",
