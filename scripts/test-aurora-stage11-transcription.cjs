@@ -11,7 +11,7 @@ assert.match(workspace, /Transcribe and summarise/);
 assert.match(workspace, /Save transcript to project/);
 assert.ok(workspace.includes("mediaFile.size>2500000"));
 assert.ok(workspace.includes("media:{mimeType:mediaFile.type,data}"));
-assert.match(workspace, /user-selected audio\/video/);
+assert.match(workspace, /User-selected audio\/video/i);
 assert.match(workspace, /AI lesson builder/);
 assert.match(workspace, /Image and PDF understanding/);
 assert.ok(workspace.includes("application/pdf"));
