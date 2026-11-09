@@ -29,6 +29,8 @@ type AuroraNativePlugin = {
   startAssistantService(): Promise<{ started: boolean; note?: string }>;
   stopAssistantService(): Promise<{ stopped: boolean }>;
   requestContactsPermission(): Promise<{ granted: boolean }>;
+  requestCalendarReadPermission(): Promise<{ granted: boolean }>;
+  searchCalendarEvents(options: { query?: string }): Promise<{ events: Array<{ id: string; title: string; beginTime: number; endTime: number; location: string }>; count: number; limit: number; windowEnd: number; localOnly: boolean }>;
     searchContacts(options: { query: string }): Promise<{ contacts: Array<{ id?: string; name: string; number: string }> }>;
     openDialer(options: { number: string }): Promise<{ opened: boolean }>;
   prepareSms(options: { number: string; body?: string }): Promise<{ opened: boolean }>;
@@ -158,6 +160,8 @@ export const auroraNative = {
   },
   searchOnMap: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Map search handoff is available only in Android."); return AuroraNative.searchOnMap({ query }); },
   startMapDirections: async (destination: string, mode = "driving") => { if (!Capacitor.isNativePlatform()) throw new Error("Map directions handoff is available only in Android."); return AuroraNative.startMapDirections({ destination, mode }); },
+  requestCalendarReadPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestCalendarReadPermission(); },
+  searchCalendarEvents: async (query = "") => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar search is available only in the Android app."); return AuroraNative.searchCalendarEvents({ query }); },
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
   searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
