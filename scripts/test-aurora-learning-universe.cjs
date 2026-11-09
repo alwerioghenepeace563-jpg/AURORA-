@@ -13,6 +13,8 @@ const assert = require("node:assert/strict");
  assert.throws(()=>learning.logPractice({planId:plan.id,topic:"Cell theory",minutes:30}),/approval/i);
  learning.logPractice({planId:plan.id,topic:"Cell theory",minutes:35,note:"Reviewed lecture notes",userApproved:true});
  assert.deepEqual(learning.progress(plan.id),{planCount:1,topicCount:3,completedTopics:1,completionRate:33,studyMinutes:35,sessionCount:1,needsReview:1,localOnly:true});
+ assert.equal(learning.listSessions({planId:plan.id}).length,1);
+ assert.equal(learning.listSessions({planId:"missing"}).length,0);
  assert.throws(()=>learning.logPractice({planId:plan.id,topic:"Cell theory",minutes:601,userApproved:true}),/between 1 and 600/i);
  assert.equal(learning.status().cloudSync,false);
  assert.throws(()=>createAuroraLearningUniverse({storage:{getItem:()=>"broken"}}).listPlans(),/corrupt/i);
