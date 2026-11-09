@@ -173,6 +173,19 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "audio.prepare_recording", label: "Prepare an audio recording", category: "media",
+    description: "Open a compatible Android recorder. The user controls recording and saving; AURORA receives only the returned media reference and does not read or upload the audio.",
+    risk: AURORA_ACTION_RISK.HIGH, approvalRequired: true, validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Audio recording handoff requires Android and a compatible recorder app." }),
+    execute: async () => {
+      const result = await auroraNative.prepareAudioRecording();
+      if (result?.cancelled) return { cancelled: true, recorded: false };
+      if (result?.recorded !== true || !result.contentUri || result.audioReadByAurora !== false) throw new Error("Android did not return a user-approved audio recording reference.");
+      return { ...result, recorded: true, audioReadByAurora: false };
+    }
+  });
+
+  engine.registerCapability({
     id: "camera.capture_preview", label: "Capture a photo preview", category: "device",
     description: "Open the user's camera app and return only the thumbnail preview Android provides. The user must take the photo; AURORA does not silently capture, save a full-resolution image or upload it.",
     risk: AURORA_ACTION_RISK.HIGH, approvalRequired: true, validate: () => true,
