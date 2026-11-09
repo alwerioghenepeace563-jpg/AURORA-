@@ -21,7 +21,7 @@ function CreativeLearningWorkspace(){
  const [contextPreview,setContextPreview]=useState("");
  const [transcriptTitle,setTranscriptTitle]=useState("New transcript"),[transcriptText,setTranscriptText]=useState(""),[speechListening,setSpeechListening]=useState(false);
  const speechHandles=useRef([]),browserRecognition=useRef(null);
- const [lessonPlanId,setLessonPlanId]=useState(""),[lessonTopic,setLessonTopic]=useState(""),[lessonOutput,setLessonOutput]=useState(""),[lessonBusy,setLessonBusy]=useState(false);
+ const [lessonPlanId,setLessonPlanId]=useState(""),[lessonTopic,setLessonTopic]=useState(""),[lessonOutput,setLessonOutput]=useState(""),[lessonBusy,setLessonBusy]=useState(false),[syllabusText,setSyllabusText]=useState(""),[syllabusTitle,setSyllabusTitle]=useState("My supplied syllabus or course outline"),[syllabusQuizBusy,setSyllabusQuizBusy]=useState(false);
  const [analysisFile,setAnalysisFile]=useState(null),[analysisOutput,setAnalysisOutput]=useState(""),[analysisBusy,setAnalysisBusy]=useState(false);
  const [mediaFile,setMediaFile]=useState(null),[mediaTranscript,setMediaTranscript]=useState(""),[mediaBusy,setMediaBusy]=useState(false);
  const [mediaSearchQuery,setMediaSearchQuery]=useState(""),[mediaSearchResults,setMediaSearchResults]=useState([]),[mediaSearchBusy,setMediaSearchBusy]=useState(false),[mediaSearchSource,setMediaSearchSource]=useState(""),[mediaSearchKind,setMediaSearchKind]=useState("image");
@@ -54,7 +54,8 @@ function CreativeLearningWorkspace(){
   if(!plan||!topic){setNotice("Create a study plan with at least one topic first.");return;}
   setLessonBusy(true);setNotice("AURORA is preparing a lesson. Check the explanation before relying on it.");
   try{
-   const prompt="Create a clear, accurate study lesson for a learner. Subject: "+plan.subject+". Topic: "+topic.name+". Study goal: "+(plan.goal||"Understand the topic well")+". Include: learning objectives, prerequisite ideas, a step-by-step explanation, key terms, one worked or concrete example, common misconceptions, a short recap, and five practice questions with answers separated at the end. Distinguish established facts from simplifications. If uncertain, say so. Do not claim to use the learner's textbook or syllabus unless supplied.";
+   const suppliedSyllabus=syllabusText.trim().slice(0,6000);
+   const prompt="Create a clear, accurate study lesson for a learner. Subject: "+plan.subject+". Topic: "+topic.name+". Study goal: "+(plan.goal||"Understand the topic well")+". "+(suppliedSyllabus?"GROUNDING SOURCE supplied by the learner ("+syllabusTitle.slice(0,120)+"):\\n"+suppliedSyllabus+"\\nPrioritise this source, align lesson coverage to it, identify supporting headings where possible, and clearly flag extra explanations beyond it. Never invent syllabus requirements.":"No syllabus was supplied; teach generally and do not claim syllabus alignment.")+" Include: learning objectives, prerequisite ideas, a step-by-step explanation, key terms, one worked or concrete example, common misconceptions, a short recap, and five practice questions with answers separated at the end. Distinguish established facts from simplifications. If uncertain, say so."
    const response=await fetch(auroraApiUrl("/api/chat"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||"The lesson service is unavailable.");
@@ -62,6 +63,26 @@ function CreativeLearningWorkspace(){
    setLessonOutput(data.reply.trim());setNotice("Lesson generated. Review and edit it; it has not been saved yet.");
   }catch(error){setNotice(error?.message||"Lesson generation failed. Your study plan remains unchanged.");}
   finally{setLessonBusy(false);}
+ };
+ const generateSyllabusQuiz=async()=>{
+  const plan=plans.find(item=>item.id===lessonPlanId)||plans[0];
+  const topic=plan?.topics.find(item=>item.id===lessonTopic)||plan?.topics.find(item=>item.status!=="completed")||plan?.topics[0];
+  const source=syllabusText.trim().slice(0,6000);
+  if(!source){setNotice("Paste your syllabus or course outline first.");return;}
+  if(!plan||!topic){setNotice("Create a study plan and choose a topic first.");return;}
+  setSyllabusQuizBusy(true);setNotice("Creating questions from your supplied course material…");
+  try{
+   const prompt="Create exactly 8 factual revision questions and concise answers for "+plan.subject+" topic "+topic.name+". Use ONLY this supplied syllabus/course outline as the source of examinable scope. Do not invent facts absent from it. Output one pair per line as QUESTION | ANSWER, without numbering or headings.\\nSOURCE: "+syllabusTitle.slice(0,120)+"\\n"+source;
+   const response=await fetch(auroraApiUrl("/api/chat"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||"The question service is unavailable.");
+   const lines=String(data.reply||"").split("\\n").map(line=>line.trim().replace(/^[-*0-9.) ]+/,"")).filter(Boolean);
+   const questions=lines.map(line=>{const split=line.indexOf("|");return split>0?{prompt:line.slice(0,split).trim(),answer:line.slice(split+1).trim()}:null;}).filter(item=>item&&item.prompt&&item.answer).slice(0,8);
+   if(questions.length<4)throw new Error("The AI did not return enough valid question-and-answer pairs. Simplify the supplied outline and try again.");
+   const created=auroraRuntime.buildPracticeQuiz({title:plan.subject+" — "+topic.name+" syllabus practice",questions,userApproved:true});
+   setQuiz(created);setQuizAnswers({});setQuizResult(null);setQuizSaved(false);setNotice(questions.length+" syllabus-grounded questions created. Review them before starting.");
+  }catch(error){setNotice(error?.message||"Could not create syllabus-grounded questions.");}
+  finally{setSyllabusQuizBusy(false);}
  };
  const saveGeneratedLesson=()=>{const plan=plans.find(item=>item.id===lessonPlanId)||plans[0];const topic=plan?.topics.find(item=>item.id===lessonTopic)||plan?.topics.find(item=>item.status!=="completed")||plan?.topics[0];if(!selected){setNotice("Select a creative project in the Projects tab before saving this lesson as a draft.");return;}if(!lessonOutput.trim()){setNotice("Generate or enter lesson content first.");return;}run(()=>auroraRuntime.saveCreativeDraft({projectId:selected,title:(plan?.subject||"Study")+" — "+(topic?.name||"Lesson"),content:lessonOutput,userApproved:true}),"Lesson saved as a draft in your selected creative project.");};
 
@@ -215,7 +236,10 @@ function CreativeLearningWorkspace(){
      <p className="clw-help">Generate a structured explanation for a topic in one of your saved study plans. This uses AURORA's configured chat service; check important facts against your class notes or textbook. Generated content is not saved until you choose Save as draft.</p>
      <label>Study plan<select value={lessonPlanId||plans[0]?.id||""} onChange={e=>{setLessonPlanId(e.target.value);setLessonTopic("");}}><option value="">Choose a study plan</option>{plans.map(plan=><option key={plan.id} value={plan.id}>{plan.title} · {plan.subject}</option>)}</select></label>
      <label>Topic<select value={lessonTopic} onChange={e=>setLessonTopic(e.target.value)}><option value="">Next unfinished topic</option>{(plans.find(item=>item.id===(lessonPlanId||plans[0]?.id))?.topics||[]).map(topic=><option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
-     <div className="clw-actions"><button className="clw-primary" onClick={generateLesson} disabled={lessonBusy||plans.length===0}>{lessonBusy?"Preparing lesson…":"Generate lesson"}</button><button onClick={saveGeneratedLesson} disabled={!lessonOutput.trim()}>Save as draft</button></div>
+     <label>Course syllabus / outline title<input value={syllabusTitle} onChange={e=>setSyllabusTitle(e.target.value)} maxLength={120}/></label>
+     <label>Paste syllabus, course outline or selected class-note extract (up to 6,000 characters)<textarea rows={7} maxLength={6000} value={syllabusText} onChange={e=>setSyllabusText(e.target.value)} placeholder="Paste relevant course topics or learning outcomes. This stays in the workspace until you request generation."/></label>
+     <p className="clw-help">{syllabusText.length}/6000 characters · Sent to AURORA only when you generate a lesson or syllabus quiz. Not saved automatically.</p>
+     <div className="clw-actions"><button className="clw-primary" onClick={generateLesson} disabled={lessonBusy||plans.length===0}>{lessonBusy?"Preparing lesson…":"Generate lesson"}</button><button onClick={generateSyllabusQuiz} disabled={syllabusQuizBusy||!syllabusText.trim()||plans.length===0}>{syllabusQuizBusy?"Creating questions…":"Create syllabus-based quiz"}</button><button onClick={saveGeneratedLesson} disabled={!lessonOutput.trim()}>Save as draft</button></div>
      {lessonOutput&&<label>Review and edit generated lesson<textarea rows={12} value={lessonOutput} onChange={e=>setLessonOutput(e.target.value)}/></label>}
     </div>
     <div className="clw-panel">
