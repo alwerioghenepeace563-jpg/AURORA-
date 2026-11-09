@@ -470,6 +470,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Registered creative records in shared federated search and exposed all operations through the shared Main/Pulse/voice runtime.
 - Added regression coverage for project lifecycle, approvals, revisions, SRT/VTT round trips, flashcards, quiz grading, search and local-only storage.
 
+**Implementation wave 3 — Study session history and progress controls (code committed; CI pending):**
+- Exposed bounded local study-session history queries from the Learning Universe and shared runtime, with plan filtering and a maximum of 100 returned records.
+- Added session logging controls to each study plan in Creative + Learning Studio, including topic selection, a validated 1–600 minute duration, optional session note, and a recent-session history preview.
+- Added confirmed plan deletion from the workspace; the Learning Universe removes that plan's associated session history together.
+- Extended focused learning regression tests for session history filtering and empty results.
+- Progress totals continue to derive from recorded sessions and explicit topic status changes; no inferred study time or automatic completion is recorded.
+
 **Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
