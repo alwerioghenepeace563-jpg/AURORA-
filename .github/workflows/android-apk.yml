@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-apk:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     env:
       HAS_AURORA_DEBUG_KEYSTORE: ${{ secrets.AURORA_DEBUG_KEYSTORE_BASE64 != '' }}
