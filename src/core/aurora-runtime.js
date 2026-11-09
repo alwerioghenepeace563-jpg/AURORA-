@@ -14,7 +14,8 @@ import { planAuroraActions } from "./aurora-task-planner";
 import { auroraEvents } from "./aurora-event-bus";
 import { auroraKnowledge } from "./aurora-knowledge-graph";
 import { auroraKnowledgeUniverse } from "./aurora-knowledge-universe";
-import { auroraLearningUniverse } from "./aurora-learning-universe";
+import { auroraLearningUniverse } from "./aurora-learning-universe.js";
+import { auroraCreativeUniverse } from "./aurora-creative-universe.js";
 import { createAuroraSpecialistCoordinator } from "./aurora-specialist-coordinator";
 import { auroraWorkflows } from "./aurora-workflow-registry";
 import { auroraTaskJournal } from "./aurora-task-journal";
@@ -96,6 +97,7 @@ const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () =>
 universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
 universalSearch.register("knowledge", (query, limit) => auroraKnowledgeUniverse.search(query, { limit }).map(item => ({ ...item, type: item.type, summary: item.summary, score: item.score })), "Personal knowledge universe");
 universalSearch.register("learning", (query, limit) => auroraLearningUniverse.listPlans().filter(plan => (plan.title + " " + plan.subject + " " + plan.topics.map(topic => topic.name).join(" ")).toLowerCase().includes(String(query || "").toLowerCase())).slice(0, limit).map(plan => ({ ...plan, type: "study_plan", summary: plan.goal || plan.title, score: 1 })), "Study plans and learning progress");
+universalSearch.register("creative", (query, limit) => auroraCreativeUniverse.search(query, limit).map(item => ({ ...item, type: item.kind, score: 1 })), "Creative projects, drafts, assets and study decks");
 universalSearch.register("knowledge_graph", (query, limit) => auroraKnowledge.search(query, limit).map(item => ({ ...item, type: "knowledge_graph", summary: item.description })), "Knowledge relationships");
 universalSearch.register("capabilities", (query, limit) => capabilityIntelligence.find(query, limit).map(item => ({ ...item, type: "capability", summary: item.description })), "Available tools");
 universalSearch.register("workflows", (query) => auroraWorkflows.list().filter(item => (item.title + " " + (item.summary || "")).toLowerCase().includes(query.toLowerCase())).map(item => ({ ...item, type: "workflow" })), "Saved workflows");
@@ -790,6 +792,23 @@ const auroraRuntime = Object.freeze({
   knowledge: auroraKnowledge,
   knowledgeUniverse: auroraKnowledgeUniverse,
   learning: auroraLearningUniverse,
+  creative: auroraCreativeUniverse,
+  createCreativeProject: (input) => auroraCreativeUniverse.createProject(input),
+  listCreativeProjects: (filters) => auroraCreativeUniverse.listProjects(filters),
+  updateCreativeProject: (id, patch, options) => auroraCreativeUniverse.updateProject(id, patch, options),
+  deleteCreativeProject: (id, options) => auroraCreativeUniverse.deleteProject(id, options),
+  addCreativeAsset: (input) => auroraCreativeUniverse.addAsset(input),
+  listCreativeAssets: (projectId) => auroraCreativeUniverse.listAssets(projectId),
+  saveCreativeDraft: (input) => auroraCreativeUniverse.saveDraft(input),
+  listCreativeDrafts: (projectId) => auroraCreativeUniverse.listDrafts(projectId),
+  deleteCreativeDraft: (id, options) => auroraCreativeUniverse.deleteDraft(id, options),
+  importSubtitles: (input) => auroraCreativeUniverse.importSubtitles(input),
+  exportSubtitles: (assetId, format) => auroraCreativeUniverse.exportSubtitles(assetId, format),
+  createFlashcardDeck: (input) => auroraCreativeUniverse.createDeck(input),
+  listFlashcardDecks: () => auroraCreativeUniverse.listDecks(),
+  reviewFlashcard: (deckId, cardId, rating, options) => auroraCreativeUniverse.recordCardReview(deckId, cardId, rating, options),
+  buildPracticeQuiz: (input) => auroraCreativeUniverse.buildQuiz(input),
+  gradePracticeQuiz: (quiz, answers) => auroraCreativeUniverse.gradeQuiz(quiz, answers),
   createStudyPlan: (input) => auroraLearningUniverse.createPlan(input),
   listStudyPlans: (filters) => auroraLearningUniverse.listPlans(filters),
   updateStudyTopic: (planId, topicId, status, options) => auroraLearningUniverse.updateTopic(planId, topicId, status, options),
