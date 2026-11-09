@@ -83,6 +83,15 @@ const path = require("node:path");
   assert.ok(pluginSource.includes("Intent.ACTION_SENDTO"), "SMS must open the user's composer rather than sending directly.");
   assert.ok(pluginSource.includes('Uri.parse("smsto:"'), "SMS must use the Android SMS composer URI.");
   assert.ok(pluginSource.includes('Intent.createChooser(send, "Share with")'), "Text sharing must use Android's user-controlled chooser.");
+
+  for (const nativeMethod of ["requestContactsPermission", "searchContacts", "openDialer"]) {
+    assert.ok(nativeSource.includes(nativeMethod), "Missing typed contacts/dialler bridge method: " + nativeMethod);
+    assert.ok(pluginSource.includes("void " + nativeMethod + "(PluginCall call)"), "Missing Android contacts/dialler implementation: " + nativeMethod);
+  }
+  assert.ok(pluginSource.includes("Manifest.permission.READ_CONTACTS"), "Contacts access must be protected by Android runtime permission.");
+  assert.ok(pluginSource.includes("ContactsContract.CommonDataKinds.Phone.CONTENT_URI"), "Contact search must use Android contacts provider.");
+  assert.ok(pluginSource.includes("count < 20"), "Contact search results must be bounded.");
+  assert.ok(pluginSource.includes("Intent.ACTION_DIAL"), "Phone calls must open the dialler and never place a call silently.");
   assert.ok(pluginSource.includes("Intent.ACTION_INSERT"), "Calendar event must use Android's review-before-save editor.");
   assert.ok(pluginSource.includes("MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android media handoff.");
   assert.ok(pluginSource.includes("Intent.ACTION_OPEN_DOCUMENT"), "File access must use Android's user-selected document picker.");
