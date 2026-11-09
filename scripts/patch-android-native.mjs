@@ -480,7 +480,7 @@ const requiredNativeMethods = [
   "pickDocument", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
   "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
   "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
-  "setFlashlight", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "status"
+  "setFlashlight", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "status"
 ];
 for (const method of requiredNativeMethods) {
   if (!nativePluginSource.includes("void " + method + "(PluginCall call)")) {
