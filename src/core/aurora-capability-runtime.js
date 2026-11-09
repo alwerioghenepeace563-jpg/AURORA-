@@ -173,6 +173,22 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "apps.list_launchable", label: "List launchable apps", category: "device",
+    description: "List up to 200 launcher-visible installed apps with display names and package identifiers. Does not read app data or launch/uninstall anything.",
+    risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "App discovery requires Android." }),
+    execute: async () => auroraNative.listLaunchableApps()
+  });
+
+  engine.registerCapability({
+    id: "device.get_network_status", label: "Inspect network connectivity", category: "device",
+    description: "Read connection state, validated internet capability, metered status and transport type. Does not read Wi-Fi names, inspect traffic or change connectivity.",
+    risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Network diagnostics require Android." }),
+    execute: async () => auroraNative.getNetworkStatus()
+  });
+
+  engine.registerCapability({
     id: "device.get_storage_status", label: "Inspect device storage", category: "device",
     description: "Read total, used and available app-data storage capacity. Does not inspect file names or contents.",
     risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true,
