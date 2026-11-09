@@ -14,16 +14,21 @@ import { auroraEvents } from "./aurora-event-bus";
 import { auroraKnowledge } from "./aurora-knowledge-graph";
 import { createAuroraSpecialistCoordinator } from "./aurora-specialist-coordinator";
 import { auroraWorkflows } from "./aurora-workflow-registry";
+import { auroraTaskJournal } from "./aurora-task-journal";
+import { createAuroraMemorySync } from "./aurora-memory-sync";
+import { createAuroraCapabilityIntelligence } from "./aurora-capability-intelligence";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
   approve: (proposal) => approvalBroker.request(proposal)
 });
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
+const memorySync = createAuroraMemorySync(auroraMemory);
+const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
 actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
-taskOrchestrator.subscribe((event) => auroraEvents.publish(event.type, event, { source: "task_orchestrator" }));
+taskOrchestrator.subscribe((event) => { auroraTaskJournal.record(event); auroraEvents.publish(event.type, event, { source: "task_orchestrator" }); });
 let latestPendingTaskId = null;
 
 actionEngine.registerCapability({
@@ -114,6 +119,18 @@ async function routeMessage(text) {
     latestPendingTaskId = plan.id;
     const preview = await taskOrchestrator.runPlan(plan, { confirmed: false });
     return { tool: "aurora_workflow_preview", taskId: plan.id, steps: preview.steps, context: "Workflow “" + matches[0].title + "” is ready. Nothing has run. Review the steps, then say confirm task " + plan.id + " or cancel task " + plan.id + "." };
+  }
+
+  const capabilityMatch = message.match(/^(?:what|show|list|find) (?:are )?(?:my |aurora )?(?:available )?(?:tools|capabilities)(?: for)?(?: (.+))?\\??$/i);
+  if (capabilityMatch) {
+    const matches = capabilityMatch[1] ? capabilityIntelligence.find(capabilityMatch[1], 10) : capabilityIntelligence.inspect();
+    return { tool: "aurora_capability_discovery", capabilities: matches, context: matches.length ? "Registered AURORA capabilities (read-only discovery):\\n" + matches.map(item => "- " + item.label + " [" + item.id + ", " + item.risk + (item.approvalRequired ? ", approval required" : "") + "]").join("\\n") : "I couldn't find a registered capability matching that request. I cannot invent tools or bypass their approval requirements." };
+  }
+
+  const recoveryMatch = message.match(/^(?:show|list|review) (?:my )?(?:interrupted|recoverable|recent) tasks\\??$/i);
+  if (recoveryMatch) {
+    const items = auroraTaskJournal.recoverable();
+    return { tool: "aurora_task_recovery", tasks: items, context: items.length ? "Recoverable task records are available. Review the saved plan and prepare it again; every recovered plan requires fresh confirmation before anything runs.\\n" + items.map(item => "- " + item.title + " [" + item.status + "] — " + item.taskId).join("\\n") : "There are no interrupted or recoverable task plans in the local journal." };
   }
 
   const knowledgeMatch = message.match(/^(?:search|find) (?:my )?(?:knowledge graph|knowledge) for (.+)$/i);
@@ -280,6 +297,9 @@ const auroraRuntime = Object.freeze({
   actions: actionEngine,
   approvals: approvalBroker,
   tasks: taskOrchestrator,
+  taskJournal: auroraTaskJournal,
+  memorySync,
+  capabilityIntelligence,
   memory: auroraMemory,
   knowledge: auroraKnowledge,
   events: auroraEvents,
@@ -291,6 +311,9 @@ const auroraRuntime = Object.freeze({
   runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),
   capabilities: () => actionEngine.listCapabilities(),
   availability: (capabilityId) => actionEngine.getAvailability(capabilityId),
+  inspectCapabilities: () => capabilityIntelligence.inspect(),
+  findCapabilities: (query, limit) => capabilityIntelligence.find(query, limit),
+  recoverableTasks: () => auroraTaskJournal.recoverable(),
   execute: (request) => actionEngine.execute(request),
   routeMessage,
   parseCalendarIntent,
