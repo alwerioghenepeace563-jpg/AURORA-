@@ -15,13 +15,14 @@ function CreativeLearningWorkspace(){
  const [quizText,setQuizText]=useState("What is the basic unit of life? | The cell\nWhat controls cell activities? | The nucleus"),[quiz,setQuiz]=useState(null),[quizAnswers,setQuizAnswers]=useState({}),[quizResult,setQuizResult]=useState(null);
  const [quizSaved,setQuizSaved]=useState(false),[quizHistory,setQuizHistory]=useState([]),[quizPerformance,setQuizPerformance]=useState({attemptCount:0,averagePercentage:0,bestPercentage:0,latestPercentage:null});
  const [dueCards,setDueCards]=useState([]),[flashSummary,setFlashSummary]=useState({totalCards:0,reviewedCards:0,dueCards:0,newCards:0});
+ const [learningInsights,setLearningInsights]=useState({attempts:0,subjects:[],reviewTargets:[]});
  const [planTitle,setPlanTitle]=useState("My study plan"),[planSubject,setPlanSubject]=useState("microbiology"),[topicsText,setTopicsText]=useState("Cell theory\nCell structure\nMicroscopy");
  const [sessionMinutes,setSessionMinutes]=useState("30"),[sessionTopic,setSessionTopic]=useState({}),[sessionNote,setSessionNote]=useState("");
  const [contextPreview,setContextPreview]=useState("");
  const [notice,setNotice]=useState("");
  const refresh=()=>{
   const ps=auroraRuntime.listCreativeProjects();setProjects(ps);setSelected(current=>ps.some(p=>p.id===current)?current:(ps[0]?.id||""));
-  setDrafts(auroraRuntime.listCreativeDrafts());setAssets(auroraRuntime.listCreativeAssets());setDecks(auroraRuntime.listFlashcardDecks());setPlans(auroraRuntime.listStudyPlans());setQuizHistory(auroraRuntime.listPracticeQuizAttempts({limit:20}));setQuizPerformance(auroraRuntime.practiceQuizPerformance());setDueCards(auroraRuntime.listDueFlashcards({limit:100}));setFlashSummary(auroraRuntime.flashcardReviewSummary());
+  setDrafts(auroraRuntime.listCreativeDrafts());setAssets(auroraRuntime.listCreativeAssets());setDecks(auroraRuntime.listFlashcardDecks());setPlans(auroraRuntime.listStudyPlans());setQuizHistory(auroraRuntime.listPracticeQuizAttempts({limit:20}));setQuizPerformance(auroraRuntime.practiceQuizPerformance());setDueCards(auroraRuntime.listDueFlashcards({limit:100}));setFlashSummary(auroraRuntime.flashcardReviewSummary());setLearningInsights(auroraRuntime.getLearningInsights());
  };
  useEffect(()=>{refresh();},[]);
  const activeProject=projects.find(p=>p.id===selected);
@@ -110,6 +111,14 @@ function CreativeLearningWorkspace(){
        {attempt.results.map(item=><p key={item.index}>{item.correct?"✓":"Review"} · {item.prompt} <small>Answer: {item.expectedAnswer}</small></p>)}
       </article>
      ))}
+    </div>
+    <div className="clw-panel clw-wide">
+     <h3>Learning insights</h3>
+     <p className="clw-help">AURORA looks at your saved quiz results on this device to highlight subjects and questions worth revisiting. It does not claim to understand answers beyond the quiz's exact text marking.</p>
+     {learningInsights.attempts===0?<p className="clw-empty">Save a few quiz results to build your learning insights.</p>:<>
+      {learningInsights.subjects.map(item=><article className="clw-quiz-history" key={item.subject}><strong>{item.subject}</strong><p>{item.averagePercentage}% average · {item.accuracy}% answer accuracy · {item.attempts} attempts</p><small>{item.recommendation}</small></article>)}
+      {learningInsights.reviewTargets.length>0&&<><h4>Questions to revisit</h4>{learningInsights.reviewTargets.map((item,index)=><article className="clw-quiz-history" key={item.subject+item.prompt+index}><strong>{item.subject}: {item.prompt}</strong><p>{item.missed} missed out of {item.seen} attempts · {item.missRate}% miss rate</p></article>)}</>}
+     </>}
     </div>
     <div className="clw-panel">
      <h3>Flashcard review queue</h3>
