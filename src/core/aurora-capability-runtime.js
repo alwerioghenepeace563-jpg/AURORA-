@@ -362,6 +362,28 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "files.export_text_document",
+    label: "Export a text document",
+    category: "files",
+    description: "Write user-provided text as TXT, Markdown, CSV or JSON through Android's system Save As picker. The user chooses the destination; content is capped at 1 MB and AURORA does not browse other files.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    validate: (input) => {
+      if (typeof input?.content !== "string" || input.content.length < 1 || input.content.length > 1000000) return "Export content must contain 1 to 1,000,000 characters.";
+      if (typeof input?.filename !== "string" || !input.filename.trim() || input.filename.length > 100 || /[\\/]/.test(input.filename)) return "Provide a filename of up to 100 characters without a path.";
+      if (!["text/plain", "text/markdown", "text/csv", "application/json"].includes(input?.mimeType)) return "Choose TXT, Markdown, CSV or JSON.";
+      return true;
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The Android Save As picker is required." }),
+    execute: async ({ content, filename, mimeType }) => {
+      const result = await auroraNative.exportTextDocument({ content, filename: filename.trim(), mimeType });
+      if (result?.cancelled) return { saved: false, cancelled: true };
+      if (result?.saved !== true || result?.destinationChosenByUser !== true) throw new Error("Android did not confirm the selected export destination.");
+      return { saved: true, cancelled: false, bytesWritten: result.bytesWritten, characters: result.characters, destinationChosenByUser: true };
+    }
+  });
+
+  engine.registerCapability({
     id: "media.control_active_session",
     label: "Control active media playback",
     category: "media",
