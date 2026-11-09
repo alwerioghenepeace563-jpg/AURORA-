@@ -162,6 +162,8 @@ const path = require("node:path");
   const layerRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-layer-registry.js"), "utf8");
   const knowledgeUniverseSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-knowledge-universe.js"), "utf8");
   assert.ok(sharedRuntimeSource.includes("knowledgeUniverse: auroraKnowledgeUniverse"), "Stage 9 knowledge must be available from the shared runtime.");
+  assert.ok(sharedRuntimeSource.includes("knowledgeSaveMatch") && sharedRuntimeSource.includes("knowledgeSearchMatch"), "Chat, Pulse and voice must expose explicit Stage 9 save and search commands.");
+  assert.ok(sharedRuntimeSource.includes("aurora_knowledge_timeline"), "Stage 9 timeline must be reachable through the shared conversational runtime.");
   for (const api of ["addKnowledgeSource", "searchKnowledge", "relateKnowledge", "relatedKnowledge", "knowledgeTimeline", "correctKnowledge", "forgetKnowledge"]) assert.ok(sharedRuntimeSource.includes(api), "Missing shared knowledge API: " + api);
   for (const contract of ["userApproved !== true", "fingerprint", "source:", "function search(", "function timeline(", "function correct(", "function remove(", "MAX_RECORDS = 500", "MAX_CONTENT = 12000"]) assert.ok(knowledgeUniverseSource.includes(contract), "Missing Stage 9 knowledge contract: " + contract);
   assert.ok(knowledgeUniverseSource.includes("cloudSync: false") && knowledgeUniverseSource.includes("automaticCapture: false"), "Knowledge indexing must remain local and user initiated.");
