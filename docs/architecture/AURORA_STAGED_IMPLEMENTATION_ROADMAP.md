@@ -248,17 +248,17 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 - Native status now checks both the running Android service and its active-state flag rather than trusting a stale preference alone.
 - Added wake-listener lifecycle tests and a machine-readable Stage 7 audit/checkpoint covering all 12 capability families.
 
-**Stage 7 implementation code checkpoint (2026-11-09; CI confirmation and physical-device validation pending):**
+**Stage 7 code-and-CI checkpoint (2026-11-09; physical-device validation deferred):**
 - All 12 active capability families have Stage 7 evidence in `src/core/aurora-layer-registry.js`.
 - Screen and selected-document context remain explicit, bounded, one-shot, and scoped to the requesting surface.
 - Main Chat, Pulse, and voice continue to share the runtime, approvals, memory, task planning, location, and safe device handoffs.
 - Hey AURORA listening is explicitly enabled by the user, visibly foreground-notified, stoppable from the notification, and does not auto-restart after process death.
-- The full CI run must pass the dependency audit, all core/architecture tests, and web production build before the checkpoint is accepted.
+- The AURORA Build Check passed on commit `a57b4287`, including the core/architecture test chain and web production build. Physical Android behavior remains unverified.
 - Device-specific checks remain unverified and are recorded in `STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION`. This is not APK certification or release readiness.
 
 **Stage 7 acceptance rule:** implement coordinated capability changes across all 12 families, add focused and cross-layer regression tests, pass the full core/architecture CI and web build, and label native/device-dependent behavior as unverified until physical Android checks are actually performed. Do not build APKs, change signing material, or deploy during this stage unless the user explicitly asks.
 
-### Stage 8 — Proactive intelligence and coordinated workflows (next)
+### Stage 8 — Proactive intelligence and coordinated workflows (active)
 
 **Whole-system objective:** Make AURORA consistently useful across Main Chat, Pulse, voice, and Android by turning the existing context, memory, task planner, specialist coordinator, workflow registry, reminders, and capability catalogue into coherent user-controlled end-to-end workflows.
 
@@ -279,5 +279,67 @@ Stage 8 will advance all 12 capability families together:
 - Extensions and reliability: make workflows observable, cancellable, resumable only after fresh user confirmation, and diagnosable without exposing private content.
 - Safety and privacy: no unattended consequential actions, hidden microphone/screen/location collection, or silent uploads.
 
+
+**Implementation wave 2 — Task history completeness and user data controls (code committed; CI pending):**
+- Added a recent-task command that exposes only bounded metadata: task ID, status, last-updated time, event count, and whether review may be available.
+- Added an explicit forget/delete task command to remove one local task-journal record. It does not claim to undo any external action already completed.
+- Exposed bounded recent activity and explicit forget operations through the shared runtime so Main Chat, Pulse, and voice can use the same controls.
+- Extended the Stage 8 regression to cover these new commands and runtime exports.
+
 **Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
+
+## Complete vision roadmap and remaining stages
+
+The original AURORA vision has **7 broad phases**. Those are the long-term product pillars, not seven small coding steps. To make delivery measurable, the project now uses **14 implementation stages** distributed across those seven phases. Stages 1–7 form the foundation already worked through; Stage 8 is active. That leaves **6 implementation stages after Stage 8**, or **7 including the current Stage 8**.
+
+| Original vision phase | Implementation stages | Intended outcome |
+|---|---:|---|
+| 1. Universal foundation | 1–2 | Shared identity, runtime, capability catalogue, memory/context and safety contracts |
+| 2. Android mastery | 3–4 | Native device adapters, voice, screen context, accessibility and approved phone control |
+| 3. Personal intelligence | 5, 9 | Personal knowledge universe, linked information graph, project/conversation/document retrieval |
+| 4. Autonomous workflows | 6–8, 10 | Cross-surface planning, safe execution, recovery, verification and communication workflows |
+| 5. Creative and learning universe | 11 | Media creation, study support, transcription, summarisation and personal learning workflows |
+| 6. Connected ecosystem | 12–13 | Opt-in predictive/sensor intelligence, connected devices and interoperable extensions |
+| 7. Experimental intelligence | 14 | Extensible research capabilities, evaluation, controlled experiments and safe rollout |
+
+### Stage 9 — Personal Knowledge Universe
+- Build a durable relationship graph connecting user-approved notes, documents, projects, tasks, conversations, saved websites, recordings, images and events.
+- Support questions such as “find everything related to this project”, “what decisions did I make?” and “compare the original idea with the latest version”.
+- Add source citations/provenance, duplicate detection, timeline views, scoped search, user correction and deletion.
+- Keep private content local by default; cloud indexing and cross-device sync require explicit per-source consent.
+
+### Stage 10 — Universal Android and Communication Mastery
+- Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
+- Complete communication workflows: notification summaries, draft replies, translation, email composition, attachments, contact lookup, call preparation, dictation, follow-ups and meeting notes.
+- Preserve Android permission boundaries and explicit confirmation for sending, calling, sharing or changing consequential settings.
+- Distinguish supported Android APIs from unavailable or OEM-restricted controls; never simulate success.
+
+### Stage 11 — Creative and Learning Universe
+- Join media import, transcription, summarisation, subtitle search, writing, image/video workflows and project assets through the shared knowledge system.
+- Add user-controlled study plans, explanations, practice, progress summaries and reusable learning projects.
+- Keep source attribution, content rights, user review and bounded media processing visible.
+
+### Stage 12 — Predictive and Sensor Intelligence
+- Add optional routine-aware suggestions using approved calendar/task patterns and explicitly enabled device signals.
+- Build sensor adapters for supported motion, environment and device-state signals with clear permission, sampling, retention and pause controls.
+- Suggestions remain suggestions; no silent messaging, purchasing, calls, location tracking or consequential actions.
+- Provide explain-why, snooze, disable, data-source review and opt-out controls.
+
+### Stage 13 — Connected Ecosystem
+- Add user-approved continuity across the user's Android devices and selected services.
+- Introduce secure device pairing, per-device trust, revocation, encrypted transport and least-privilege extension permissions.
+- Support handoff of approved tasks and knowledge references without silently copying private content.
+- Add extension discovery, compatibility checks, sandboxing, audit trails and safe removal.
+
+### Stage 14 — Experimental Intelligence and Vision Completion
+- Add an extensible capability framework for future ideas not yet in the catalogue.
+- Evaluate new models, local/cloud routing, specialist agents and adaptive interfaces against privacy, latency, reliability and cost.
+- Provide capability simulation, regression/evaluation suites, staged opt-in experiments, rollback and transparent diagnostics.
+- Complete security, accessibility, performance, battery, device-compatibility and recovery certification before calling the product release-ready.
+- Preserve the original principle: AURORA enhances Android through a unified intelligence and action layer; it does not replace Android itself.
+
+**Definition of vision completion:** all 14 implementation stages have their code, tests, documentation and acceptance evidence; all seven original phases are represented; Main App, Pulse and voice share one intelligence/capability core; Android/device and connected-service actions are permissioned and verifiable; privacy, accessibility, recovery and user control pass release gates. Physical-device certification and release approval are mandatory final gates, not assumed from web CI.
+
+**Stage-count rule:** 14 total implementation stages in this delivery roadmap. Stage 8 is currently active. Stages 9–14 remain after it: **6 stages remaining after Stage 8**. The seven broad vision phases remain permanent product pillars; future ideas may extend Stage 14 or add a new roadmap version without pretending the vision is ever closed to expansion.
+
 
