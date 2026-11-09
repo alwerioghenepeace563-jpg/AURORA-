@@ -14,6 +14,7 @@ import { planAuroraActions } from "./aurora-task-planner";
 import { auroraEvents } from "./aurora-event-bus";
 import { auroraKnowledge } from "./aurora-knowledge-graph";
 import { auroraKnowledgeUniverse } from "./aurora-knowledge-universe";
+import { auroraLearningUniverse } from "./aurora-learning-universe";
 import { createAuroraSpecialistCoordinator } from "./aurora-specialist-coordinator";
 import { auroraWorkflows } from "./aurora-workflow-registry";
 import { auroraTaskJournal } from "./aurora-task-journal";
@@ -94,6 +95,7 @@ const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request) });
 universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
 universalSearch.register("knowledge", (query, limit) => auroraKnowledgeUniverse.search(query, { limit }).map(item => ({ ...item, type: item.type, summary: item.summary, score: item.score })), "Personal knowledge universe");
+universalSearch.register("learning", (query, limit) => auroraLearningUniverse.listPlans().filter(plan => (plan.title + " " + plan.subject + " " + plan.topics.map(topic => topic.name).join(" ")).toLowerCase().includes(String(query || "").toLowerCase())).slice(0, limit).map(plan => ({ ...plan, type: "study_plan", summary: plan.goal || plan.title, score: 1 })), "Study plans and learning progress");
 universalSearch.register("knowledge_graph", (query, limit) => auroraKnowledge.search(query, limit).map(item => ({ ...item, type: "knowledge_graph", summary: item.description })), "Knowledge relationships");
 universalSearch.register("capabilities", (query, limit) => capabilityIntelligence.find(query, limit).map(item => ({ ...item, type: "capability", summary: item.description })), "Available tools");
 universalSearch.register("workflows", (query) => auroraWorkflows.list().filter(item => (item.title + " " + (item.summary || "")).toLowerCase().includes(query.toLowerCase())).map(item => ({ ...item, type: "workflow" })), "Saved workflows");
@@ -787,6 +789,13 @@ const auroraRuntime = Object.freeze({
   memory: auroraMemory,
   knowledge: auroraKnowledge,
   knowledgeUniverse: auroraKnowledgeUniverse,
+  learning: auroraLearningUniverse,
+  createStudyPlan: (input) => auroraLearningUniverse.createPlan(input),
+  listStudyPlans: (filters) => auroraLearningUniverse.listPlans(filters),
+  updateStudyTopic: (planId, topicId, status, options) => auroraLearningUniverse.updateTopic(planId, topicId, status, options),
+  logStudySession: (input) => auroraLearningUniverse.logPractice(input),
+  studyProgress: (planId) => auroraLearningUniverse.progress(planId),
+  deleteStudyPlan: (planId, options) => auroraLearningUniverse.removePlan(planId, options),
   addKnowledgeSource: (input) => auroraKnowledgeUniverse.add(input),
   searchKnowledge: (query, filters) => auroraKnowledgeUniverse.search(query, filters),
   relateKnowledge: (input) => auroraKnowledgeUniverse.link(input),
