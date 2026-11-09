@@ -197,7 +197,8 @@ async function routeMessage(text) {
   }
   const scheduleRoutineMatch = message.match(/^schedule routine ["“]?(.+?)["”]? in (\d{1,5})\s*(minutes?|mins?|hours?|hrs?|days?)$/i);
   if (scheduleRoutineMatch) {
-    const title = scheduleRoutineMatch[1].trim();    const workflow = auroraWorkflows.list().find(item => item.title.toLowerCase() === title.toLowerCase());
+    const title = scheduleRoutineMatch[1].trim();
+    const workflow = auroraWorkflows.list().find(item => item.title.toLowerCase() === title.toLowerCase());
     if (!workflow) return { tool: "aurora_routine", context: "I could not find a saved workflow named “" + title + "”. Save the workflow first, then schedule it. Saved workflows: " + (auroraWorkflows.list().map(item => item.title).join(", ") || "none") };
     const amount = Number(scheduleRoutineMatch[2]);
     const unit = scheduleRoutineMatch[3].toLowerCase();
@@ -396,7 +397,8 @@ async function routeMessage(text) {
       ? { tool: "aurora_memory_forget", context: "AURORA has deleted the selected local memory after your approval." }
       : { error: receipt.error?.message || "The memory was not deleted." };
   }
-  if (/\b(?:enable|set up|configure|manage)\s+(?:aurora\s+)?notification access\b/i.test(message)) {    const receipt = await actionEngine.execute({ capabilityId: "notifications.open_access_settings", input: {} });
+  if (/\b(?:enable|set up|configure|manage)\s+(?:aurora\s+)?notification access\b/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "notifications.open_access_settings", input: {} });
     return receipt.status === "completed" ? { tool: "android_notification_settings", context: "Android's Notification Access settings are open. Enable or disable AURORA there whenever you choose." } : { error: receipt.error?.message || "Could not open notification settings." };
   }
 
