@@ -844,6 +844,64 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getDeviceCapabilityInventory(PluginCall call) {
+        try {
+            Context context = getContext();
+            PackageManager pm = context.getPackageManager();
+            JSObject hardware = new JSObject();
+            hardware.put("camera", pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY));
+            hardware.put("flashlight", pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH));
+            hardware.put("microphone", pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE));
+            hardware.put("telephony", pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+            hardware.put("wifi", pm.hasSystemFeature(PackageManager.FEATURE_WIFI));
+            hardware.put("bluetooth", pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
+                || pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE));
+            hardware.put("nfc", pm.hasSystemFeature(PackageManager.FEATURE_NFC));
+            hardware.put("gps", pm.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS));
+            hardware.put("networkLocation", pm.hasSystemFeature(PackageManager.FEATURE_LOCATION_NETWORK));
+
+            JSObject permissions = new JSObject();
+            permissions.put("camera", ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("microphone", ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("contacts", ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("calendarRead", ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("locationCoarse", ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("locationFine", ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED);
+            permissions.put("notifications", Build.VERSION.SDK_INT < 33
+                || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED);
+
+            String enabledListeners = Settings.Secure.getString(context.getContentResolver(), "enabled_notification_listeners");
+            boolean notificationAccess = enabledListeners != null
+                && enabledListeners.toLowerCase(java.util.Locale.ROOT).contains(context.getPackageName().toLowerCase(java.util.Locale.ROOT));
+            permissions.put("notificationAccess", notificationAccess);
+
+            String enabledAccessibility = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            boolean accessibility = false;
+            if (enabledAccessibility != null) {
+                String expected = context.getPackageName() + "/" + AuroraAccessibilityService.class.getName();
+                for (String item : enabledAccessibility.split(":")) {
+                    if (expected.equalsIgnoreCase(item)) { accessibility = true; break; }
+                }
+            }
+            permissions.put("accessibility", accessibility);
+            permissions.put("overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context));
+
+            JSObject result = new JSObject();
+            result.put("platform", "android");
+            result.put("sdk", Build.VERSION.SDK_INT);
+            result.put("manufacturer", Build.MANUFACTURER);
+            result.put("model", Build.MODEL);
+            result.put("hardware", hardware);
+            result.put("permissions", permissions);
+            result.put("readOnly", true);
+            result.put("checkedAt", System.currentTimeMillis());
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Could not inspect Android device capabilities.", e);
+        }
+    }
+
+    @PluginMethod
     public void requestCameraPermission(PluginCall call) {
         if (getPermissionState("camera") == PermissionState.GRANTED) {
             JSObject result = new JSObject(); result.put("granted", true); call.resolve(result); return;
