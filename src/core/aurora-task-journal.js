@@ -87,11 +87,31 @@ function createAuroraTaskJournal(options = {}) {
   function list() { return read().map(item => ({ ...item, events: [...(item.events || [])] })); }
   function get(taskId) { return list().find(item => item.taskId === String(taskId)) || null; }
   function forget(taskId) { const items = read(), next = items.filter(x => x.taskId !== String(taskId)); if (next.length === items.length) return false; write(next); return true; }
+  function inspectRecovery(taskId) {
+    const item = get(taskId);
+    if (!item?.plan) return null;
+    const completed = new Set((item.result?.steps || []).filter(step => step.status === "completed").map(step => step.stepId));
+    const knownSteps = item.plan.steps || [];
+    const interrupted = item.status === "running";
+    return Object.freeze({
+      taskId: item.taskId,
+      status: interrupted ? "interrupted" : item.status,
+      recoveryState: interrupted ? "interrupted_execution" : "needs_review",
+      completedStepIds: [...completed],
+      remainingStepIds: knownSteps.filter(step => !completed.has(step.id)).map(step => step.id),
+      steps: knownSteps.map(step => Object.freeze({ id: step.id, capabilityId: step.capabilityId, risk: step.risk, approvalRequired: step.approvalRequired, dependsOn: [...(step.dependsOn || [])], status: completed.has(step.id) ? "completed" : "not_verified_completed" })),
+      updatedAt: item.updatedAt || null,
+      requiresFreshConfirmation: true,
+      automaticResume: false,
+      requiresNewPlan: true,
+      reason: interrupted ? "The app stopped while this task was running. Review its progress and prepare a new plan; AURORA cannot verify whether an interrupted external action finished." : "This task needs review before any new action is prepared."
+    });
+  }
   function recoverable() {
     return list().filter(x => x.plan && ["prepared", "running", "awaiting_user", "failed", "blocked"].includes(x.status))
-      .map(x => ({ taskId: x.taskId, title: "AURORA task", status: x.status, plan: x.plan, updatedAt: x.updatedAt, requiresFreshConfirmation: true }));
+      .map(x => ({ taskId: x.taskId, title: "AURORA task", status: x.status === "running" ? "interrupted" : x.status, plan: x.plan, updatedAt: x.updatedAt, requiresFreshConfirmation: true, automaticResume: false }));
   }
-  return Object.freeze({ record, list, get, forget, recoverable, clear: () => storage?.removeItem?.(KEY) });
+  return Object.freeze({ record, list, get, forget, recoverable, inspectRecovery, clear: () => storage?.removeItem?.(KEY) });
 }
 const auroraTaskJournal = createAuroraTaskJournal();
 export { KEY as AURORA_TASK_JOURNAL_KEY, createAuroraTaskJournal, auroraTaskJournal };
