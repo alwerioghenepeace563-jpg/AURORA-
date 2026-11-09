@@ -161,5 +161,39 @@ const path = require("node:path");
   for (const permissionId of ["android.contacts", "android.accessibility", "android.notification_access", "android.camera"]) {
     assert.ok(capabilitySource.includes('"' + permissionId + '"'), "Missing shared Android permission adapter: " + permissionId);
   }
+
+  // Stage 5 adapter wiring: native features must be reachable through the shared Action Engine.
+  for (const capabilityId of [
+    "voice.speak_text", "voice.stop_speaking",
+    "pulse.show_overlay", "pulse.hide_overlay",
+    "assistant.start_background_service", "assistant.stop_background_service",
+    "device.open_accessibility_settings", "device.get_build_info"
+  ]) {
+    assert.ok(capabilitySource.includes(`id: "${capabilityId}"`), `Missing Stage 5 capability registration: ${capabilityId}`);
+  }
+  for (const nativeMethod of [
+    "speakText", "stopTextSpeech", "showOverlay", "hideOverlay",
+    "startAssistantService", "stopAssistantService", "openAccessibilitySettings",
+    "getBuildInfo", "requestMicrophonePermission", "hasOverlayPermission"
+  ]) {
+    assert.ok(nativeSource.includes(nativeMethod), `Missing Stage 5 TypeScript bridge method: ${nativeMethod}`);
+    assert.ok(pluginSource.includes(`void ${nativeMethod}(PluginCall call)`), `Missing Stage 5 Android plugin method: ${nativeMethod}`);
+  }
+  for (const permissionId of ["android.microphone", "android.overlay"]) {
+    assert.ok(capabilitySource.includes('"' + permissionId + '"'), "Missing Stage 5 permission adapter: " + permissionId);
+  }
+  const backgroundStart = capabilitySource.slice(
+    capabilitySource.indexOf('id: "assistant.start_background_service"'),
+    capabilitySource.indexOf('id: "assistant.stop_background_service"')
+  );
+  assert.ok(backgroundStart.includes("approvalRequired: true"), "Starting the persistent assistant service must require explicit approval.");
+  assert.ok(backgroundStart.includes('permissionRequirements: ["android.microphone"]'), "Starting the assistant service must require microphone permission.");
+  const pulseShow = capabilitySource.slice(
+    capabilitySource.indexOf('id: "pulse.show_overlay"'),
+    capabilitySource.indexOf('id: "pulse.hide_overlay"')
+  );
+  assert.ok(pulseShow.includes("approvalRequired: true"), "Showing the floating overlay must use explicit approval.");
+  assert.ok(pulseShow.includes('permissionRequirements: ["android.overlay"]'), "Showing the overlay must require Android overlay permission.");
+
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
