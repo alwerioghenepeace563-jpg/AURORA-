@@ -164,6 +164,31 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "contacts.prepare_new", label: "Prepare a new contact", category: "communication",
+    description: "Open Android contact form with a name and optional phone/email. User reviews and saves; AURORA does not write contacts directly.",
+    risk: AURORA_ACTION_RISK.MEDIUM, approvalRequired: true,
+    validate: (input) => { const valid = requiredString(input?.name, "Contact name"); if (valid !== true) return valid; if (input.name.length > 120) return "Contact name must be 120 characters or fewer."; if (input?.phone != null && (typeof input.phone !== "string" || input.phone.length > 40 || (input.phone && !/^[+0-9() .-]{5,40}$/.test(input.phone.trim())))) return "Check the contact phone number."; if (input?.email != null && (typeof input.email !== "string" || input.email.length > 254 || (input.email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(input.email.trim())))) return "Check the contact email address."; if (!input.phone?.trim() && !input.email?.trim()) return "Provide a phone number or email address."; return true; },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Contact creation handoff requires Android." }),
+    execute: async ({ name, phone = "", email = "" }) => { const result = await auroraNative.prepareContact(name.trim(), phone.trim(), email.trim()); if (!result?.opened) throw new Error("Android did not confirm that the contact form opened."); return { ...result, savedByAurora: false, requiresUserSave: true }; }
+  });
+
+  engine.registerCapability({
+    id: "productivity.prepare_alarm", label: "Prepare an alarm", category: "productivity", description: "Open Android clock with a proposed alarm time. The user reviews and confirms the alarm.",
+    risk: AURORA_ACTION_RISK.LOW, approvalRequired: false,
+    validate: (input) => (Number.isInteger(input?.hour) && input.hour >= 0 && input.hour <= 23 && Number.isInteger(input?.minute) && input.minute >= 0 && input.minute <= 59) || "Provide a valid 24-hour alarm time.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Alarm handoff requires Android." }),
+    execute: async ({ hour, minute, message = "AURORA alarm" }) => { const result = await auroraNative.prepareAlarm(hour, minute, message); if (!result?.opened) throw new Error("Android did not confirm that the alarm form opened."); return { ...result, requiresUserConfirmation: true, alarmCreatedByAurora: false }; }
+  });
+
+  engine.registerCapability({
+    id: "productivity.prepare_timer", label: "Prepare a timer", category: "productivity", description: "Open Android clock with a proposed timer duration. The user reviews and starts the timer.",
+    risk: AURORA_ACTION_RISK.LOW, approvalRequired: false,
+    validate: (input) => (Number.isInteger(input?.seconds) && input.seconds >= 1 && input.seconds <= 86400) || "Timer duration must be between 1 second and 24 hours.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Timer handoff requires Android." }),
+    execute: async ({ seconds, message = "AURORA timer" }) => { const result = await auroraNative.prepareTimer(seconds, message); if (!result?.opened) throw new Error("Android did not confirm that the timer form opened."); return { ...result, requiresUserConfirmation: true, timerCreatedByAurora: false }; }
+  });
+
+  engine.registerCapability({
     id: "communication.open_dialer",
     label: "Prepare a phone call",
     category: "communication",
@@ -504,6 +529,54 @@ function createAuroraCapabilityRuntime(options = {}) {
       if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened.");
       return { ...result, noDirectSettingMutation: true };
     }
+  });
+
+  engine.registerCapability({
+    id: "device.open_nfc_settings",
+    label: "Open NFC settings",
+    category: "device",
+    description: "Open Android NFC settings; the user controls NFC.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => { const result = await auroraNative.openDeviceSettings("nfc"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; }
+  });
+
+  engine.registerCapability({
+    id: "device.open_sound_settings",
+    label: "Open sound settings",
+    category: "device",
+    description: "Open Android sound settings; the user controls sound and vibration.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => { const result = await auroraNative.openDeviceSettings("sound"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; }
+  });
+
+  engine.registerCapability({
+    id: "device.open_battery_settings",
+    label: "Open battery settings",
+    category: "device",
+    description: "Open Android battery settings; the user controls power and battery optimization.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => { const result = await auroraNative.openDeviceSettings("battery"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; }
+  });
+
+  engine.registerCapability({
+    id: "device.open_app_details_settings",
+    label: "Open AURORA app settings",
+    category: "device",
+    description: "Open Android app details for AURORA so the user can manage permissions and storage.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => { const result = await auroraNative.openDeviceSettings("app_details"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; }
   });
 
   engine.registerCapability({
