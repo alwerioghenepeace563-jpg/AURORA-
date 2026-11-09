@@ -658,3 +658,11 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - This prevents runtime reference errors when selecting image/video/all filters or starting a download. The existing media endpoint continues to return public-library results and direct-download URLs only where exposed by the source.
 - Added regression checks for the selector/state/request/download wiring.
 
+
+
+### Stage 11 wave 16 — provider-backed AI image generation
+- Added a dedicated server-side image-generation endpoint using Gemini 3.1 Flash Image through Google's Interactions API. The Gemini API key is read only on the server and is never included in browser code.
+- The endpoint validates prompt length, constrains aspect ratios and image output to 1K, applies a 90-second timeout, validates the returned image MIME type and base64 payload, and returns provider/quota failures without exposing credentials or raw provider diagnostics.
+- Added an AI Image Creator panel in Creative Studio with a bounded prompt, square/landscape/portrait aspect-ratio choices, an explicit Generate action, an in-app preview and a separate Download action. Generated output is not automatically saved to a project or uploaded elsewhere.
+- Added a focused regression test and included it in the consolidated Stage 11 test chain.
+- This wave requires a working server-side `GEMINI_API_KEY`, Gemini image-model access and available quota. Live provider generation, Android download behavior and physical-device testing remain unverified; this does not claim video generation.
