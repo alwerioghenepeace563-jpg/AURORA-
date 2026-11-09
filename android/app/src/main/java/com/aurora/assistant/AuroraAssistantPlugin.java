@@ -109,6 +109,46 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void showOverlay(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(getContext())) {
+            call.resolve(new JSObject().put("requested", false).put("shown", false)
+                .put("note", "Allow AURORA to display over other apps, then try again."));
+            return;
+        }
+        try {
+            Intent intent = new Intent(getContext(), AuroraOverlayService.class);
+            intent.setAction(AuroraOverlayService.ACTION_SHOW);
+            getContext().startService(intent);
+            android.content.SharedPreferences state = getContext().getSharedPreferences("aurora_assistant", 0);
+            call.resolve(new JSObject().put("requested", true)
+                .put("shown", state.getBoolean("pulse_overlay_shown", false))
+                .put("note", state.getString("pulse_overlay_note", "AURORA Pulse launch requested.")));
+        } catch (Exception error) {
+            call.reject("Android could not start AURORA Pulse.", error);
+        }
+    }
+
+    @PluginMethod
+    public void hideOverlay(PluginCall call) {
+        try {
+            Intent intent = new Intent(getContext(), AuroraOverlayService.class);
+            intent.setAction(AuroraOverlayService.ACTION_HIDE);
+            getContext().startService(intent);
+            call.resolve(new JSObject().put("hidden", true));
+        } catch (Exception error) {
+            call.reject("Android could not close AURORA Pulse.", error);
+        }
+    }
+
+    @PluginMethod
+    public void getOverlayStatus(PluginCall call) {
+        android.content.SharedPreferences state = getContext().getSharedPreferences("aurora_assistant", 0);
+        call.resolve(new JSObject()
+            .put("shown", state.getBoolean("pulse_overlay_shown", false))
+            .put("note", state.getString("pulse_overlay_note", "AURORA Pulse has not been started.")));
+    }
+
+    @PluginMethod
     public void requestContactsPermission(PluginCall call) {
         if (getPermissionState("contacts") == PermissionState.GRANTED) {
             call.resolve(new JSObject().put("granted", true)); return;
