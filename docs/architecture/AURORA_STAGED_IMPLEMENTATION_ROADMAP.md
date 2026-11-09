@@ -477,6 +477,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Extended focused learning regression tests for session history filtering and empty results.
 - Progress totals continue to derive from recorded sessions and explicit topic status changes; no inferred study time or automatic completion is recorded.
 
+**Implementation wave 4 — Source-aware project context (code committed; CI pending):**
+- Added a bounded context assembler that combines a selected project's own metadata, saved drafts and user-selected project references into a source-labelled text pack.
+- The assembler caps output at 20,000 characters (12,000 by default), reports included/total source counts and whether content was truncated, and never silently scans other projects.
+- Added a project workspace preview and copy action so the learner/creator can explicitly review the context before pasting it into AURORA chat or another tool.
+- Added regression checks for project scoping, provenance labels, source count, bounded output and missing-project handling.
+- This is deterministic source assembly, not an AI-generated summary or automatic media transcription.
+
 **Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
