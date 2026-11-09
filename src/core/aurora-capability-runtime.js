@@ -406,6 +406,21 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "android.inspect_capabilities",
+    label: "Inspect Android capabilities",
+    category: "device",
+    description: "Read a device-specific inventory of hardware features and current permission states. This inspection is read-only and never requests permissions or changes settings.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Device capability inspection requires the native Android app." }),
+    execute: async () => {
+      const inventory = await auroraNative.getDeviceCapabilityInventory();
+      return { ...inventory, readOnly: true };
+    }
+  });
+
+  engine.registerCapability({
     id: "device.get_status",
     label: "Get device status",
     category: "device",
