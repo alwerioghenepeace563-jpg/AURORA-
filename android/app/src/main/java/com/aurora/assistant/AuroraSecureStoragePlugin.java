@@ -34,6 +34,7 @@ public class AuroraSecureStoragePlugin extends Plugin {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setRandomizedEncryptionRequired(true)
+            .setKeySize(256)
             .build());
         return generator.generateKey();
     }
@@ -60,6 +61,7 @@ public class AuroraSecureStoragePlugin extends Plugin {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+            cipher.updateAAD(key.getBytes(StandardCharsets.UTF_8));
             byte[] encrypted = cipher.doFinal(plain);
             byte[] iv = cipher.getIV();
             byte[] packed = new byte[iv.length + encrypted.length];
@@ -88,6 +90,7 @@ public class AuroraSecureStoragePlugin extends Plugin {
             File file = entryFile(key);
             JSObject result = new JSObject();
             if (!file.isFile()) { result.put("found", false); call.resolve(result); return; }
+            if (file.length() > 45000L) throw new IllegalStateException("Stored secure value exceeds the allowed size.");
             byte[] encoded;
             try (FileInputStream input = new FileInputStream(file)) {
                 encoded = new byte[(int) file.length()];
@@ -101,6 +104,7 @@ public class AuroraSecureStoragePlugin extends Plugin {
             byte[] encrypted = java.util.Arrays.copyOfRange(packed, 12, packed.length);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(128, iv));
+            cipher.updateAAD(key.getBytes(StandardCharsets.UTF_8));
             String value = new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
             result.put("found", true); result.put("value", value); call.resolve(result);
         } catch (Exception error) {
