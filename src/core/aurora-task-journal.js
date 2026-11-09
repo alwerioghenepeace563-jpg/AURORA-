@@ -38,6 +38,7 @@ function createAuroraTaskJournal(options = {}) {
       taskId: typeof result.taskId === "string" && SAFE_TASK_ID.test(result.taskId) ? result.taskId : null,
       title: "AURORA task",
       status: typeof result.status === "string" ? result.status.slice(0, 40) : "unknown",
+      verificationStatus: ["verified", "partially_verified", "unverified", "not_applicable"].includes(result.verificationStatus) ? result.verificationStatus : "unknown",
       startedAt: typeof result.startedAt === "string" ? result.startedAt.slice(0, 40) : null,
       finishedAt: typeof result.finishedAt === "string" ? result.finishedAt.slice(0, 40) : null,
       stoppedAtStep: typeof result.stoppedAtStep === "string" ? result.stoppedAtStep.slice(0, 64) : null,
@@ -46,6 +47,7 @@ function createAuroraTaskJournal(options = {}) {
         stepId: typeof step?.stepId === "string" ? step.stepId.slice(0, 64) : null,
         capabilityId: typeof step?.capabilityId === "string" ? step.capabilityId.slice(0, 100) : null,
         status: typeof step?.status === "string" ? step.status.slice(0, 40) : "unknown",
+        verificationStatus: ["verified", "unverified", "not_applicable"].includes(step?.verificationStatus) ? step.verificationStatus : "unknown",
         receipt: safeReceipt(step?.receipt)
       })) : []
     };
