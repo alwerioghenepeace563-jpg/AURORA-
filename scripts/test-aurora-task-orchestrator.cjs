@@ -90,5 +90,5 @@ const assert = require("node:assert/strict");
   const pending=ct.runPlan(cp,{confirmed:true}); while(!started) await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(ct.cancelPlan("task-cancel"),true); const cancelled=await pending;
   assert.equal(cancelled.status,"cancelled"); assert.equal(cancelled.steps.length,1); assert.equal(ct.cancelPlan("task-cancel"),false);
-  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, idempotency and cooperative cancellation.");");
+  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, idempotency and cooperative cancellation.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
