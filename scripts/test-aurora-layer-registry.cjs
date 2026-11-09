@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_CHECKPOINT, STAGE_EIGHT_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_NINE_LAYER_AUDIT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_CHECKPOINT, STAGE_EIGHT_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_TEN_SCOPE } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -12,8 +12,14 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageOneMapped, 12, "Stage one must map every layer before stage two begins.");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
-  assert.equal(summary.nextStage, 9);
-  assert.equal(summary.activeStage, 9);
+  assert.equal(summary.nextStage, 10);
+  assert.equal(summary.activeStage, 10);
+  assert.equal(summary.stageTenStatus, "in_progress");
+  assert.equal(summary.stageTenScopedLayers, 12);
+  assert.equal(STAGE_TEN_CHECKPOINT.status, "in_progress");
+  assert.equal(Object.keys(STAGE_TEN_SCOPE).length, 12);
+  assert.ok(registry.stages.some(stage => stage.id === 10 && stage.status === "in_progress"));
+  assert.ok(registry.list().every(layer => layer.stageTenScope.length >= 3));
   assert.equal(summary.stageNineStatus, "in_progress");
   assert.equal(summary.stageNineAuditedLayers, 12);
   assert.equal(STAGE_NINE_CHECKPOINT.status, "in_progress");
