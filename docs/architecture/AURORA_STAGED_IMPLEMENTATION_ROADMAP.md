@@ -387,6 +387,12 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added shared native bridge methods, Action Engine capabilities and Stage 10 regression assertions.
 - Android 11+ package visibility is constrained to launcher activities and the declared launcher intent query; the inventory is not a complete package-management catalogue.
 
+**Implementation wave 6 — User-selected media and file sharing (code committed; regression coverage added):**
+- Added an Android system document picker filtered to images, videos or audio, one selection at a time.
+- The picker returns metadata and a content URI only. It does not automatically load, index, upload or store media bytes.
+- Added an approval-gated share-sheet handoff for a selected content URI. The user chooses the destination and confirms; AURORA does not transmit the file itself.
+- Added bridge and Action Engine capabilities plus source-level regression assertions.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
