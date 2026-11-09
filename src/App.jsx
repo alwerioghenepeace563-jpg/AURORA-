@@ -1025,6 +1025,10 @@ export default function App() {
     setSpeaking(false);
   }
 
+  useEffect(() => {
+    if (!soundOn) stopSpokenOutput();
+  }, [soundOn]);
+
   async function speak(text) {
     if (!soundOn || !text) return;
     stopSpokenOutput();
