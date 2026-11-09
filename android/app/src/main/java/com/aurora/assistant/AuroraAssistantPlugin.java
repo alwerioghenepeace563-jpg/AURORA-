@@ -20,6 +20,7 @@ import java.net.URL;
 import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.JSArray;
 import androidx.activity.result.ActivityResult;
 import android.database.Cursor;
 import java.io.ByteArrayOutputStream;
@@ -32,7 +33,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) })
+@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "contacts", strings = { Manifest.permission.READ_CONTACTS }), @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) })
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
@@ -70,6 +71,80 @@ public class AuroraAssistantPlugin extends Plugin {
             && candidate.signatures[0].equals(installed.signatures[0]);
     }
 
+
+
+    @PluginMethod
+    public void requestContactsPermission(PluginCall call) {
+        if (getPermissionState("contacts") == PermissionState.GRANTED) {
+            call.resolve(new JSObject().put("granted", true)); return;
+        }
+        requestPermissionForAlias("contacts", call, "contactsPermissionCallback");
+    }
+
+    @PermissionCallback
+    private void contactsPermissionCallback(PluginCall call) {
+        call.resolve(new JSObject().put("granted", getPermissionState("contacts") == PermissionState.GRANTED));
+    }
+
+    @PluginMethod
+    public void searchContacts(PluginCall call) {
+        String query = call.getString("query");
+        if (query == null || query.trim().isEmpty() || query.length() > 100) {
+            call.reject("Provide a contact search query of 1 to 100 characters."); return;
+        }
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Grant Contacts permission before searching contacts."); return;
+        }
+        Cursor cursor = null;
+        try {
+            String[] projection = {
+                android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
+            };
+            String selection = android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " LIKE ? OR "
+                + android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER + " LIKE ?";
+            String pattern = "%" + query.trim() + "%";
+            cursor = getContext().getContentResolver().query(
+                android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                projection, selection, new String[] { pattern, pattern },
+                android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
+            );
+            JSArray contacts = new JSArray();
+            int count = 0;
+            if (cursor != null) {
+                while (cursor.moveToNext() && count < 20) {
+                    JSObject item = new JSObject();
+                    item.put("id", cursor.getString(cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.CONTACT_ID)));
+                    item.put("name", cursor.getString(cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)));
+                    item.put("number", cursor.getString(cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)));
+                    contacts.put(item);
+                    count++;
+                }
+            }
+            call.resolve(new JSObject().put("contacts", contacts).put("limit", 20));
+        } catch (Exception e) {
+            call.reject("Could not search the device contacts.", e);
+        } finally {
+            if (cursor != null) try { cursor.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    @PluginMethod
+    public void openDialer(PluginCall call) {
+        String number = call.getString("number");
+        if (number == null || !number.trim().matches("[+0-9(). -]{5,25}")) {
+            call.reject("Provide a valid phone number."); return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number.trim())));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("opened", true));
+        } catch (Exception e) {
+            call.reject("Could not open the phone dialler.", e);
+        }
+    }
 
     @PluginMethod
     public void startSpeechRecognition(PluginCall call) {
