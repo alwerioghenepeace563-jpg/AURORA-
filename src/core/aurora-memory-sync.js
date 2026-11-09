@@ -5,6 +5,7 @@
 function createAuroraMemorySync(memory, options = {}) {
   if (!memory || typeof memory.configureCloud !== "function" || typeof memory.syncRecord !== "function") throw new TypeError("Memory sync requires the AURORA memory service.");
   const now = options.now || (() => new Date().toISOString());
+  const isConsentGranted = typeof options.isConsentGranted === "function" ? options.isConsentGranted : () => true;
   let adapter = null;
   let enabled = false;
   const states = new Map();
@@ -18,6 +19,13 @@ function createAuroraMemorySync(memory, options = {}) {
   }
   async function syncOne(id, { conflict = "keep_local" } = {}) {
     if (!enabled) return { synced: false, reason: "Memory sync is disabled." };
+    if (!isConsentGranted()) {
+      enabled = false;
+      adapter = null;
+      memory.configureCloud({ enabled: false });
+      states.set(String(id), { status: "blocked_consent_revoked", at: now() });
+      return { synced: false, reason: "Cloud memory consent is no longer active. Sync has been disabled." };
+    }
     const local = memory.list().find(item => item.id === String(id));
     if (!local) return { synced: false, reason: "Memory not found." };
     if (!["keep_local", "keep_remote", "newest"].includes(conflict)) throw new Error("Unknown conflict policy.");
