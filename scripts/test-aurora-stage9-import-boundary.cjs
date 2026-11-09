@@ -1,0 +1,35 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const read = file => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
+
+const native = read("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java");
+const bridge = read("src/lib/aurora-native.ts");
+const runtime = read("src/core/aurora-capability-runtime.js");
+const workspace = read("src/components/KnowledgeUniverseWorkspace.jsx");
+const app = read("src/App.jsx");
+const universe = read("src/core/aurora-knowledge-universe.js");
+
+const callbackStart = native.indexOf("private void handleDocumentResult");
+assert.ok(callbackStart >= 0, "Android document result callback must exist.");
+const callback = native.slice(callbackStart, callbackStart + 4200);
+const cancelAt = callback.indexOf("cancelled.put(\"cancelled\", true)");
+const uriAt = callback.indexOf("Uri uri = activityResult.getData().getData()");
+assert.ok(cancelAt >= 0 && uriAt > cancelAt, "Picker cancellation must resolve before reading or retaining a selected URI.");
+assert.match(callback, /RESULT_OK[\\s\\S]*?cancelled\.put\(\"cancelled\", true\)/);
+assert.match(bridge, /pickDocument\(\): Promise<\{ cancelled: boolean/);
+const pickerStart = runtime.indexOf('id: "files.pick_document"');
+const picker = runtime.slice(pickerStart, pickerStart + 1500);
+assert.match(picker, /if \(result\?\.cancelled\) return \{ cancelled: true \}/);
+assert.ok(!/addKnowledgeSource|knowledgeUniverse\.add/.test(picker), "A file picker result must never auto-import into the Knowledge Universe.");
+assert.match(universe, /source: \{ label:[\\s\\S]*method:/);
+assert.match(universe, /input\.userApproved !== true/, "Knowledge ingestion must require explicit approval.");
+assert.match(workspace, /auroraRuntime\.knowledgeTimeline/);
+assert.match(workspace, /auroraRuntime\.searchKnowledge/);
+assert.match(workspace, /auroraRuntime\.correctKnowledge/);
+assert.match(workspace, /auroraRuntime\.forgetKnowledge/);
+assert.match(workspace, /sourceMethod: "explicit_workspace_save"/);
+assert.match(workspace, /No automatic capture/);
+assert.match(app, /KnowledgeUniverseWorkspace/);
+assert.match(app, /activityTab==="knowledge"/);
+console.log("AURORA Stage 9 import-boundary tests passed: cancellation is non-importing, provenance is retained, and the local knowledge browser/editor is connected.");
