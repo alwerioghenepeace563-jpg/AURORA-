@@ -204,6 +204,7 @@ function CreativeLearningWorkspace({ authSession }){
    const duration=audio.duration;
    totalChunks=Math.ceil(duration/20);
    try { const saved=JSON.parse(localStorage.getItem(jobKey)||"null"); if(saved?.requestId) job=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(saved.requestId),{cache:"no-store"}); } catch { job=null; }
+   if(job?.status==="completed"){localStorage.removeItem(jobKey);job=null;}
    if(!job?.requestId) {
     job=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",filename:mediaFile.name,mimeType:recorderMime.split(";")[0],sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks})});
     localStorage.setItem(jobKey,JSON.stringify({requestId:job.requestId}));
@@ -213,6 +214,7 @@ function CreativeLearningWorkspace({ authSession }){
    if(job.status==="completed") { setMediaResumeOffset(duration); setMediaProgress("Completed · "+job.completedChunks+" sections saved"); setNotice("This recording is already complete. Its cloud transcript has been restored."); return; }
    let offset=Math.min(duration,(Number(job.completedChunks)||0)*20);
    if(offset>=duration-0.5){offset=0;setMediaResumeOffset(0);setMediaTranscript("");}
+   else setMediaResumeOffset(offset);
    audio.currentTime=Math.min(offset,duration);
    context=new AudioContextCtor();const source=context.createMediaElementSource(audio),capture=context.createMediaStreamDestination(),mute=context.createGain();
    mute.gain.value=0;source.connect(capture);source.connect(mute);mute.connect(context.destination);await context.resume();
