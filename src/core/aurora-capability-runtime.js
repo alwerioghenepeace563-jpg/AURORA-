@@ -433,6 +433,70 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "device.open_wifi_settings",
+    label: "Open Wi-Fi settings",
+    category: "device",
+    description: "Open Android Wi-Fi settings. AURORA never toggles Wi-Fi directly; the user makes any change in system settings.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.openDeviceSettings("wifi");
+      if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened.");
+      return { ...result, noDirectSettingMutation: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "device.open_bluetooth_settings",
+    label: "Open Bluetooth settings",
+    category: "device",
+    description: "Open Android Bluetooth settings. AURORA never toggles Bluetooth directly; the user makes any change in system settings.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.openDeviceSettings("bluetooth");
+      if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened.");
+      return { ...result, noDirectSettingMutation: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "device.open_display_settings",
+    label: "Open display settings",
+    category: "device",
+    description: "Open Android display settings for user-controlled display adjustments.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.openDeviceSettings("display");
+      if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened.");
+      return { ...result, noDirectSettingMutation: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "device.open_hotspot_settings",
+    label: "Open hotspot settings",
+    category: "device",
+    description: "Open Android hotspot/tethering settings. Android may route to general wireless settings; the user applies any change.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.openDeviceSettings("hotspot");
+      if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened.");
+      return { ...result, noDirectSettingMutation: true };
+    }
+  });
+
+  engine.registerCapability({
     id: "device.set_flashlight",
     label: "Control flashlight",
     category: "device",
