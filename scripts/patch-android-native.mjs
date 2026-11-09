@@ -531,7 +531,8 @@ const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
   '<uses-permission android:name="android.permission.CAMERA" />',
-  '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
+  '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />',
+  '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />'
 ];
 for (const permission of permissions) {
   const key = permission.match(/android:name="([^"]+)"/)[1];
@@ -547,6 +548,9 @@ fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
 </paths>
 `);
 
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraReminderReceiver"')) {
+  manifest = manifest.replace("</application>", '        <receiver android:name=".AuroraReminderReceiver" android:enabled="true" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter></receiver>\n    </application>');
+}
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
