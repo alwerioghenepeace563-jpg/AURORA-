@@ -379,6 +379,38 @@ function createAuroraCapabilityRuntime(options = {}) {
 
 
   engine.registerCapability({
+    id: "files.pick_media",
+    label: "Choose an image, video or audio file",
+    category: "files",
+    description: "Open Android's system picker for one image, video or audio item. Returns only selected-file metadata and a content URI; media bytes are not loaded automatically.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: false,
+    validate: (input) => ["image", "video", "audio"].includes(input?.mediaType) || "Choose image, video or audio.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The Android system media picker is required." }),
+    execute: async ({ mediaType }) => {
+      const result = await auroraNative.pickMedia(mediaType);
+      if (result?.cancelled) return { cancelled: true };
+      return { cancelled: false, name: result?.name || "Selected media", mimeType: result?.mimeType || "application/octet-stream", contentUri: result?.contentUri || null, readOnlySelection: true, contentLoaded: false };
+    }
+  });
+
+  engine.registerCapability({
+    id: "files.share_selected_file",
+    label: "Share a selected file",
+    category: "files",
+    description: "Open Android's share sheet for a content URI returned by AURORA's explicit system picker. The user chooses the destination; AURORA does not send or upload the file.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => requiredString(input?.contentUri, "Selected file URI") === true && input.contentUri.startsWith("content://") && input.contentUri.length <= 2048 && requiredString(input?.mimeType, "File media type") === true || "Share only a selected content URI and a valid media type.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Android file sharing requires the native app." }),
+    execute: async ({ contentUri, mimeType }) => {
+      const result = await auroraNative.shareSelectedFile(contentUri, mimeType);
+      if (!result?.opened) throw new Error("Android did not open the file share sheet.");
+      return { shareSheetOpened: true, requiresUserDestination: true, fileSentByAurora: false };
+    }
+  });
+
+  engine.registerCapability({
     id: "files.search_selected_text",
     label: "Search selected document text",
     category: "files",
