@@ -95,5 +95,25 @@ const path = require("node:path");
   assert.ok(nativePatchScript.includes("requiredNativeMethods"), "Android build bootstrap must verify native adapters instead of silently overwriting them.");
   assert.ok(nativePatchScript.includes('"speakText", "stopTextSpeech"'), "Android build bootstrap must verify native speech synthesis methods.");
   assert.ok(nativePatchScript.includes("AuroraNotificationListenerService"), "Android build bootstrap must register the notification listener service.");
+  const foundationMap = fs.readFileSync(path.join(__dirname, "../docs/architecture/AURORA_COMPLETE_FOUNDATION_MAP.md"), "utf8");
+  for (const foundation of [
+    "Android and device interaction",
+    "Voice and multimodal interaction",
+    "Screen, accessibility, and notifications",
+    "Communication and people",
+    "Location, maps, and travel",
+    "Calendar, tasks, and productivity",
+    "Files, documents, and knowledge",
+    "Media and creative tools",
+    "Intelligence and personalisation",
+    "Extensions and interoperability",
+    "Safety, privacy, and security",
+    "Reliability and operations"
+  ]) {
+    assert.ok(foundationMap.includes(foundation), `Missing AURORA foundation family: ${foundation}`);
+  }
+  assert.ok(foundationMap.includes("One brain, many surfaces"), "Main, Pulse, and voice must share one architecture.");
+  assert.ok(foundationMap.includes("not a claim that every listed capability is already implemented"), "The foundation map must distinguish architecture from shipped functionality.");
+  assert.ok(foundationMap.includes("Do not regenerate or replace the Android signing key"), "Signing identity must remain protected.");
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
