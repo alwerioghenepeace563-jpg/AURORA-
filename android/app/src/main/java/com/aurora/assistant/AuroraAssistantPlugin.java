@@ -336,6 +336,97 @@ public class AuroraAssistantPlugin extends Plugin {
         }
     }
 
+
+    @PluginMethod
+    public void openNotificationAccessSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject();
+            result.put("opened", true);
+            call.resolve(result);
+        } catch (Exception e) { call.reject("Could not open Android notification access settings.", e); }
+    }
+
+    @PluginMethod
+    public void hasNotificationAccess(PluginCall call) {
+        String enabled = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        String expected = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+        boolean granted = false;
+        if (enabled != null) {
+            for (String item : enabled.split(":")) {
+                if (expected.equalsIgnoreCase(item)) { granted = true; break; }
+            }
+        }
+        JSObject result = new JSObject();
+        result.put("granted", granted);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void readRecentNotifications(PluginCall call) {
+        String enabled = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        String expected = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+        boolean granted = false;
+        if (enabled != null) for (String item : enabled.split(":")) if (expected.equalsIgnoreCase(item)) granted = true;
+        if (!granted) { call.reject("Enable AURORA Notification Access in Android Settings first."); return; }
+        call.resolve(AuroraNotificationListenerService.readRecent(getContext()));
+    }
+
+    @PluginMethod
+    public void clearRecentNotifications(PluginCall call) {
+        AuroraNotificationListenerService.clearRecent(getContext());
+        JSObject result = new JSObject();
+        result.put("cleared", true);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getDeviceStatus(PluginCall call) {
+        try {
+            Intent battery = getContext().registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            JSObject result = new JSObject();
+            if (battery != null) {
+                int level = battery.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                int scale = battery.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+                if (level >= 0 && scale > 0) result.put("batteryPercent", Math.round(level * 100f / scale));
+                int plugged = battery.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0);
+                result.put("charging", plugged != 0);
+                result.put("batteryHealth", battery.getIntExtra(android.os.BatteryManager.EXTRA_HEALTH, -1));
+            }
+            result.put("platform", "android");
+            result.put("sdk", Build.VERSION.SDK_INT);
+            result.put("manufacturer", Build.MANUFACTURER);
+            result.put("model", Build.MODEL);
+            call.resolve(result);
+        } catch (Exception e) { call.reject("Could not read device status.", e); }
+    }
+
+    @PluginMethod
+    public void setFlashlight(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled");
+        if (enabled == null) { call.reject("Choose whether to turn the flashlight on or off."); return; }
+        try {
+            android.hardware.camera2.CameraManager manager =
+                (android.hardware.camera2.CameraManager) getContext().getSystemService(android.content.Context.CAMERA_SERVICE);
+            String selected = null;
+            for (String id : manager.getCameraIdList()) {
+                android.hardware.camera2.CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
+                Boolean hasFlash = characteristics.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                Integer facing = characteristics.get(android.hardware.camera2.CameraCharacteristics.LENS_FACING);
+                if (Boolean.TRUE.equals(hasFlash) && (facing == null || facing == android.hardware.camera2.CameraCharacteristics.LENS_FACING_BACK)) {
+                    selected = id; break;
+                }
+            }
+            if (selected == null) { call.reject("No flashlight is available on this device."); return; }
+            manager.setTorchMode(selected, enabled);
+            JSObject result = new JSObject();
+            result.put("enabled", enabled);
+            call.resolve(result);
+        } catch (Exception e) { call.reject("Could not change the flashlight state.", e); }
+    }
+
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
