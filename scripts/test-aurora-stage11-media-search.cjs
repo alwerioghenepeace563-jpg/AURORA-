@@ -1,11 +1,11 @@
 const assert=require("node:assert/strict");
 const fs=require("node:fs");
+const java=fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java","utf8");
+const bridge=fs.readFileSync("src/lib/aurora-native.ts","utf8");
 const endpoint=fs.readFileSync("api/media-search.js","utf8");
 const workspace=fs.readFileSync("src/components/CreativeLearningWorkspace.jsx","utf8");
-const native=fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java","utf8");
-const bridge=fs.readFileSync("src/lib/aurora-native.ts","utf8");
-for(const value of ["duckduckgo.com/i.js","duckduckgo.com/v.js","rightsNotice","AbortSignal.timeout","slice(0,12)"]) assert.ok(endpoint.includes(value),"Missing search feature: "+value);
-for(const value of ["Images","Videos","searchMediaFallback","/api/media-search?q=","downloadFoundMedia","Open source","Save source"]) assert.ok(workspace.includes(value),"Missing workspace feature: "+value);
-for(const value of ["downloadPublicMedia","openMediaSource","DownloadManager","VISIBILITY_VISIBLE_NOTIFY_COMPLETED","setDestinationInExternalPublicDir","https"]) assert.ok(native.includes(value),"Missing Android download safeguard: "+value);
-for(const value of ["downloadPublicMedia","openMediaSource"]) assert.ok(bridge.includes(value),"Missing native bridge method: "+value);
-console.log("AURORA Stage 11 media search, browser handoff and download checks passed.");
+for(const s of ["public void downloadMedia","DownloadManager","VISIBILITY_VISIBLE_NOTIFY_COMPLETED","Environment.DIRECTORY_DOWNLOADS","Only secure HTTPS","if (!confirmed)"])assert.ok(java.includes(s),"Native safeguard missing: "+s);
+for(const s of ["downloadMedia(options","AuroraNative.downloadMedia(options)"])assert.ok(bridge.includes(s),"Bridge missing: "+s);
+for(const s of ["commons.wikimedia.org","archive.org/advancedsearch.php","downloadUrl","license"])assert.ok(endpoint.includes(s),"Provider missing: "+s);
+for(const s of ["AURORA Media Browser & Download Centre","Search downloadable media","downloadSearchMedia","Pexels Videos"])assert.ok(workspace.includes(s),"Workspace missing: "+s);
+console.log("AURORA Stage 11 media browser and download checks passed.");
