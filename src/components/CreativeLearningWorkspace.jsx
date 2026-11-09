@@ -215,6 +215,7 @@ function CreativeLearningWorkspace(){
     const stopped=new Promise((resolve,reject)=>{recorder.ondataavailable=event=>{if(event.data?.size)parts.push(event.data);};recorder.onerror=()=>reject(new Error("Audio capture stopped unexpectedly."));recorder.onstop=()=>resolve(new Blob(parts,{type:recorder.mimeType||recorderMime}));});
     recorder.start();
     await new Promise(resolve=>{
+     if(audio.ended){resolve();return;}
      let finished=false;const finish=()=>{if(finished)return;finished=true;clearTimeout(timer);audio.removeEventListener("ended",finish);resolve();};
      const timer=setTimeout(finish,20000);audio.addEventListener("ended",finish,{once:true});
     });
