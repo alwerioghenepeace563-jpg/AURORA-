@@ -107,3 +107,18 @@ assert.ok(capabilityRuntime.includes('id: "files.pick_media"'));
 assert.ok(capabilityRuntime.includes('id: "files.share_selected_file"'));
 assert.ok(capabilityRuntime.includes("contentLoaded: false"));
 console.log("AURORA Stage 10 media picker and explicit file-sharing tests passed.");
+
+
+// Stage 10 Wave 7: explicit, bounded clipboard read/write.
+assert.ok(nativeJava.includes("public void readClipboardText(PluginCall call)"));
+assert.ok(nativeJava.includes("public void writeClipboardText(PluginCall call)"));
+assert.ok(nativeJava.includes("getPrimaryClip()"));
+assert.ok(nativeJava.includes("setPrimaryClip"));
+assert.ok(nativeJava.includes("text.length() > 8000"));
+assert.ok(nativeBridge.includes("readClipboardText(): Promise"));
+assert.ok(nativeBridge.includes("writeClipboardText(options:"));
+for (const id of ['device.read_clipboard', 'device.write_clipboard']) {
+  assert.ok(capabilityRuntime.includes('id: "' + id + '"'));
+}
+assert.ok(capabilityRuntime.includes("notStored: true"));
+console.log("AURORA Stage 10 clipboard tests passed: explicit approval, bounded text and no persistence.");
