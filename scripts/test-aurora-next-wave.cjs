@@ -42,12 +42,15 @@ const assert = require("node:assert/strict");
   // Keep this source-level check independent of the Android bridge so it runs in Node CI.
   const fs = require("node:fs");
   const capabilitySource = fs.readFileSync(require("node:path").join(__dirname, "../src/core/aurora-capability-runtime.js"), "utf8");
-  const capabilityIds = [...capabilitySource.matchAll(/engine\\.registerCapability\\(\\{\\s*id:\\s*"([^"]+)"/g)].map(match => match[1]);
+  const capabilityIds = [...capabilitySource.matchAll(/engine\.registerCapability\(\{\s*id:\s*"([^"]+)"/g)].map(match => match[1]);
   assert.ok(capabilityIds.length >= 25, "The built-in capability catalogue should remain comprehensive.");
   assert.equal(new Set(capabilityIds).size, capabilityIds.length, "Every built-in capability ID must be unique.");
-  for (const requiredId of ["calendar.prepare_event", "files.pick_document", "files.search_selected_text", "media.search_play", "notifications.read_recent", "maps.get_directions", "voice.start_listening"]) {
+  for (const requiredId of ["calendar.prepare_event", "calendar.search_events", "files.pick_document", "files.search_selected_text", "media.search_play", "notifications.read_recent", "maps.get_directions", "voice.start_listening"]) {
     assert.ok(capabilityIds.includes(requiredId), "Missing built-in capability: " + requiredId);
   }
+
+  assert.match(capabilitySource, /permissionRequirements:\s*\["android\.calendar"\]/, "Calendar reads must use the shared permission gate.");
+  assert.match(capabilitySource, /approvalRequired:\s*true[\s\S]*?permissionRequirements:\s*\["android\.calendar"\]/, "Calendar reads must require explicit approval.");
 
   console.log("AURORA next-wave tests passed: task recovery journal, explicit per-record memory sync, read-only capability discovery.");
 })().catch(error => { console.error(error); process.exitCode = 1; });
