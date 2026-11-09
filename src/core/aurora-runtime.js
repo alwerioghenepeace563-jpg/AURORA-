@@ -20,6 +20,7 @@ import { createAuroraCapabilityIntelligence } from "./aurora-capability-intellig
 import { auroraConsents } from "./aurora-consent-registry";
 import { createAuroraUniversalSearch } from "./aurora-universal-search";
 import { createAuroraExtensionRegistry } from "./aurora-extension-registry";
+import { createAuroraRoutineScheduler } from "./aurora-routine-scheduler";
 import { createAuroraSupabaseMemoryAdapter } from "./aurora-supabase-memory-adapter";
 import { auroraSecureStorage as nativeSecureStorage, auroraReminder } from "../lib/aurora-secure-storage";
 import { createAuroraSecureStore } from "./aurora-secure-store";
@@ -45,11 +46,16 @@ const supabaseMemoryAdapter = createAuroraSupabaseMemoryAdapter({
     } catch { return null; }
   }
 });
+if (supabaseMemoryAdapter.isConfigured() && auroraConsents.isGranted("memory.cloud_sync", "supabase")) {
+  try { memorySync.configure({ enabled: true, adapter: supabaseMemoryAdapter, consent: true }); } catch { /* remain local-first if the prior consent cannot be restored */ }
+}
 const secureStorage = createAuroraSecureStore({
   available: nativeSecureStorage.isAvailable(),
   adapter: nativeSecureStorage
 });
 let pendingReminder = null;
+let pendingRoutine = null;
+const routineScheduler = createAuroraRoutineScheduler({ reminder: auroraReminder, workflows: auroraWorkflows });
 async function hasSignedInSupabaseSession() {
   try {
     if (nativeSecureStorage.isAvailable()) {
@@ -61,7 +67,7 @@ async function hasSignedInSupabaseSession() {
 }
 const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
-const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities() });
+const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request) });
 universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
 universalSearch.register("knowledge", (query, limit) => auroraKnowledge.search(query, limit).map(item => ({ ...item, type: "knowledge", summary: item.description })), "Knowledge graph");
 universalSearch.register("capabilities", (query, limit) => capabilityIntelligence.find(query, limit).map(item => ({ ...item, type: "capability", summary: item.description })), "Available tools");
@@ -152,6 +158,38 @@ async function routeMessage(text) {
       const result = await auroraReminder.cancel(cancelReminder[1]);
       return { tool: "aurora_reminder_cancelled", result, context: result.cancelled ? "That scheduled reminder was cancelled." : "No scheduled reminder with that ID was found." };
     } catch (error) { return { tool: "aurora_reminder", context: error?.message || "The reminder could not be cancelled." }; }
+  }
+  const scheduleRoutineMatch = message.match(/^schedule routine ["“]?(.+?)["”]? in (\d{1,5})\s*(minutes?|mins?|hours?|hrs?|days?)$/i);
+  if (scheduleRoutineMatch) {
+    const title = scheduleRoutineMatch[1].trim();
+    const workflow = auroraWorkflows.list().find(item => item.title.toLowerCase() === title.toLowerCase());
+    if (!workflow) return { tool: "aurora_routine", context: "I could not find a saved workflow named “" + title + "”. Save the workflow first, then schedule it. Saved workflows: " + (auroraWorkflows.list().map(item => item.title).join(", ") || "none") };
+    const amount = Number(scheduleRoutineMatch[2]);
+    const unit = scheduleRoutineMatch[3].toLowerCase();
+    const multiplier = /^m/.test(unit) ? 60000 : /^h/.test(unit) ? 3600000 : 86400000;
+    const at = Date.now() + amount * multiplier;
+    if (!Number.isSafeInteger(amount) || amount < 1 || at > Date.now() + 31536000000) return { tool: "aurora_routine", context: "Choose a routine reminder between 1 minute and 365 days from now." };
+    pendingRoutine = { id: "routine-" + (globalThis.crypto?.randomUUID?.() || Date.now().toString(36)), workflowId: workflow.id, title: workflow.title, at };
+    return { tool: "aurora_routine_preview", routine: pendingRoutine, context: "Routine reminder preview: “" + workflow.title + "” at " + new Date(at).toLocaleString() + ". When it is due, AURORA will notify you; it will not run any steps in the background. Say confirm routine " + pendingRoutine.id + " to schedule it, or cancel routine " + pendingRoutine.id + " to discard it." };
+  }
+  const confirmRoutine = message.match(/^confirm routine ([a-zA-Z0-9_.-]{4,100})$/i);
+  if (confirmRoutine) {
+    if (!pendingRoutine || confirmRoutine[1] !== pendingRoutine.id) return { tool: "aurora_routine", context: "That is not the current routine preview. Prepare it again so you can review it." };
+    try {
+      const saved = await routineScheduler.schedule({ ...pendingRoutine, approved: true });
+      pendingRoutine = null;
+      return { tool: "aurora_routine_scheduled", routine: saved, context: "Routine reminder scheduled. When it is due, AURORA will notify you to review the saved workflow. You must prepare and approve a fresh task plan before any actions run." };
+    } catch (error) { return { tool: "aurora_routine", context: error?.message || "The routine reminder could not be scheduled." }; }
+  }
+  const cancelRoutine = message.match(/^cancel routine ([a-zA-Z0-9_.-]{4,100})$/i);
+  if (cancelRoutine) {
+    if (pendingRoutine && cancelRoutine[1] === pendingRoutine.id) { pendingRoutine = null; return { tool: "aurora_routine_cancelled", context: "Routine preview discarded. Nothing was scheduled." }; }
+    try { const result = await routineScheduler.cancel(cancelRoutine[1]); return { tool: "aurora_routine_cancelled", result, context: result.cancelled ? "That routine reminder was cancelled." : "No scheduled routine with that ID was found." }; }
+    catch (error) { return { tool: "aurora_routine", context: error?.message || "The routine could not be cancelled." }; }
+  }
+  if (/^(?:show|list) (?:my )?scheduled routines\??$/i.test(message)) {
+    const items = routineScheduler.list();
+    return { tool: "aurora_routines", routines: items, context: items.length ? "Scheduled routines (reminders only):\n" + items.map(item => "- " + item.title + " — " + new Date(item.at).toLocaleString() + " (" + item.status + ") [ID: " + item.id + "]").join("\n") : "You have no scheduled AURORA routines." };
   }
   if (/^(?:show|list) (?:my )?(?:scheduled )?reminders\??$/i.test(message)) {
     try {
@@ -434,8 +472,10 @@ const auroraRuntime = Object.freeze({
   consents: auroraConsents,
   universalSearch,
   extensions: extensionRegistry,
+  executeExtension: (extensionId, capabilityId, input) => extensionRegistry.execute(extensionId, capabilityId, input),
   secureStorage,
   reminders: auroraReminder,
+  routines: routineScheduler,
   memory: auroraMemory,
   knowledge: auroraKnowledge,
   events: auroraEvents,
