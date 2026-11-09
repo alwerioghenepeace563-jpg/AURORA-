@@ -286,6 +286,13 @@ Stage 8 will advance all 12 capability families together:
 - Exposed bounded recent activity and explicit forget operations through the shared runtime so Main Chat, Pulse, and voice can use the same controls.
 - Extended the Stage 8 regression to cover these new commands and runtime exports.
 
+**Implementation wave 3 — Saved workflow inspection and preflight visibility (code committed; CI pending):**
+- Added a read-only “show workflow [exact title]” command.
+- It displays ordered steps, capability labels, dependency relationships, risk metadata where available, and whether each capability is currently registered.
+- Missing or ambiguous workflow titles return a clear result; unavailable capabilities are disclosed before preparation.
+- Inspection does not request permissions, access screen/location/files, or execute any step. Preparing still creates a fresh preview and requires confirmation.
+- Added focused regression coverage and updated Stage 8 evidence across all 12 capability families.
+
 **Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
 
 ## Complete vision roadmap and remaining stages
