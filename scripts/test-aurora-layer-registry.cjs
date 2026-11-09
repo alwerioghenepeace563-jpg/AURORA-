@@ -24,6 +24,16 @@ const assert = require("node:assert/strict");
   assert.ok(registry.stages.some(stage => stage.id === 10 && stage.status === "complete"));
   assert.ok(registry.list().every(layer => layer.stageTenScope.length >= 3 && layer.stageTenEvidence.length >= 3));
   assert.equal(summary.stageElevenStatus, "in_progress");
+  assert.match(STAGE_ELEVEN_CHECKPOINT.scope, /media discovery.*AI-assisted creation.*syllabus-grounded study/i);
+  for (const expected of ["configured AI image/media generation", "longer-duration transcription", "syllabus/course-outline grounding", "accessible media/study refinements", "complete 12-family acceptance coverage"]) {
+    assert.ok(STAGE_ELEVEN_CHECKPOINT.validationBoundary.includes(expected), `Stage 11 remaining scope missing: ${expected}`);
+  }
+  for (const layerId of ["android_device","voice_multimodal","screen_accessibility","communication_people","location_travel","calendar_productivity","files_knowledge","media_creative","intelligence_personalisation","extensions_interoperability","safety_privacy_security","reliability_operations"]) {
+    assert.ok(STAGE_ELEVEN_SCOPE[layerId].length >= 3, `Stage 11 scope incomplete for ${layerId}`);
+  }
+  assert.ok(STAGE_ELEVEN_SCOPE.media_creative.some(item => /AI-assisted creative generation/.test(item)));
+  assert.ok(STAGE_ELEVEN_SCOPE.files_knowledge.some(item => /syllabus/.test(item)));
+  assert.ok(STAGE_ELEVEN_SCOPE.screen_accessibility.some(item => /screen-reader/.test(item)));
   assert.equal(summary.stageElevenScopedLayers, 12);
   assert.equal(STAGE_ELEVEN_CHECKPOINT.status, "in_progress");
   assert.equal(Object.keys(STAGE_ELEVEN_SCOPE).length, 12);
