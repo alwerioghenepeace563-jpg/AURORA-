@@ -101,7 +101,7 @@ function createAuroraCreativeUniverse(options = {}) {
     const text=bounded(input.text,20000);
     const uri=bounded(input.uri,2000);
     if(uri && !/^https?:\/\//i.test(uri) && !/^content:\/\//i.test(uri)) throw new Error("Asset references must use HTTPS or a user-selected content URI.");
-    const asset={id:createId("asset"),projectId,type,title,text,uri,sourceLabel:bounded(input.sourceLabel,120),createdAt:now(),storage:"local"};
+    const asset={id:createId("asset"),projectId,type,title,text,uri,sourceLabel:bounded(input.sourceLabel,120),mimeType:bounded(input.mimeType,120),createdAt:now(),storage:"local"};
     state.assets.unshift(asset); state.assets=state.assets.slice(0,1000);
     project.assetIds=Array.from(new Set([...project.assetIds,asset.id])); project.updatedAt=now(); write(state); return {...asset};
   }
