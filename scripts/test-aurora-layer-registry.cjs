@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -15,6 +15,10 @@ const assert = require("node:assert/strict");
   assert.equal(summary.nextStage, 4);
   assert.equal(summary.stageTwoStatus, "complete");
   assert.equal(summary.stageThreeStatus, "complete");
+  assert.equal(summary.stageFourStatus, "in_progress");
+  assert.equal(STAGE_FOUR_CHECKPOINT.status, "in_progress");
+  assert.equal(Object.keys(STAGE_FOUR_LAYER_AUDIT).length, 12);
+  assert.ok(registry.stages.some(stage => stage.id === 4));
   assert.equal(summary.stageTwoContractReady, 12);
   assert.equal(STAGE_TWO_CHECKPOINT.status, "complete");
   assert.equal(STAGE_THREE_CHECKPOINT.status, "complete");
