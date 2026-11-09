@@ -9,3 +9,9 @@ for(const s of ["downloadMedia(options","AuroraNative.downloadMedia(options)"])a
 for(const s of ["commons.wikimedia.org","archive.org/advancedsearch.php","downloadUrl","license"])assert.ok(endpoint.includes(s),"Provider missing: "+s);
 for(const s of ["AURORA Media Browser & Download Centre","Search downloadable media","downloadSearchMedia","Pexels Videos"])assert.ok(workspace.includes(s),"Workspace missing: "+s);
 console.log("AURORA Stage 11 media browser and download checks passed.");
+
+assert.match(workspace, /\[mediaSearchKind,setMediaSearchKind\]=useState\("image"\)/);
+assert.match(workspace, /\[mediaDownloading,setMediaDownloading\]=useState\(" "\)/);
+assert.match(workspace, /value={mediaSearchKind} onChange={e=>setMediaSearchKind\(e.target.value\)}/);
+assert.match(workspace, /type="\+mediaSearchKind/);
+assert.match(workspace, /item.downloadUrl/);
