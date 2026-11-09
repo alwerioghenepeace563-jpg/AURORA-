@@ -705,6 +705,10 @@ export default function App() {
   const nativeSpeechListenersRef = useRef([]);
   const mainInterruptionReleaseRef = useRef(null);
   const audioRef = useRef(null);
+  const speechReleaseRef = useRef(null);
+  const speechRequestIdRef = useRef(0);
+  const nativeTtsListenerRef = useRef(null);
+  const browserUtteranceRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
@@ -1009,8 +1013,29 @@ export default function App() {
     return () => { cancelled = true; };
   }, [page, authSession?.access_token]);
 
+  function stopSpokenOutput() {
+    speechRequestIdRef.current += 1;
+    if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
+    try { audioRef.current?.pause?.(); if (audioRef.current) { audioRef.current.onended = null; audioRef.current.onerror = null; audioRef.current.src = ""; audioRef.current = null; } } catch {}
+    try { window.speechSynthesis?.cancel?.(); } catch {}
+    browserUtteranceRef.current = null;
+    try { void auroraNative.stopTextSpeech(); } catch {}
+    try { void nativeTtsListenerRef.current?.remove?.(); } catch {}
+    nativeTtsListenerRef.current = null;
+    setSpeaking(false);
+  }
+
   async function speak(text) {
     if (!soundOn || !text) return;
+    stopSpokenOutput();
+    const requestId = speechRequestIdRef.current;
+    speechReleaseRef.current = auroraRuntime.interactions.register("voice", stopSpokenOutput);
+    const isCurrent = () => requestId === speechRequestIdRef.current && !auroraRuntime.interactions.isBackground();
+    const finishSpeech = () => {
+      if (requestId !== speechRequestIdRef.current) return;
+      if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
+      setSpeaking(false);
+    };
     try {
       setSpeaking(false);
       const response = await fetch(auroraApiUrl("/api/voice"), {
@@ -1018,6 +1043,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice })
       });
+      if (!isCurrent()) return;
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         const diagnostic = [
@@ -1035,15 +1061,18 @@ export default function App() {
         throw new Error("The voice API returned " + detail + " instead of audio (INVALID_AUDIO_RESPONSE).");
       }
       const blob = await response.blob();
+      if (!isCurrent()) return;
       if (!blob.size) throw new Error("The voice API returned an empty audio file (EMPTY_AUDIO_RESPONSE).");
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
-      audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); setNotice("Cloud voice audio was received, but this device could not decode or play it."); };
+      audio.onended = () => { URL.revokeObjectURL(url); finishSpeech(); };
+      audio.onerror = () => { URL.revokeObjectURL(url); finishSpeech(); setNotice("Cloud voice audio was received, but this device could not decode or play it."); };
       await audio.play();
+      if (!isCurrent()) { audio.pause(); URL.revokeObjectURL(url); return; }
       setSpeaking(true);
     } catch (error) {
+      if (!isCurrent()) return;
       // Android devices use their native TTS engine when cloud voice is unavailable.
       // The selected ElevenLabs voice remains preferred whenever the hosted service works.
       if (auroraNative.isAndroid()) {
@@ -1051,11 +1080,15 @@ export default function App() {
         try {
           nativeListener = await auroraNative.addTtsStatusListener((event) => {
             if (event?.status === "done" || event?.status === "error") {
-              setSpeaking(false);
+              finishSpeech();
               void nativeListener?.remove?.();
+              nativeTtsListenerRef.current = null;
             }
           });
+          if (!isCurrent()) { await nativeListener?.remove?.(); return; }
+          nativeTtsListenerRef.current = nativeListener;
           const nativeResult = await auroraNative.speakText(makeSpeechFriendly(text));
+          if (!isCurrent()) { try { await auroraNative.stopTextSpeech(); } catch {} return; }
           if (nativeResult?.started) {
             setSpeaking(true);
             setNotice("Cloud voice unavailable. Speaking with your Android system voice.");
@@ -1063,29 +1096,32 @@ export default function App() {
           }
         } catch {
           try { await nativeListener?.remove?.(); } catch {}
+          if (nativeTtsListenerRef.current === nativeListener) nativeTtsListenerRef.current = null;
         }
       }
+      if (!isCurrent()) return;
       // Keep Read Aloud usable when the hosted voice service is unavailable.
       // Browser speech is the final fallback on supported browsers.
       try {
         if ("speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function") {
           window.speechSynthesis.cancel();
           const utterance = new window.SpeechSynthesisUtterance(makeSpeechFriendly(text));
+          browserUtteranceRef.current = utterance;
           utterance.rate = 0.96;
           utterance.pitch = 0.92;
           const availableVoices = window.speechSynthesis.getVoices();
           const preferredVoice = availableVoices.find((voice) => /female|samantha|victoria|karen|zira|aria|jenny|serena/i.test(voice.name) && /^en/i.test(voice.lang))
             || availableVoices.find((voice) => /^en/i.test(voice.lang));
           if (preferredVoice) utterance.voice = preferredVoice;
-          utterance.onend = () => setSpeaking(false);
-          utterance.onerror = () => { setSpeaking(false); setNotice("Read aloud is unavailable on this device right now."); };
+          utterance.onend = () => { browserUtteranceRef.current = null; finishSpeech(); };
+          utterance.onerror = () => { browserUtteranceRef.current = null; finishSpeech(); setNotice("Read aloud is unavailable on this device right now."); };
           setSpeaking(true);
           window.speechSynthesis.speak(utterance);
           setNotice("Cloud voice failed: " + (error?.message || "unknown error") + ". Using this device voice for now.");
           return;
         }
       } catch {}
-      setSpeaking(false);
+      finishSpeech();
       setNotice(error.message || "Voice could not play. Check the voice settings.");
     }
   }
