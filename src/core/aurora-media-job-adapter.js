@@ -40,7 +40,7 @@ function createAuroraMediaJobAdapter(options = {}) {
       const rows = await request("/rest/v1/aurora_media_jobs?select=*", {
         method: "POST",
         headers: { "Content-Type": "application/json", Prefer: "return=representation" },
-        body: JSON.stringify({ id, fingerprint: input.fingerprint, file_name: String(input.fileName || "recording").slice(0, 240), file_size: input.fileSize, last_modified: input.lastModified, mime_type: String(input.mimeType || "application/octet-stream").slice(0, 100), status: "queued" })
+        body: JSON.stringify({ id, fingerprint: input.fingerprint, filename: String(input.fileName || "recording").slice(0, 240), file_size: input.fileSize, last_modified: input.lastModified, mime_type: String(input.mimeType || "application/octet-stream").slice(0, 100), source_path: "pending/" + id, status: "queued" })
       });
       if (!Array.isArray(rows) || !rows[0]) throw new Error("Cloud transcription job was not created.");
       return rows[0];
