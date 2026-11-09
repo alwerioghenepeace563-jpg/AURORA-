@@ -809,3 +809,11 @@ The next implementation wave adds three shared runtime services:
 Runtime integration: `auroraRuntime.taskJournal`, `auroraRuntime.memorySync`, `auroraRuntime.capabilityIntelligence`, `inspectCapabilities()`, `findCapabilities()`, and `recoverableTasks()`. Natural-language commands include “show available tools”, “show tools for maps”, and “show recoverable tasks”.
 
 Storage limitation: the task journal currently uses bounded browser localStorage. It is not yet encrypted Android Room storage or cross-device synchronization. Do not store secrets or sensitive notification/file contents in this journal. Memory sync is an adapter-ready control plane, not a configured Supabase connection. Device verification and Android persistent-storage migration remain separate work.
+
+## 24. Privacy, Universal Search, and Declarative Extensions
+
+- `aurora-consent-registry.js` stores explicit, source-scoped, revocable grants. A missing or expired grant is denied by default. The registry does not collect data; native adapters must check a matching grant before introducing any future ambient-context collection.
+- `aurora-universal-search.js` federates read-only summaries from registered local indexes. Results are discovery only: opening, changing, deleting, or executing a result remains a separate user action.
+- `aurora-extension-registry.js` validates extension manifests against registered capability IDs and records installation only after explicit approval. This release is deliberately metadata-only: it does not download or execute third-party JavaScript, use dynamic imports, or grant permissions to an extension.
+- The runtime exposes consent controls, universal search, and the declarative extension catalogue to Main, Pulse, and Voice through the shared singleton. The initial search adapters cover memories, knowledge graph entries, registered capabilities, saved workflows, and task history.
+- These services currently use browser localStorage. They are not yet backed by encrypted Android storage, Supabase sync, or a hardened extension sandbox. No automatic context collection or extension code execution is claimed.
