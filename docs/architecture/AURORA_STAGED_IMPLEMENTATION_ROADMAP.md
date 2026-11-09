@@ -514,6 +514,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added regression coverage for phrase matching, project scoping and timecode formatting.
 - This searches user-imported caption text only; it does not generate transcripts from audio or video.
 
+**Implementation wave 6 — Adaptive learning insights (code committed; CI pending):**
+- Added local analysis of saved quiz attempts, grouped by subject, with average score, answer accuracy and a bounded study recommendation.
+- Added weak-question ranking from repeated missed responses, including miss counts and rates, so learners can see which saved questions need another review.
+- Added a Learning Insights panel in Creative + Learning Studio. It uses only explicitly saved quiz attempts on this device.
+- Added regression tests for subject grouping, average scores, missed-question ranking and local-only reporting.
+- Insights are descriptive and rule-based; they do not claim semantic understanding, predict grades or automatically change study plans.
+
 **Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
