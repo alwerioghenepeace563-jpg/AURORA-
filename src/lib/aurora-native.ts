@@ -54,6 +54,8 @@ type AuroraNativePlugin = {
   exportTextDocument(options: { content: string; filename: string; mimeType: "text/plain" | "text/markdown" | "text/csv" | "application/json" }): Promise<{ saved: boolean; cancelled: boolean; bytesWritten?: number; characters?: number; destinationChosenByUser?: boolean; uri?: string; reason?: string }>;
   readClipboardText(): Promise<{ available: boolean; text: string; truncated?: boolean; readOnly: true; notStored?: true; note?: string }>;
   writeClipboardText(options: { text: string }): Promise<{ written: boolean; characters: number; systemClipboard: true }>;
+  openMediaSource(options: { url: string }): Promise<{ opened: boolean; userControlsDownload: boolean }>;
+  downloadPublicMedia(options: { url: string; filename: string; mediaKind: "image" | "video" }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string }>;
   pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
   prepareAudioRecording(): Promise<{ cancelled: boolean; recorded?: boolean; contentUri?: string; mimeType?: string; recordingByAurora?: false; userControlledRecorder?: true; audioReadByAurora?: false }>;
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
@@ -161,6 +163,8 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) return { versionCode: 0, versionName: "" };
     return AuroraNative.getBuildInfo();
   },
+  openMediaSource: async (url: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") { window.open(url, "_blank", "noopener,noreferrer"); return { opened: true, userControlsDownload: true }; } return AuroraNative.openMediaSource({ url }); },
+  downloadPublicMedia: async (url: string, filename: string, mediaKind: "image" | "video") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct downloads through Android Download Manager are available in the Android app."); return AuroraNative.downloadPublicMedia({ url, filename, mediaKind }); },
   downloadAndInstallUpdate: async (url: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("In-app APK updates are available only in Android.");
     return AuroraNative.downloadAndInstallUpdate({ url });
