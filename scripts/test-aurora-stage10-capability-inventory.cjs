@@ -4,6 +4,7 @@ const path = require("node:path");
 
 const read = (file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 const nativeJava = read("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java");
+const notificationService = read("android/app/src/main/java/com/aurora/assistant/AuroraNotificationListenerService.java");
 const nativeBridge = read("src/lib/aurora-native.ts");
 const capabilityRuntime = read("src/core/aurora-capability-runtime.js");
 const registry = read("src/core/aurora-layer-registry.js");
@@ -166,4 +167,20 @@ assert.ok(capabilityRuntime.includes('id: "audio.prepare_recording"'));
 assert.ok(capabilityRuntime.includes("approvalRequired: true"));
 assert.ok(capabilityRuntime.includes("audioReadByAurora: false"));
 console.log("AURORA Stage 10 audio tests passed: explicit external recorder handoff, user-controlled recording and no automatic audio reading.");
+
+
+// Stage 10 Wave 10: open a selected, still-active notification in its originating app.
+assert.ok(notificationService.includes("public static boolean openNotification(String key)"));
+assert.ok(notificationService.includes("getActiveNotifications()"));
+assert.ok(notificationService.includes("notification.contentIntent.send()"));
+assert.ok(nativeJava.includes("public void openNotification(PluginCall call)"));
+assert.ok(nativeJava.includes("Enable AURORA Notification Access"));
+assert.ok(nativeBridge.includes("openNotification(options: { key: string })"));
+assert.ok(nativeBridge.includes("openNotification: async"));
+assert.ok(capabilityRuntime.includes('id: "notifications.open_item"'));
+assert.ok(capabilityRuntime.includes("approvalRequired: true"));
+assert.ok(capabilityRuntime.includes("notificationModified: false"));
+assert.ok(capabilityRuntime.includes("messageSent: false"));
+assert.ok(capabilityRuntime.includes("Select a notification from AURORA's recent notification list first."));
+console.log("AURORA Stage 10 notification tests passed: explicit approval, active-item validation and open-only behavior.");
 
