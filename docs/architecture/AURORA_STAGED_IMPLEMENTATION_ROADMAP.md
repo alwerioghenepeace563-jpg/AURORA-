@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 8 — Proactive intelligence and coordinated workflows  
+**Current checkpoint:** Stage 9 — Personal Knowledge Universe (active)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -392,3 +392,12 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 **Stage-count rule:** 14 total implementation stages in this delivery roadmap. Stage 8 is currently active. Stages 9–14 remain after it: **6 stages remaining after Stage 8**. The seven broad vision phases remain permanent product pillars; future ideas may extend Stage 14 or add a new roadmap version without pretending the vision is ever closed to expansion.
 
 
+
+
+### Stage 9 — Personal Knowledge Universe (active)
+
+The shared local-first knowledge service is implemented and its focused tests, architecture tests, and core CI have passed on the current feature branch. It supports approved notes, documents, projects, tasks, conversations, websites, recording descriptions, image descriptions and events; provenance; bounded search; project/type/tag filters; relationships; timelines; confirmed corrections and deletion; and duplicate detection. Main chat, Pulse and voice use the same service.
+
+**Additional Stage 9 integration wave:** Android's existing system document picker is now connected to an explicit "save selected file/document to my knowledge universe" conversational action. A text-readable file is indexed only after the user invokes the command and selects it. The import is local-only, bounded by the picker preview limit, and records the picker as its source method. Cancelled selections and unsupported/non-text files are reported as not imported; AURORA does not pretend it has indexed an image, PDF, audio file or other binary content when no text extraction is available. No background file scanning, broad storage access, automatic import, or cloud upload is introduced.
+
+**Remaining Stage 9 acceptance work:** verify the new import route through the final core CI run; add explicit coverage for imported-source provenance and failure/cancellation paths; review the search and relationship contracts; then record a code/CI checkpoint. Physical Android picker behavior and non-text extraction remain device validation or later scoped capability work, not assumed complete.
