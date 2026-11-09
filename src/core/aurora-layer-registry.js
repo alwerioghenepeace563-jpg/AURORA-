@@ -122,6 +122,35 @@ const STAGE_THREE_CHECKPOINT = Object.freeze({
   deferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION
 });
 
+const STAGE_FIVE_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["Android app launch and device status adapters", "flashlight control behind camera permission", "Pulse overlay native show/hide/status bridge", "one-shot location read with explicit freshness metadata"]),
+  voice_multimodal: Object.freeze(["native speech recognition start/stop", "native speech synthesis start/stop", "shared speech lifecycle events", "foreground assistant service approval gate"]),
+  screen_accessibility: Object.freeze(["accessibility-gated screen text read", "notification-access-gated local preview read/search/clear", "fresh approval for sensitive reads"]),
+  communication_people: Object.freeze(["Contacts permission-gated search", "approval-gated SMS composer handoff", "approval-gated dialler and system share handoffs"]),
+  location_travel: Object.freeze(["one-shot location permission and current-location adapter", "timestamp, age, freshness, accuracy and precision metadata", "map place search and validated travel-mode directions", "no background location collection"]),
+  calendar_productivity: Object.freeze(["calendar permission-gated local event search", "review-before-save event editor", "shared task planner/orchestrator and review-only recovery"]),
+  files_knowledge: Object.freeze(["user-initiated system document picker", "bounded plain-text preview", "approval-gated in-memory selected-text search", "no implicit document persistence"]),
+  media_creative: Object.freeze(["system media search handoff", "user-controlled playback", "no automatic media collection or upload"]),
+  intelligence_personalisation: Object.freeze(["shared runtime memory and specialist coordinator", "source-scoped consent and protected-memory boundaries", "shared universal search and capability intelligence"]),
+  extensions_interoperability: Object.freeze(["metadata-only extension registry", "capability allow-list", "all extension actions routed through shared Action Engine"]),
+  safety_privacy_security: Object.freeze(["shared permission, consent and approval enforcement", "sensitive location, screen, calendar and notification reads require approval", "no background location tracking"]),
+  reliability_operations: Object.freeze(["bounded Action Engine execution receipts", "lifecycle and cancellation/recovery coordination", "native Pulse overlay lifecycle regression coverage"])
+});
+const STAGE_FIVE_CHECKPOINT = Object.freeze({
+  id: 5,
+  name: "Capability adapter expansion",
+  status: "active",
+  scope: "Coordinated capability expansion across all 12 active families. Code-level adapters, shared runtime contracts, permission/consent/approval gates and regression coverage advance together. Native device behavior remains unverified.",
+  validationBoundary: "Source-level integration only. No APK build, physical Android test, or release certification is claimed.",
+  deliverables: Object.freeze([
+    "Provide permission-gated one-shot location reads with explicit freshness metadata and no background collection.",
+    "Keep maps search and directions in the shared Action Engine with validated travel modes.",
+    "Maintain all 12 capability families as one coordinated capability catalogue.",
+    "Require explicit approval and source-scoped consent for sensitive location reads.",
+    "Do not close Stage 5 until all family acceptance checks and cross-surface integration tests pass."
+  ])
+});
+
 const STAGE_ONE_CHECKPOINT = Object.freeze({
   id: 1,
   name: "Whole-system baseline",
@@ -146,14 +175,16 @@ function createAuroraLayerRegistry() {
     adapterContractAudit: "passed",
     stageTwoEvidence: [...(STAGE_TWO_LAYER_AUDIT[item.id] || [])],
     stageThreeEvidence: [...(STAGE_THREE_LAYER_AUDIT[item.id] || [])],
+    stageFiveEvidence: [...(STAGE_FIVE_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
+    stageFiveAudit: STAGE_FIVE_LAYER_AUDIT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -166,6 +197,8 @@ function createAuroraLayerRegistry() {
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
       nextStage: 5,
+      stageFiveStatus: STAGE_FIVE_CHECKPOINT.status,
+      stageFiveAuditedLayers: families.filter((item) => (STAGE_FIVE_LAYER_AUDIT[item.id] || []).length >= 2).length,
       stageFourStatus: STAGE_FOUR_CHECKPOINT.status,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
@@ -177,4 +210,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
