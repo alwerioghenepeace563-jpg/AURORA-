@@ -170,23 +170,16 @@ function CreativeLearningWorkspace(){
   const supported=["audio/mpeg","audio/mp4","audio/wav","audio/x-wav","audio/webm","audio/ogg","audio/aac"];
   if(!supported.includes(mediaFile.type)){setNotice("Choose MP3, M4A, WAV, WebM, OGG or AAC audio.");return;}
   setMediaBusy(true);setMediaProgress("Preparing audio…");setNotice("Preparing a segmented VoiceText transcription. Long recordings are processed in small sections, without sending the entire file in one request.");
-  let audio=null,context=null,objectUrl="",completedSections=0;
+  let audio=null,context=null,objectUrl="",completedSections=0,job=null,totalChunks=0;
   const formatTime=seconds=>{const value=Math.max(0,Math.floor(Number(seconds)||0));return String(Math.floor(value/60)).padStart(2,"0")+":"+String(value%60).padStart(2,"0");};
   const readBase64=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("An audio section could not be read."));reader.readAsDataURL(blob);});
+  const jobKey="aurora-voicetext-job:"+[mediaFile.name,mediaFile.size,mediaFile.lastModified].join(":");
+  const api=async(path,options={})=>{const response=await fetch(auroraApiUrl(path),options);const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||"VoiceText request failed.");return data;};
   const sendSection=async(blob,offset,index)=>{
    const data=await readBase64(blob);
    if(!data||data.length>4000000)throw new Error("Audio section "+index+" exceeded the safe upload size. The previous sections are saved in the transcript; resume to continue.");
-   const response=await fetch(auroraApiUrl("/api/voicetext-transcribe"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audioBase64:data,mimeType:(blob.type||"audio/webm").split(";")[0].trim().toLowerCase(),languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",requestId:(globalThis.crypto?.randomUUID?.()||String(Date.now()))+"-"+index})});
-   const result=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(result.error||"VoiceText could not transcribe section "+index+".");
-   const transcript=typeof result.text==="string"?result.text.trim():"";
-   if(!transcript)throw new Error("VoiceText returned an empty transcript for section "+index+".");
-   const segments=Array.isArray(result.segments)?result.segments:[];
-   const formatted=segments.length?segments.map(segment=>{
-    const stamp=Number.isFinite(segment.start)?"["+formatTime(offset+segment.start)+"] ":"";
-    return (segment.speaker?segment.speaker+": ":"")+stamp+String(segment.text||"").trim();
-   }).filter(Boolean).join("\n"):"["+formatTime(offset)+"] "+transcript;
-   setMediaTranscript(current=>[current,formatted].filter(Boolean).join("\n\n"));
+   const result=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"process",requestId:job.requestId,chunkNumber:index,totalChunks,mimeType:(blob.type||"audio/webm").split(";")[0].toLowerCase(),languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",audioBase64:data})});
+   if(typeof result.transcript==="string")setMediaTranscript(result.transcript);
   };
   try{
    const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
@@ -203,13 +196,22 @@ function CreativeLearningWorkspace(){
    });
    if(!Number.isFinite(audio.duration)||audio.duration<=0)throw new Error("The recording duration could not be determined.");
    const duration=audio.duration;
-   let offset=mediaResumeOffset;
+   totalChunks=Math.ceil(duration/20);
+   try { const saved=JSON.parse(localStorage.getItem(jobKey)||"null"); if(saved?.requestId) job=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(saved.requestId),{cache:"no-store"}); } catch { job=null; }
+   if(!job?.requestId) {
+    job=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",filename:mediaFile.name,mimeType:recorderMime.split(";")[0],sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks})});
+    localStorage.setItem(jobKey,JSON.stringify({requestId:job.requestId}));
+   }
+   if(job.totalChunks!==totalChunks) throw new Error("Saved transcription job does not match this recording.");
+   if(typeof job.transcript==="string") setMediaTranscript(job.transcript);
+   if(job.status==="completed") { setMediaResumeOffset(duration); setMediaProgress("Completed · "+job.completedChunks+" sections saved"); setNotice("This recording is already complete. Its cloud transcript has been restored."); return; }
+   let offset=Math.min(duration,(Number(job.completedChunks)||0)*20);
    if(offset>=duration-0.5){offset=0;setMediaResumeOffset(0);setMediaTranscript("");}
    audio.currentTime=Math.min(offset,duration);
    context=new AudioContextCtor();const source=context.createMediaElementSource(audio),capture=context.createMediaStreamDestination(),mute=context.createGain();
    mute.gain.value=0;source.connect(capture);source.connect(mute);mute.connect(context.destination);await context.resume();
    await audio.play();
-   let sectionNumber=Math.floor(offset/20)+1;
+   let sectionNumber=(Number(job.completedChunks)||0)+1;
    while(!audio.ended&&audio.currentTime<duration){
     const sectionStart=audio.currentTime,recorder=new MediaRecorder(capture.stream,{mimeType:recorderMime}),parts=[];
     const stopped=new Promise((resolve,reject)=>{recorder.ondataavailable=event=>{if(event.data?.size)parts.push(event.data);};recorder.onerror=()=>reject(new Error("Audio capture stopped unexpectedly."));recorder.onstop=()=>resolve(new Blob(parts,{type:recorder.mimeType||recorderMime}));});
@@ -232,7 +234,9 @@ function CreativeLearningWorkspace(){
     if(sectionEnd>=duration-0.15||audio.ended)break;
     await audio.play();
    }
-   setMediaResumeOffset(duration);setMediaProgress("Completed · "+completedSections+" section"+(completedSections===1?"":"s")+" · "+formatTime(duration));
+   const finalJob=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(job.requestId),{cache:"no-store"});
+   if(typeof finalJob.transcript==="string")setMediaTranscript(finalJob.transcript);
+   setMediaResumeOffset(duration);setMediaProgress("Completed · "+finalJob.completedChunks+" cloud-saved sections · "+formatTime(duration));
    setNotice("VoiceText finished the segmented recording. Review the combined transcript before saving it.");
   }catch(error){
    setNotice((error?.message||"Segmented VoiceText transcription stopped.")+(completedSections?" Completed sections are preserved; tap Resume transcription to continue.":""));
