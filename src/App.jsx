@@ -4,6 +4,7 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
 import { auroraSecureStorage } from "./lib/aurora-secure-storage";
 import { auroraRuntime } from "./core/aurora-runtime";
+import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
 import { AnimatePresence, motion } from "framer-motion";
