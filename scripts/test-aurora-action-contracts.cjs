@@ -80,5 +80,5 @@ const assert = require("node:assert/strict");
   assert.equal(timeoutReceipt.status, "failed");
   assert.equal(timeoutReceipt.error.code, "ACTION_TIMEOUT");
 
-  console.log("AURORA action contract tests passed: fail-closed permission/consent gates, verified completion, and registration validation.");
+  console.log("AURORA action contract tests passed: fail-closed authorization, verifier enforcement, bounded deadlines, cancellation, idempotency, and contract validation.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
