@@ -164,23 +164,30 @@ const path = require("node:path");
 
   // Stage 5 adapter wiring: native features must be reachable through the shared Action Engine.
   for (const capabilityId of [
-    "voice.speak_text", "voice.stop_speaking",
-    "assistant.start_background_service", "assistant.stop_background_service",
-    "device.open_accessibility_settings", "device.get_build_info"
+    "voice.start_listening", "voice.stop_listening", "voice.speak_text", "voice.stop_speaking",
+    "assistant.start_background_service", "assistant.stop_background_service", "assistant.get_status",
+    "device.open_accessibility_settings", "device.get_build_info", "notifications.request_permission"
   ]) {
     assert.ok(capabilitySource.includes(`id: "${capabilityId}"`), `Missing Stage 5 capability registration: ${capabilityId}`);
   }
   for (const nativeMethod of [
-    "speakText", "stopTextSpeech",
+    "startSpeechRecognition", "stopSpeechRecognition", "speakText", "stopTextSpeech",
     "startAssistantService", "stopAssistantService", "openAccessibilitySettings",
-    "getBuildInfo", "requestMicrophonePermission"
+    "getBuildInfo", "requestMicrophonePermission", "requestNotificationPermission"
   ]) {
     assert.ok(nativeSource.includes(nativeMethod), `Missing Stage 5 TypeScript bridge method: ${nativeMethod}`);
     assert.ok(pluginSource.includes(`void ${nativeMethod}(PluginCall call)`), `Missing Stage 5 Android plugin method: ${nativeMethod}`);
   }
-  for (const permissionId of ["android.microphone"]) {
+  for (const permissionId of ["android.microphone", "android.notifications"]) {
     assert.ok(capabilitySource.includes('"' + permissionId + '"'), "Missing Stage 5 permission adapter: " + permissionId);
   }
+  const voiceStart = capabilitySource.slice(
+    capabilitySource.indexOf('id: "voice.start_listening"'),
+    capabilitySource.indexOf('id: "voice.stop_listening"')
+  );
+  assert.ok(voiceStart.includes("approvalRequired: true"), "Starting microphone capture must require explicit approval.");
+  assert.ok(voiceStart.includes('permissionRequirements: ["android.microphone"]'), "Voice input must require microphone permission.");
+  assert.ok(capabilitySource.includes('id: "notifications.request_permission"'), "Android notification permission must be requestable through the Action Engine.");
   const backgroundStart = capabilitySource.slice(
     capabilitySource.indexOf('id: "assistant.start_background_service"'),
     capabilitySource.indexOf('id: "assistant.stop_background_service"')
