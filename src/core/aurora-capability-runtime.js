@@ -423,6 +423,23 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "camera.capture_photo",
+    label: "Capture a photo",
+    category: "camera",
+    description: "Open the Android camera app after explicit approval and return only its thumbnail preview, capped at 2 MB. The user operates the camera; AURORA does not save a full-resolution photo.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Camera capture requires Android and an installed camera app." }),
+    execute: async () => {
+      const result = await auroraNative.capturePhoto();
+      if (result?.cancelled) return { cancelled: true };
+      if (!result?.thumbnailBase64) throw new Error("Android did not return a camera preview.");
+      return { cancelled: false, mimeType: "image/jpeg", thumbnailBase64: result.thumbnailBase64, thumbnailOnly: true, fullResolutionSaved: false, requiresUserCapture: true };
+    }
+  });
+
+  engine.registerCapability({
     id: "files.pick_media",
     label: "Choose an image, video or audio file",
     category: "files",
