@@ -94,11 +94,11 @@ These checks remain **deferred and unverified** by the user’s direction to fin
 
 <badge>Foundational wave implemented — CI pending</badge>
 
-The first coordinated wave adds a shared reliability coordinator for app visibility, foreground/background, online/offline, pagehide and pageshow events; bounded metadata-only failure diagnostics; cooperative cancellation for multi-step tasks; and a review-only recovery queue. Cancellation stops active Action Engine work and prevents later steps. Existing authorization, consent, approval, timeout and idempotency gates remain authoritative.
+The coordinated reliability foundation adds a shared lifecycle coordinator for visibility, foreground/background, online/offline, pagehide and pageshow events; bounded metadata-only failure diagnostics; cooperative cancellation for multi-step tasks; and a review-only recovery queue. The task journal now stores bounded execution receipt metadata only: it excludes task inputs, action result payloads, error messages and sensitive document/screen/media contents. Cancellation stops active Action Engine work and prevents later steps. Existing authorization, consent, approval, timeout and idempotency gates remain authoritative. A regression test verifies that private action payloads are not persisted in recovery records.
 
 Recovery is **not automatic**. A recovered task is review-only and requires fresh explicit confirmation; every action passes normal permission, consent and approval checks. No unattended retries are introduced, particularly for consequential or potentially non-idempotent actions. Safe retry policy will be added only where adapter idempotency is explicitly proven.
 
-All 12 active families receive Stage 4 audit evidence. Physical Android lifecycle/interruption validation remains later device work; Stage 3 Keystore/backup/restore/migration checks remain deferred to final release hardening.
+All 12 active families receive Stage 4 audit evidence. The task-orchestrator cancellation test syntax has been corrected, and the task journal has dedicated metadata-only persistence coverage. Physical Android lifecycle/interruption validation remains later device work; Stage 3 Keystore/backup/restore/migration checks remain deferred to final release hardening.
 
 ### Stage 5 — Capability adapter expansion
 
