@@ -14,6 +14,7 @@ const assert = require("node:assert/strict");
   assert.equal(report.totals.knownRecords, 4);
   assert.equal(report.totals.cloudSyncEnabled, true);
   assert.equal(report.stores.find(item => item.id === "auth").encrypted, true);
+  assert.equal(report.stores.find(item => item.id === "auth").count, 1);
   assert.equal(report.stores.find(item => item.id === "memories").encrypted, false);
   assert.equal(report.stores.find(item => item.id === "broken").count, null);
   assert.match(report.stores.find(item => item.id === "broken").note, /could not be inspected/i);
