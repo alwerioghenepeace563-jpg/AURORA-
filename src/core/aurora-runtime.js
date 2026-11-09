@@ -530,6 +530,8 @@ const auroraRuntime = Object.freeze({
   inspectCapabilities: () => capabilityIntelligence.inspect(),
   findCapabilities: (query, limit) => capabilityIntelligence.find(query, limit),
   recoverableTasks: () => auroraTaskJournal.recoverable(),
+  inspectRecoveryTask: (taskId) => reliability.inspectRecoveryTask(taskId),
+  dismissRecoveryTask: (taskId) => reliability.dismissRecoveryTask(taskId),
   execute: (request) => actionEngine.execute(request),
   routeMessage,
   parseCalendarIntent,
