@@ -24,7 +24,8 @@ function createAuroraCapabilityRuntime(options = {}) {
     "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true,
     "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true,
     "android.notifications": async () => (await auroraNative.requestNotificationPermission()).granted === true,
-    "android.calendar": async () => (await auroraNative.requestCalendarReadPermission()).granted === true
+    "android.calendar": async () => (await auroraNative.requestCalendarReadPermission()).granted === true,
+    "android.location": async () => (await auroraNative.requestLocationPermission()).granted === true
   };
   const authorize = async ({ capability, proposal }) => {
     for (const permission of capability.permissionRequirements || []) {
@@ -187,6 +188,23 @@ function createAuroraCapabilityRuntime(options = {}) {
       const result = await auroraNative.startMapDirections(destination.trim(), mode);
       if (!result?.opened) throw new Error("The map application did not open.");
       return { opened: true, destination: result.destination || destination.trim(), mode };
+    }
+  });
+
+  engine.registerCapability({
+    id: "location.get_current",
+    label: "Get current device location",
+    category: "navigation",
+    description: "Read the device's last known location after explicit approval and Android location permission. Returns timestamp and freshness so stale coordinates are never presented as live; no background tracking or location storage is performed.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.location"],
+    consentRequirements: ["location.current.read"],
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Device location requires Android, enabled location services, and user-granted permission." }),
+    execute: async () => {
+      const result = await auroraNative.getCurrentLocation();
+      return { latitude: result.latitude, longitude: result.longitude, accuracyMeters: result.accuracyMeters, provider: result.provider, timestamp: result.timestamp, ageMs: result.ageMs, fresh: result.fresh === true, precision: result.precision, backgroundTracking: false, stored: false };
     }
   });
 
