@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
   if (action === "status") {
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) return res.status(400).json({ error: "A valid transcription requestId is required." });
-    upstreamUrl += "?requestId=" + encodeURIComponent(requestId) + "&ownerId=" + encodeURIComponent(ownerId);
+    upstreamUrl += "?requestId=" + encodeURIComponent(requestId);
     upstreamMethod = "GET";
   } else if (action === "create") {
     const totalChunks = Number(body.totalChunks);
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     const mimeType = safeText(body.mimeType, 100).toLowerCase();
     if (!/^audio\/[a-z0-9.+-]+$/.test(mimeType)) return res.status(415).json({ error: "A supported audio MIME type is required." });
     upstreamBody = {
-      action: "create", ownerId,
+      action: "create",
       filename: safeText(body.filename || "recording", 180).split(/[\\/]/).pop(),
       mimeType, sizeBytes, totalChunks,
       durationSeconds: Number.isFinite(Number(body.durationSeconds)) ? Math.max(0, Number(body.durationSeconds)) : undefined,
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     }
     if (!AUDIO_TYPES.has(mimeType)) return res.status(415).json({ error: "Unsupported audio section format." });
     upstreamBody = {
-      action: "process", requestId, ownerId, chunkNumber: Number(body.chunkNumber), totalChunks: Number(body.totalChunks),
+      action: "process", requestId, chunkNumber: Number(body.chunkNumber), totalChunks: Number(body.totalChunks),
       audioBase64, mimeType,
       languageHint: safeText(body.languageHint || DEFAULT_LANGUAGE, 120),
     };
