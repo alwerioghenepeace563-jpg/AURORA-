@@ -444,7 +444,26 @@ public class AuroraAccessibilityService extends AccessibilityService {
 };
 
 for (const [name, content] of Object.entries(files)) {
-  fs.writeFileSync(path.join(javaRoot, name), content);
+  const target = path.join(javaRoot, name);
+  // The committed native plugin is the source of truth. Never replace it with
+  // this bootstrap template during CI, because that would erase registered
+  // adapters added after the original foundation was generated.
+  if (name === "AuroraAssistantPlugin.java" && fs.existsSync(target)) continue;
+  fs.writeFileSync(target, content);
+}
+
+const nativePluginPath = path.join(javaRoot, "AuroraAssistantPlugin.java");
+const nativePluginSource = fs.readFileSync(nativePluginPath, "utf8");
+const requiredNativeMethods = [
+  "pickDocument", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
+  "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
+  "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
+  "setFlashlight", "requestCameraPermission"
+];
+for (const method of requiredNativeMethods) {
+  if (!nativePluginSource.includes("void " + method + "(PluginCall call)")) {
+    throw new Error("Committed AuroraAssistantPlugin is missing required native adapter: " + method);
+  }
 }
 
 const xmlDir = path.join(android, "app/src/main/res/xml");
@@ -497,10 +516,14 @@ if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistant
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraNotificationListenerService"')) {
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraNotificationListenerService" android:label="AURORA Notification Intelligence" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true"><intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter></service>\n    </application>');
+}
 const visiblePackages = [
   "com.whatsapp", "com.whatsapp.w4b", "com.google.android.youtube",
   "com.android.chrome", "com.android.settings", "com.google.android.gm",
-  "com.google.android.apps.maps", "com.google.android.apps.messaging", "com.android.vending"
+  "com.google.android.apps.maps", "com.google.android.apps.messaging",
+  "com.facebook.katana", "com.facebook.lite", "com.android.vending"
 ];
 if (!manifest.includes("<queries>")) {
   const queryXml = "    <queries>" + visiblePackages.map((name) => '<package android:name="' + name + '" />').join("") + "</queries>\\n";
