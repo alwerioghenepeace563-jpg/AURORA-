@@ -55,6 +55,7 @@ function createAuroraActionEngine(options = {}) {
     }
     if (capabilities.has(definition.id)) throw makeError("DUPLICATE_CAPABILITY", "Capability is already registered.", { id: definition.id });
     if (typeof definition.execute !== "function") throw makeError("INVALID_CAPABILITY", "A capability needs an execution adapter.", { id: definition.id });
+    if (definition.verificationRequired === true && typeof definition.verify !== "function") throw makeError("INVALID_CAPABILITY_CONTRACT", "A capability requiring verification must register a verification adapter.", { id: definition.id });
     const risk = definition.risk || RISK.LOW;
     if (!(risk in RISK_ORDER)) throw makeError("INVALID_CAPABILITY_RISK", "Unknown capability risk level.", { id: definition.id, risk });
     const capability = Object.freeze({
