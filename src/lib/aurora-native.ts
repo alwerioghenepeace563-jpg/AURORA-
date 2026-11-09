@@ -30,7 +30,13 @@ type AuroraNativePlugin = {
   startMapDirections(options: { destination: string; mode: string }): Promise<{ opened: boolean; destination: string; mode: string }>;
   prepareCalendarEvent(options: { title: string; beginTime: number; endTime: number; description?: string; location?: string }): Promise<{ opened: boolean; requiresUserSave: boolean }>;
   searchMedia(options: { query: string }): Promise<{ opened: boolean; query: string }>;
-  pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string }>; 
+  pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string }>;
+  openNotificationAccessSettings(): Promise<{ opened: boolean }>;
+  hasNotificationAccess(): Promise<{ granted: boolean }>;
+  readRecentNotifications(): Promise<{ items: string; localOnly: boolean; limit: number }>;
+  clearRecentNotifications(): Promise<{ cleared: boolean }>;
+  getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; batteryHealth?: number; platform: string; sdk: number; manufacturer: string; model: string }>;
+  setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>; 
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
@@ -130,6 +136,12 @@ export const auroraNative = {
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
   searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
+  openNotificationAccessSettings: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification access settings are available only in Android."); return AuroraNative.openNotificationAccessSettings(); },
+  hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },
+  readRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification intelligence is available only in Android."); return AuroraNative.readRecentNotifications(); },
+  clearRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification cache is available only in Android."); return AuroraNative.clearRecentNotifications(); },
+  getDeviceStatus: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device status is available only in Android."); return AuroraNative.getDeviceStatus(); },
+  setFlashlight: async (enabled: boolean) => { if (!Capacitor.isNativePlatform()) throw new Error("Flashlight control is available only in Android."); return AuroraNative.setFlashlight({ enabled }); },
   openApp: async (packageName: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
     return AuroraNative.openApp({ packageName });
