@@ -162,6 +162,32 @@ function createAuroraCreativeUniverse(options = {}) {
     const results=quiz.questions.map((q,index)=>{const submitted=bounded(answers[index],1000);const correct=submitted.trim().toLocaleLowerCase()===q.answer.trim().toLocaleLowerCase();return {index,correct,submitted,expectedAnswer:q.answer};});
     return {total:results.length,correct:results.filter(r=>r.correct).length,percentage:results.length?Math.round(results.filter(r=>r.correct).length/results.length*100):0,results};
   }
+  function buildProjectContext(projectId, options = {}) {
+    const state = read();
+    const project = state.projects.find(item => item.id === projectId);
+    if (!project) throw new Error("Project not found.");
+    const maxChars = Number.isInteger(options.maxChars) ? Math.max(1000, Math.min(20000, options.maxChars)) : 12000;
+    const sections = ["# AURORA project context", "Project: " + project.title, "Type: " + project.type, project.goal ? "Goal: " + project.goal : "", project.description ? "Description: " + project.description : ""].filter(Boolean);
+    const sources = [];
+    for (const draft of state.drafts.filter(item => item.projectId === projectId)) {
+      sources.push({ label: "Draft — " + draft.title, source: "User-authored draft", content: draft.content });
+    }
+    for (const asset of state.assets.filter(item => item.projectId === projectId)) {
+      const content = asset.text || (asset.sourceLabel ? "No text extracted. User-selected reference: " + asset.sourceLabel : "No text extracted from this reference.");
+      sources.push({ label: asset.type + " — " + asset.title, source: asset.sourceLabel || "User-selected project asset", content });
+    }
+    let remaining = maxChars - sections.join("\n").length;
+    let included = 0;
+    for (const source of sources) {
+      if (remaining <= 0) break;
+      const section = "\n\n## " + source.label + "\nSource: " + source.source + "\n" + source.content.slice(0, Math.max(0, remaining - 20));
+      if (section.length > remaining) break;
+      sections.push(section); remaining -= section.length; included++;
+    }
+    const text = sections.join("\n").slice(0, maxChars);
+    return { projectId, title: project.title, text, includedSources: included, totalSources: sources.length, truncated: included < sources.length || sections.join("\n").length > maxChars, sourceAware: true, generatedBy: "local_context_assembler", capturedAt: now() };
+  }
+
   function search(query,limit=30) {
     const needle=String(query||"").trim().toLowerCase(); if(!needle)return [];
     const state=read(),items=[
@@ -173,7 +199,7 @@ function createAuroraCreativeUniverse(options = {}) {
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
   function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
-  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,search,status});
+  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,buildProjectContext,search,status});
 }
 const auroraCreativeUniverse=createAuroraCreativeUniverse();
 export { createAuroraCreativeUniverse, auroraCreativeUniverse, STORAGE_KEY as AURORA_CREATIVE_UNIVERSE_STORAGE_KEY, parseSubtitles, renderSubtitles };
