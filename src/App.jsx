@@ -8,6 +8,7 @@ import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
 import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace";
+import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
@@ -1809,7 +1810,8 @@ export default function App() {
                     { id: "study", icon: <GraduationCap size={21}/>, title: "Study Assistant", desc: "Learn step by step and practise", tint: "purple" },
                     { id: "calculator", icon: <Calculator size={21}/>, title: "Calculator", desc: "Calculate expressions safely", tint: "cyan" },
                     { id: "convert", icon: <ArrowLeftRight size={21}/>, title: "Unit Converter", desc: "Convert common measurements", tint: "blue" },
-                    { id: "weather", icon: <Activity size={21}/>, title: "Weather", desc: "Current conditions and a 3-day forecast", tint: "cyan" }
+                    { id: "weather", icon: <Activity size={21}/>, title: "Weather", desc: "Current conditions and a 3-day forecast", tint: "cyan" },
+                    { id: "creative", icon: <BookOpen size={21}/>, title: "Creative + Learning Studio", desc: "Manage projects, captions, study plans and flashcards", tint: "purple" }
                   ].map((item) => <button type="button" key={item.id} className={"tool-launch-card tool-tint-" + item.tint} onClick={() => openTool(item.id)}>
                     <span className="tool-launch-icon">{item.icon}</span><span className="tool-launch-copy"><strong>{item.title}</strong><small>{item.desc}</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span>
                   </button>)}
@@ -1836,7 +1838,8 @@ export default function App() {
                   </div>
                   <div><p className="panel-eyebrow">AURORA TOOL / WORKSPACE</p><h1>{({search:"Web Search",weather:"Weather",calculator:"Calculator",convert:"Unit Converter",translate:"Translation",writing:"Writing Assistant",study:"Study Assistant",summarize:"Summarizer",quiz:"Quiz Maker",brainstorm:"Idea Studio",image:"Image Understanding"})[toolKind] || "AURORA Tool"}<span>.</span></h1><p>{({search:"Discover information and follow it back to its sources.",weather:"Current conditions and a short forecast for a city or town.",calculator:"Calculate arithmetic expressions without sending them to an AI provider.",convert:"Convert length, mass, volume, time, speed and temperature.",translate:"Carry your meaning across languages, naturally.",writing:"Shape a rough idea into clear, confident writing.",study:"Understand the idea first. Build confidence one step at a time.",summarize:"Turn long material into a clear, useful summary.",quiz:"Build a practice quiz from a topic or source text.",brainstorm:"Explore creative options and turn ideas into next steps.",image:"Upload an image here and ask AURORA to inspect it directly."})[toolKind] || "A dedicated AURORA workspace."}</p></div>
                 </div>
-                <div className="tool-workspace glass-panel">
+                {toolKind === "creative" && <CreativeLearningWorkspace/>}
+                <div className={"tool-workspace glass-panel" + (toolKind === "creative" ? " clw-hidden" : "")}>
                   <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",weather:"Weather near you or anywhere",calculator:"Enter a calculation",convert:"Enter a measurement to convert",translate:"Your translation",writing:"Letâ€™s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",weather:"Enter a city or town, for example Benin City or Lagos.",calculator:"Use +, âˆ’, Ã—, Ã·, %, powers and parentheses.",convert:"Use a format such as 12 km to miles or 25 C to F.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
                   <form className="tool-run-form" onSubmit={runTool}>
                     {["search", "weather"].includes(toolKind) ? <label className="tool-field"><span>{toolKind === "weather" ? "City or town" : "Search the web"}</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder={toolKind === "weather" ? "e.g. Benin City" : "e.g. Latest UNIBEN admission updatesâ€¦"} required/></label> : <>
