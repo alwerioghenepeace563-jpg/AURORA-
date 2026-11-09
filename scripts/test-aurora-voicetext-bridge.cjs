@@ -5,27 +5,31 @@ const endpoint = fs.readFileSync("api/voicetext-transcribe.js", "utf8");
 const workspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx", "utf8");
 const env = fs.readFileSync(".env.example", "utf8");
 
-assert.match(endpoint, /VOICETEXT_PLUGIN_TOKEN/);\nassert.match(endpoint, /auth\\/v1\\/user/);\nassert.match(endpoint, /ownerId/);
-assert.match(endpoint, /auth\\/v1\\/user/);
+assert.match(endpoint, /VOICETEXT_PLUGIN_TOKEN/);
+assert.match(endpoint, /auth\/v1\/user/);
 assert.match(endpoint, /verified AURORA account/);
 assert.match(endpoint, /ownerId/);
+assert.match(endpoint, /x-aurora-user-token/);
 assert.match(endpoint, /VOICETEXT_API_URL/);
 assert.match(endpoint, /Authorization: "Bearer " \+ token/);
 assert.match(endpoint, /\/api\/aurora-transcribe/);
 assert.match(endpoint, /4000000/);
 assert.match(endpoint, /audio files only/);
+
 assert.match(workspace, /\/api\/voicetext-transcribe/);
 assert.match(workspace, /VoiceText transcription/);
 assert.match(workspace, /Nigerian English and Nigerian Pidgin/);
 assert.match(workspace, /new MediaRecorder\(capture\.stream/);
 assert.match(workspace, /setTimeout\(finish,20000\)/);
 assert.match(workspace, /mediaResumeOffset/);
-assert.match(workspace, /Resume transcription/);\nassert.match(workspace, /authSession\\?\\.access_token/);\nassert.match(workspace, /cloud-saved section/);
+assert.match(workspace, /Resume transcription/);
 assert.match(workspace, /authSession\?\.access_token/);
+assert.match(workspace, /cloud-saved section/);
 assert.match(workspace, /reselect the same original file/);
 assert.doesNotMatch(workspace, /mediaFile\.size\s*>\s*\d+/);
 assert.doesNotMatch(workspace, /messages:\[\{role:"user",content:prompt,media:/);
-assert.match(env, /VOICETEXT_PLUGIN_TOKEN=/);\nassert.match(env, /SUPABASE_URL=/);\nassert.match(env, /SUPABASE_ANON_KEY=/);
+
+assert.match(env, /VOICETEXT_PLUGIN_TOKEN=/);
 assert.match(env, /VOICETEXT_API_URL=/);
 assert.match(env, /SUPABASE_URL=/);
 assert.match(env, /SUPABASE_ANON_KEY=/);
