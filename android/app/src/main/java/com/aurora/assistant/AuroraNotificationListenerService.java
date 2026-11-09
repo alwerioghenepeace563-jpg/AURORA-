@@ -20,7 +20,8 @@ public class AuroraNotificationListenerService extends NotificationListenerServi
         Notification notification = sbn.getNotification();
         if (notification == null || (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0) return;
         Bundle extras = notification.extras;
-        String title = extras == null ? "" : String.valueOf(extras.getCharSequence(Notification.EXTRA_TITLE, ""));
+        CharSequence titleValue = extras == null ? null : extras.getCharSequence(Notification.EXTRA_TITLE);
+        String title = titleValue == null ? "" : titleValue.toString();
         CharSequence textValue = extras == null ? "" : extras.getCharSequence(Notification.EXTRA_BIG_TEXT);
         if (textValue == null || textValue.length() == 0) textValue = extras == null ? "" : extras.getCharSequence(Notification.EXTRA_TEXT, "");
         String text = textValue == null ? "" : textValue.toString();
