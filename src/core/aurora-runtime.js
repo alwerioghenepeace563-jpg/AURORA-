@@ -130,7 +130,7 @@ async function routeMessage(text) {
   const recoveryMatch = message.match(/^(?:show|list|review) (?:my )?(?:interrupted|recoverable|recent) tasks\??$/i);
   if (recoveryMatch) {
     const items = auroraTaskJournal.recoverable();
-    return { tool: "aurora_task_recovery", tasks: items, context: items.length ? "Recoverable task records are available. Review the saved plan and prepare it again; every recovered plan requires fresh confirmation before anything runs.\\n" + items.map(item => "- " + item.title + " [" + item.status + "] — " + item.taskId).join("\n") : "There are no interrupted or recoverable task plans in the local journal." };
+    return { tool: "aurora_task_recovery", tasks: items, context: items.length ? "Recoverable task records are available. Review the saved plan and prepare it again; every recovered plan requires fresh confirmation before anything runs.\n" + items.map(item => "- " + item.title + " [" + item.status + "] — " + item.taskId).join("\n") : "There are no interrupted or recoverable task plans in the local journal." };
   }
 
   const knowledgeMatch = message.match(/^(?:search|find) (?:my )?(?:knowledge graph|knowledge) for (.+)$/i);
