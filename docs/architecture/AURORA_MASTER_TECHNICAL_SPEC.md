@@ -770,3 +770,14 @@ The notification listener is protected by Android's `BIND_NOTIFICATION_LISTENER_
 The shared runtime also recognizes supported phrases for battery/device status, flashlight on/off, recent notifications, and calendar scheduling. Calendar phrases are accepted only when the date and 12-hour time are explicit (today, tomorrow, weekday, or ISO date); events are opened in Android's calendar editor and still require the user to review and save. The normal approval broker is used before sensitive notification reads and cache deletion.
 
 These additions remain internal capabilities. They do not create new navigation pages, and they preserve the shared chat/voice/Pulse runtime.
+
+
+## 21. Local-first hybrid memory
+
+AURORA now has a shared auroraMemory service, exposed through the same runtime used by chat, Pulse and voice. It is an internal service, not a dedicated page. It supports bounded local records with stable IDs, titles, kinds, tags, timestamps, relevance-ranked search, individual deletion and clearing. Existing chat-session, notes, tasks, reminders and calendar stores remain readable by the legacy memory search path; the new store does not silently import or upload those legacy records.
+
+The default mode is local-only and uses app-origin local storage. Cloud sync is disabled by default. A cloud adapter must be explicitly supplied and enabled with a consent flag; records are synchronized individually through syncRecord, and enabling cloud mode does not bulk-upload the local memory collection. The adapter contract is upsert(record) and remove(id), allowing a future authenticated Supabase integration without coupling the memory core to a particular backend.
+
+Natural-language routing supports explicit save requests (for example, “remember that …”), recall searches, and targeted forget requests. Forgetting is routed through the normal medium-risk approval broker; ambiguous matches are not deleted. The memory service is also consulted by the journey/context tool so relevant saved facts can inform a response. The memory core has isolated tests for local-first storage, ranked search, explicit cloud consent, individual synchronization and deletion.
+
+**Current boundary:** the cloud adapter interface is implemented, but no Supabase adapter is activated in this wave. Until a user-authorized adapter is connected, AURORA remains local-only.
