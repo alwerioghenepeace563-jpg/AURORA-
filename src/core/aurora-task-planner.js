@@ -69,7 +69,8 @@ function planAuroraActions(message, capabilities) {
   const clauses = splitActions(message);
   if (clauses.length < 2) return null;
   const steps = clauses.map((clause) => resolveClause(clause, available));
-  if (steps.some((step) => !step)) return null;
+  const unsupportedClauses = clauses.filter((clause, index) => !steps[index]);
+  if (unsupportedClauses.length) return { unsupported: true, unsupportedClauses };
   const unique = new Set();
   const normalized = steps.filter((step) => {
     const key = step.capabilityId + ":" + JSON.stringify(step.input);
@@ -77,7 +78,7 @@ function planAuroraActions(message, capabilities) {
     unique.add(key);
     return true;
   });
-  if (normalized.length < 2) return null;
+  if (normalized.length < 2) return { unsupported: true, unsupportedClauses: clauses };
   return {
     title: "AURORA multi-action request",
     summary: normalized.map((step) => step.label).join(" → "),
