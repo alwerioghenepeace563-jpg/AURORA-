@@ -187,6 +187,76 @@ function createAuroraCapabilityRuntime(options = {}) {
     }
   });
 
+
+  engine.registerCapability({
+    id: "notifications.open_access_settings",
+    label: "Configure notification access",
+    category: "notifications",
+    description: "Open Android's system settings so the user can explicitly enable or disable AURORA notification access.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Notification access settings require Android." }),
+    execute: async () => auroraNative.openNotificationAccessSettings()
+  });
+
+  engine.registerCapability({
+    id: "notifications.read_recent",
+    label: "Read recent notifications",
+    category: "notifications",
+    description: "Read up to 20 recent notification previews stored locally after the user enables Android Notification Access.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    validate: () => true,
+    availability: async () => {
+      if (!auroraNative.isAndroid()) return { available: false, reason: "Notification intelligence requires Android." };
+      const state = await auroraNative.hasNotificationAccess();
+      return { available: state.granted, reason: state.granted ? null : "Enable AURORA Notification Access in Android Settings first." };
+    },
+    execute: async () => {
+      const result = await auroraNative.readRecentNotifications();
+      let items = [];
+      try { items = JSON.parse(result.items || "[]"); } catch { items = []; }
+      return { items, localOnly: true, limit: result.limit || 20 };
+    }
+  });
+
+  engine.registerCapability({
+    id: "notifications.clear_recent",
+    label: "Clear AURORA notification cache",
+    category: "notifications",
+    description: "Delete the recent notification previews stored locally by AURORA; this does not dismiss Android notifications.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Notification cache is available only in Android." }),
+    execute: async () => auroraNative.clearRecentNotifications()
+  });
+
+  engine.registerCapability({
+    id: "device.get_status",
+    label: "Get device status",
+    category: "device",
+    description: "Read basic device model, Android version, battery percentage and charging state.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Device status is available only in Android." }),
+    execute: async () => auroraNative.getDeviceStatus()
+  });
+
+  engine.registerCapability({
+    id: "device.set_flashlight",
+    label: "Control flashlight",
+    category: "device",
+    description: "Turn the Android device flashlight on or off at the user's explicit request.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: (input) => typeof input?.enabled === "boolean" || "Choose on or off.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Flashlight control is available only in Android." }),
+    execute: async ({ enabled }) => auroraNative.setFlashlight(enabled)
+  });
+
   return engine;
 }
 
