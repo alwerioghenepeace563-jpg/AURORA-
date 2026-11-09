@@ -143,6 +143,14 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) throw new Error("Phone screen reading is available only in the Android app.");
     return AuroraNative.readScreen();
   },
+  prepareSms: async (number: string, body = "") => {
+    if (!Capacitor.isNativePlatform()) throw new Error("SMS composer handoff is available only in Android.");
+    return AuroraNative.prepareSms({ number, body });
+  },
+  shareText: async (text: string) => {
+    if (!Capacitor.isNativePlatform()) throw new Error("Android share sheet is available only in the native app.");
+    return AuroraNative.shareText({ text });
+  },
   openWhatsApp: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
     return AuroraNative.openApp({ packageName: "com.whatsapp" });
