@@ -519,6 +519,31 @@ async function routeMessage(text, options = {}) {
     };
   }
 
+  // Import user-selected media only with a description or transcript supplied in the same request.
+  const describedMediaMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:save|add|import) selected (image|photo|recording|audio) to (?:my )?(?:knowledge universe|knowledge base):\s*(.{2,})$/i);
+  if (describedMediaMatch?.[2]) {
+    const receipt = await actionEngine.execute({ capabilityId: "files.pick_document", input: {} });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "The media picker could not open." };
+    if (receipt.result?.cancelled) return { tool: "aurora_knowledge_media_import", status: "cancelled", context: "Media selection was cancelled; nothing was saved." };
+    const expectedType = /^(image|photo)$/i.test(describedMediaMatch[1]) ? "image" : "recording";
+    const mimeType = String(receipt.result?.mimeType || "").toLowerCase();
+    const matchesType = expectedType === "image" ? mimeType.startsWith("image/") : mimeType.startsWith("audio/");
+    if (!matchesType) return { tool: "aurora_knowledge_media_import", status: "type_mismatch", file: receipt.result?.name || "Selected file", context: "The selected file is not the requested " + expectedType + " media type. Nothing was saved." };
+    const description = describedMediaMatch[2].trim();
+    try {
+      const saved = auroraKnowledgeUniverse.add({
+        type: expectedType,
+        title: receipt.result.name || (expectedType === "image" ? "Saved image" : "Saved recording"),
+        content: description,
+        summary: description.slice(0, 500),
+        userApproved: true,
+        sourceLabel: receipt.result.name || "Android selected " + expectedType,
+        sourceMethod: "android_picker_user_description"
+      });
+      return { tool: "aurora_knowledge_media_import", status: saved.duplicate ? "duplicate" : "saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type }, context: saved.duplicate ? "That media description is already saved locally; I did not create a duplicate." : "Saved your description of the selected " + expectedType + " locally. AURORA has not analysed or copied the media itself." };
+    } catch (error) { return { error: error?.message || "The selected media description could not be saved." }; }
+  }
+
   // Import a document only after the user explicitly asks and selects it in Android's system picker.
   if (/^(?:hey aurora[, ]*)?(?:please\s+)?(?:save|add|import) (?:the )?(?:selected )?(?:file|document) to (?:my )?(?:knowledge universe|knowledge base)$/i.test(message.trim())) {
     const receipt = await actionEngine.execute({ capabilityId: "files.pick_document", input: {} });
