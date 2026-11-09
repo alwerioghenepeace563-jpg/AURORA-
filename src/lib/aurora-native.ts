@@ -51,6 +51,11 @@ type AuroraNativePlugin = {
 
 const AuroraNative = registerPlugin<AuroraNativePlugin>("AuroraNative");
 
+export async function requestAuroraCameraPermission(): Promise<{ granted: boolean }> {
+  try { return await AuroraNative.requestCameraPermission(); }
+  catch { return { granted: false }; }
+}
+
 export async function requestAuroraContactsPermission(): Promise<{ granted: boolean }> {
   try {
     return await AuroraNative.requestContactsPermission();
