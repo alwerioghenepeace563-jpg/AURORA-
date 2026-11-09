@@ -130,7 +130,7 @@ async function chatHandler(req, res) {
     systemInstruction: { parts: [{ text: systemText }] },
     contents,
     tools: [{ google_search: {} }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
+    generationConfig: { temperature: 0.7, maxOutputTokens: hasMedia ? 8192 : 1200 }
   };
 
   const groqKey = process.env.GROQ_API_KEY;
