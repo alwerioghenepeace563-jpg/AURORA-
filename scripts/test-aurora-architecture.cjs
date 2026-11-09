@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 
 (async () => {
   const { createAuroraActionEngine } = await import("../src/core/aurora-action-engine.js");
+  const { createAuroraApprovalBroker } = await import("../src/core/aurora-approval-broker.js");
   let executions = 0;
   let approvals = 0;
   const events = [];
@@ -46,6 +47,18 @@ const assert = require("node:assert/strict");
   ]);
   assert.equal(concurrentRuns, 1);
   assert.equal(concurrent[0], concurrent[1]);
+
+  const broker = createAuroraApprovalBroker({ createId: () => "approval-1", timeoutMs: 5000 });
+  const approvalEvents = [];
+  broker.subscribe((event) => approvalEvents.push(event.type));
+  const decisionPromise = broker.request({ requestId: "req-1", capabilityId: "test.approved_action", label: "Test approval", risk: "high", input: {} });
+  assert.equal(broker.listPending().length, 1);
+  assert.equal(broker.approve("approval-1"), true);
+  const decision = await decisionPromise;
+  assert.equal(decision.approved, true);
+  assert.equal(broker.listPending().length, 0);
+  assert.ok(approvalEvents.includes("approval.created"));
+  assert.ok(approvalEvents.includes("approval.approved"));
 
   assert.throws(() => engine.registerCapability({ id: "bad id", execute: async () => {} }), /identifiers/i);
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
