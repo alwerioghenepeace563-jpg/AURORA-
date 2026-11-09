@@ -23,7 +23,7 @@ function createAuroraTaskJournal(options = {}) {
     const items = read();
     const index = items.findIndex(x => x.taskId === taskId);
     const current = index >= 0 ? items[index] : { taskId, createdAt: now(), events: [] };
-    if (event.plan) current.plan = event.plan;
+    if (event.plan) current.plan = { id: event.plan.id, title: event.plan.title, summary: event.plan.summary, steps: (event.plan.steps || []).map(step => ({ id: step.id, capabilityId: step.capabilityId, label: step.label, risk: step.risk, approvalRequired: step.approvalRequired, dependsOn: [...(step.dependsOn || [])] })) };
     if (event.result) current.result = event.result;
     current.status = event.result?.status || (event.type === "task.started" ? "running" : current.status || "prepared");
     current.updatedAt = now();
