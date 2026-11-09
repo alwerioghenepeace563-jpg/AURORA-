@@ -760,7 +760,7 @@ The shared runtime also routes explicit app-launch phrases through a fixed packa
 
 The Android capability registry now includes:
 - `notifications.open_access_settings`: opens Android's Notification Access settings; the user explicitly enables or disables access there.
-- `notifications.read_recent`: requires Android Notification Access and AURORA's high-risk approval gate. The listener keeps at most 20 recent notification previews in app-local preferences; it excludes AURORA's own and ongoing notifications, limits text length, and does not upload or forward notification content to a server.
+- `notifications.read_recent`: requires Android Notification Access and AURORA's high-risk approval gate. The listener keeps at most 20 recent notification previews in AURORA's no-backup app-private storage; previews are excluded from Android cloud backups. It excludes AURORA's own and ongoing notifications, limits text length, and does not upload or forward notification content to a server.
 - `notifications.clear_recent`: approval-gated deletion of AURORA's local notification preview cache. This does not dismiss notifications from Android's notification shade.
 - `device.get_status`: returns basic device model, Android SDK, battery percentage and charging state.
 - `device.set_flashlight`: handles explicit on/off commands through CameraManager and requests Android camera permission before changing the torch.
