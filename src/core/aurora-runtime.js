@@ -28,6 +28,7 @@ import { auroraSecureStorage as nativeSecureStorage, auroraReminder } from "../l
 import { createAuroraSecureStore } from "./aurora-secure-store";
 import { createAuroraProtectedMemory } from "./aurora-protected-memory";
 import { createAuroraReliabilityCoordinator } from "./aurora-reliability-coordinator";
+import { createAuroraSurfaceGateway } from "./aurora-surface-gateway";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
@@ -104,6 +105,7 @@ const dataInventory = createAuroraDataInventory({
 });
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
 const reliability = createAuroraReliabilityCoordinator({ events: auroraEvents, taskJournal: auroraTaskJournal });
+const surfaceGateway = createAuroraSurfaceGateway({ routeMessage, events: auroraEvents });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
 actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
 taskOrchestrator.subscribe((event) => {
@@ -556,6 +558,7 @@ const auroraRuntime = Object.freeze({
   dismissRecoveryTask: (taskId) => reliability.dismissRecoveryTask(taskId),
   execute: (request) => actionEngine.execute(request),
   routeMessage,
+  surfaces: surfaceGateway,
   parseCalendarIntent,
   subscribe: (listener) => actionEngine.subscribe(listener),
   subscribeApprovals: (listener) => approvalBroker.subscribe(listener)
