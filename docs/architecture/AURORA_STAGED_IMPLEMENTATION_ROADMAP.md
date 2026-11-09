@@ -380,6 +380,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 4. Add capability-level tests for permission denial, user cancellation, unsupported hardware, handoff failure and positive verification.
 5. Verify the shared Main/Pulse/voice routes and all 12 family audits before closing the stage.
 
+**Implementation wave 5 — App discovery and connectivity diagnostics (code committed; automated regression added):**
+- Added a launcher-only installed-app inventory, bounded to 200 entries and deduplicated by package. It reports display name, package identifier and system-app flag; it does not inspect app data, launch apps or uninstall anything.
+- Added read-only network diagnostics for connection state, validated internet capability, metered status and transport type.
+- Explicitly excludes Wi-Fi SSID collection and traffic inspection; no connectivity settings are changed.
+- Added shared native bridge methods, Action Engine capabilities and Stage 10 regression assertions.
+- Android 11+ package visibility is constrained to launcher activities and the declared launcher intent query; the inventory is not a complete package-management catalogue.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
