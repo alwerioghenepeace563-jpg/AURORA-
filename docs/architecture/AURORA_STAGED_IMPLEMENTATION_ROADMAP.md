@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 7 — Native assistant activation and contextual intelligence  
+**Current checkpoint:** Stage 8 — Proactive intelligence and coordinated workflows  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -307,6 +307,14 @@ Stage 8 will advance all 12 capability families together:
 - If the task is not active, AURORA reports that no cancellation action was taken.
 - Added Stage 8 regression coverage and architecture evidence across all 12 capability families.
 
+**Implementation wave 6 — Verified outcomes and stable retry identity (code committed; latest CI pending):**
+- The Action Engine now passes a stable provider idempotency key into each capability adapter. A permitted retry uses the same key as the original task step, allowing adapters to deduplicate the same logical operation instead of treating every attempt as a new operation.
+- This is not permission to retry arbitrary actions: only explicitly declared idempotent adapters remain eligible, the user must confirm, and retries remain capped.
+- Each task step now reports one of three truthful states: verified, unverified, or not applicable. The task summary reports verified, partially verified, unverified, or not applicable.
+- A capability is marked verified only when its registered verification adapter returns a positive result. A completed execution receipt without a verifier is explicitly unverified.
+- The metadata-only task journal preserves verification status without storing user content, file contents, raw action results or private error messages. Task status review exposes the verification summary.
+- Added orchestrator and journal regressions for verification status and stable idempotency keys.
+
 **Implementation wave 5 — Safe self-recovery retry preflight (code committed; CI pending):**
 - Added a read-only retry inspection API for failed task steps.
 - AURORA checks that the task actually failed, the selected step is the failed step, dependencies completed, retry limits are not exceeded, and the capability adapter explicitly proves idempotency.
@@ -315,7 +323,7 @@ Stage 8 will advance all 12 capability families together:
 - Retry results are reported from the action receipt, and any further action requires fresh confirmation.
 - Added orchestrator tests and shared-runtime command regression coverage; Stage 8 evidence updated across all 12 capability families.
 
-**Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
+**Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build on the latest Stage 8 commit; user confirmation, permission, consent, cancellation, stable idempotency, truthful verification and review-only recovery remain enforced. Device certification stays a separate release gate.
 
 ## Complete vision roadmap and remaining stages
 
