@@ -519,6 +519,18 @@ async function routeMessage(text, options = {}) {
     };
   }
 
+  const knowledgeSaveMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:add|save) (?:this )?(note|document|project|task|conversation|website|recording|image|event) to (?:my )?(?:knowledge universe|knowledge base):\s*(.{2,})$/i);
+  if (knowledgeSaveMatch?.[2]) {
+    const raw = knowledgeSaveMatch[2].trim();
+    const split = raw.split(/\s+[—–]\s+|\s+::\s+/);
+    const title = split.length > 1 ? split.shift().trim() : raw.slice(0, 120);
+    const content = split.length > 1 ? split.join(" — ").trim() : raw;
+    try {
+      const saved = auroraKnowledgeUniverse.add({ type: knowledgeSaveMatch[1].toLowerCase(), title, content, userApproved: true, sourceLabel: "User-saved from " + requestSurface, sourceMethod: "explicit_chat_command" });
+      return { tool: "aurora_knowledge_saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type, duplicate: saved.duplicate }, context: saved.duplicate ? "That exact source is already in your local knowledge universe; I did not create a duplicate." : "Saved locally to your knowledge universe with source provenance. Nothing was uploaded." };
+    } catch (error) { return { error: error?.message || "I couldn't save that knowledge source." }; }
+  }
+
   const rememberMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:remember|save(?: this)?|make a note that)\s+(?:that\s+)?(.+)$/i);
   if (rememberMatch?.[1]) {
     const receipt = await actionEngine.execute({ capabilityId: "memory.save", input: { title: "Saved memory", content: rememberMatch[1].trim() } });
@@ -535,18 +547,6 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_memory_search", context: items.length
       ? "Saved memories matching your request:\n" + items.map((item) => "- " + item.title + ": " + item.content).join("\n")
       : "I couldn't find a saved memory matching that request. I won't make one up." };
-  }
-
-  const knowledgeSaveMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:add|save) (?:this )?(note|document|project|task|conversation|website|recording|image|event) to (?:my )?(?:knowledge universe|knowledge base):\s*(.{2,})$/i);
-  if (knowledgeSaveMatch?.[2]) {
-    const raw = knowledgeSaveMatch[2].trim();
-    const split = raw.split(/\s+[—–]\s+|\s+::\s+/);
-    const title = split.length > 1 ? split.shift().trim() : raw.slice(0, 120);
-    const content = split.length > 1 ? split.join(" — ").trim() : raw;
-    try {
-      const saved = auroraKnowledgeUniverse.add({ type: knowledgeSaveMatch[1].toLowerCase(), title, content, userApproved: true, sourceLabel: "User-saved from " + requestSurface, sourceMethod: "explicit_chat_command" });
-      return { tool: "aurora_knowledge_saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type, duplicate: saved.duplicate }, context: saved.duplicate ? "That exact source is already in your local knowledge universe; I did not create a duplicate." : "Saved locally to your knowledge universe with source provenance. Nothing was uploaded." };
-    } catch (error) { return { error: error?.message || "I couldn't save that knowledge source." }; }
   }
 
   const knowledgeSearchMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:find everything related to|search my knowledge for|find in my knowledge universe|what do i know about)\s+(.+?)\??$/i);
