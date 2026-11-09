@@ -322,11 +322,18 @@ async function routeMessage(text, options = {}) {
     };
   }
 
-  const cancelTask = message.match(/^(?:please\s+)?(?:cancel|discard)\s+(?:(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})|(?:the\s+)?plan)$/i);
+  const cancelTask = message.match(/^(?:please\s+)?(?:cancel|stop|discard)\s+(?:(?:(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80}))|(?:the\s+)?plan)$/i);
   if (cancelTask) {
-    if ((cancelTask[1] || latestPendingTaskId) !== latestPendingTaskId || !latestPendingTaskId) return { tool: "aurora_task", context: "That is not the current pending task plan." };
-    latestPendingTaskId = null;
-    return { tool: "aurora_task_cancelled", context: "The pending task plan was discarded. No actions were run." };
+    const taskId = cancelTask[1] || latestPendingTaskId;
+    if (!taskId) return { tool: "aurora_task", context: "There is no pending or running task to cancel." };
+    if (taskId === latestPendingTaskId) {
+      latestPendingTaskId = null;
+      return { tool: "aurora_task_cancelled", taskId, status: "discarded", context: "The pending task plan was discarded. No actions were run." };
+    }
+    const requested = taskOrchestrator.cancelPlan(taskId);
+    return requested
+      ? { tool: "aurora_task_cancel_requested", taskId, status: "cancellation_requested", context: "A cancellation request was sent to the running task. The task will stop at its next safe cancellation check; already completed external actions are not undone." }
+      : { tool: "aurora_task_cancel", taskId, status: "not_running", context: "AURORA could not find an active run for that task ID. No action was taken." };
   }
 
   const saveWorkflowMatch = message.match(/^save this as (?:a )?workflow(?: called| named)? (.+)$/i);
