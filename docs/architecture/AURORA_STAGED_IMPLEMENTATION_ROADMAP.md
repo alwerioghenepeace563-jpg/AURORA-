@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 10 — Universal Android and Communication Mastery (active; Stage 9 validation backlog retained)  
+**Current checkpoint:** Stage 10 — Universal Android and Communication Mastery (active; Stage 9 code/CI checkpoint complete; physical picker validation deferred)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -339,7 +339,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 | 6. Connected ecosystem | 12–13 | Opt-in predictive/sensor intelligence, connected devices and interoperable extensions |
 | 7. Experimental intelligence | 14 | Extensible research capabilities, evaluation, controlled experiments and safe rollout |
 
-### Stage 9 — Personal Knowledge Universe (active)
+### Stage 9 — Personal Knowledge Universe (complete — code and CI checkpoint)
 
 **Implementation wave 1 — Local-first knowledge universe core (code committed; CI pending):**
 - Added an explicit-approval index for notes, documents, projects, tasks, conversations, saved websites, recording transcripts, image descriptions and events.
@@ -411,12 +411,12 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 
 **Definition of vision completion:** all 14 implementation stages have their code, tests, documentation and acceptance evidence; all seven original phases are represented; Main App, Pulse and voice share one intelligence/capability core; Android/device and connected-service actions are permissioned and verifiable; privacy, accessibility, recovery and user control pass release gates. Physical-device certification and release approval are mandatory final gates, not assumed from web CI.
 
-**Stage-count rule:** 14 total implementation stages in this delivery roadmap. Stage 9 is currently active. Stages 10–14 remain after it: **5 stages remaining after Stage 9**. The seven broad vision phases remain permanent product pillars; future ideas may extend Stage 14 or add a new roadmap version without pretending the vision is ever closed to expansion.
+**Stage-count rule:** 14 total implementation stages in this delivery roadmap. Stage 10 is currently active. Stages 11–14 remain after it: **4 stages remaining after Stage 10**. Stages 1–9 have completed their code-level checkpoints; this is not physical-device release certification. The seven broad vision phases remain permanent product pillars; future ideas may extend Stage 14 or add a new roadmap version without pretending the vision is ever closed to expansion.
 
 
 
 
-### Stage 9 — Personal Knowledge Universe (active)
+### Stage 9 — Personal Knowledge Universe (complete — code and CI checkpoint)
 
 The shared local-first knowledge service is implemented and its focused tests, architecture tests, and core CI have passed on the feature branch. It supports explicitly approved notes, documents, projects, tasks, conversations, websites, recording descriptions, image descriptions and events; source provenance; bounded search with project/type/tag filters; source relationships; connected-source traversal (up to five hops); chronological timelines; confirmed corrections and deletion; and collision-safe duplicate detection. Main chat, Pulse and voice share the same service.
 
@@ -426,4 +426,4 @@ The shared local-first knowledge service is implemented and its focused tests, a
 
 **Verification:** Stage 9 knowledge tests, architecture tests and the full core/web build passed on commit `7919e5ea7ca50fce4e97d80b0977fd43e4349491` (GitHub Actions run `42615519584`). Coverage includes approval gates, provenance, collision-safe deduplication, scoped search, relationships and multi-hop traversal, timeline, confirmed correction/deletion, shared runtime routes, local-only storage and architecture wiring.
 
-**Still open before Stage 9 can close:** broader UI-level knowledge browsing and editing, explicit import cancellation/provenance tests at the Android adapter boundary, and a final review that every active capability family has its required Stage 9 evidence. Physical Android picker behavior and actual device-level media/document extraction remain unverified and are not implied by web CI.
+**Stage 9 COMPLETE — 2026-11-09 (code and CI checkpoint):** the shared local-first knowledge service, shared Main/Pulse/voice runtime APIs, Knowledge Universe browse/search/edit/delete workspace, explicit Android picker review and cancellation handling, source provenance, all-12-family evidence, and focused regression tests are present. The current feature-branch core/architecture workflow passed on commit `2ce8cc4234867b1e226ccb8747a5d36a0f54dabe` (run `42619298502`), including dependency installation, blocking dependency audit, complete core/architecture tests (including both Stage 9 tests), and web production build. Physical Android picker behavior, actual document extraction on target devices, and device-level media analysis remain deferred and unverified. No binary media analysis or cloud upload is claimed.
