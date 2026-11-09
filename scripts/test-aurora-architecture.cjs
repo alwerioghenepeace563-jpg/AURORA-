@@ -65,7 +65,7 @@ const path = require("node:path");
   const capabilitySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-capability-runtime.js"), "utf8");
   const nativeSource = fs.readFileSync(path.join(__dirname, "../src/lib/aurora-native.ts"), "utf8");
   const pluginSource = fs.readFileSync(path.join(__dirname, "../android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java"), "utf8");
-  for (const capabilityId of ["maps.search_place", "maps.get_directions", "calendar.prepare_event", "media.search_play", "files.pick_document"]) {
+  for (const capabilityId of ["maps.search_place", "maps.get_directions", "calendar.prepare_event", "media.search_play", "files.pick_document", "notifications.open_access_settings", "notifications.read_recent", "notifications.clear_recent", "device.get_status", "device.set_flashlight"]) {
     assert.ok(capabilitySource.includes(`id: "${capabilityId}"`), `Missing capability registration: ${capabilityId}`);
   }
   for (const nativeMethod of ["searchOnMap", "startMapDirections", "prepareCalendarEvent", "searchMedia", "pickDocument"]) {
@@ -76,6 +76,12 @@ const path = require("node:path");
   assert.ok(pluginSource.includes("Intent.ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android media handoff.");
   assert.ok(pluginSource.includes("Intent.ACTION_OPEN_DOCUMENT"), "File access must use Android's user-selected document picker.");
   assert.ok(pluginSource.includes("1024 * 1024"), "Text file previews must enforce the 1 MB limit.");
+  assert.ok(pluginSource.includes("Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"), "Notification access must be configured through Android Settings.");
+  assert.ok(pluginSource.includes("AuroraNotificationListenerService.readRecent"), "Notifications must be read through the opt-in listener.");
+  assert.ok(pluginSource.includes("CameraManager"), "Flashlight control must use Android CameraManager.");
+  assert.ok(pluginSource.includes("BatteryManager.EXTRA_LEVEL"), "Device status must include battery information.");
+  assert.ok(fs.existsSync(path.join(__dirname, "../android/app/src/main/java/com/aurora/assistant/AuroraNotificationListenerService.java")), "Notification listener service must exist.");
+  assert.ok(fs.readFileSync(path.join(__dirname, "../android/app/src/main/AndroidManifest.xml"), "utf8").includes("BIND_NOTIFICATION_LISTENER_SERVICE"), "Notification listener must be protected by Android's binding permission.");
   assert.throws(() => engine.registerCapability({ id: "bad id", execute: async () => {} }), /identifiers/i);
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
