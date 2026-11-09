@@ -139,15 +139,16 @@ const STAGE_FIVE_LAYER_AUDIT = Object.freeze({
 const STAGE_FIVE_CHECKPOINT = Object.freeze({
   id: 5,
   name: "Capability adapter expansion",
-  status: "active",
-  scope: "Coordinated capability expansion across all 12 active families. Code-level adapters, shared runtime contracts, permission/consent/approval gates and regression coverage advance together. Native device behavior remains unverified.",
-  validationBoundary: "Source-level integration only. No APK build, physical Android test, or release certification is claimed.",
+  status: "complete",
+  completedAt: "2026-11-09",
+  scope: "All 12 capability families have coordinated code-level adapters/audit evidence, shared Action Engine contracts, explicit permission/consent/approval gates, native bridge contracts, and passing automated core/architecture regression checks. Stage 5 closes at the capability-adapter layer; multi-surface UX wiring and physical-device validation are explicitly Stage 6 deliverables.",
+  validationBoundary: "GitHub Actions core/architecture tests and web production build passed for commit a42da3eb4f889ac1dc4e335fe5faae292bcf648b. No APK build, physical Android test, or release certification is claimed.",
   deliverables: Object.freeze([
     "Provide permission-gated one-shot location reads with explicit freshness metadata and no background collection.",
     "Keep maps search and directions in the shared Action Engine with validated travel modes.",
-    "Maintain all 12 capability families as one coordinated capability catalogue.",
+    "Maintain all 12 capability families as one coordinated capability catalogue with audit evidence.",
     "Require explicit approval and source-scoped consent for sensitive location reads.",
-    "Do not close Stage 5 until all family acceptance checks and cross-surface integration tests pass."
+    "Pass the full core/architecture test chain, Stage 5 capability regression suite, and web production build."
   ])
 });
 
@@ -196,8 +197,9 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 5,
+      nextStage: 6,
       stageFiveStatus: STAGE_FIVE_CHECKPOINT.status,
+      stageFiveCodeComplete: STAGE_FIVE_CHECKPOINT.status === "complete",
       stageFiveAuditedLayers: families.filter((item) => (STAGE_FIVE_LAYER_AUDIT[item.id] || []).length >= 2).length,
       stageFourStatus: STAGE_FOUR_CHECKPOINT.status,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
