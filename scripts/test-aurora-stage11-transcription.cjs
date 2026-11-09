@@ -46,3 +46,10 @@ assert.match(chatApi, /m\.media/);
 assert.match(chatApi, /provider === "gemini"/);
 assert.match(chatApi, /hasMedia/);
 console.log("AURORA Stage 11 speech-to-text integration checks passed.");
+
+assert.match(workspace, /Course syllabus \/ outline title/);
+assert.match(workspace, /maxLength={6000}/);
+assert.match(workspace, /generateSyllabusQuiz/);
+assert.match(workspace, /GROUNDING SOURCE supplied by the learner/);
+assert.match(workspace, /Sent to AURORA only when you generate a lesson or syllabus quiz/);
+assert.match(workspace, /buildPracticeQuiz\(\{title:/);
