@@ -132,6 +132,49 @@ function createAuroraCapabilityRuntime(options = {}) {
     }
   });
 
+
+  engine.registerCapability({
+    id: "communication.prepare_sms",
+    label: "Prepare a text message",
+    category: "communication",
+    description: "Open Android's SMS composer with a recipient and optional draft. AURORA never sends the message; the user reviews and taps Send.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => {
+      const valid = requiredString(input?.number, "Phone number");
+      if (valid !== true) return valid;
+      if (!/^[+0-9()\\s.-]{5,25}$/.test(input.number.trim())) return "Enter a valid phone number.";
+      if (input?.body != null && (typeof input.body !== "string" || input.body.length > 2000)) return "Message draft must be text no longer than 2000 characters.";
+      return true;
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "SMS composer handoff requires the Android app." }),
+    execute: async ({ number, body = "" }) => {
+      const result = await auroraNative.prepareSms(number.trim(), body);
+      if (!result?.opened) throw new Error("Android did not open the SMS composer.");
+      return { composerOpened: true, requiresUserSend: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "communication.share_text",
+    label: "Share text",
+    category: "communication",
+    description: "Open Android's system share sheet for text explicitly provided by the user. The user chooses the destination and confirms sharing.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => {
+      const valid = requiredString(input?.text, "Text to share");
+      if (valid !== true) return valid;
+      return input.text.length <= 8000 || "Text to share must be 8000 characters or fewer.";
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Android sharing requires the native app." }),
+    execute: async ({ text }) => {
+      const result = await auroraNative.shareText(text);
+      if (!result?.opened) throw new Error("Android did not open the share sheet.");
+      return { shareSheetOpened: true, requiresUserDestination: true };
+    }
+  });
+
   engine.registerCapability({
     id: "communication.open_dialer",
     label: "Prepare a phone call",
