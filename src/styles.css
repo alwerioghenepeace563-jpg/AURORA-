@@ -668,3 +668,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .clw-media-result .clw-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .clw-media-result .clw-actions a{font-size:11px;color:var(--cyan);text-decoration:none}
 @media(max-width:480px){.clw-media-search-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.clw-media-result{padding:7px}.clw-media-result img{height:105px}}
+
+/* Media search download controls */
+.clw-media-result .clw-actions button{font-size:11px;padding:7px 9px;border-radius:8px;}
+.clw-media-result .clw-actions{gap:6px;}
