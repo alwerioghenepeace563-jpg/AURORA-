@@ -47,7 +47,19 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Compile native Android code before signing
-        run: cd android && chmod +x gradlew && ./gradlew :app:compileDebugJavaWithJavac
+        run: |
+          cd android
+          chmod +x gradlew
+          for attempt in 1 2 3; do
+            if ./gradlew :app:compileDebugJavaWithJavac; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Gradle download or compile attempt $attempt failed; retrying..."
+              sleep $((attempt * 15))
+            fi
+          done
+          exit 1
       - name: Restore stable Android signing key
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' }}
         env:
