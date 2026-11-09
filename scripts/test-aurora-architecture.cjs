@@ -157,6 +157,7 @@ const path = require("node:path");
   assert.ok(layerRegistrySource.includes('adapterContractAudit: "passed"'), "Every active layer must pass the Stage 2 adapter contract audit.");
   const consentRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-consent-registry.js"), "utf8");
   assert.ok(sharedRuntimeSource.includes("auroraConsents.isGranted(scope, source)"), "Shared runtime must enforce declared consent through the consent registry.");
+  assert.ok(sharedRuntimeSource.includes("corrupt/unavailable consent storage fails closed"), "A corrupt persisted consent registry must not crash startup or enable cloud sync.");
   for (const permissionId of ["android.contacts", "android.accessibility", "android.notification_access", "android.camera"]) {
     assert.ok(capabilitySource.includes('"' + permissionId + '"'), "Missing shared Android permission adapter: " + permissionId);
   }
