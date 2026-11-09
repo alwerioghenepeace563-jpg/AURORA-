@@ -401,6 +401,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added bridge and regression coverage for the intent handoff, preview-only contract, size bound and approval requirement.
 - Full-resolution capture/storage and physical camera behavior remain separate device-validation work; OEM camera apps may return no thumbnail and are reported as unsupported rather than treated as success.
 
+
+**Implementation wave 9 — User-controlled audio recording handoff (code committed; automated regression added):**
+- Added a handoff to Android's compatible system recorder. The user starts, stops and saves the recording in that recorder.
+- AURORA receives only the returned content URI and MIME type; it does not capture audio in the background, read the audio bytes, or upload the recording.
+- Cancellation is represented explicitly. The shared Action Engine marks the action high-risk and approval-gated.
+- Added native bridge, capability and regression coverage. Recorder availability and returned URI behavior remain OEM/app-dependent and require physical-device validation.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
