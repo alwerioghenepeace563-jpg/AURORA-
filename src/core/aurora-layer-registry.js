@@ -36,9 +36,8 @@ const STAGE_TWO_LAYER_AUDIT = Object.freeze({
 const STAGE_TWO_CHECKPOINT = Object.freeze({
   id: 2,
   name: "Shared contracts and enforcement",
-  status: "complete",
-  scope: "The shared execution, authorization, approval, consent, timeout, cancellation, idempotency, and verification contracts are implemented and covered by automated cross-family contract checks. This is not a claim of physical-device certification or final product readiness.",
-  completedAt: "2026-11-09",
+  status: "in_progress",
+  scope: "The shared execution, authorization, approval, consent, timeout, cancellation, idempotency, and verification contracts are implemented and all 12 code-level adapter audits are recorded. Automated CI verification is still pending; this is not a claim of physical-device certification or final product readiness.",
   validationBoundary: "Automated code and contract tests; Android device behavior, platform-specific permissions, and end-to-end surface QA remain separate validation work.",
   deliverables: Object.freeze([
     "Capability descriptors expose validated permission, consent, timeout, idempotency, and verification contracts.",
@@ -91,7 +90,7 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 3,
+      nextStage: 2,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
       stageTwoContractReady: families.filter((item) => item.adapterContractAudit === "passed").length
