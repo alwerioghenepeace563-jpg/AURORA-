@@ -201,6 +201,72 @@ public class AuroraAssistantPlugin extends Plugin {
         call.resolve(result);
     }
 
+
+    @PluginMethod
+    public void searchOnMap(PluginCall call) {
+        String query = call.getString("query");
+        if (query == null || query.trim().isEmpty()) { call.reject("A place or address is required."); return; }
+        try {
+            Uri uri = Uri.parse("geo:0,0?q=" + Uri.encode(query.trim()));
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject(); result.put("opened", true); result.put("query", query.trim()); call.resolve(result);
+        } catch (Exception e) { call.reject("No map application could open this search.", e); }
+    }
+
+    @PluginMethod
+    public void startMapDirections(PluginCall call) {
+        String destination = call.getString("destination");
+        String mode = call.getString("mode", "driving");
+        if (destination == null || destination.trim().isEmpty()) { call.reject("A destination is required."); return; }
+        if (!java.util.Arrays.asList("driving", "walking", "bicycling", "transit").contains(mode)) { call.reject("Choose a supported travel mode."); return; }
+        try {
+            Uri uri = Uri.parse("google.navigation:q=" + Uri.encode(destination.trim()) + "&mode=" + mode.substring(0, 1));
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject(); result.put("opened", true); result.put("destination", destination.trim()); result.put("mode", mode); call.resolve(result);
+        } catch (Exception e) { call.reject("Could not hand directions to a map application.", e); }
+    }
+
+    @PluginMethod
+    public void prepareCalendarEvent(PluginCall call) {
+        String title = call.getString("title");
+        Long begin = call.getLong("beginTime");
+        Long end = call.getLong("endTime");
+        if (title == null || title.trim().isEmpty() || begin == null || end == null || end <= begin) {
+            call.reject("A title and valid start/end times are required."); return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_INSERT);
+            intent.setData(android.provider.CalendarContract.Events.CONTENT_URI);
+            intent.putExtra(android.provider.CalendarContract.Events.TITLE, title.trim());
+            intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin);
+            intent.putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, end);
+            String description = call.getString("description");
+            String location = call.getString("location");
+            if (description != null) intent.putExtra(android.provider.CalendarContract.Events.DESCRIPTION, description);
+            if (location != null) intent.putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, location);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject(); result.put("opened", true); result.put("requiresUserSave", true); call.resolve(result);
+        } catch (Exception e) { call.reject("Could not open a calendar to review this event.", e); }
+    }
+
+    @PluginMethod
+    public void searchMedia(PluginCall call) {
+        String query = call.getString("query");
+        if (query == null || query.trim().isEmpty()) { call.reject("A song, artist or media title is required."); return; }
+        try {
+            Intent intent = new Intent(android.content.Intent.ACTION_MEDIA_PLAY_FROM_SEARCH);
+            intent.putExtra(android.app.SearchManager.QUERY, query.trim());
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject(); result.put("opened", true); result.put("query", query.trim()); call.resolve(result);
+        } catch (Exception e) { call.reject("No media application could handle this search.", e); }
+    }
+
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
