@@ -25,16 +25,42 @@ actionEngine.registerCapability({
 
 async function routeMessage(text) {
   const message = String(text || "").trim();
+  // Explicit app-launch requests use a fixed package allowlist; package IDs are never model supplied.
+  const appTargets = [
+    { pattern: /\bwhats?app\b/i, packageName: "com.whatsapp", label: "WhatsApp" },
+    { pattern: /\bfacebook(?: lite)?\b/i, packageName: "com.facebook.katana", label: "Facebook" },
+    { pattern: /\bchrome\b/i, packageName: "com.android.chrome", label: "Chrome" },
+    { pattern: /\byoutube\b/i, packageName: "com.google.android.youtube", label: "YouTube" },
+    { pattern: /\bsettings\b/i, packageName: "com.android.settings", label: "Settings" }
+  ];
+  if (/^\s*(?:hey aurora[, ]*)?(?:please\s+)?(?:open|launch)\s+/i.test(message)) {
+    const target = appTargets.find((item) => item.pattern.test(message));
+    if (target) {
+      const receipt = await actionEngine.execute({ capabilityId: "android.open_app", input: { packageName: target.packageName } });
+      if (receipt.status !== "completed") return { error: receipt.error?.message || "The app could not be opened." };
+      return { tool: "android_open_app", context: "AURORA handed the request to Android to open " + target.label + "." };
+    }
+  }
+
+  if (/^\s*(?:hey aurora[, ]*)?(?:please\s+)?(?:choose|pick|open|read)\s+(?:a\s+)?(?:file|document)\s*$/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "files.pick_document", input: {} });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "The file picker could not open." };
+    if (receipt.result?.cancelled) return { tool: "android_file_picker", context: "File selection was cancelled." };
+    return { tool: "android_file_picker", context: receipt.result?.textIncluded
+      ? "The user selected " + receipt.result.name + ". Its text content is available for the next assistant step.\n\n" + receipt.result.text
+      : "The user selected " + receipt.result?.name + ". " + (receipt.result?.note || "This file type is not available as a plain-text preview.") };
+  }
+
   // Explicit navigation requests use the registered native capability adapters.
-  const destinationMatch = message.match(/\\b(?:directions to|route to|navigate to|take me to|how do i get to|open (?:the )?map(?:s)? for|find on (?:the )?map)\\s+(.+?)(?:[?.!,]|$)/i);
+  const destinationMatch = message.match(/\b(?:directions to|route to|navigate to|take me to|how do i get to|open (?:the )?map(?:s)? for|find on (?:the )?map)\s+(.+?)(?:[?.!,]|$)/i);
   if (destinationMatch?.[1]) {
-    const destination = destinationMatch[1].trim().replace(/\\s+(?:today|tomorrow|now|please)$/i, "").trim();
-    const mode = /\\b(walk|walking|on foot)\\b/i.test(message) ? "walking"
-      : /\\b(cycl|bicycl)\\b/i.test(message) ? "bicycling"
-      : /\\b(transit|bus|train)\\b/i.test(message) ? "transit" : "driving";
+    const destination = destinationMatch[1].trim().replace(/\s+(?:today|tomorrow|now|please)$/i, "").trim();
+    const mode = /\b(walk|walking|on foot)\b/i.test(message) ? "walking"
+      : /\b(cycl|bicycl)\b/i.test(message) ? "bicycling"
+      : /\b(transit|bus|train)\b/i.test(message) ? "transit" : "driving";
     const receipt = await actionEngine.execute({
-      capabilityId: /\\b(directions|route|navigate|take me)\\b/i.test(message) ? "maps.get_directions" : "maps.search_place",
-      input: /\\b(directions|route|navigate|take me)\\b/i.test(message) ? { destination, mode } : { query: destination }
+      capabilityId: /\b(directions|route|navigate|take me)\b/i.test(message) ? "maps.get_directions" : "maps.search_place",
+      input: /\b(directions|route|navigate|take me)\b/i.test(message) ? { destination, mode } : { query: destination }
     });
     if (receipt.status !== "completed") return { error: receipt.error?.message || "The map action could not be completed." };
     return { tool: "android_maps", context: "AURORA handed " + destination + " to the installed map application. " + (receipt.result?.mode ? "Travel mode: " + receipt.result.mode + "." : "") };
@@ -42,7 +68,7 @@ async function routeMessage(text) {
 
   // Media search is a handoff to the user's installed player; it does not
   // download media or bypass that application's playback controls.
-  const mediaMatch = message.match(/^\\s*(?:hey aurora[, ]*)?(?:please\\s+)?(?:play|find and play|search and play)\\s+(.+?)[?.!]*\\s*$/i);
+  const mediaMatch = message.match(/^\s*(?:hey aurora[, ]*)?(?:please\s+)?(?:play|find and play|search and play)\s+(.+?)[?.!]*\s*$/i);
   if (mediaMatch?.[1]) {
     const query = mediaMatch[1].trim();
     const receipt = await actionEngine.execute({ capabilityId: "media.search_play", input: { query } });
