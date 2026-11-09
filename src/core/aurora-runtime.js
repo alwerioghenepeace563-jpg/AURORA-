@@ -153,11 +153,11 @@ async function routeMessage(text) {
       return { tool: "aurora_reminder_cancelled", result, context: result.cancelled ? "That scheduled reminder was cancelled." : "No scheduled reminder with that ID was found." };
     } catch (error) { return { tool: "aurora_reminder", context: error?.message || "The reminder could not be cancelled." }; }
   }
-  if (/^(?:show|list) (?:my )?(?:scheduled )?reminders\\??$/i.test(message)) {
+  if (/^(?:show|list) (?:my )?(?:scheduled )?reminders\??$/i.test(message)) {
     try {
       const result = await auroraReminder.list();
       return { tool: "aurora_reminders", reminders: result.items, context: result.items.length
-        ? "Your scheduled reminders:\\n" + result.items.map(item => "- " + item.title + " — " + new Date(item.at).toLocaleString() + " [ID: " + item.id + "]").join("\\n")
+        ? "Your scheduled reminders:\n" + result.items.map(item => "- " + item.title + " — " + new Date(item.at).toLocaleString() + " [ID: " + item.id + "]").join("\n")
         : "You have no scheduled AURORA reminders." };
     } catch (error) { return { tool: "aurora_reminders", context: error?.message || "Scheduled reminders are unavailable." }; }
   }
