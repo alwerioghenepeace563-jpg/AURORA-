@@ -68,6 +68,7 @@ const assert = require("node:assert/strict");
     assert.ok(Array.isArray(layer.stageTwoEvidence) && layer.stageTwoEvidence.length >= 3, "Every family needs concrete Stage 2 contract evidence.");
     assert.ok(Array.isArray(layer.stageThreeEvidence) && layer.stageThreeEvidence.length >= 2, "Every family needs Stage 3 storage/context audit evidence.");
     assert.ok(Array.isArray(layer.stageSevenEvidence) && layer.stageSevenEvidence.length >= 3, "Every family needs Stage 7 whole-system evidence.");
+    assert.ok(Array.isArray(layer.stageSevenEvidence) && layer.stageSevenEvidence.length >= 3, "Every family needs Stage 7 whole-system evidence.");
   }
   assert.equal(registry.get("unknown-layer"), null);
   assert.ok(Object.isFrozen(STAGE_ONE_CHECKPOINT));
@@ -75,6 +76,7 @@ const assert = require("node:assert/strict");
   assert.ok(Object.isFrozen(STAGE_THREE_DEFERRED_RELEASE_VALIDATION));
   assert.ok(Object.isFrozen(STAGE_FIVE_CHECKPOINT));
   assert.ok(Object.isFrozen(STAGE_SIX_CHECKPOINT));
+  assert.ok(Object.isFrozen(STAGE_SEVEN_CHECKPOINT));
   assert.ok(Object.isFrozen(STAGE_SEVEN_CHECKPOINT));
   console.log("AURORA layer registry tests passed: all 12 layers mapped, dependencies owned, and final completion kept distinct from stage checkpoints.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
