@@ -21,5 +21,7 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Run AURORA core and architecture tests
+        run: npm run test:core
       - name: Build web app
         run: npm run build
