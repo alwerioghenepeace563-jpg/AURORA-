@@ -261,7 +261,8 @@ function createAuroraCreativeUniverse(options = {}) {
       ...state.projects.map(x=>({...x,kind:"project",summary:x.description||x.goal})),
       ...state.drafts.map(x=>({...x,kind:"draft",summary:x.content.slice(0,240)})),
       ...state.assets.map(x=>({...x,kind:"asset",summary:x.text.slice(0,240)})),
-      ...state.decks.map(x=>({...x,kind:"flashcard_deck",summary:x.cards.length+" flashcards"}))
+      ...state.decks.map(x=>({...x,kind:"flashcard_deck",summary:x.cards.length+" flashcards"})),
+      ...state.quizAttempts.map(x=>({...x,kind:"quiz_attempt",title:x.quizTitle,summary:x.results.map(result=>result.prompt).join(" "),subject:x.subject}))
     ];
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
