@@ -6,6 +6,10 @@ const journal = fs.readFileSync("src/core/aurora-task-journal.js", "utf8");
 const workflows = fs.readFileSync("src/core/aurora-workflow-registry.js", "utf8");
 
 for (const expected of [
+  "const requested = taskOrchestrator.cancelPlan(taskId)",
+  "tool: \"aurora_task_cancel_requested\"",
+  "already completed external actions are not undone",
+  "status: \"not_running\"",
   "const taskStatusMatch = message.match(",
   "auroraTaskJournal.get(taskStatusMatch[1])",
   "const reviewTaskMatch = message.match(",
