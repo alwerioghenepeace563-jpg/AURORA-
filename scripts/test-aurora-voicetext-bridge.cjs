@@ -26,7 +26,7 @@ assert.match(workspace, /Resume transcription/);
 assert.match(workspace, /authSession\?\.access_token/);
 assert.match(workspace, /cloud-saved section/);
 assert.match(workspace, /job\?\.status===\"completed\"/);
-assert.match(workspace, /choose the same original recording/);
+assert.match(workspace, /reselect the same recording and resume/);
 assert.doesNotMatch(workspace, /mediaFile\.size\s*>\s*\d+/);
 assert.doesNotMatch(workspace, /messages:\[\{role:"user",content:prompt,media:/);
 
