@@ -160,6 +160,11 @@ const path = require("node:path");
   assert.ok(protectedMemorySource.includes("MAX_RECORDS = 100"), "Protected memory must enforce a bounded record count.");
   assert.ok(protectedMemorySource.includes("MAX_CONTENT = 4000"), "Protected memory must enforce a content-size limit.");
   const layerRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-layer-registry.js"), "utf8");
+  const knowledgeUniverseSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-knowledge-universe.js"), "utf8");
+  assert.ok(sharedRuntimeSource.includes("knowledgeUniverse: auroraKnowledgeUniverse"), "Stage 9 knowledge must be available from the shared runtime.");
+  for (const api of ["addKnowledgeSource", "searchKnowledge", "relateKnowledge", "relatedKnowledge", "knowledgeTimeline", "correctKnowledge", "forgetKnowledge"]) assert.ok(sharedRuntimeSource.includes(api), "Missing shared knowledge API: " + api);
+  for (const contract of ["userApproved !== true", "fingerprint", "source:", "function search(", "function timeline(", "function correct(", "function remove(", "MAX_RECORDS = 500", "MAX_CONTENT = 12000"]) assert.ok(knowledgeUniverseSource.includes(contract), "Missing Stage 9 knowledge contract: " + contract);
+  assert.ok(knowledgeUniverseSource.includes("cloudSync: false") && knowledgeUniverseSource.includes("automaticCapture: false"), "Knowledge indexing must remain local and user initiated.");
   const stagedRoadmap = fs.readFileSync(path.join(__dirname, "../docs/architecture/AURORA_STAGED_IMPLEMENTATION_ROADMAP.md"), "utf8");
   for (const layerId of ["android_device", "voice_multimodal", "screen_accessibility", "communication_people", "location_travel", "calendar_productivity", "files_knowledge", "media_creative", "intelligence_personalisation", "extensions_interoperability", "safety_privacy_security", "reliability_operations"]) {
     assert.ok(layerRegistrySource.includes('id: "' + layerId + '"'), `Missing staged layer registry entry: ${layerId}`);
