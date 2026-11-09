@@ -19,7 +19,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
   const plans = new Map();
   const runs = new Map();
   const inFlight = new Map();
-  const controllers = new Map();
+  const controllers = new Map();\n  const retryAttempts = new Map();
   const capabilityMap = () => new Map(actionEngine.listCapabilities().map((item) => [item.id, item]));
 
   function emit(type, payload) {
@@ -154,6 +154,51 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     inFlight.set(plan.id, operation);
     try { return await operation; }
     finally { inFlight.delete(plan.id); controllers.delete(plan.id); }
+  }
+
+  async function retryFailedStep(taskId, stepId, options = {}) {
+    const id = String(taskId);
+    const plan = getPlan(id);
+    const previous = runs.get(id);
+    if (!plan || !previous || previous.status !== "failed") {
+      return Object.freeze({ status: "not_retryable", reason: "no_failed_task", taskId: id, stepId: String(stepId) });
+    }
+    if (options.confirmed !== true) {
+      return Object.freeze({ status: "confirmation_required", taskId: id, stepId: String(stepId), requiresFreshConfirmation: true });
+    }
+    const step = plan.steps.find(item => item.id === String(stepId));
+    const failed = previous.steps.find(item => item.stepId === String(stepId));
+    if (!step || !failed || failed.status !== "failed") {
+      return Object.freeze({ status: "not_retryable", reason: "step_not_failed", taskId: id, stepId: String(stepId) });
+    }
+    const completed = new Set(previous.steps.filter(item => item.status === "completed").map(item => item.stepId));
+    if (step.dependsOn.some(dependency => !completed.has(dependency))) {
+      return Object.freeze({ status: "not_retryable", reason: "dependencies_not_completed", taskId: id, stepId: step.id });
+    }
+    if (typeof actionEngine.getRetryEligibility !== "function") {
+      return Object.freeze({ status: "not_retryable", reason: "retry_contract_unavailable", taskId: id, stepId: step.id });
+    }
+    const eligibility = actionEngine.getRetryEligibility(step.capabilityId);
+    if (eligibility?.eligible !== true) {
+      emit("task.retry_denied", { taskId: id, stepId: step.id, reason: eligibility?.reason || "adapter_idempotency_not_proven" });
+      return Object.freeze({ status: "not_retryable", reason: eligibility?.reason || "adapter_idempotency_not_proven", taskId: id, stepId: step.id });
+    }
+    const attempt = (retryAttempts.get(id + ":" + step.id) || 0) + 1;
+    if (attempt > 2) return Object.freeze({ status: "not_retryable", reason: "retry_limit_reached", taskId: id, stepId: step.id });
+    retryAttempts.set(id + ":" + step.id, attempt);
+    emit("task.retry_started", { taskId: id, stepId: step.id, attempt, evidence: eligibility.evidence });
+    const receipt = await actionEngine.execute({
+      capabilityId: step.capabilityId,
+      input: step.input,
+      requestedBy: "task-retry:" + id,
+      requestId: id + ":" + step.id + ":manual-retry:" + attempt
+    });
+    const result = Object.freeze({
+      taskId: id, stepId: step.id, attempt, status: receipt.status,
+      receipt, requiresFreshConfirmationForFurtherActions: true
+    });
+    emit("task.retry_finished", { taskId: id, stepId: step.id, attempt, status: receipt.status });
+    return result;
   }
 
   return Object.freeze({
