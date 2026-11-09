@@ -192,3 +192,20 @@ assert.ok(capabilityRuntime.includes('id: "notifications.dismiss_item"'));
 assert.ok(capabilityRuntime.includes("otherNotificationsAffected: false"));
 console.log("AURORA Stage 10 notification tests passed: explicit approval, active-item validation and open-only behavior.");
 
+
+// Stage 10 Wave 12: expanded read-only device health diagnostics.
+assert.ok(nativeJava.includes("public void getDeviceStatus(PluginCall call)"));
+assert.ok(nativeJava.includes("BatteryManager.EXTRA_TEMPERATURE"));
+assert.ok(nativeJava.includes("BatteryManager.EXTRA_VOLTAGE"));
+assert.ok(nativeJava.includes("memoryAvailableBytes"));
+assert.ok(nativeJava.includes("memoryTotalBytes"));
+assert.ok(nativeJava.includes("memoryLow"));
+assert.ok(nativeJava.includes("getCurrentThermalStatus()"));
+assert.ok(nativeJava.includes('result.put("readOnly", true)'));
+assert.ok(nativeJava.includes('result.put("capturedAt", System.currentTimeMillis())'));
+assert.ok(nativeBridge.includes("batteryTemperatureC?: number"));
+assert.ok(nativeBridge.includes("memoryAvailableBytes?: number"));
+assert.ok(nativeBridge.includes("thermalStatus?: number"));
+assert.ok(capabilityRuntime.includes("verified read-only device health snapshot"));
+console.log("AURORA Stage 10 device health tests passed: battery, memory and thermal diagnostics are read-only and timestamped.");
+
