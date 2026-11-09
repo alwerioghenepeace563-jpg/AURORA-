@@ -72,6 +72,17 @@ const path = require("node:path");
     assert.ok(nativeSource.includes(nativeMethod), `Missing TypeScript native bridge: ${nativeMethod}`);
     assert.ok(pluginSource.includes(`void ${nativeMethod}(PluginCall call)`), `Missing Android plugin method: ${nativeMethod}`);
   }
+
+  for (const capabilityId of ["communication.prepare_sms", "device.share_text"]) {
+    assert.ok(capabilitySource.includes('id: "' + capabilityId + '"'), "Missing Stage 5 communication/share adapter: " + capabilityId);
+  }
+  for (const nativeMethod of ["prepareSms", "shareText"]) {
+    assert.ok(nativeSource.includes(nativeMethod), "Missing typed native bridge method: " + nativeMethod);
+    assert.ok(pluginSource.includes("void " + nativeMethod + "(PluginCall call)"), "Missing Android plugin method: " + nativeMethod);
+  }
+  assert.ok(pluginSource.includes("Intent.ACTION_SENDTO"), "SMS must open the user's composer rather than sending directly.");
+  assert.ok(pluginSource.includes('Uri.parse("smsto:"'), "SMS must use the Android SMS composer URI.");
+  assert.ok(pluginSource.includes('Intent.createChooser(send, "Share with")'), "Text sharing must use Android's user-controlled chooser.");
   assert.ok(pluginSource.includes("Intent.ACTION_INSERT"), "Calendar event must use Android's review-before-save editor.");
   assert.ok(pluginSource.includes("MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android media handoff.");
   assert.ok(pluginSource.includes("Intent.ACTION_OPEN_DOCUMENT"), "File access must use Android's user-selected document picker.");
