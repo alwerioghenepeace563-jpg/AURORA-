@@ -55,7 +55,7 @@ function CreativeLearningWorkspace(){
   setLessonBusy(true);setNotice("AURORA is preparing a lesson. Check the explanation before relying on it.");
   try{
    const suppliedSyllabus=syllabusText.trim().slice(0,6000);
-   const prompt="Create a clear, accurate study lesson for a learner. Subject: "+plan.subject+". Topic: "+topic.name+". Study goal: "+(plan.goal||"Understand the topic well")+". "+(suppliedSyllabus?"GROUNDING SOURCE supplied by the learner ("+syllabusTitle.slice(0,120)+"):\\n"+suppliedSyllabus+"\\nPrioritise this source, align lesson coverage to it, identify supporting headings where possible, and clearly flag extra explanations beyond it. Never invent syllabus requirements.":"No syllabus was supplied; teach generally and do not claim syllabus alignment.")+" Include: learning objectives, prerequisite ideas, a step-by-step explanation, key terms, one worked or concrete example, common misconceptions, a short recap, and five practice questions with answers separated at the end. Distinguish established facts from simplifications. If uncertain, say so."
+   const prompt="Create a clear, accurate study lesson for a learner. Subject: "+plan.subject+". Topic: "+topic.name+". Study goal: "+(plan.goal||"Understand the topic well")+". "+(suppliedSyllabus?"GROUNDING SOURCE supplied by the learner ("+syllabusTitle.slice(0,120)+"):\\n"+suppliedSyllabus+"\\nPrioritise this source, align lesson coverage to it, identify supporting headings where possible, and clearly flag extra explanations beyond it. Never invent syllabus requirements.":"No syllabus was supplied; teach generally and do not claim syllabus alignment.")+" Include: learning objectives, prerequisite ideas, a step-by-step explanation, key terms, one worked or concrete example, common misconceptions, a short recap, and five practice questions with answers separated at the end. Distinguish established facts from simplifications. If uncertain, say so.";
    const response=await fetch(auroraApiUrl("/api/chat"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||"The lesson service is unavailable.");
@@ -76,7 +76,7 @@ function CreativeLearningWorkspace(){
    const response=await fetch(auroraApiUrl("/api/chat"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||"The question service is unavailable.");
-   const lines=String(data.reply||"").split("\\n").map(line=>line.trim().replace(/^[-*0-9.) ]+/,"")).filter(Boolean);
+   const lines=String(data.reply||"").split(/\r?\n/).map(line=>line.trim().replace(/^[-*0-9.) ]+/,"")).filter(Boolean);
    const questions=lines.map(line=>{const split=line.indexOf("|");return split>0?{prompt:line.slice(0,split).trim(),answer:line.slice(split+1).trim()}:null;}).filter(item=>item&&item.prompt&&item.answer).slice(0,8);
    if(questions.length<4)throw new Error("The AI did not return enough valid question-and-answer pairs. Simplify the supplied outline and try again.");
    const created=auroraRuntime.buildPracticeQuiz({title:plan.subject+" — "+topic.name+" syllabus practice",questions,userApproved:true});
