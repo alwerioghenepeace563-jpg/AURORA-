@@ -28,7 +28,8 @@ const assert = require("node:assert/strict");
   assert.equal(search.listSources().length, 2);
 
   const { createAuroraExtensionRegistry } = await import("../src/core/aurora-extension-registry.js");
-  const extensions = createAuroraExtensionRegistry({ storage, getCapabilities: () => [{ id: "device.get_status" }] });
+  let dispatched = null;
+  const extensions = createAuroraExtensionRegistry({ storage, getCapabilities: () => [{ id: "device.get_status" }], executeCapability: async request => { dispatched = request; return { status: "completed" }; } });
   const manifest = { id: "example.device-tools", name: "Device Tools", version: "1.0", capabilities: ["device.get_status"], permissions: ["device.status"] };
   assert.equal(extensions.preview(manifest).executesCode, false);
   assert.throws(() => extensions.install(manifest), error => error.code === "APPROVAL_REQUIRED");
@@ -37,8 +38,12 @@ const assert = require("node:assert/strict");
   assert.equal(installed.status, "installed");
   assert.equal(installed.executesCode, false);
   assert.equal(extensions.list().length, 1);
+  const execution = await extensions.execute(manifest.id, "device.get_status", {});
+  assert.equal(execution.status, "completed");
+  assert.equal(dispatched.capabilityId, "device.get_status");
+  await assert.rejects(extensions.execute(manifest.id, "unknown.execute", {}), /did not request/i);
   assert.equal(extensions.uninstall(manifest.id), true);
   assert.equal(extensions.list().length, 0);
 
-  console.log("AURORA privacy/search/extension tests passed: default-deny consent, federated read-only search, declarative extension approvals.");
+  console.log("AURORA privacy/search/extension tests passed: default-deny consent, federated read-only search, declarative extension approvals and Action Engine dispatch restrictions.");
 })().catch(error => { console.error(error); process.exitCode = 1; });
