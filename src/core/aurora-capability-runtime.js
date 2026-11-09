@@ -22,8 +22,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     "android.accessibility": async () => (await auroraNative.isAccessibilityEnabled()).enabled === true,
     "android.notification_access": async () => (await auroraNative.hasNotificationAccess()).granted === true,
     "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true,
-    "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true,
-    "android.overlay": async () => (await auroraNative.hasOverlayPermission()).granted === true
+    "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true
   };
   const authorize = async ({ capability, proposal }) => {
     for (const permission of capability.permissionRequirements || []) {
@@ -294,7 +293,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     validate: (input) => {
       const valid = requiredString(input?.text, "Speech text");
       if (valid !== true) return valid;
-      return input.text.length <= 8000 || "Speech text must be 8000 characters or fewer.";
+      return input.text.length <= 2500 || "Speech text must be 2500 characters or fewer.";
     },
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Native speech output requires the Android app." }),
     execute: async ({ text }) => {
@@ -316,39 +315,6 @@ function createAuroraCapabilityRuntime(options = {}) {
     execute: async () => {
       const result = await auroraNative.stopTextSpeech();
       return { stopped: result?.stopped === true };
-    }
-  });
-
-  engine.registerCapability({
-    id: "pulse.show_overlay",
-    label: "Show AURORA Pulse",
-    category: "device",
-    description: "Show the AURORA Pulse overlay after the user has granted Android overlay permission.",
-    risk: AURORA_ACTION_RISK.MEDIUM,
-    approvalRequired: true,
-    permissionRequirements: ["android.overlay"],
-    validate: () => true,
-    availability: async () => ({ available: auroraNative.isAndroid(), reason: "AURORA Pulse overlay requires the Android app." }),
-    execute: async () => {
-      const result = await auroraNative.showOverlay();
-      if (!result?.shown) throw new Error(result?.note || "Android did not show the AURORA Pulse overlay.");
-      return { shown: true };
-    }
-  });
-
-  engine.registerCapability({
-    id: "pulse.hide_overlay",
-    label: "Hide AURORA Pulse",
-    category: "device",
-    description: "Hide the currently visible AURORA Pulse overlay.",
-    risk: AURORA_ACTION_RISK.LOW,
-    approvalRequired: false,
-    validate: () => true,
-    availability: async () => ({ available: auroraNative.isAndroid(), reason: "AURORA Pulse overlay requires the Android app." }),
-    execute: async () => {
-      const result = await auroraNative.hideOverlay();
-      if (!result?.hidden) throw new Error("Android did not confirm that the AURORA Pulse overlay was hidden.");
-      return { hidden: true };
     }
   });
 
