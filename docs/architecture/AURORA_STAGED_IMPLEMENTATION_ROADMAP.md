@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 10 — Universal Android and Communication Mastery (active; Stage 9 code/CI checkpoint complete; physical picker validation deferred)  
+**Current checkpoint:** Stage 11 — Creative and Learning Universe (active; Stage 10 code/CI checkpoint complete; physical Android validation deferred)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -357,9 +357,9 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Add source citations/provenance, duplicate detection, timeline views, scoped search, user correction and deletion.
 - Keep private content local by default; cloud indexing and cross-device sync require explicit per-source consent.
 
-### Stage 10 — Universal Android and Communication Mastery (active)
+### Stage 10 — Universal Android and Communication Mastery (complete — code/CI checkpoint)
 
-**Stage opening (2026-11-09):** Stage 10 is now the active coordinated implementation stage. The Stage 9 core knowledge service, source selection contracts and shared runtime passed the latest core/web CI checkpoint, but Stage 9 is not being falsely marked complete. Its remaining work—broader knowledge browsing/editing UI, Android picker cancellation/provenance boundary tests, and final cross-surface acceptance review—remains an explicit carried backlog and must still be closed.
+**Stage opening (2026-11-09):** Stage 10 was the active coordinated implementation stage. The Stage 9 core knowledge service, source selection contracts and shared runtime passed the latest core/web CI checkpoint, but Stage 9 is not being falsely marked complete. Its remaining work—broader knowledge browsing/editing UI, Android picker cancellation/provenance boundary tests, and final cross-surface acceptance review—remains an explicit carried backlog and must still be closed.
 
 **Implementation wave 1 — Read-only Android capability inventory (code committed; automated regression added):**
 - Added native `getDeviceCapabilityInventory` to inspect camera, flash, microphone, telephony, Bluetooth, Wi-Fi, GPS and NFC hardware feature declarations.
@@ -450,7 +450,11 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Preserve Android permission boundaries and explicit confirmation for sending, calling, sharing or changing consequential settings.
 - Distinguish supported Android APIs from unavailable or OEM-restricted controls; never simulate success.
 
-### Stage 11 — Creative and Learning Universe
+### Stage 11 — Creative and Learning Universe (active; opened 2026-11-09)
+**Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
+
+Stage 10's device-specific validation remains a release backlog rather than a reason to hold the code roadmap: no unsupported hardware or OEM feature is represented as working, and all unavailable outcomes remain explicit.
+
 - Join media import, transcription, summarisation, subtitle search, writing, image/video workflows and project assets through the shared knowledge system.
 - Add user-controlled study plans, explanations, practice, progress summaries and reusable learning projects.
 - Keep source attribution, content rights, user review and bounded media processing visible.
@@ -476,7 +480,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 
 **Definition of vision completion:** all 14 implementation stages have their code, tests, documentation and acceptance evidence; all seven original phases are represented; Main App, Pulse and voice share one intelligence/capability core; Android/device and connected-service actions are permissioned and verifiable; privacy, accessibility, recovery and user control pass release gates. Physical-device certification and release approval are mandatory final gates, not assumed from web CI.
 
-**Stage-count rule:** 14 total implementation stages in this delivery roadmap. Stage 10 is currently active. Stages 11–14 remain after it: **4 stages remaining after Stage 10**. Stages 1–9 have completed their code-level checkpoints; this is not physical-device release certification. The seven broad vision phases remain permanent product pillars; future ideas may extend Stage 14 or add a new roadmap version without pretending the vision is ever closed to expansion.
+**Stage-count rule:** 14 total implementation stages in this delivery roadmap. Stage 11 is currently active. Stages 12–14 remain after it: **3 stages remaining after Stage 11**. Stages 1–9 have completed their code-level checkpoints; this is not physical-device release certification. The seven broad vision phases remain permanent product pillars; future ideas may extend Stage 14 or add a new roadmap version without pretending the vision is ever closed to expansion.
 
 
 
