@@ -132,7 +132,9 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Implementation wave 8 completed:** Added Android coarse/fine location permission handling and a one-shot last-known-location adapter. Results include coordinates, accuracy, provider, timestamp, age, precision, and a freshness flag; no background location listener or location persistence is introduced. The shared Action Engine registers `location.get_current` as high-risk, approval-gated, and source-consent-gated. The machine-readable layer registry now records Stage 5 evidence for all 12 capability families, and a whole-stage regression test is included in the core test chain. Stage 5 remains active until cross-surface and all-family acceptance checks pass. APK and device testing remain deferred.
 
-**Remaining Stage 5 work:** Complete cross-surface integration of the full capability catalogue, broaden document/media workflows where supported, and verify all adapters preserve shared permissions, consent, approval, reliability, and honest availability behavior. No Stage 4 work is reopened.
+**Implementation wave 9 completed:** Wired the location capability into the shared chat runtime with a two-step consent flow (`prepare location access` then `confirm location access`) before Android permission is requested. A direct `where am I` request then executes through the shared Action Engine and its fresh approval broker, returning timestamp and freshness-aware results. The Stage 5 regression test now checks the consent path and chat routing as well as native bridge parity and all 12 family audit entries.
+
+**Remaining Stage 5 work:** Run and resolve the full automated core/architecture CI suite, then complete the cross-surface acceptance audit for Main, Pulse and voice. Document/media workflows remain bounded by explicit user selection and provider/platform support. No Stage 4 work is reopened.
 
 ### Stage 6 — Surface integration and device validation
 
