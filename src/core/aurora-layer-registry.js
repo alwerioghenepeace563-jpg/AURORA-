@@ -55,7 +55,7 @@ const STAGE_THREE_CHECKPOINT = Object.freeze({
   id: 3,
   name: "Secure state and context",
   status: "in_progress",
-  scope: "Harden local persistence, encrypted protected memory, key availability reporting, data inventory accuracy, consent boundaries, and optional per-record sync. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
+  scope: "Harden local persistence, encrypted protected memory, key availability reporting, data inventory accuracy, consent boundaries, and optional per-record sync. Shared fail-closed JSON/schema validation now protects memory, consent, knowledge graph, task journal, workflow, and routine stores from silent reset. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
   validationBoundary: "Automated tests cover the new Android-only protected-memory vault with a test adapter. Real Android Keystore behavior, backup exclusion, device migration, and end-to-end privacy UX still require device validation.",
   deliverables: Object.freeze([
     "Add an Android-only protected-memory vault backed by the existing Keystore AES-GCM secure-store facade; refuse operation when unavailable and never fall back to browser storage.",
@@ -63,6 +63,8 @@ const STAGE_THREE_CHECKPOINT = Object.freeze({
     "Expose protected memory through the shared AURORA runtime so Main, Pulse, and voice can use the same service.",
     "Report protected-memory storage location and encryption availability in the privacy inventory without exposing record contents.",
     "Keep ordinary local-first memory separate from protected memory; do not silently migrate existing records or enable cloud sync.",
+    "Use a shared fail-closed persistence reader across memory, consent, knowledge graph, task journal, workflow, and routine stores; malformed data is preserved and reported rather than silently reset.",
+    "Add regression tests proving corrupt JSON and invalid schemas do not overwrite existing local records.",
     "Keep all 12 capability families active while remaining Stage 3 storage, consent, and context boundaries are audited."
   ])
 });
