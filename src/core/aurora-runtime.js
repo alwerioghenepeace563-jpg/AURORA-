@@ -606,7 +606,7 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_knowledge_timeline", items: items.map(item => ({ id: item.id, title: item.title, type: item.type, updatedAt: item.updatedAt, projectId: item.projectId })), context: items.length ? "Your recent approved knowledge sources, newest first." : "Your knowledge timeline is empty." };
   }
 
-  const knowledgeRecordMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\\s+)?(?:show|open) knowledge source ([a-zA-Z0-9_.-]{3,100})$/i);
+  const knowledgeRecordMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:show|open) knowledge source ([a-zA-Z0-9_.-]{3,100})$/i);
   if (knowledgeRecordMatch) {
     const item = auroraKnowledgeUniverse.get(knowledgeRecordMatch[1]);
     return item
@@ -614,7 +614,7 @@ async function routeMessage(text, options = {}) {
       : { tool: "aurora_knowledge_source", status: "not_found", context: "I couldn't find that source ID in your local knowledge universe." };
   }
 
-  const relatedKnowledgeMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\\s+)?(?:show|find) related (?:knowledge|sources) for ([a-zA-Z0-9_.-]{3,100})$/i);
+  const relatedKnowledgeMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:show|find) related (?:knowledge|sources) for ([a-zA-Z0-9_.-]{3,100})$/i);
   if (relatedKnowledgeMatch) {
     const result = auroraKnowledgeUniverse.related(relatedKnowledgeMatch[1], { maxDepth: 3, limit: 50 });
     return result
