@@ -233,4 +233,11 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 - Added regression coverage for opt-in, source/surface validation, TTL bounds, one-shot use, revocation, truncation, metadata-only events, and native non-caching/foreground guards.
 - Still pending: run the full core CI/web build for this wave and verify screen capture behavior with TalkBack and supported Android accessibility services on-device.
 
+**Implementation wave 2 — Cross-surface selected-document context (code committed; device validation pending):**
+- The shared surface gateway now forwards the validated surface identity into the same capability router, so Main Chat, Pulse, and voice retain their identity through routing.
+- A user-invoked document picker now creates a short-lived, one-shot document context session for the requesting surface. Text previews are bounded by the shared context limit; binary/non-text selections remain metadata-only handoffs with a clear note.
+- The context session is consumed immediately, and its content is returned only to the requesting assistant turn. Event metadata exposes only source, surface, character count, and truncation state.
+- Added a cross-layer regression for gateway surface propagation and selected-document context boundaries.
+- Still pending: verify document picker behavior and surface-specific assistant follow-through on physical Android devices; CI/build must pass before calling this wave validated.
+
 **Stage 7 acceptance rule:** implement coordinated capability changes across all 12 families, add focused and cross-layer regression tests, pass the full core/architecture CI and web build, and label native/device-dependent behavior as unverified until physical Android checks are actually performed. Do not build APKs, change signing material, or deploy during this stage unless the user explicitly asks.
