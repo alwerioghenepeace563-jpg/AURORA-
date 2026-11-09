@@ -224,4 +224,13 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 - Files and media: user-selected file/media context with bounded processing and no silent uploads.
 - Safety and reliability: every new action continues through shared permission, consent, approval, cancellation, diagnostics, and review-only recovery; unsupported platform features fail closed with clear availability states.
 
+**Implementation wave 1 — Explicit contextual capture and privacy boundary (code committed; device validation pending):**
+- Added a shared context-session service to the AURORA runtime for Main Chat, Pulse, and voice. Capture sessions require an explicit user-initiated action, a supported source/surface pair, and a short expiry (capped at 60 seconds).
+- Context is one-shot: consuming or revoking a session removes it. Captured text is bounded, returned only to the requesting surface, and never copied into the global event stream; events contain only source, surface, session ID, character count, and truncation metadata.
+- Main Chat's Read Screen action now opens and consumes a one-shot context session before displaying captured text for user review.
+- Android accessibility no longer reads or caches screen text from background accessibility events. It reads only the current external app window when the foreground AURORA UI explicitly invokes Read Screen. AURORA's own window is excluded.
+- The generated native bridge template rejects screen reads when AURORA is not open in the foreground.
+- Added regression coverage for opt-in, source/surface validation, TTL bounds, one-shot use, revocation, truncation, metadata-only events, and native non-caching/foreground guards.
+- Still pending: run the full core CI/web build for this wave and verify screen capture behavior with TalkBack and supported Android accessibility services on-device.
+
 **Stage 7 acceptance rule:** implement coordinated capability changes across all 12 families, add focused and cross-layer regression tests, pass the full core/architecture CI and web build, and label native/device-dependent behavior as unverified until physical Android checks are actually performed. Do not build APKs, change signing material, or deploy during this stage unless the user explicitly asks.
