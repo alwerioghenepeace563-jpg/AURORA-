@@ -14,6 +14,7 @@ const assert = require("node:assert/strict");
   await adapter.upsert({ id: "m1", content: "Biology", updatedAt: "2026-11-09T00:00:00Z" });
   assert.equal(calls[0].init.headers.Authorization, "Bearer user-access-token");
   assert.equal(calls[0].init.headers.apikey, "public-anon-key");
+  assert.match(calls[0].url, /on_conflict=user_id,id/, "Upserts must use the per-user composite key.");
   assert.equal(JSON.parse(calls[0].init.body).user_id, undefined, "The database derives ownership from auth.uid().");
   const remote = await adapter.get("m1");
   assert.equal(remote.content, "Biology");
