@@ -9,12 +9,14 @@ import { runAuroraToolTree } from "../lib/aurora-tool-tree";
 import { parseCalendarIntent } from "./aurora-intent-parser";
 import { createAuroraTaskOrchestrator } from "./aurora-task-orchestrator";
 import { auroraMemory } from "./aurora-memory";
+import { planAuroraActions } from "./aurora-task-planner";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
   approve: (proposal) => approvalBroker.request(proposal)
 });
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
+let latestPendingTaskId = null;
 
 actionEngine.registerCapability({
   id: "memory.save",
@@ -63,6 +65,45 @@ actionEngine.registerCapability({
 
 async function routeMessage(text) {
   const message = String(text || "").trim();
+
+  const confirmTask = message.match(/^(?:please\s+)?(?:confirm|run|execute)\s+(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})$/i);
+  if (confirmTask) {
+    const taskId = confirmTask[1];
+    if (!latestPendingTaskId || taskId !== latestPendingTaskId) {
+      return { tool: "aurora_task", context: "That task is not the current pending plan. Ask AURORA to prepare the actions again so you can review the latest plan." };
+    }
+    const result = await taskOrchestrator.runPlan(taskId, { confirmed: true });
+    latestPendingTaskId = null;
+    return {
+      tool: "aurora_task_execution",
+      taskId,
+      status: result.status,
+      context: "Task " + result.status + ". " + (result.steps || []).map((step) => step.label + ": " + step.status).join("; ")
+    };
+  }
+
+  const cancelTask = message.match(/^(?:please\s+)?(?:cancel|discard)\s+(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})$/i);
+  if (cancelTask) {
+    if (cancelTask[1] !== latestPendingTaskId) return { tool: "aurora_task", context: "That is not the current pending task plan." };
+    latestPendingTaskId = null;
+    return { tool: "aurora_task_cancelled", context: "The pending task plan was discarded. No actions were run." };
+  }
+
+  const proposedPlan = planAuroraActions(message, actionEngine.listCapabilities());
+  if (proposedPlan) {
+    const plan = taskOrchestrator.createPlan(proposedPlan);
+    latestPendingTaskId = plan.id;
+    const preview = await taskOrchestrator.runPlan(plan, { confirmed: false });
+    return {
+      tool: "aurora_task_plan",
+      taskId: plan.id,
+      status: preview.status,
+      steps: preview.steps,
+      context: "I understood this as a multi-step task. Nothing has run yet.\n" +
+        preview.steps.map((step, index) => (index + 1) + ". " + step.label + " [risk: " + step.risk + (step.approvalRequired ? ", separate approval required" : "") + "]").join("\n") +
+        "\nTo proceed, say: confirm task " + plan.id + ". To discard it, say: cancel task " + plan.id + "."
+    };
+  }
 
   const rememberMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:remember|save(?: this)?|make a note that)\s+(?:that\s+)?(.+)$/i);
   if (rememberMatch?.[1]) {
