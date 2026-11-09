@@ -507,6 +507,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added regression checks for interval calculation, next-review timestamps, due filtering, summary counts and invalid date handling.
 - Scheduling is a simple transparent interval rule, not a claim of scientifically calibrated or AI-personalized learning.
 
+**Implementation wave 7 — Searchable subtitle cues (code committed; CI pending):**
+- Added phrase search across imported SRT/WebVTT cues, optionally restricted to the currently selected project.
+- Results retain the source caption asset, cue text, start/end timecodes and project provenance, with bounded result counts.
+- Added an in-workspace caption search field and timestamped match list.
+- Added regression coverage for phrase matching, project scoping and timecode formatting.
+- This searches user-imported caption text only; it does not generate transcripts from audio or video.
+
 **Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
