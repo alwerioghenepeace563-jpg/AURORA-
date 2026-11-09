@@ -198,6 +198,24 @@ const path = require("node:path");
   );
   assert.ok(voiceStart.includes("approvalRequired: true"), "Starting microphone capture must require explicit approval.");
   assert.ok(voiceStart.includes('permissionRequirements: ["android.microphone"]'), "Voice input must require microphone permission.");
+
+  assert.ok(capabilitySource.includes('id: "notifications.search_recent"'), "Recent notifications must be searchable through the shared Action Engine.");
+  const notificationSearch = capabilitySource.slice(
+    capabilitySource.indexOf('id: "notifications.search_recent"'),
+    capabilitySource.indexOf('id: "notifications.clear_recent"')
+  );
+  assert.ok(notificationSearch.includes("approvalRequired: true"), "Searching private notifications must require fresh approval.");
+  assert.ok(notificationSearch.includes('permissionRequirements: ["android.notification_access"]'), "Notification search must require Notification Access.");
+  assert.ok(notificationSearch.includes("localOnly: true"), "Notification search results must remain local.");
+  assert.ok(capabilitySource.includes('id: "files.search_selected_text"'), "Selected document text must support local search.");
+  const documentSearch = capabilitySource.slice(
+    capabilitySource.indexOf('id: "files.search_selected_text"'),
+    capabilitySource.indexOf('id: "notifications.open_access_settings"')
+  );
+  assert.ok(documentSearch.includes("approvalRequired: true"), "Reading selected document text must require explicit approval.");
+  assert.ok(documentSearch.includes("1000000"), "Document search must enforce a 1 MB input bound.");
+  assert.ok(documentSearch.includes("notStored: true"), "Document search must explicitly report that content is not stored.");
+
   assert.ok(capabilitySource.includes('id: "notifications.request_permission"'), "Android notification permission must be requestable through the Action Engine.");
   const backgroundStart = capabilitySource.slice(
     capabilitySource.indexOf('id: "assistant.start_background_service"'),
