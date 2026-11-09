@@ -14,39 +14,49 @@ type ReminderPlugin = {
 const SecureStorage = registerPlugin<SecureStoragePlugin>("AuroraSecureStorage");
 const Reminder = registerPlugin<ReminderPlugin>("AuroraReminder");
 
+function validateKey(key: string) {
+  if (typeof key !== "string" || !key.trim() || key.length > 128) throw new Error("Provide a valid secure-storage key.");
+}
+function requireAndroid() {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Keystore-backed secure storage is available in the Android app only.");
+}
+
 export const auroraSecureStorage = Object.freeze({
-  isAvailable: () => Capacitor.getPlatform() === "android",
+  isAvailable: () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android",
   async set(key: string, value: string) {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Keystore-backed secure storage is available in the Android app only.");
-    if (!key.trim() || key.length > 128 || typeof value !== "string") throw new Error("Provide a valid secure-storage key and string value.");
+    requireAndroid();
+    validateKey(key);
+    if (typeof value !== "string" || new TextEncoder().encode(value).byteLength > 32768) throw new Error("Secure values are limited to 32 KB.");
     return SecureStorage.set({ key, value });
   },
   async get(key: string) {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Keystore-backed secure storage is available in the Android app only.");
+    requireAndroid();
+    validateKey(key);
     return SecureStorage.get({ key });
   },
   async remove(key: string) {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Keystore-backed secure storage is available in the Android app only.");
+    requireAndroid();
+    validateKey(key);
     return SecureStorage.remove({ key });
   }
 });
 
 export const auroraReminder = Object.freeze({
-  isAvailable: () => Capacitor.getPlatform() === "android",
+  isAvailable: () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android",
   async requestPermission() {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native reminder notifications are available in the Android app only.");
+    requireAndroid();
     return Reminder.requestNotificationPermission();
   },
   async schedule(input: { id: string; title: string; message?: string; at: number }) {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native reminders are available in the Android app only.");
+    requireAndroid();
     return Reminder.schedule(input);
   },
   async cancel(id: string) {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native reminders are available in the Android app only.");
+    requireAndroid();
     return Reminder.cancel({ id });
   },
   async list() {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native reminders are available in the Android app only.");
+    requireAndroid();
     return Reminder.list();
   }
 });
