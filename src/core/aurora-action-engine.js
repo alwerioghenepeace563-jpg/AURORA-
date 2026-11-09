@@ -266,7 +266,7 @@ function createAuroraActionEngine(options = {}) {
   }
 
   return Object.freeze({
-    registerCapability, listCapabilities, getAvailability, execute, subscribe,
+    registerCapability, listCapabilities, getRetryEligibility, getAvailability, execute, subscribe,
     cancel: (requestId) => {
       const controller = controllers.get(String(requestId));
       if (!controller || controller.signal.aborted) return false;
