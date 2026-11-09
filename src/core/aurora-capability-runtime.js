@@ -362,6 +362,27 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "media.control_active_session",
+    label: "Control active media playback",
+    category: "media",
+    description: "Control play/pause or skip on a currently active media session exposed by an Android media notification. Requires Notification Access and explicit high-risk approval; unsupported sessions are reported without pretending success.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.notification_access"],
+    validate: (input) => ["play_pause", "next", "previous"].includes(input?.action) || "Choose play_pause, next or previous.",
+    availability: async () => {
+      if (!auroraNative.isAndroid()) return { available: false, reason: "Media session controls require Android." };
+      const state = await auroraNative.hasNotificationAccess();
+      return { available: state.granted, reason: state.granted ? null : "Enable AURORA Notification Access in Android Settings first." };
+    },
+    execute: async ({ action }) => {
+      const result = await auroraNative.controlActiveMedia({ action });
+      if (result?.controlled !== true) return { controlled: false, action, reason: result?.reason || "no_compatible_active_session" };
+      return { controlled: true, action: result.action, packageName: result.packageName, title: result.title || "", playbackState: result.playbackState };
+    }
+  });
+
+  engine.registerCapability({
     id: "media.search_play",
     label: "Find and play media",
     category: "media",
