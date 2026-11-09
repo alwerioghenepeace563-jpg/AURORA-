@@ -4,6 +4,7 @@
  * a fresh task plan when they return to AURORA.
  */
 const KEY = "aurora-scheduled-routines-v1";
+const MAX_ROUTINES = 100;
 function createAuroraRoutineScheduler(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const reminder = options.reminder;
@@ -16,7 +17,8 @@ function createAuroraRoutineScheduler(options = {}) {
   }
   function write(items) {
     if (!storage?.setItem) throw new Error("Scheduled routine storage is unavailable.");
-    storage.setItem(KEY, JSON.stringify(items.slice(0, 100)));
+    if (items.length > MAX_ROUTINES) throw new Error("AURORA can store up to 100 scheduled routines. Cancel an old routine first.");
+    storage.setItem(KEY, JSON.stringify(items));
   }
   async function schedule(input = {}) {
     if (input.approved !== true) throw Object.assign(new Error("Explicit approval is required to schedule this routine."), { code: "APPROVAL_REQUIRED" });
@@ -26,6 +28,13 @@ function createAuroraRoutineScheduler(options = {}) {
     const at = Number(input.at);
     if (!Number.isSafeInteger(at) || at <= now() + 5000 || at > now() + 31536000000) throw new Error("Choose a routine reminder between 5 seconds and 365 days from now.");
     const id = String(input.id || createId());
+    if (!id.trim() || id.length > 80) throw new Error("Routine ID is invalid.");
+    const existing = read();
+    if (!existing.some(item => item.id === id) && existing.length >= MAX_ROUTINES) throw new Error("AURORA can store up to 100 scheduled routines. Cancel an old routine first.");
+    if (typeof reminder.requestPermission === "function") {
+      const permission = await reminder.requestPermission();
+      if (!permission?.granted) throw new Error("Notification permission is required before scheduling a routine reminder.");
+    }
     const record = { id, workflowId: workflow.id, title: workflow.title, at, status: "scheduled", createdAt: new Date(now()).toISOString() };
     await reminder.schedule({
       id,
@@ -34,7 +43,7 @@ function createAuroraRoutineScheduler(options = {}) {
       at
     });
     try {
-      write([record, ...read().filter(item => item.id !== id)]);
+      write([record, ...existing.filter(item => item.id !== id)]);
     } catch (error) {
       try { await reminder.cancel(id); } catch {}
       throw error;
