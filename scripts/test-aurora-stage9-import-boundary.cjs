@@ -27,6 +27,11 @@ assert.ok(universe.includes("input.userApproved !== true"), "Knowledge ingestion
 for (const api of ["knowledgeTimeline", "searchKnowledge", "correctKnowledge", "forgetKnowledge"]) assert.ok(workspace.includes("auroraRuntime." + api), "Knowledge workspace must connect " + api);
 assert.ok(workspace.includes('sourceMethod: "explicit_workspace_save"'));
 assert.ok(workspace.includes("No automatic capture"));
+assert.ok(workspace.includes("AuroraNative.pickDocument()"), "The Knowledge workspace must use the Android system picker.");
+assert.ok(workspace.includes("if (result?.cancelled)"), "Cancelled imports must not create records.");
+assert.ok(workspace.includes("Confirm and save locally"), "Selected sources must require a separate save confirmation.");
+assert.ok(workspace.includes("android_document_picker_user_confirmed"), "Imported sources must record the explicit picker provenance method.");
+assert.ok(workspace.includes("AURORA has not analysed or copied the file"), "Binary media must not be represented as analysed.");
 assert.ok(app.includes("KnowledgeUniverseWorkspace"));
 assert.ok(app.includes('activityTab==="knowledge"'));
 console.log("AURORA Stage 9 import-boundary tests passed: cancellation is non-importing, provenance is retained, and the local knowledge browser/editor is connected.");
