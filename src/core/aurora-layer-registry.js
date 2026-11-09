@@ -18,19 +18,37 @@ const FAMILIES = Object.freeze([
   { id: "reliability_operations", label: "Reliability and operations", owner: "event bus/journal/diagnostics", dependsOn: ["shared-runtime", "action-contracts", "task-journal", "data-inventory"] }
 ]);
 
+const STAGE_TWO_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["shared Action Engine", "Android permission gate", "native plugin bridge", "bounded execution"]),
+  voice_multimodal: Object.freeze(["shared runtime entry point", "typed speech bridge", "observable speech lifecycle", "bounded action contract"]),
+  screen_accessibility: Object.freeze(["accessibility permission gate", "notification-access permission gate", "explicit approval", "local notification boundary"]),
+  communication_people: Object.freeze(["Contacts permission gate", "dialler handoff", "no silent call placement", "shared approval policy"]),
+  location_travel: Object.freeze(["maps search handoff", "directions handoff", "travel-mode validation", "no background location collection"]),
+  calendar_productivity: Object.freeze(["calendar review-before-save handoff", "task plan confirmation", "sequential shared-engine execution", "request idempotency"]),
+  files_knowledge: Object.freeze(["Android system document picker", "user-selected URI boundary", "bounded text preview", "local knowledge boundary"]),
+  media_creative: Object.freeze(["system media search handoff", "user-controlled playback", "shared runtime capability registry"]),
+  intelligence_personalisation: Object.freeze(["default-deny consent registry", "local-first memory", "opt-in per-record cloud sync", "shared runtime context"]),
+  extensions_interoperability: Object.freeze(["metadata-only extension manifests", "capability allow-list", "shared Action Engine execution", "approval policy"]),
+  safety_privacy_security: Object.freeze(["fail-closed authorization", "revocable source-scoped consent", "approval broker", "verified completion receipts"]),
+  reliability_operations: Object.freeze(["request-id idempotency", "bounded execution deadlines", "cooperative cancellation signal", "execution receipts and task journal"])
+});
+
 const STAGE_TWO_CHECKPOINT = Object.freeze({
   id: 2,
   name: "Shared contracts and enforcement",
-  status: "in_progress",
-  scope: "Shared authorization and verification contracts are implemented in the common engine; each capability family still needs its adapter-level contract audit and tests.",
+  status: "complete",
+  scope: "The shared execution, authorization, approval, consent, timeout, cancellation, idempotency, and verification contracts are implemented and covered by automated cross-family contract checks. This is not a claim of physical-device certification or final product readiness.",
+  completedAt: "2026-11-09",
+  validationBoundary: "Automated code and contract tests; Android device behavior, platform-specific permissions, and end-to-end surface QA remain separate validation work.",
   deliverables: Object.freeze([
-    "Capability descriptors support stable permission and consent requirements.",
+    "Capability descriptors expose validated permission, consent, timeout, idempotency, and verification contracts.",
     "Missing policy handlers fail closed when a capability declares required permissions or consent.",
-    "Android contacts, accessibility, notification access, and camera permission checks run through the shared capability authorization gate.",
+    "Android contacts, accessibility, notification access, and camera permission checks run through the shared authorization gate.",
     "Consequential actions retain the shared approval broker.",
-    "Capabilities can require a verifier before registration and report verified completion separately.",
-    "The shared runtime delegates consent checks to the default-deny consent registry.",
-    "All 12 families retain an explicit active status until their adapter-level contracts are audited."
+    "Timeouts and cancellation are observable through bounded execution receipts and cooperative AbortSignal propagation.",
+    "Repeated request IDs reuse the in-flight operation or completed receipt instead of executing twice.",
+    "The shared runtime delegates consent checks to the default-deny, revocable consent registry.",
+    "All 12 capability families have explicit Stage 2 contract-audit evidence and remain active for later stages."
   ])
 });
 
@@ -54,13 +72,15 @@ function createAuroraLayerRegistry() {
     ...item,
     dependsOn: Object.freeze([...item.dependsOn]),
     checkpoint: "stage-1-mapped",
-    stageTwoStatus: "shared-contracts-available",
-    adapterContractAudit: "pending",
-    implementationStatus: "requires-audit",
+    stageTwoStatus: "contract-audited",
+    adapterContractAudit: "passed",
+    stageTwoEvidence: [...(STAGE_TWO_LAYER_AUDIT[item.id] || [])],
+    implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
     stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT]),
+    stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
       const item = families.find((family) => family.id === id);
@@ -71,10 +91,10 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 2,
+      nextStage: 3,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
-      stageTwoContractReady: families.filter((item) => item.stageTwoStatus === "shared-contracts-available").length
+      stageTwoContractReady: families.filter((item) => item.adapterContractAudit === "passed").length
     })
   });
 }
