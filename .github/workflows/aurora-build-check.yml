@@ -20,7 +20,35 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
+      - name: Report dependency security audit (non-blocking)
+        run: |
+          npm audit --json > "$RUNNER_TEMP/aurora-npm-audit.json" || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const reportPath = process.env.RUNNER_TEMP + '/aurora-npm-audit.json';
+          try {
+            const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+            const counts = report.metadata?.vulnerabilities || {};
+            console.log('Dependency audit totals:', JSON.stringify(counts));
+            for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
+              console.log(JSON.stringify({
+                package: name,
+                severity: item.severity,
+                direct: item.isDirect,
+                range: item.range,
+                fixAvailable: item.fixAvailable,
+                advisories: (item.via || []).filter(v => typeof v === 'object').map(v => ({
+                  title: v.title,
+                  url: v.url,
+                  range: v.range
+                }))
+              }));
+            }
+          } catch (error) {
+            console.log('Audit report could not be parsed:', error.message);
+          }
+          NODE
       - name: Run AURORA core and architecture tests
         run: npm run test:core
       - name: Build web app
