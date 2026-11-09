@@ -42,7 +42,7 @@ actionEngine.registerCapability({
   id: "memory.forget",
   label: "Forget a saved memory",
   category: "memory",
-  description: "Delete a selected saved memory from AURORA's local memory.",
+  description: "Delete the specifically identified saved memory from AURORA's local memory after showing its title and content for approval.",
   risk: "medium",
   approvalRequired: true,
   validate: (input) => typeof input?.id === "string" && input.id.trim().length > 0,
@@ -88,7 +88,7 @@ async function routeMessage(text) {
     const items = search.status === "completed" ? search.result?.items || [] : [];
     if (!items.length) return { tool: "aurora_memory_forget", context: "I couldn't find a matching saved memory to delete." };
     if (items.length > 1) return { tool: "aurora_memory_forget", context: "I found multiple matching memories. Please be more specific so I don't delete the wrong one: " + items.slice(0, 5).map((item) => item.title + " — " + item.content.slice(0, 100)).join("; ") };
-    const receipt = await actionEngine.execute({ capabilityId: "memory.forget", input: { id: items[0].id } });
+    const receipt = await actionEngine.execute({ capabilityId: "memory.forget", input: { id: items[0].id, title: items[0].title, content: items[0].content } });
     return receipt.status === "completed"
       ? { tool: "aurora_memory_forget", context: "AURORA has deleted the selected local memory after your approval." }
       : { error: receipt.error?.message || "The memory was not deleted." };
