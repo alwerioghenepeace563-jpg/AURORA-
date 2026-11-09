@@ -536,7 +536,7 @@ async function routeMessage(text, options = {}) {
         sourceLabel: receipt.result.name || "Android selected document",
         sourceMethod: "android_document_picker"
       });
-      return { tool: "aurora_knowledge_file_import", status: saved.duplicate ? "duplicate" : "saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type }, context: saved.duplicate ? "That document's text is already saved locally; I did not create a duplicate." : "The selected document's text was saved to your local knowledge universe. The original file was not uploaded or copied to cloud storage." };
+      return { tool: "aurora_knowledge_file_import", status: saved.duplicate ? "duplicate" : "saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type }, context: saved.duplicate ? "That document's text is already saved locally; I did not create a duplicate." : "The selected document's text was saved to your local knowledge universe" + (saved.record.contentTruncated ? " (the stored preview is limited to the first 12,000 characters)." : ".") + " The original file was not uploaded or copied to cloud storage." };
     } catch (error) { return { error: error?.message || "The selected document could not be saved." }; }
   }
 
