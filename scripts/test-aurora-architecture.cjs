@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 (async () => {
   const { createAuroraActionEngine } = await import("../src/core/aurora-action-engine.js");
@@ -60,6 +62,18 @@ const assert = require("node:assert/strict");
   assert.ok(approvalEvents.includes("approval.created"));
   assert.ok(approvalEvents.includes("approval.approved"));
 
+  const capabilitySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-capability-runtime.js"), "utf8");
+  const nativeSource = fs.readFileSync(path.join(__dirname, "../src/lib/aurora-native.ts"), "utf8");
+  const pluginSource = fs.readFileSync(path.join(__dirname, "../android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java"), "utf8");
+  for (const capabilityId of ["maps.search_place", "maps.get_directions", "calendar.prepare_event", "media.search_play"]) {
+    assert.ok(capabilitySource.includes(`id: "${capabilityId}"`), `Missing capability registration: ${capabilityId}`);
+  }
+  for (const nativeMethod of ["searchOnMap", "startMapDirections", "prepareCalendarEvent", "searchMedia"]) {
+    assert.ok(nativeSource.includes(nativeMethod), `Missing TypeScript native bridge: ${nativeMethod}`);
+    assert.ok(pluginSource.includes(`void ${nativeMethod}(PluginCall call)`), `Missing Android plugin method: ${nativeMethod}`);
+  }
+  assert.ok(pluginSource.includes("Intent.ACTION_INSERT"), "Calendar event must use Android's review-before-save editor.");
+  assert.ok(pluginSource.includes("Intent.ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android's media handoff.");
   assert.throws(() => engine.registerCapability({ id: "bad id", execute: async () => {} }), /identifiers/i);
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
