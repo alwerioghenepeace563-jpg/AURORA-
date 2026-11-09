@@ -9,6 +9,14 @@ export type AuroraNativeStatus = {
   liveRealtimeVoiceEnabled: boolean;
 };
 
+type AuroraTranscriptionPlugin = {
+  start(options: { title: string }): Promise<{ started: boolean }>;
+  update(options: { title: string; message: string; percent: number }): Promise<{ updated: boolean }>;
+  stop(): Promise<{ stopped: boolean }>;
+};
+
+const AuroraTranscription = registerPlugin<AuroraTranscriptionPlugin>("AuroraTranscription");
+
 type AuroraNativePlugin = {
   startSpeechRecognition(): Promise<{ started: boolean }>;
   stopSpeechRecognition(): Promise<{ stopped: boolean }>;
@@ -110,6 +118,9 @@ export async function openAuroraDialer(number: string): Promise<{ opened: boolea
 
 export const auroraNative = {
   isAndroid: () => Capacitor.getPlatform() === "android",
+  startTranscriptionService: async (title: string) => { if (Capacitor.getPlatform() !== "android") return { started: false }; return AuroraTranscription.start({ title }); },
+  updateTranscriptionService: async (title: string, message: string, percent: number) => { if (Capacitor.getPlatform() !== "android") return { updated: false }; return AuroraTranscription.update({ title, message, percent }); },
+  stopTranscriptionService: async () => { if (Capacitor.getPlatform() !== "android") return { stopped: true }; return AuroraTranscription.stop(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
   hasOverlayPermission: async () => {
