@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
+import { auroraNative as AuroraNative } from "../lib/aurora-native";
 import { BookOpen, Search, Plus, Pencil, Trash2, Link2, Clock3, X, Check, RefreshCw } from "lucide-react";
 
 const TYPES = ["all", "note", "document", "project", "task", "conversation", "website", "recording", "image", "event"];
@@ -18,6 +19,9 @@ export default function KnowledgeUniverseWorkspace() {
   const [confirmAction, setConfirmAction] = useState("");
   const [related, setRelated] = useState([]);
   const [message, setMessage] = useState("");
+  const [pickerBusy, setPickerBusy] = useState(false);
+  const [pendingImport, setPendingImport] = useState(null);
+  const [importDescription, setImportDescription] = useState("");
 
   const visible = useMemo(() => {
     const filters = type === "all" ? {} : { types: [type] };
@@ -32,6 +36,30 @@ export default function KnowledgeUniverseWorkspace() {
     setRecords(next);
     setSelectedId(nextId && next.some(item => item.id === nextId) ? nextId : "");
     setRelated([]);
+  }
+  async function chooseImport() {
+    if (!AuroraNative.isAndroid()) { setMessage("File import is available in the Android app. You can still add notes here."); return; }
+    setPickerBusy(true); setMessage("");
+    try {
+      const result = await AuroraNative.pickDocument();
+      if (result?.cancelled) { setMessage("Import cancelled. No knowledge record was created."); return; }
+      const mime = String(result?.mimeType || "application/octet-stream").toLowerCase();
+      const sourceType = mime.startsWith("image/") ? "image" : mime.startsWith("audio/") ? "recording" : "document";
+      const text = result?.textIncluded ? String(result.text || "").slice(0, 12000) : "";
+      setPendingImport({ type: sourceType, title: String(result?.name || "Selected source"), uri: result?.contentUri || "", mimeType: mime, content: text, capturedAt: new Date().toISOString() });
+      setImportDescription("");
+      setMessage(text ? "Review the selected text before saving it to your local Knowledge Universe." : "Selected file metadata only. Add your own description; AURORA has not analysed or copied the file.");
+    } catch (error) { setMessage(error.message || "Could not open the Android file picker."); }
+    finally { setPickerBusy(false); }
+  }
+  function saveImportedSource() {
+    if (!pendingImport) return;
+    const content = pendingImport.content || importDescription.trim();
+    if (!content) { setMessage("Add a short description before saving this selected source."); return; }
+    try {
+      const result = auroraRuntime.addKnowledgeSource({ type: pendingImport.type, title: pendingImport.title, content, uri: pendingImport.uri, sourceLabel: pendingImport.title, capturedAt: pendingImport.capturedAt, sourceMethod: "android_document_picker_user_confirmed", userApproved: true });
+      setPendingImport(null); setImportDescription(""); setMessage(result.duplicate ? "That source is already saved." : "Selected source saved locally with provenance."); refresh(result.record.id);
+    } catch (error) { setMessage(error.message || "Could not save the selected source."); }
   }
   function saveNote(event) {
     event.preventDefault();
@@ -72,10 +100,11 @@ export default function KnowledgeUniverseWorkspace() {
   return <section className="knowledge-workspace">
     <div className="knowledge-workspace-head">
       <div><p className="panel-eyebrow">PERSONAL KNOWLEDGE</p><h2><BookOpen size={22}/> Knowledge Universe</h2><p>Browse, search and manage sources you explicitly save. Stored locally on this device.</p></div>
-      <button type="button" className="primary-action" onClick={() => { setAdding(v => !v); setEditing(false); setMessage(""); }}><Plus size={16}/> Add note</button>
+      <div className="knowledge-head-actions"><button type="button" className="outline-action" onClick={chooseImport} disabled={pickerBusy}><BookOpen size={15}/>{pickerBusy ? "Opening picker…" : "Import source"}</button><button type="button" className="primary-action" onClick={() => { setAdding(v => !v); setEditing(false); setMessage(""); }}><Plus size={16}/> Add note</button></div>
     </div>
     <div className="knowledge-privacy-line"><span/> Local storage · No automatic capture · No cloud sync</div>
     {message && <div className="knowledge-message" role="status">{message}<button type="button" onClick={() => setMessage("")} aria-label="Dismiss"><X size={14}/></button></div>}
+    {pendingImport && <div className="knowledge-editor"><strong>Review selected source</strong><p className="knowledge-import-meta">{pendingImport.title} · {pendingImport.mimeType} · {pendingImport.type}</p>{pendingImport.content ? <label>Selected text preview<textarea value={pendingImport.content} readOnly rows={7}/></label> : <label>Your description<textarea value={importDescription} onChange={e=>setImportDescription(e.target.value)} maxLength={12000} rows={5} placeholder="Describe what this file contains. AURORA has not analysed the binary file."/></label>}<p className="knowledge-import-meta">Nothing is saved until you confirm. The original file is not uploaded or copied into the knowledge index.</p><div className="knowledge-editor-actions"><button type="button" className="primary-action" onClick={saveImportedSource}><Check size={15}/> Confirm and save locally</button><button type="button" className="outline-action" onClick={()=>{setPendingImport(null);setImportDescription("");setMessage("Import discarded. No knowledge record was created.");}}>Cancel import</button></div></div>}
     {adding && <form className="knowledge-editor" onSubmit={saveNote}>
       <label>Note title<input value={draftTitle} onChange={e=>setDraftTitle(e.target.value)} maxLength={160} placeholder="Give this source a title" required/></label>
       <label>Content<textarea value={draftContent} onChange={e=>setDraftContent(e.target.value)} maxLength={12000} rows={5} placeholder="Write the information you want AURORA to remember..." required/></label>
