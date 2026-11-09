@@ -65,6 +65,7 @@ public class AuroraOverlayService extends Service {
         String action = intent == null ? ACTION_SHOW : intent.getAction();
         if (ACTION_HIDE.equals(action)) {
             removeOverlay();
+            reportOverlayStatus(false, "AURORA Pulse is closed.");
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -357,6 +358,7 @@ public class AuroraOverlayService extends Service {
     @Override
     public void onDestroy() {
         removeOverlay();
+        reportOverlayStatus(false, "AURORA Pulse service stopped.");
         super.onDestroy();
     }
 
