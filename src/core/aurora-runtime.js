@@ -412,6 +412,36 @@ async function routeMessage(text, options = {}) {
     };
   }
 
+  const inspectWorkflowMatch = message.match(/^(?:show|inspect|review) workflow (.+)$/i);
+  if (inspectWorkflowMatch) {
+    const title = inspectWorkflowMatch[1].trim().toLowerCase();
+    const matches = auroraWorkflows.list().filter(item => item.title.toLowerCase() === title);
+    if (matches.length !== 1) return {
+      tool: "aurora_workflow_inspection",
+      status: matches.length ? "ambiguous" : "not_found",
+      context: matches.length ? "More than one saved workflow matches. Use its exact full title." : "I couldn't find a saved workflow with that exact title."
+    };
+    const workflow = matches[0];
+    const capabilities = new Map(actionEngine.listCapabilities().map(item => [item.id, item]));
+    const steps = workflow.steps.map((step, index) => {
+      const capability = capabilities.get(step.capabilityId);
+      return {
+        order: index + 1,
+        stepId: step.id,
+        capabilityId: step.capabilityId,
+        capabilityAvailable: Boolean(capability),
+        capabilityLabel: capability?.label || capability?.name || step.capabilityId,
+        risk: capability?.risk || "unknown",
+        dependsOn: [...step.dependsOn]
+      };
+    });
+    return {
+      tool: "aurora_workflow_inspection",
+      workflow: { id: workflow.id, title: workflow.title, summary: workflow.summary, createdAt: workflow.createdAt, updatedAt: workflow.updatedAt, steps },
+      context: "Workflow review for “" + workflow.title + "”: " + steps.map(step => step.order + ". " + step.capabilityLabel + (step.capabilityAvailable ? "" : " (currently unavailable)") + (step.dependsOn.length ? ", depends on " + step.dependsOn.join(", ") : "")).join("; ") + ". This is a read-only inspection. Nothing has run. Use prepare workflow with this exact title to create a fresh preview, then review and confirm it before execution."
+    };
+  }
+
   const deleteWorkflowMatch = message.match(/^(?:delete|remove) workflow (.+)$/i);
   if (deleteWorkflowMatch) {
     const query = deleteWorkflowMatch[1].trim().toLowerCase();
