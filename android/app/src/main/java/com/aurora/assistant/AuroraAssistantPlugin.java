@@ -12,6 +12,8 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.provider.Settings;
 import android.net.Uri;
+import android.app.DownloadManager;
+import android.os.Environment;
 import android.location.Location;
 import android.location.LocationManager;
 import java.io.File;
@@ -994,6 +996,43 @@ public class AuroraAssistantPlugin extends Plugin {
         }
         JSObject result = AuroraNotificationListenerService.controlActiveMedia(action);
         call.resolve(result);
+    }
+
+
+    @PluginMethod
+    public void downloadMedia(PluginCall call) {
+        String rawUrl = call.getString("url");
+        String rawName = call.getString("filename", "AURORA-media");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        boolean confirmed = call.getBoolean("confirmed", false);
+        if (!confirmed) { call.reject("Confirm the download in AURORA first."); return; }
+        if (rawUrl == null || rawUrl.length() > 4096 || rawName == null || rawName.trim().isEmpty()) {
+            call.reject("A valid direct media URL and filename are required."); return;
+        }
+        try {
+            URL parsed = new URL(rawUrl);
+            if (!"https".equalsIgnoreCase(parsed.getProtocol()) || parsed.getHost() == null || parsed.getUserInfo() != null || parsed.getPort() != -1) {
+                call.reject("Only secure HTTPS media download links are supported."); return;
+            }
+            String filename = rawName.replaceAll("[^A-Za-z0-9._ -]", "_").trim();
+            if (filename.length() > 120) filename = filename.substring(0, 120);
+            if (filename.isEmpty() || filename.equals(".") || filename.equals("..")) filename = "AURORA-media";
+            if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#    @PluginMethod
+    public void shareSelectedFile(PluginCall call) {^_.+-]+/[A-Za-z0-9!#    @PluginMethod
+    public void shareSelectedFile(PluginCall call) {^_.+-]+")) mimeType = "application/octet-stream";
+            DownloadManager manager = (DownloadManager) getContext().getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+            if (manager == null) { call.reject("Android download service is unavailable."); return; }
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(parsed.toString()));
+            request.setTitle(filename);
+            request.setDescription("Downloading with AURORA");
+            request.setMimeType(mimeType);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
+            request.setAllowedOverRoaming(false);
+            request.setAllowedOverMetered(true);
+            long id = manager.enqueue(request);
+            call.resolve(new JSObject().put("queued", true).put("downloadId", id).put("filename", filename).put("destination", "Downloads").put("managedByAndroid", true).put("notificationVisible", true));
+        } catch (Exception e) { call.reject("Android could not start this direct media download.", e); }
     }
 
     @PluginMethod
