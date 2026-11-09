@@ -416,6 +416,13 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Stale notifications and notifications without a content action return an explicit not-opened result. Android/OEM app behavior still requires physical-device validation.
 - Added native listener, plugin bridge, Action Engine and regression coverage.
 
+
+**Implementation wave 11 — Dismiss one selected active notification (code committed; regression added):**
+- Added a single-item dismissal operation for an active notification selected from AURORA's recent local cache.
+- The Action Engine checks Notification Access, validates the selected key against the local cache, and requires high-risk approval before calling Android.
+- Only the selected active notification is dismissed; no other notifications are cleared and no reply or message is sent.
+- Stale or unsupported notification keys return an explicit unsuccessful result. Physical Android/OEM behavior remains to be verified.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
