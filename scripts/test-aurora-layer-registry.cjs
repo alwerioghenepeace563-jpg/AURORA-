@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -12,12 +12,16 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageOneMapped, 12, "Stage one must map every layer before stage two begins.");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
-  assert.equal(summary.nextStage, 3);
+  assert.equal(summary.nextStage, 4);
   assert.equal(summary.stageTwoStatus, "complete");
-  assert.equal(summary.stageThreeStatus, "in_progress");
+  assert.equal(summary.stageThreeStatus, "complete");
   assert.equal(summary.stageTwoContractReady, 12);
   assert.equal(STAGE_TWO_CHECKPOINT.status, "complete");
-  assert.equal(STAGE_THREE_CHECKPOINT.status, "in_progress");
+  assert.equal(STAGE_THREE_CHECKPOINT.status, "complete");
+  assert.equal(STAGE_THREE_DEFERRED_RELEASE_VALIDATION.status, "deferred");
+  assert.ok(STAGE_THREE_DEFERRED_RELEASE_VALIDATION.checks.length >= 4);
+  assert.match(STAGE_THREE_CHECKPOINT.validationBoundary, /not blockers for Stage 4/i);
+  assert.match(STAGE_THREE_CHECKPOINT.validationBoundary, /unverified/i);
   assert.equal(Object.keys(registry.stageThreeAudit).length, 12);
   assert.match(STAGE_THREE_CHECKPOINT.validationBoundary, /physical-device validation/i);
   assert.match(STAGE_THREE_CHECKPOINT.scope, /encrypted protected memory/i);
@@ -41,5 +45,6 @@ const assert = require("node:assert/strict");
   assert.equal(registry.get("unknown-layer"), null);
   assert.ok(Object.isFrozen(STAGE_ONE_CHECKPOINT));
   assert.ok(Object.isFrozen(STAGE_TWO_CHECKPOINT));
+  assert.ok(Object.isFrozen(STAGE_THREE_DEFERRED_RELEASE_VALIDATION));
   console.log("AURORA layer registry tests passed: all 12 layers mapped, dependencies owned, and final completion kept distinct from stage checkpoints.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
