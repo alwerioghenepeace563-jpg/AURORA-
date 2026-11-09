@@ -48,6 +48,7 @@ function createAuroraKnowledgeUniverse(options = {}) {
     const timestamp = now();
     const record = {
       id: clean(input.id || createId(), 100), type, title, content,
+      contentTruncated: String(input.content ?? "").replace(/\u0000/g, "").length > MAX_CONTENT,
       summary: clean(input.summary || content, 500),
       tags: [...new Set((Array.isArray(input.tags) ? input.tags : []).map(tag => clean(tag, 40).toLowerCase()).filter(Boolean))].slice(0, 20),
       projectId: clean(input.projectId, 100),
