@@ -526,6 +526,63 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void listLaunchableApps(PluginCall call) {
+        try {
+            Intent query = new Intent(Intent.ACTION_MAIN);
+            query.addCategory(Intent.CATEGORY_LAUNCHER);
+            java.util.List<android.content.pm.ResolveInfo> matches = getContext().getPackageManager().queryIntentActivities(query, 0);
+            java.util.Collections.sort(matches, (a, b) -> {
+                String left = String.valueOf(a.loadLabel(getContext().getPackageManager()));
+                String right = String.valueOf(b.loadLabel(getContext().getPackageManager()));
+                return left.compareToIgnoreCase(right);
+            });
+            JSArray apps = new JSArray();
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            for (android.content.pm.ResolveInfo info : matches) {
+                if (info.activityInfo == null) continue;
+                String packageName = info.activityInfo.packageName;
+                if (packageName == null || !seen.add(packageName)) continue;
+                JSObject item = new JSObject();
+                item.put("name", String.valueOf(info.loadLabel(getContext().getPackageManager())));
+                item.put("packageName", packageName);
+                item.put("systemApp", (info.activityInfo.applicationInfo.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0);
+                apps.put(item);
+                if (apps.length() >= 200) break;
+            }
+            JSObject result = new JSObject();
+            result.put("apps", apps);
+            result.put("count", apps.length());
+            result.put("limit", 200);
+            result.put("launcherAppsOnly", true);
+            call.resolve(result);
+        } catch (Exception e) { call.reject("Android could not list launchable apps.", e); }
+    }
+
+    @PluginMethod
+    public void getNetworkStatus(PluginCall call) {
+        try {
+            android.net.ConnectivityManager manager = (android.net.ConnectivityManager) getContext().getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
+            android.net.Network active = manager == null ? null : manager.getActiveNetwork();
+            android.net.NetworkCapabilities caps = active == null ? null : manager.getNetworkCapabilities(active);
+            boolean connected = caps != null;
+            JSObject result = new JSObject();
+            result.put("connected", connected);
+            result.put("validated", connected && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+            result.put("internetAvailable", connected && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET));
+            result.put("metered", manager != null && manager.isActiveNetworkMetered());
+            result.put("transport", !connected ? "none" :
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ? "wifi" :
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ? "cellular" :
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) ? "ethernet" :
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) ? "vpn" : "other");
+            result.put("readOnly", true);
+            result.put("ssidRead", false);
+            result.put("trafficInspection", false);
+            call.resolve(result);
+        } catch (Exception e) { call.reject("Android network status is unavailable.", e); }
+    }
+
+    @PluginMethod
     public void getStorageStatus(PluginCall call) {
         try {
             android.os.StatFs stats = new android.os.StatFs(android.os.Environment.getDataDirectory().getAbsolutePath());
