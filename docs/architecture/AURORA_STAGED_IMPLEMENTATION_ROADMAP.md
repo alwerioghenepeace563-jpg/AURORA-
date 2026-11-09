@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 5 — Capability adapter expansion  
+**Current checkpoint:** Stage 6 — Surface integration and validation  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -136,13 +136,13 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Stage 5 COMPLETE — 2026-11-09 (code-level checkpoint):** All 12 capability families have coordinated audit coverage; the native Pulse bridge, calendar search, permission-gated one-shot location adapter, shared Action Engine approval/consent contracts, and chat-runtime location consent flow are implemented. The full GitHub Actions core/architecture test chain and web production build passed on commit `a42da3eb4f889ac1dc4e335fe5faae292bcf648b` (run 42597055150). Existing document/media actions remain deliberately user-selected and provider/platform bounded. This closes Stage 5 at the capability-adapter layer. **Not claimed:** APK compilation, physical-device behavior, or release readiness.
 
-### Stage 6 — Surface integration and device validation
+### Stage 6 — Surface integration and device validation (active)
 
-Connect Main, Pulse, voice, and future surfaces to the same runtime; add only necessary controls, then validate on supported Android versions and lower-memory devices. Verify accessibility, battery, offline behavior, failure recovery, and signing identity. Stage 6 is where cross-surface acceptance and device validation happen; it does not reopen completed Stage 5 adapter work.
+**Implementation wave 1:** Added a shared surface gateway consumed by Main chat and AURORA Pulse. Main chat, Pulse, and voice transcript submissions are registered as supported surface identities and route through the same existing capability runtime. The gateway bounds input, rejects unknown surfaces, normalizes failures, and emits metadata-only lifecycle events; it never publishes message text or tool results. Voice transcripts enter through the existing Main/Pulse send paths and therefore inherit the same gateway and approval broker.
 
-### Stage 6 — Surface integration and device validation
+**Automated coverage:** A dedicated test verifies all three surface identities, shared routing, empty/oversized input rejection, unknown-surface rejection, failure normalization, and that emitted events do not contain message text. CI must pass the complete core suite and web build before this wave is considered validated.
 
-Connect Main, Pulse, voice, and future surfaces to the same runtime; add only necessary controls, then validate on supported Android versions and lower-memory devices. Verify accessibility, battery, offline behavior, failure recovery, and signing identity.
+**Still outstanding:** Native Android voice service, Pulse overlay, accessibility, lifecycle interruption, battery/offline behavior, and low-memory behavior require physical-device testing. APK compilation and signing remain deferred by the project decision. Stage 6 is active until all 12 layer acceptance checks and device validation evidence are complete.
 
 These stages may be refined as repository audits reveal dependencies, but no layer may be silently skipped. A stage can be split into smaller checkpoints; it cannot be declared complete until every active layer meets its acceptance criteria.
 
