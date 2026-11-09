@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -12,7 +12,13 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageOneMapped, 12, "Stage one must map every layer before stage two begins.");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
-  assert.equal(summary.nextStage, 5);
+  assert.equal(summary.nextStage, 6);
+  assert.equal(summary.stageFiveStatus, "complete");
+  assert.equal(summary.stageFiveCodeComplete, true);
+  assert.equal(summary.stageFiveAuditedLayers, 12);
+  assert.equal(STAGE_FIVE_CHECKPOINT.status, "complete");
+  assert.equal(Object.keys(STAGE_FIVE_LAYER_AUDIT).length, 12);
+  assert.ok(registry.stages.some(stage => stage.id === 5));
   assert.equal(summary.stageTwoStatus, "complete");
   assert.equal(summary.stageThreeStatus, "complete");
   assert.equal(summary.stageFourStatus, "complete");
@@ -50,5 +56,6 @@ const assert = require("node:assert/strict");
   assert.ok(Object.isFrozen(STAGE_ONE_CHECKPOINT));
   assert.ok(Object.isFrozen(STAGE_TWO_CHECKPOINT));
   assert.ok(Object.isFrozen(STAGE_THREE_DEFERRED_RELEASE_VALIDATION));
+  assert.ok(Object.isFrozen(STAGE_FIVE_CHECKPOINT));
   console.log("AURORA layer registry tests passed: all 12 layers mapped, dependencies owned, and final completion kept distinct from stage checkpoints.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
