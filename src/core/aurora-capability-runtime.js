@@ -162,6 +162,31 @@ function createAuroraCapabilityRuntime(options = {}) {
     }
   });
 
+
+  engine.registerCapability({
+    id: "files.pick_document",
+    label: "Choose a file",
+    category: "files",
+    description: "Open Android's system document picker. Only a file explicitly selected by the user is shared with AURORA; plain-text previews are limited to 1 MB.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The system document picker is available only in the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.pickDocument();
+      if (result?.cancelled) return { cancelled: true };
+      return {
+        cancelled: false,
+        name: result?.name || "Selected file",
+        mimeType: result?.mimeType || "application/octet-stream",
+        contentUri: result?.contentUri || null,
+        text: result?.textIncluded ? String(result.text || "") : null,
+        textIncluded: result?.textIncluded === true,
+        note: result?.note || null
+      };
+    }
+  });
+
   return engine;
 }
 
