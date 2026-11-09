@@ -460,6 +460,16 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Learning records remain local-only in this service; cloud sync and automatic capture are disabled. Corrupt persisted data fails closed.
 - Added focused regression coverage and included it in the core CI test chain.
 
+**Implementation wave 2 — Creative workspace and learner tools (code committed; CI pending):**
+- Added a local-first project workspace for writing, video, audio, design, research and study projects, with approved creation, confirmed updates/deletion and bounded project metadata.
+- Added user-approved project references and assets with provenance labels and validated HTTPS/content-URI references; no broad file scanning or automatic capture.
+- Added a draft studio with bounded content and up to ten previous revisions per draft.
+- Added SRT/WebVTT parsing, chronological cue validation, bounded caption imports and SRT/VTT export from user-selected caption text. This is caption-file handling, not automatic speech recognition.
+- Added flashcard decks, confirmed review ratings, practice quiz construction and deterministic answer grading from user-supplied question/answer material.
+- Added a dedicated Creative + Learning Studio in AURORA Tools, with project, caption and learning tabs; connected study-plan creation and progress tracking from the first wave.
+- Registered creative records in shared federated search and exposed all operations through the shared Main/Pulse/voice runtime.
+- Added regression coverage for project lifecycle, approvals, revisions, SRT/VTT round trips, flashcards, quiz grading, search and local-only storage.
+
 **Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
