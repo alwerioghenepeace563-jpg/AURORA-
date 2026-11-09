@@ -59,9 +59,11 @@ const supabaseMemoryAdapter = createAuroraSupabaseMemoryAdapter({
     } catch { return null; }
   }
 });
-if (supabaseMemoryAdapter.isConfigured() && auroraConsents.isGranted("memory.cloud_sync", "supabase")) {
-  try { memorySync.configure({ enabled: true, adapter: supabaseMemoryAdapter, consent: true }); } catch { /* remain local-first if the prior consent cannot be restored */ }
-}
+try {
+  if (supabaseMemoryAdapter.isConfigured() && auroraConsents.isGranted("memory.cloud_sync", "supabase")) {
+    memorySync.configure({ enabled: true, adapter: supabaseMemoryAdapter, consent: true });
+  }
+} catch { /* corrupt/unavailable consent storage fails closed; keep memory local-first */ }
 const secureStorage = createAuroraSecureStore({
   available: nativeSecureStorage.isAvailable(),
   adapter: nativeSecureStorage
