@@ -1,0 +1,17 @@
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const endpoint=fs.readFileSync("api/media-search.js","utf8");
+const workspace=fs.readFileSync("src/components/CreativeLearningWorkspace.jsx","utf8");
+assert.match(endpoint,/duckduckgo\\.com\\/i\\.js/);
+assert.match(endpoint,/https:/);
+assert.match(endpoint,/results/);
+assert.match(endpoint,/rightsNotice/);
+assert.match(endpoint,/AbortSignal\\.timeout/);
+assert.match(workspace,/AI media fallback · Search the web/);
+assert.match(workspace,/searchMediaFallback/);
+assert.match(workspace,/auroraApiUrl\\("\/api\/media-search\\?q="/);
+assert.match(workspace,/imageUrl/);
+assert.match(workspace,/Save source/);
+assert.match(workspace,/userApproved:true/);
+assert.match(workspace,/check the source licence/i);
+console.log("AURORA Stage 11 media search fallback checks passed.");
