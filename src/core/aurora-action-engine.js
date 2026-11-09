@@ -74,6 +74,9 @@ function createAuroraActionEngine(options = {}) {
     if (definition.verificationRequired === true && typeof definition.verify !== "function") throw makeError("INVALID_CAPABILITY_CONTRACT", "A capability requiring verification must register a verification adapter.", { id: definition.id });
     const risk = definition.risk || RISK.LOW;
     if (!(risk in RISK_ORDER)) throw makeError("INVALID_CAPABILITY_RISK", "Unknown capability risk level.", { id: definition.id, risk });
+    const retryPolicy = definition.retryPolicy || { mode: "never" };
+    if (!retryPolicy || !["never", "idempotent"].includes(retryPolicy.mode)) throw makeError("INVALID_CAPABILITY_CONTRACT", "Capability retryPolicy mode must be never or idempotent.");
+    if (retryPolicy.mode === "idempotent" && (typeof retryPolicy.evidence !== "string" || retryPolicy.evidence.trim().length < 20)) throw makeError("INVALID_CAPABILITY_CONTRACT", "Idempotent retry requires documented adapter evidence of at least 20 characters.");
     const capability = Object.freeze({
       id: definition.id,
       label: String(definition.label || definition.id),
@@ -91,7 +94,8 @@ function createAuroraActionEngine(options = {}) {
       verificationRequired: definition.verificationRequired === true,
       verify: typeof definition.verify === "function" ? definition.verify : null,
       timeoutMs: normalizeTimeout(definition.timeoutMs),
-      idempotency: "request-id"
+      idempotency: "request-id",
+      retryPolicy: Object.freeze({ mode: retryPolicy.mode, evidence: retryPolicy.mode === "idempotent" ? retryPolicy.evidence.trim().slice(0, 500) : null })
     });
     capabilities.set(capability.id, capability);
     emit("capability.registered", { capability: publicCapability(capability) });
@@ -108,12 +112,22 @@ function createAuroraActionEngine(options = {}) {
       consentRequirements: [...capability.consentRequirements],
       verificationRequired: capability.verificationRequired,
       timeoutMs: capability.timeoutMs,
-      idempotency: capability.idempotency
+      idempotency: capability.idempotency,
+      retryPolicy: { mode: capability.retryPolicy.mode, evidence: capability.retryPolicy.evidence }
     });
   }
 
   function listCapabilities() {
     return [...capabilities.values()].map(publicCapability);
+  }
+
+  function getRetryEligibility(id) {
+    const capability = capabilities.get(String(id));
+    if (!capability) return Object.freeze({ eligible: false, reason: "unknown_capability" });
+    if (capability.retryPolicy.mode !== "idempotent" || !capability.retryPolicy.evidence) {
+      return Object.freeze({ eligible: false, reason: "adapter_idempotency_not_proven", capabilityId: capability.id });
+    }
+    return Object.freeze({ eligible: true, reason: "adapter_declares_idempotent_with_evidence", capabilityId: capability.id, evidence: capability.retryPolicy.evidence, automaticRetry: false, requiresFreshApproval: capability.approvalRequired });
   }
 
   async function getAvailability(id) {
