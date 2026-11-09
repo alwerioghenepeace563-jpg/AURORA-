@@ -90,5 +90,31 @@ const assert = require("node:assert/strict");
   const pending=ct.runPlan(cp,{confirmed:true}); while(!started) await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(ct.cancelPlan("task-cancel"),true); const cancelled=await pending;
   assert.equal(cancelled.status,"cancelled"); assert.equal(cancelled.steps.length,1); assert.equal(ct.cancelPlan("task-cancel"),false);
-  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, idempotency and cooperative cancellation.");
+
+  let retryCalls = 0;
+  const retryEngine = createAuroraActionEngine();
+  retryEngine.registerCapability({
+    id: "test.retryable", risk: "low",
+    retryPolicy: { mode: "idempotent", evidence: "Read-only lookup keyed by immutable query and stable provider request token." },
+    execute: async () => { retryCalls++; if (retryCalls === 1) { const error = new Error("Temporary provider outage"); error.code = "TEMPORARY_UNAVAILABLE"; throw error; } return { ok: true }; }
+  });
+  const retryTasks = createAuroraTaskOrchestrator(retryEngine, { createId: () => "task-retry" });
+  const retryPlan = retryTasks.createPlan({ title: "Retry review", steps: [{ id: "lookup", capabilityId: "test.retryable" }] });
+  const firstFailure = await retryTasks.runPlan(retryPlan, { confirmed: true });
+  assert.equal(firstFailure.status, "failed");
+  assert.equal((await retryTasks.retryFailedStep("task-retry", "lookup")).status, "confirmation_required");
+  const retryResult = await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true });
+  assert.equal(retryResult.status, "completed");
+  assert.equal(retryCalls, 2);
+  assert.equal((await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true })).reason, "retry_limit_reached");
+
+  const unsafeEngine = createAuroraActionEngine();
+  unsafeEngine.registerCapability({ id: "test.unsafe_retry", risk: "low", execute: async () => { throw new Error("failed"); } });
+  const unsafeTasks = createAuroraTaskOrchestrator(unsafeEngine, { createId: () => "task-unsafe-retry" });
+  const unsafePlan = unsafeTasks.createPlan({ title: "Unsafe retry", steps: [{ id: "write", capabilityId: "test.unsafe_retry" }] });
+  await unsafeTasks.runPlan(unsafePlan, { confirmed: true });
+  const unsafeRetry = await unsafeTasks.retryFailedStep("task-unsafe-retry", "write", { confirmed: true });
+  assert.equal(unsafeRetry.status, "not_retryable");
+  assert.equal(unsafeRetry.reason, "adapter_idempotency_not_proven");
+\n  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, idempotency and cooperative cancellation.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
