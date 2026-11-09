@@ -80,4 +80,4 @@ function createAuroraLearningUniverse(options = {}) {
 }
 
 const auroraLearningUniverse = createAuroraLearningUniverse();
-export { createAuroraLearningUniverse, auroraLearningUniverse, AURORA_LEARNING_UNIVERSE_STORAGE_KEY as STORAGE_KEY, SUBJECTS as AURORA_LEARNING_SUBJECTS };
+export { createAuroraLearningUniverse, auroraLearningUniverse, STORAGE_KEY, SUBJECTS as AURORA_LEARNING_SUBJECTS };
