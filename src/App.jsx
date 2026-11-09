@@ -1036,8 +1036,29 @@ export default function App() {
       await audio.play();
       setSpeaking(true);
     } catch (error) {
+      // Android devices use their native TTS engine when cloud voice is unavailable.
+      // The selected ElevenLabs voice remains preferred whenever the hosted service works.
+      if (auroraNative.isAndroid()) {
+        let nativeListener = null;
+        try {
+          nativeListener = await auroraNative.addTtsStatusListener((event) => {
+            if (event?.status === "done" || event?.status === "error") {
+              setSpeaking(false);
+              void nativeListener?.remove?.();
+            }
+          });
+          const nativeResult = await auroraNative.speakText(makeSpeechFriendly(text));
+          if (nativeResult?.started) {
+            setSpeaking(true);
+            setNotice("Cloud voice unavailable. Speaking with your Android system voice.");
+            return;
+          }
+        } catch {
+          try { await nativeListener?.remove?.(); } catch {}
+        }
+      }
       // Keep Read Aloud usable when the hosted voice service is unavailable.
-      // Browser speech is a fallback only; the selected cloud voice remains preferred.
+      // Browser speech is the final fallback on supported browsers.
       try {
         if ("speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function") {
           window.speechSynthesis.cancel();
