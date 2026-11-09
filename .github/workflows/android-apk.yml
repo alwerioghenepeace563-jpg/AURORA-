@@ -46,6 +46,8 @@ jobs:
         run: node scripts/patch-android-native.mjs
       - name: Sync Capacitor
         run: npx cap sync android
+      - name: Compile native Android code before signing
+        run: cd android && chmod +x gradlew && ./gradlew :app:compileDebugJavaWithJavac
       - name: Restore stable Android signing key
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' }}
         env:
