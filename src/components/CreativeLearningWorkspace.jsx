@@ -10,7 +10,8 @@ function CreativeLearningWorkspace(){
  const [draftTitle,setDraftTitle]=useState("Working draft"),[draftText,setDraftText]=useState("");
  const [subtitleFile,setSubtitleFile]=useState(null),[subtitleTitle,setSubtitleTitle]=useState("Captions");
  const [deckTitle,setDeckTitle]=useState("Revision cards"),[deckSubject,setDeckSubject]=useState("biology"),[cardsText,setCardsText]=useState("What is a cell? | The basic structural and functional unit of life");
- const [quizText,setQuizText]=useState("What is the basic unit of life? | The cell\nWhat controls cell activities? | The nucleus"),[quiz,setQuiz]=useState(null),[quizAnswers,setQuizAnswers]=useState({}),[quizResult,setQuizResult]=useState(null);\n const [planTitle,setPlanTitle]=useState("My study plan"),[planSubject,setPlanSubject]=useState("microbiology"),[topicsText,setTopicsText]=useState("Cell theory\nCell structure\nMicroscopy");
+ const [quizText,setQuizText]=useState("What is the basic unit of life? | The cell\nWhat controls cell activities? | The nucleus"),[quiz,setQuiz]=useState(null),[quizAnswers,setQuizAnswers]=useState({}),[quizResult,setQuizResult]=useState(null);
+ const [planTitle,setPlanTitle]=useState("My study plan"),[planSubject,setPlanSubject]=useState("microbiology"),[topicsText,setTopicsText]=useState("Cell theory\nCell structure\nMicroscopy");
  const [notice,setNotice]=useState("");
  const refresh=()=>{
   const ps=auroraRuntime.listCreativeProjects();setProjects(ps);setSelected(current=>ps.some(p=>p.id===current)?current:(ps[0]?.id||""));
