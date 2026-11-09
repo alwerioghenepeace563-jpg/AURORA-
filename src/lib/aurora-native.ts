@@ -30,6 +30,8 @@ type AuroraNativePlugin = {
   stopAssistantService(): Promise<{ stopped: boolean }>;    requestContactsPermission(): Promise<{ granted: boolean }>;
     searchContacts(options: { query: string }): Promise<{ contacts: Array<{ id?: string; name: string; number: string }> }>;
     openDialer(options: { number: string }): Promise<{ opened: boolean }>;
+  prepareSms(options: { number: string; body?: string }): Promise<{ opened: boolean }>;
+  shareText(options: { text: string }): Promise<{ opened: boolean }>;
   searchOnMap(options: { query: string }): Promise<{ opened: boolean; query: string }>;
   startMapDirections(options: { destination: string; mode: string }): Promise<{ opened: boolean; destination: string; mode: string }>;
   prepareCalendarEvent(options: { title: string; beginTime: number; endTime: number; description?: string; location?: string }): Promise<{ opened: boolean; requiresUserSave: boolean }>;
