@@ -73,13 +73,28 @@ Automated coverage includes fail-closed permission/consent checks, authorization
 
 **Stage 2 result:** The shared-contract foundation and all 12 code-level adapter audit records are committed. The full core/architecture CI run passed on commit `cfefd036e3d05e2bdd78ac74e354f47a7af6a8fc` (run `42581638246`), including dependency installation, core/architecture tests, and web build. Stage 2 is complete as an automated code checkpoint, not physical Android certification or final feature readiness. All 12 layers remain active.
 
-### Stage 3 — Secure state and context (in progress)
+### Stage 3 — Secure state and context
 
-Implemented code-level hardening: Android-only protected-memory vault; shared runtime and privacy inventory; fail-closed JSON/schema validation across memory, consent, knowledge graph, task journal, workflow, routine, and extension stores; strict protected-vault index and decrypted-record schema validation; and per-record cloud sync that rechecks consent before each upload and disables itself after revocation. Added Stage 3 audit evidence for all 12 capability families and regression tests for corrupt extension data, invalid protected-vault indexes/records, and consent revocation. Browser localStorage remains explicitly unencrypted. **Stage 3 code audit is complete, but the stage checkpoint remains in progress** until real Android Keystore, backup exclusion, restore/upgrade, and device migration tests pass on supported physical devices. Do not claim those device checks from simulated tests. Preserve local-first behavior and do not perform automatic migration or bulk upload.
+<badge>Code checkpoint complete — CI passed</badge>
 
-### Stage 4 — Reliability and recovery
+Implemented code-level hardening: Android-only protected-memory vault; shared runtime and privacy inventory; fail-closed JSON/schema validation across memory, consent, knowledge graph, task journal, workflow, routine, and extension stores; strict protected-vault index and decrypted-record schema validation; and per-record cloud sync that rechecks consent before each upload and disables itself after revocation. Added Stage 3 audit evidence for all 12 capability families and regression tests for corrupt extension data, invalid protected-vault indexes/records, and consent revocation. Browser localStorage remains explicitly unencrypted.
 
-Unify lifecycle events, execution receipts, bounded journals, cancellation, safe retries, diagnostics, and fresh approval on recovery. Apply the same rules to every capability family.
+**Stage 3 result:** The full CI run passed on commit `68b9b6df623503209276751fecd78872f82be3b0` (run `42583043179`): dependency installation, AURORA core/architecture tests, and web build all succeeded. Stage 3 is complete as a code-and-CI checkpoint. This does **not** certify physical Android behavior.
+
+**Deferred release-validation checklist — not a Stage 4 blocker:**
+- [ ] Verify Android Keystore key creation, availability, invalidation, and protected-memory read/write on supported physical devices.
+- [ ] Verify Android backup exclusion for protected-memory files and key material.
+- [ ] Verify app restore and upgrade behavior without silent reset, exposure, or unintended migration.
+- [ ] Verify device migration and document the protected-memory portability boundary.
+- [ ] Run end-to-end privacy and recovery UX checks on supported Android versions and lower-memory devices.
+
+These checks remain **deferred and unverified** by the user’s direction to finish the app first. They are mandatory before release sign-off, but do not prevent Stage 4 from beginning after the Stage 3 CI pass. Preserve local-first behavior; do not perform automatic migration or bulk upload.
+
+### Stage 4 — Reliability and recovery (next)
+
+<badge>Ready to begin — Stage 3 CI passed</badge>
+
+Stage 4 is now eligible to start. Unify lifecycle events, execution receipts, bounded journals, cancellation, safe retries, diagnostics, and fresh approval on recovery. Apply the same rules to every capability family. Keep the deferred Stage 3 physical-device checks on the final release checklist; do not mark them passed or let them block Stage 4.
 
 ### Stage 5 — Capability adapter expansion
 
