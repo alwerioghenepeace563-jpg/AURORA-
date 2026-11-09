@@ -88,6 +88,80 @@ function createAuroraCapabilityRuntime(options = {}) {
     }
   });
 
+
+  engine.registerCapability({
+    id: "maps.search_place",
+    label: "Find a place on the map",
+    category: "navigation",
+    description: "Open a place search in the user's installed map application.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: (input) => requiredString(input?.query, "Place or address"),
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Map handoff requires the Android app." }),
+    execute: async ({ query }) => {
+      const result = await auroraNative.searchOnMap(query.trim());
+      if (!result?.opened) throw new Error("The map application did not open.");
+      return { opened: true, query: result.query || query.trim() };
+    }
+  });
+
+  engine.registerCapability({
+    id: "maps.get_directions",
+    label: "Get directions",
+    category: "navigation",
+    description: "Hand a destination and travel mode to an installed map application for review.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: (input) => {
+      const valid = requiredString(input?.destination, "Destination");
+      if (valid !== true) return valid;
+      return ["driving", "walking", "bicycling", "transit"].includes(input?.mode || "driving") || "Choose driving, walking, bicycling or transit.";
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Directions handoff requires the Android app." }),
+    execute: async ({ destination, mode = "driving" }) => {
+      const result = await auroraNative.startMapDirections(destination.trim(), mode);
+      if (!result?.opened) throw new Error("The map application did not open.");
+      return { opened: true, destination: result.destination || destination.trim(), mode };
+    }
+  });
+
+  engine.registerCapability({
+    id: "calendar.prepare_event",
+    label: "Prepare a calendar event",
+    category: "productivity",
+    description: "Open Android's calendar event editor; the user reviews and saves the event.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => {
+      const valid = requiredString(input?.title, "Event title");
+      if (valid !== true) return valid;
+      if (!Number.isFinite(input?.beginTime) || !Number.isFinite(input?.endTime) || input.endTime <= input.beginTime) return "Valid start and end timestamps are required.";
+      return true;
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Calendar handoff requires the Android app." }),
+    execute: async ({ title, beginTime, endTime, description, location }) => {
+      const result = await auroraNative.prepareCalendarEvent({ title: title.trim(), beginTime, endTime, description, location });
+      if (!result?.opened || !result?.requiresUserSave) throw new Error("The calendar editor could not be opened.");
+      return { editorOpened: true, requiresUserSave: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "media.search_play",
+    label: "Find and play media",
+    category: "media",
+    description: "Hand a song, artist or title to an installed media app; playback remains under the user's app controls.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: (input) => requiredString(input?.query, "Song, artist or media title"),
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Media search handoff requires the Android app." }),
+    execute: async ({ query }) => {
+      const result = await auroraNative.searchMedia(query.trim());
+      if (!result?.opened) throw new Error("No media app accepted the search.");
+      return { opened: true, query: result.query || query.trim() };
+    }
+  });
+
   return engine;
 }
 
