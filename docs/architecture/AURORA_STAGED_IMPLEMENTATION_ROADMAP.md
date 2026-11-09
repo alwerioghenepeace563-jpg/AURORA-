@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 2 — Shared contracts and enforcement  
+**Current checkpoint:** Stage 3 — Secure state and context  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -58,7 +58,7 @@ The machine-readable source of truth is `src/core/aurora-layer-registry.js`. Tes
 
 ### Stage 2 — Shared contracts and enforcement
 
-<badge>Implementation committed — CI verification pending</badge>
+<badge>Checkpoint complete — CI passed</badge>
 
 Completed in the shared engine and adapter contract audit:
 - Capability descriptors expose validated permission and consent requirements, bounded timeout settings, request-ID idempotency, and optional mandatory verification.
@@ -71,11 +71,11 @@ Completed in the shared engine and adapter contract audit:
 
 Automated coverage includes fail-closed permission/consent checks, authorization success, verifier success/failure, malformed contracts, timeout, cancellation, request-ID idempotency, shared runtime wiring, and all 12 layer records.
 
-**Stage 2 implementation result:** The shared-contract foundation and all 12 code-level adapter audit records are committed. The checkpoint remains **in progress** until the full core/architecture CI run passes. This does not certify physical Android behavior, every surface's end-to-end UX, or final feature readiness. All 12 layers remain active for later implementation and device-validation stages. Do not advance to Stage 3 until CI verifies this checkpoint.
+**Stage 2 result:** The shared-contract foundation and all 12 code-level adapter audit records are committed. The full core/architecture CI run passed on commit `cfefd036e3d05e2bdd78ac74e354f47a7af6a8fc` (run `42581638246`), including dependency installation, core/architecture tests, and web build. Stage 2 is complete as an automated code checkpoint, not physical Android certification or final feature readiness. All 12 layers remain active.
 
-### Stage 3 — Secure state and context (next)
+### Stage 3 — Secure state and context (in progress)
 
-Harden local persistence, key lifecycle, data inventory accuracy, consent enforcement, memory/context boundaries, and optional per-record sync. Do not label browser storage encrypted. Preserve local-first behavior and avoid schema changes without separate approval.
+Implemented in this checkpoint: an Android-only protected-memory vault backed by the existing Keystore AES-GCM secure-store facade; bounded record/index validation; fail-closed behavior when encryption is unavailable; shared-runtime exposure; and privacy-inventory reporting that does not reveal record contents. Automated tests cover the vault contract with a test adapter. Remaining Stage 3 work: audit and harden existing memory, consent, knowledge, workflow, task-journal, and sync persistence boundaries across all 12 families; verify Android Keystore behavior and backup/migration behavior on physical devices. Do not label browser storage encrypted. Preserve local-first behavior and avoid schema changes or automatic migrations without separate approval.
 
 ### Stage 4 — Reliability and recovery
 
