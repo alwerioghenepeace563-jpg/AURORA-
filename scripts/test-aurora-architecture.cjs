@@ -34,6 +34,19 @@ const assert = require("node:assert/strict");
   const denied = await deniedEngine.execute({ capabilityId: "test.denied_action" });
   assert.equal(denied.status, "rejected");
   assert.equal(deniedExecutions, 0);
+  let concurrentRuns = 0;
+  const concurrentEngine = createAuroraActionEngine({ approve: async () => ({ approved: true }) });
+  concurrentEngine.registerCapability({
+    id: "test.concurrent_write", risk: "low",
+    execute: async () => { concurrentRuns++; await new Promise((resolve) => setTimeout(resolve, 10)); return { ok: true }; }
+  });
+  const concurrent = await Promise.all([
+    concurrentEngine.execute({ capabilityId: "test.concurrent_write", requestId: "same-request" }),
+    concurrentEngine.execute({ capabilityId: "test.concurrent_write", requestId: "same-request" })
+  ]);
+  assert.equal(concurrentRuns, 1);
+  assert.equal(concurrent[0], concurrent[1]);
+
   assert.throws(() => engine.registerCapability({ id: "bad id", execute: async () => {} }), /identifiers/i);
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
