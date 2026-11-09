@@ -19,7 +19,9 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
   const plans = new Map();
   const runs = new Map();
   const inFlight = new Map();
-  const controllers = new Map();\n  const retryAttempts = new Map();
+  const controllers = new Map();
+  const retryAttempts = new Map();
+  const retryResults = new Map();
   const retryResults = new Map();
   const capabilityMap = () => new Map(actionEngine.listCapabilities().map((item) => [item.id, item]));
 
@@ -200,6 +202,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
       taskId: id, stepId: step.id, attempt, status: receipt.status,
       receipt, requiresFreshConfirmationForFurtherActions: true
     });
+    retryResults.set(retryKey, result);
     emit("task.retry_finished", { taskId: id, stepId: step.id, attempt, status: receipt.status });
     return result;
   }
