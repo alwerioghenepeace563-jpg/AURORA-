@@ -943,7 +943,7 @@ public class AuroraAssistantPlugin extends Plugin {
         java.util.List<String> allowed = java.util.Arrays.asList("text/plain", "text/markdown", "text/csv", "application/json");
         if (content == null || content.length() > 1000000) { call.reject("Export text must be between 1 and 1,000,000 characters."); return; }
         if (!allowed.contains(mimeType)) { call.reject("Choose plain text, Markdown, CSV or JSON export."); return; }
-        if (filename == null || filename.trim().isEmpty() || filename.length() > 100 || filename.contains("/") || filename.contains("\\\\")) {
+        if (filename == null || filename.trim().isEmpty() || filename.length() > 100 || filename.contains("/") || filename.indexOf((char) 92) >= 0) {
             call.reject("Provide a filename of up to 100 characters without a path."); return;
         }
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
