@@ -41,7 +41,8 @@ Generate the secret privately (for example with a password manager). Do not send
 - Job creation, processing and status retrieval require a valid AURORA access token. The main server verifies it with Supabase Auth and forwards the access token over the private server-to-server connection. VoiceText verifies it again and derives the owner ID itself; caller-supplied owner IDs are not trusted.
 - The browser stores only the job ID keyed to the original file name, size and last-modified time. After an app restart, the user must reselect the same original file to resume from the last completed section. Completed audio sections and transcript checkpoints remain in private cloud storage.
 - This is durable resumability, not unattended background execution: the app must remain active while it sends the remaining sections. A true worker that continues after the app closes is a separate deployment step.
-- Video files, background worker execution, transcript polishing/summary handoff and device-level end-to-end validation are not included. Convert video to an audio file before using this workflow.
+- Video containers MP4, WebM and MOV are accepted by the Creative Studio when the current browser can play them and expose an audio track. AURORA extracts the audio locally through the media element and sends only bounded 20-second audio sections; the original video file is not uploaded to VoiceText.
+- Background worker execution, transcript polishing/summary handoff and device-level end-to-end validation are not included. The Android foreground notification reports progress while AURORA is active; it does not keep the transcription pipeline running after the app process closes.
 - Provider quota, language coverage and diarization availability depend on VoiceText's configured providers.
 
 ## Verification
@@ -56,3 +57,8 @@ Run `npm run test:aurora-voicetext-bridge` in the main AURORA repository and `np
 - Creative Studio now sends the signed-in session to the Main AURORA proxy. The existing local job-ID key enables recovery after an app restart when the user reselects the same original file.
 - Every accepted audio section and cumulative transcript remain stored in the private VoiceText Supabase job store. This is durable checkpointing and manual resume, not an unattended worker: the app must remain active while it sends further sections.
 - Added account-ownership contract tests and updated setup documentation. Live Supabase migration, service-role configuration, CI and device behaviour still require verification.
+
+
+## Video-to-transcript boundary
+
+Video support is an audio-extraction path, not video understanding. Browser codec support varies by device and file. Silent videos or files whose audio track cannot be decoded will not produce a useful transcript. Users should select the original video again to recover a job after restart; only the generated audio sections and transcript checkpoints are stored remotely.
