@@ -18,6 +18,8 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageTwoContractReady, 12);
   assert.equal(STAGE_TWO_CHECKPOINT.status, "complete");
   assert.equal(STAGE_THREE_CHECKPOINT.status, "in_progress");
+  assert.equal(Object.keys(registry.stageThreeAudit).length, 12);
+  assert.match(STAGE_THREE_CHECKPOINT.validationBoundary, /physical-device validation/i);
   assert.match(STAGE_THREE_CHECKPOINT.scope, /encrypted protected memory/i);
   assert.match(STAGE_TWO_CHECKPOINT.validationBoundary, /not.*device|device.*separate/i);
   assert.ok(registry.stages.some((stage) => stage.id === 2));
@@ -34,6 +36,7 @@ const assert = require("node:assert/strict");
     assert.equal(layer.stageTwoStatus, "contract-audited");
     assert.equal(layer.adapterContractAudit, "passed");
     assert.ok(Array.isArray(layer.stageTwoEvidence) && layer.stageTwoEvidence.length >= 3, "Every family needs concrete Stage 2 contract evidence.");
+    assert.ok(Array.isArray(layer.stageThreeEvidence) && layer.stageThreeEvidence.length >= 2, "Every family needs Stage 3 storage/context audit evidence.");
   }
   assert.equal(registry.get("unknown-layer"), null);
   assert.ok(Object.isFrozen(STAGE_ONE_CHECKPOINT));
