@@ -10,6 +10,10 @@ const assert = require("node:assert/strict");
   const first = universe.add({ type: "project", title: "AURORA core", content: "Shared intelligence connects memory, tasks and voice.", tags: ["AURORA", "architecture"], userApproved: true, sourceLabel: "User note", projectId: "aurora" });
   assert.equal(first.duplicate, false);
   assert.equal(first.record.storage, "local");
+  // A matching short hash alone must never cause a false duplicate.
+  const stored = JSON.parse(values.get(AURORA_KNOWLEDGE_UNIVERSE_STORAGE_KEY));
+  stored.records.unshift({ ...first.record, id: "collision-decoy", title: "Different source", content: "Different content" });
+  values.set(AURORA_KNOWLEDGE_UNIVERSE_STORAGE_KEY, JSON.stringify(stored));
   const longRecord = universe.add({ type: "note", title: "Long note", content: "x".repeat(12001), userApproved: true });
   assert.equal(longRecord.record.content.length, 12000);
   assert.equal(longRecord.record.contentTruncated, true);
