@@ -1,3 +1,4 @@
+import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * Scheduled routine reminders. A due routine only notifies the user; it never
  * executes workflow steps in the background. The user must prepare and approve
@@ -12,8 +13,10 @@ function createAuroraRoutineScheduler(options = {}) {
   const now = options.now || (() => Date.now());
   const createId = options.createId || (() => "routine-" + (globalThis.crypto?.randomUUID?.() || Date.now().toString(36)));
   function read() {
-    try { const value = JSON.parse(storage?.getItem(KEY) || "[]"); return Array.isArray(value) ? value.filter(x => x && typeof x.id === "string") : []; }
-    catch { return []; }
+    return readStoredJson(storage, KEY, [], value =>
+      Array.isArray(value) && value.every(item => isRecord(item) && typeof item.id === "string" &&
+        typeof item.workflowId === "string" && Number.isSafeInteger(item.at)),
+      "AURORA scheduled routines");
   }
   function write(items) {
     if (!storage?.setItem) throw new Error("Scheduled routine storage is unavailable.");
