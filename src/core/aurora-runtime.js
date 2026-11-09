@@ -417,7 +417,7 @@ async function routeMessage(text) {
   if (/^(?:where am i|where am i right now|my current location)$/i.test(message)) {
     const receipt = await actionEngine.execute({ capabilityId: "location.get_current", input: {} });
     const result = receipt?.result || {};
-    if (receipt?.status !== "succeeded") return { tool: "aurora_current_location", receipt, context: receipt?.message || "AURORA could not read the current device location. Check permission and location settings." };
+    if (receipt?.status !== "completed") return { tool: "aurora_current_location", receipt, context: receipt?.message || "AURORA could not read the current device location. Check permission and location settings." };
     return { tool: "aurora_current_location", receipt, context: "AURORA read the device's last-known location. Coordinates: " + result.latitude + ", " + result.longitude + ". Estimated accuracy: " + (result.accuracyMeters >= 0 ? Math.round(result.accuracyMeters) + " metres" : "not reported") + ". Fix age: " + Math.round(result.ageMs / 1000) + " seconds. " + (result.fresh ? "This fix is recent." : "This fix may be stale; do not treat it as live GPS.") + " No background tracking or location storage was performed." };
   }
 
