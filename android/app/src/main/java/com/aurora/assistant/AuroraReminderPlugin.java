@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import org.json.JSONObject;
+import org.json.JSONArray;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import com.getcapacitor.JSObject;
@@ -64,6 +65,25 @@ public class AuroraReminderPlugin extends Plugin {
             JSObject result = new JSObject(); result.put("scheduled", true); result.put("id", id); result.put("at", at); result.put("exact", false);
             call.resolve(result);
         } catch (Exception error) { call.reject("Android could not schedule this reminder.", error); }
+    }
+
+    @PluginMethod
+    public void list(PluginCall call) {
+        JSONArray items = new JSONArray();
+        java.util.Map<String, ?> entries = getContext().getSharedPreferences("aurora_reminders", 0).getAll();
+        for (java.util.Map.Entry<String, ?> entry : entries.entrySet()) {
+            if (!(entry.getValue() instanceof String)) continue;
+            try {
+                JSONObject saved = new JSONObject((String) entry.getValue());
+                JSObject item = new JSObject();
+                item.put("id", saved.optString("id", entry.getKey()));
+                item.put("title", saved.optString("title", "AURORA reminder"));
+                item.put("message", saved.optString("message", ""));
+                item.put("at", saved.optLong("at", 0L));
+                items.put(item);
+            } catch (Exception ignored) {}
+        }
+        call.resolve(new JSObject().put("items", items));
     }
 
     @PluginMethod
