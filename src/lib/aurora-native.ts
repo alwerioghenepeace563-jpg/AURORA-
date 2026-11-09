@@ -27,7 +27,8 @@ type AuroraNativePlugin = {
   consumeWakeWord(): Promise<{ detected: boolean }>;
   consumePulseOpenRequest(): Promise<{ requested: boolean }>;
   startAssistantService(): Promise<{ started: boolean; note?: string }>;
-  stopAssistantService(): Promise<{ stopped: boolean }>;    requestContactsPermission(): Promise<{ granted: boolean }>;
+  stopAssistantService(): Promise<{ stopped: boolean }>;
+  requestContactsPermission(): Promise<{ granted: boolean }>;
     searchContacts(options: { query: string }): Promise<{ contacts: Array<{ id?: string; name: string; number: string }> }>;
     openDialer(options: { number: string }): Promise<{ opened: boolean }>;
   prepareSms(options: { number: string; body?: string }): Promise<{ opened: boolean }>;
