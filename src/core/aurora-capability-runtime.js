@@ -218,7 +218,7 @@ function createAuroraCapabilityRuntime(options = {}) {
       const result = await auroraNative.readRecentNotifications();
       let items = [];
       try { items = JSON.parse(result.items || "[]"); } catch { items = []; }
-      return { items, localOnly: true, limit: result.limit || 20 };
+      return { items, localOnly: true, excludedFromBackup: true, limit: result.limit || 20 };
     }
   });
 
