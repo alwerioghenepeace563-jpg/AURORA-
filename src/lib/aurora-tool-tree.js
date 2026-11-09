@@ -1,6 +1,7 @@
 // AURORA's shared capability tree: one orchestrator can combine local memory,
 // device context, weather, web/news, and navigation for a single useful answer.
 import { auroraApiUrl, requestAuroraContactsPermission, searchAuroraContacts, openAuroraDialer } from "./aurora-native";
+import { auroraMemory } from "../core/aurora-memory";
 
 function formatPlace(address = {}) {
   return [address.road, address.suburb || address.neighbourhood,
@@ -46,6 +47,9 @@ function readLocalMemory(query, limit = 8) {
           item.date || item.startAt || item.dueAt || "");
       }
     } catch {}
+  }
+  for (const item of auroraMemory.search(query, { limit })) {
+    records.push({ kind: "saved_memory", label: item.title, text: item.content.slice(0, 500), date: item.updatedAt || item.createdAt, score: item.score, memoryId: item.id });
   }
   return records.sort((a,b)=>b.score-a.score).slice(0, limit);
 }
