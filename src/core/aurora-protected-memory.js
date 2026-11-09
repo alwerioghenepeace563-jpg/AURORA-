@@ -41,7 +41,7 @@ function createAuroraProtectedMemory(options = {}) {
   }
   async function remember(input = {}) {
     assertAvailable();
-    const content = String(input.content || "").replace(/\\u0000/g, "").trim();
+    const content = String(input.content || "").replace(/\u0000/g, "").trim();
     if (!content || content.length > MAX_CONTENT) throw new Error("Protected memory must contain 1–4,000 characters.");
     const id = String(input.id || globalThis.crypto?.randomUUID?.() || "pm-" + Date.now().toString(36)).slice(0, 80);
     if (!SAFE_ID.test(id)) throw new Error("Protected memory ID is invalid.");
