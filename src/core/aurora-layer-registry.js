@@ -244,6 +244,31 @@ const STAGE_EIGHT_CHECKPOINT = Object.freeze({
   ])
 });
 
+const STAGE_NINE_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["user-selected documents can be added as bounded local text sources", "no background file scanning or automatic indexing", "source deletion is explicit and local"]),
+  voice_multimodal: Object.freeze(["voice and chat share one knowledge search API", "recording transcripts enter only after explicit user selection", "source provenance is retained"]),
+  screen_accessibility: Object.freeze(["screen content is never automatically indexed", "user-invoked summaries require explicit save approval", "source deletion is available through the shared runtime"]),
+  communication_people: Object.freeze(["conversation records require explicit user selection before indexing", "no automatic contact or message harvesting", "provenance identifies the selected source"]),
+  location_travel: Object.freeze(["events and travel notes are user-added only", "no background location history enters the knowledge index", "project-scoped search is supported"]),
+  calendar_productivity: Object.freeze(["tasks and events can be indexed as approved sources", "timeline filters support project and source type", "corrections retain bounded prior versions"]),
+  files_knowledge: Object.freeze(["notes, documents, projects, tasks, conversations, websites, recordings, image descriptions and events are supported", "source provenance and relationships are retained", "duplicate detection and scoped search are available"]),
+  media_creative: Object.freeze(["recordings and image descriptions use text/metadata only", "binary media is not uploaded or copied into the index", "source URI provenance is validated"]),
+  intelligence_personalisation: Object.freeze(["federated search includes the personal knowledge universe", "relationships and timeline are queryable", "cloud sync remains disabled in this service"]),
+  extensions_interoperability: Object.freeze(["knowledge APIs are exposed through the shared runtime", "search remains read-only", "no extension receives private source contents by default"]),
+  safety_privacy_security: Object.freeze(["adding a source requires explicit user approval", "correction and deletion require separate confirmation", "local-only storage and no automatic capture"]),
+  reliability_operations: Object.freeze(["bounded local store fails closed on corrupt data", "exact duplicate sources are detected", "record count and content length are bounded"])
+});
+
+const STAGE_NINE_CHECKPOINT = Object.freeze({
+  id: 9,
+  name: "Personal Knowledge Universe",
+  status: "in_progress",
+  startedAt: "2026-11-09",
+  scope: "Stage 9 builds an explicit-consent, local-first knowledge universe for user-selected notes, documents, projects, tasks, conversations, websites, recordings, image descriptions and events, with provenance, relationships, duplicate detection, scoped search, timeline, correction and confirmed deletion.",
+  validationBoundary: "Code checkpoint only until the full Stage 9 core CI chain and web production build pass. Physical Android file-picker integration and cross-surface UX remain separate device validation.",
+  deliverables: Object.freeze(["Index only explicitly user-approved sources; never scan private stores automatically.", "Preserve source type, label, URI, capture time and method as provenance.", "Detect exact duplicate sources before creating another record.", "Search by source type, project and tags; expose related records and timelines.", "Allow confirmed corrections with a bounded revision trail and confirmed deletion.", "Keep source text local by default with cloud sync disabled in this service.", "Expose APIs and federated search through the shared Main/Pulse/voice runtime.", "Audit Stage 9 behavior across all 12 capability families."])
+});
+
 const STAGE_FIVE_LAYER_AUDIT = Object.freeze({
   android_device: Object.freeze(["Android app launch and device status adapters", "flashlight control behind camera permission", "Pulse overlay native show/hide/status bridge", "one-shot location read with explicit freshness metadata"]),
   voice_multimodal: Object.freeze(["native speech recognition start/stop", "native speech synthesis start/stop", "shared speech lifecycle events", "foreground assistant service approval gate"]),
@@ -302,11 +327,12 @@ function createAuroraLayerRegistry() {
     stageSixEvidence: [...(STAGE_SIX_LAYER_AUDIT[item.id] || [])],
     stageSevenEvidence: [...(STAGE_SEVEN_LAYER_AUDIT[item.id] || [])],
     stageEightEvidence: [...(STAGE_EIGHT_LAYER_AUDIT[item.id] || [])],
+    stageNineEvidence: [...(STAGE_NINE_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
@@ -317,6 +343,8 @@ function createAuroraLayerRegistry() {
     stageSevenDeferredDeviceValidation: STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION,
     stageEightAudit: STAGE_EIGHT_LAYER_AUDIT,
     stageEightCheckpoint: STAGE_EIGHT_CHECKPOINT,
+    stageNineAudit: STAGE_NINE_LAYER_AUDIT,
+    stageNineCheckpoint: STAGE_NINE_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -329,6 +357,9 @@ function createAuroraLayerRegistry() {
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
       nextStage: 9,
+      activeStage: 9,
+      stageNineStatus: STAGE_NINE_CHECKPOINT.status,
+      stageNineAuditedLayers: families.filter(item => (STAGE_NINE_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageSevenStatus: STAGE_SEVEN_CHECKPOINT.status,
       stageSevenCodeComplete: STAGE_SEVEN_CHECKPOINT.status === "complete",
       stageSevenAuditedLayers: families.filter((item) => (STAGE_SEVEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
@@ -352,4 +383,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
