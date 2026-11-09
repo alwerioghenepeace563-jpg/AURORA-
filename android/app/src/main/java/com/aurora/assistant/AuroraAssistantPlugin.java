@@ -936,6 +936,22 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void controlActiveMedia(PluginCall call) {
+        String action = call.getString("action");
+        if (action == null || !java.util.Arrays.asList("play_pause", "next", "previous").contains(action)) {
+            call.reject("Choose play_pause, next or previous."); return;
+        }
+        if (Build.VERSION.SDK_INT < 21) { call.resolve(new JSObject().put("controlled", false).put("reason", "unsupported_android_version")); return; }
+        String enabled = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        String component = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+        if (enabled == null || !enabled.contains(component)) {
+            call.resolve(new JSObject().put("controlled", false).put("reason", "notification_access_required")); return;
+        }
+        JSObject result = AuroraNotificationListenerService.controlActiveMedia(action);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void shareSelectedFile(PluginCall call) {
         String rawUri = call.getString("contentUri");
         String mimeType = call.getString("mimeType", "application/octet-stream");
