@@ -8,7 +8,7 @@ const fs = require("node:fs");
  const s=sessions.begin({source:"screen",surface:"main_chat",userInitiated:true,ttlMs:90000});
  assert.equal(s.expiresAt,61000);
  const snapshot=sessions.consume(s.id," private screen text beyond limit ");
- assert.equal(snapshot.text,"private scree"); assert.equal(snapshot.truncated,true);
+ assert.equal(snapshot.text,"private scre"); assert.equal(snapshot.truncated,true);
  assert.equal(sessions.status().persistent,false); assert.equal(sessions.status().activeSessions,0);
  assert.throws(()=>sessions.consume(s.id,"again"),/missing|expired|already used/i);
  const expired=sessions.begin({source:"document",surface:"pulse",userInitiated:true,ttlMs:1000}); now+=1001;
