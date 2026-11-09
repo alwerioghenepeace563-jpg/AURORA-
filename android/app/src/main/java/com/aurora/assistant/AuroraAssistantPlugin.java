@@ -849,6 +849,47 @@ public class AuroraAssistantPlugin extends Plugin {
         } catch (Exception e) { call.reject("Android could not update the clipboard.", e); }
     }
 
+
+    @PluginMethod
+    public void prepareAudioRecording(PluginCall call) {
+        try {
+            Intent intent = new Intent("android.provider.MediaStore.RECORD_SOUND");
+            if (intent.resolveActivity(getContext().getPackageManager()) == null) {
+                call.reject("No compatible Android audio recorder is installed.");
+                return;
+            }
+            startActivityForResult(call, intent, "handleAudioRecordingResult");
+        } catch (Exception e) {
+            call.reject("Could not open an Android audio recorder.", e);
+        }
+    }
+
+    @com.getcapacitor.annotation.ActivityCallback
+    private void handleAudioRecordingResult(PluginCall call, ActivityResult activityResult) {
+        if (call == null) return;
+        if (activityResult == null || activityResult.getResultCode() != android.app.Activity.RESULT_OK
+            || activityResult.getData() == null || activityResult.getData().getData() == null) {
+            call.resolve(new JSObject().put("cancelled", true).put("recorded", false));
+            return;
+        }
+        Uri uri = activityResult.getData().getData();
+        try {
+            int flags = activityResult.getData().getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+            if (flags != 0) {
+                try { getContext().getContentResolver().takePersistableUriPermission(uri, flags); }
+                catch (SecurityException ignored) { }
+            }
+            String mime = getContext().getContentResolver().getType(uri);
+            call.resolve(new JSObject().put("cancelled", false).put("recorded", true)
+                .put("contentUri", uri.toString())
+                .put("mimeType", mime == null ? "audio/*" : mime)
+                .put("recordingByAurora", false).put("userControlledRecorder", true)
+                .put("audioReadByAurora", false));
+        } catch (Exception e) {
+            call.reject("The audio recording was created but its returned media reference could not be read.", e);
+        }
+    }
+
     @PluginMethod
     public void pickMedia(PluginCall call) {
         String mediaType = call.getString("mediaType", "image");
