@@ -1,8 +1,7 @@
 name: AURORA Android Compile Verification
 
 on:
-  push:
-    branches: [feature/aurora-pulse-profile-overlay]
+  # Run manually during the later APK/release-preparation phase.
   workflow_dispatch:
 
 permissions:
