@@ -115,6 +115,9 @@ const path = require("node:path");
   assert.ok(foundationMap.includes("One brain, many surfaces"), "Main, Pulse, and voice must share one architecture.");
   assert.ok(foundationMap.includes("not a claim that every listed capability is already implemented"), "The foundation map must distinguish architecture from shipped functionality.");
   assert.ok(foundationMap.includes("Do not regenerate or replace the Android signing key"), "Signing identity must remain protected.");
+  const sharedRuntimeSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-runtime.js"), "utf8");
+  assert.ok(sharedRuntimeSource.includes('import { auroraLayerRegistry } from "./aurora-layer-registry";'), "The shared runtime must own the staged layer registry.");
+  assert.ok(sharedRuntimeSource.includes("  layers: auroraLayerRegistry,"), "All surfaces must be able to inspect the same layer registry.");
   const layerRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-layer-registry.js"), "utf8");
   const stagedRoadmap = fs.readFileSync(path.join(__dirname, "../docs/architecture/AURORA_STAGED_IMPLEMENTATION_ROADMAP.md"), "utf8");
   for (const layerId of ["android_device", "voice_multimodal", "screen_accessibility", "communication_people", "location_travel", "calendar_productivity", "files_knowledge", "media_creative", "intelligence_personalisation", "extensions_interoperability", "safety_privacy_security", "reliability_operations"]) {
