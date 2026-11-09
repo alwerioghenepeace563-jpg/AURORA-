@@ -802,6 +802,7 @@ const auroraRuntime = Object.freeze({
   buildCreativeProjectContext: (projectId, options) => auroraCreativeUniverse.buildProjectContext(projectId, options),
   saveCreativeDraft: (input) => auroraCreativeUniverse.saveDraft(input),
   listCreativeDrafts: (projectId) => auroraCreativeUniverse.listDrafts(projectId),
+  restoreCreativeDraftRevision: (id, index, options) => auroraCreativeUniverse.restoreDraftRevision(id, index, options),
   deleteCreativeDraft: (id, options) => auroraCreativeUniverse.deleteDraft(id, options),
   saveCreativeItemToKnowledge: (input = {}) => {
     if (input.userApproved !== true) throw new Error("Explicit approval is required to add this creative item to Knowledge Universe.");
