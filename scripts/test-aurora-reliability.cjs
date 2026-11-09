@@ -1,0 +1,9 @@
+const assert=require("node:assert/strict");
+(async()=>{const {createAuroraEventBus}=await import("../src/core/aurora-event-bus.js");const {createAuroraReliabilityCoordinator}=await import("../src/core/aurora-reliability-coordinator.js");
+const ls=new Map(),win={navigator:{onLine:true},addEventListener:(n,f)=>{if(!ls.has(n))ls.set(n,new Set());ls.get(n).add(f);},removeEventListener:(n,f)=>ls.get(n)?.delete(f)},doc={visibilityState:"visible",addEventListener:(n,f)=>{const k="doc:"+n;if(!ls.has(k))ls.set(k,new Set());ls.get(k).add(f);},removeEventListener:(n,f)=>ls.get("doc:"+n)?.delete(f)};
+const events=createAuroraEventBus({maxHistory:20}),journal={recoverable:()=>[{taskId:"review-me",requiresFreshConfirmation:true}]},r=createAuroraReliabilityCoordinator({events,taskJournal:journal,window:win,document:doc,maxDiagnostics:10});
+assert.equal(r.getStatus().visibility,"foreground");assert.equal(r.getStatus().connectivity,"online");assert.equal(r.getStatus().automaticRecovery,false);
+events.publish("action.failed",{receipt:{error:{code:"TEST_FAILURE"},privatePayload:"not copied"}});assert.equal(r.getDiagnostics()[0].code,"TEST_FAILURE");assert.equal("payload"in r.getDiagnostics()[0],false);assert.equal(r.getRecoveryQueue()[0].requiresFreshConfirmation,true);
+for(let i=0;i<15;i++)events.publish("action.failed",{receipt:{error:{code:"E"+i}}});assert.equal(r.getDiagnostics().length,10);
+ls.get("offline").forEach(f=>f());assert.equal(r.getStatus().connectivity,"offline");doc.visibilityState="hidden";ls.get("doc:visibilitychange").forEach(f=>f());assert.equal(r.getStatus().visibility,"background");
+assert.equal(r.dispose(),true);assert.equal(r.dispose(),false);assert.equal(ls.get("offline").size,0);console.log("AURORA reliability tests passed.");})().catch(e=>{console.error(e);process.exitCode=1;});
