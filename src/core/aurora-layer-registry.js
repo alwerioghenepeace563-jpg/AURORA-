@@ -122,6 +122,50 @@ const STAGE_THREE_CHECKPOINT = Object.freeze({
   deferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION
 });
 
+const STAGE_SIX_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["shared surface gateway for Main, Pulse and voice", "Capacitor foreground/background lifecycle bridge", "adaptive network and memory environment monitor", "no automatic replay after interruption"]),
+  voice_multimodal: Object.freeze(["shared voice surface routing", "microphone session interruption on background/hidden state", "spoken output cancellation and stale-response discard", "voice preference cancellation"]),
+  screen_accessibility: Object.freeze(["Pulse focus management and keyboard trap", "Escape close and focus restoration", "screen-reader live announcements and orb state", "reduced-motion support"]),
+  communication_people: Object.freeze(["shared approval lifecycle across surfaces", "sensitive proposal data excluded from global events", "interrupted communication actions require fresh confirmation"]),
+  location_travel: Object.freeze(["shared surface routing and approval lifecycle", "offline and degraded-network state observable", "no automatic route/action replay"]),
+  calendar_productivity: Object.freeze(["review-only task recovery on app resume", "interrupted steps marked unverified", "fresh confirmation before any new execution"]),
+  files_knowledge: Object.freeze(["metadata-only surface and lifecycle events", "document contents excluded from interruption diagnostics", "offline state observable without content collection"]),
+  media_creative: Object.freeze(["spoken/media session interruption coordination", "delayed playback discarded after backgrounding", "adaptive environment state available to surfaces"]),
+  intelligence_personalisation: Object.freeze(["shared runtime environment monitor", "same gateway for Main, Pulse and voice", "conservative adaptive mode is advisory only"]),
+  extensions_interoperability: Object.freeze(["shared surface gateway and Action Engine path", "approval lifecycle bridged without proposal payloads", "no background extension replay"]),
+  safety_privacy_security: Object.freeze(["metadata-only lifecycle and approval events", "microphone and spoken output stop on interruption", "no permission changes or action replay by environment monitor"]),
+  reliability_operations: Object.freeze(["native foreground/background lifecycle integration", "cooperative interruption and cancellation", "adaptive offline/network/memory monitoring", "listener cleanup and bounded recovery metadata"])
+});
+const STAGE_SIX_DEFERRED_DEVICE_VALIDATION = Object.freeze({
+  status: "deferred",
+  reason: "Stage 6 source integration, automated regression coverage, dependency audit, and web build are complete. Physical Android validation is deferred to the later device-certification/release gate; APK and signing remain excluded by the user's current scope.",
+  checks: Object.freeze([
+    "Verify native voice service, microphone interruption, and resume behavior on supported Android devices.",
+    "Verify Pulse overlay lifecycle, TalkBack announcements, keyboard focus, and reduced-motion behavior on device.",
+    "Verify offline/online, data-saver, battery API availability, and memory-pressure transitions on a low-memory Android device.",
+    "Verify all native listeners are released after Pulse close, app backgrounding, and component teardown."
+  ])
+});
+const STAGE_SIX_CHECKPOINT = Object.freeze({
+  id: 6,
+  name: "Surface integration and device validation",
+  status: "complete",
+  completedAt: "2026-11-09",
+  scope: "Stage 6 code-level integration is complete across all 12 active capability families. Main Chat, Pulse and voice share the surface gateway and approval lifecycle; Android lifecycle, interruption cancellation, Pulse accessibility, and adaptive environment monitoring are integrated and covered by the complete automated core/architecture suite and web production build.",
+  validationBoundary: "GitHub Actions run 42603081673 passed dependency installation, the blocking dependency audit, the complete core/architecture test chain, and web production build on commit 5216c175f2e36389946db721d6dbb5dd7d9485e8. Physical Android/TalkBack/low-memory validation remains explicitly deferred and unverified; this is a code-and-CI checkpoint, not device certification or release readiness.",
+  deliverables: Object.freeze([
+    "Route Main Chat, Pulse, and voice through one shared surface gateway and capability runtime.",
+    "Bridge approval-created/approved/rejected lifecycle events without publishing sensitive proposal data.",
+    "Observe native foreground/background lifecycle and preserve review-only recovery; never replay interrupted actions.",
+    "Cancel active microphone and spoken-output sessions on interruption and discard stale delayed voice responses.",
+    "Provide Pulse focus management, keyboard controls, screen-reader announcements, and reduced-motion support.",
+    "Expose online/offline, coarse network, data-saver, memory-class, supported battery, and memory-pressure state through one shared advisory monitor.",
+    "Add all Stage 6 regressions to the core test chain and pass the full GitHub Actions core/architecture and web-build gate.",
+    "Keep physical Android device certification as a separate deferred release gate."
+  ]),
+  deferredDeviceValidation: STAGE_SIX_DEFERRED_DEVICE_VALIDATION
+});
+
 const STAGE_FIVE_LAYER_AUDIT = Object.freeze({
   android_device: Object.freeze(["Android app launch and device status adapters", "flashlight control behind camera permission", "Pulse overlay native show/hide/status bridge", "one-shot location read with explicit freshness metadata"]),
   voice_multimodal: Object.freeze(["native speech recognition start/stop", "native speech synthesis start/stop", "shared speech lifecycle events", "foreground assistant service approval gate"]),
@@ -177,15 +221,18 @@ function createAuroraLayerRegistry() {
     stageTwoEvidence: [...(STAGE_TWO_LAYER_AUDIT[item.id] || [])],
     stageThreeEvidence: [...(STAGE_THREE_LAYER_AUDIT[item.id] || [])],
     stageFiveEvidence: [...(STAGE_FIVE_LAYER_AUDIT[item.id] || [])],
+    stageSixEvidence: [...(STAGE_SIX_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
     stageFiveAudit: STAGE_FIVE_LAYER_AUDIT,
+    stageSixAudit: STAGE_SIX_LAYER_AUDIT,
+    stageSixDeferredDeviceValidation: STAGE_SIX_DEFERRED_DEVICE_VALIDATION,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -197,7 +244,10 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 6,
+      nextStage: 7,
+      stageSixStatus: STAGE_SIX_CHECKPOINT.status,
+      stageSixCodeComplete: STAGE_SIX_CHECKPOINT.status === "complete",
+      stageSixAuditedLayers: families.filter((item) => (STAGE_SIX_LAYER_AUDIT[item.id] || []).length >= 2).length,
       stageFiveStatus: STAGE_FIVE_CHECKPOINT.status,
       stageFiveCodeComplete: STAGE_FIVE_CHECKPOINT.status === "complete",
       stageFiveAuditedLayers: families.filter((item) => (STAGE_FIVE_LAYER_AUDIT[item.id] || []).length >= 2).length,
@@ -212,4 +262,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, createAuroraLayerRegistry, auroraLayerRegistry };
