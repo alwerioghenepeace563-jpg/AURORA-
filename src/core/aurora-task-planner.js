@@ -28,7 +28,7 @@ function resolveClause(clause, capabilities) {
     const app = APP_TARGETS.find((item) => item.pattern.test(text));
     if (app) return { capabilityId: "android.open_app", input: { packageName: app.packageName }, label: "Open " + app.label };
   }
-  if (/^(?:(?:what(?:'s| is)\s+)?(?:my\s+)?(?:battery|device status|phone status)|check (?:my )?(?:battery|device|phone)(?: status)?)$/i.test(text) && has("device.get_status")) {
+  // Accept natural "check battery" phrasing; the word "status" is optional.\n  if (/^(?:(?:what(?:'s| is)\s+)?(?:my\s+)?(?:battery|device status|phone status)|check\\s+(?:my\\s+)?(?:battery|device|phone)(?:\\s+status)?)$/i.test(text) && has("device.get_status")) {
     return { capabilityId: "device.get_status", input: {}, label: "Check device and battery status" };
   }
   if (/^(?:turn on|switch on|enable)\s+(?:the\s+)?(?:flashlight|torch)$|^(?:flashlight|torch) on$/i.test(text) && has("device.set_flashlight")) {
