@@ -683,3 +683,12 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - If a section fails, already completed transcript text and the last completed offset remain available. The user can resume from that offset; choosing a different file resets the transcript and resume position. Completing the full recording enables an explicit re-transcription action.
 - Added regression coverage for MediaRecorder section capture, 20-second boundaries, progress/resume state and removal of the whole-file size gate.
 - This is sequential, in-session segmented processing, not a cloud-stored upload session. It does not guarantee infinite duration: device memory, browser media support, network stability, provider quotas and serverless execution limits still apply. Closing/reloading the app loses the in-memory resume state. Video extraction, durable cross-session cloud resume and background transcription jobs remain future work. Physical Android/browser compatibility and live provider round-trip remain unverified.
+
+
+### Stage 11 wave 19 — durable VoiceText checkpoints and account-scoped recovery
+- Reused the existing AURORA VoiceText Supabase persistence layer rather than creating a duplicate Main AURORA storage system.
+- Added verified Supabase account identity to the Main AURORA proxy and owner-scoped job reads/writes in VoiceText.
+- Persisted accepted audio sections and cumulative transcript checkpoints in VoiceText's private storage bucket and job table; reselecting the same source recording recovers its job ID and resumes from the next incomplete section.
+- Updated Creative Studio copy to explain the recovery workflow and removed an unsupported claim that a dedicated Android foreground transcription service already exists.
+- This wave provides durable resume after interruption, not autonomous background processing after AURORA closes. A true queue worker and Android foreground-service integration remain separate work.
+- Setup dependencies: apply the VoiceText persistent-jobs migration and configure its server-side Supabase URL/service-role key, plus Main AURORA server-side Supabase URL/anon key. CI and live provider/device checks remain pending.
