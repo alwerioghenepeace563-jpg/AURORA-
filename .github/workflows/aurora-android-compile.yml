@@ -10,7 +10,8 @@ permissions:
 
 concurrency:
   group: aurora-android-compile-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel an Android compile just because another commit is pushed.
+  cancel-in-progress: false
 
 jobs:
   compile-debug-apk:
