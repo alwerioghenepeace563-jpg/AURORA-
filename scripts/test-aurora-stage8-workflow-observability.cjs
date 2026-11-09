@@ -5,26 +5,32 @@ const runtime = fs.readFileSync("src/core/aurora-runtime.js", "utf8");
 const journal = fs.readFileSync("src/core/aurora-task-journal.js", "utf8");
 const workflows = fs.readFileSync("src/core/aurora-workflow-registry.js", "utf8");
 
-assert.match(runtime, /show\|check\|review\) task status/);
-assert.match(runtime, /auroraTaskJournal\.get\(taskStatusMatch\[1\]\)/);
-assert.match(runtime, /review task \(\[a-zA-Z0-9_\.:-\]/);
-assert.match(runtime, /auroraTaskJournal\.inspectRecovery\(reviewTaskMatch\[1\]\)/);
-assert.match(runtime, /show\|list\).*workflows/);
-assert.match(runtime, /auroraWorkflows\.list\(\)/);
-assert.match(runtime, /delete\|remove\) workflow/);
-assert.match(runtime, /auroraWorkflows\.remove\(matches\[0\]\.id\)/);
-assert.match(runtime, /taskActivity: \(taskId\) => auroraTaskJournal\.get\(taskId\)/);
-assert.ok(runtime.includes("recentTaskActivity: (limit = 12) => auroraTaskJournal.list()"));
-assert.ok(runtime.includes("forgetTaskActivity: (taskId) => auroraTaskJournal.forget(taskId)"));
-assert.ok(runtime.includes("show|list) (?:my )?(?:recent )?tasks"));
-assert.ok(runtime.includes("auroraTaskJournal.forget(forgetTaskMatch[1])"));
-assert.ok(runtime.includes("tool: \"aurora_recent_tasks\""));
-assert.match(runtime, /reviewTaskRecovery: \(taskId\) => auroraTaskJournal\.inspectRecovery\(taskId\)/);
-assert.match(journal, /automaticResume: false/);
-assert.match(journal, /requiresFreshConfirmation: true/);
-assert.match(journal, /title: "AURORA task"/);
-assert.match(journal, /function safeReceipt/);
-assert.match(workflows, /function instantiate/);
-assert.match(workflows, /orchestrator\.createPlan/);
+for (const expected of [
+  "const taskStatusMatch = message.match(",
+  "auroraTaskJournal.get(taskStatusMatch[1])",
+  "const reviewTaskMatch = message.match(",
+  "auroraTaskJournal.inspectRecovery(reviewTaskMatch[1])",
+  "const items = auroraWorkflows.list()",
+  "auroraWorkflows.remove(matches[0].id)",
+  "const items = auroraTaskJournal.list().slice(0, 12)",
+  "auroraTaskJournal.forget(forgetTaskMatch[1])",
+  'tool: "aurora_recent_tasks"',
+  "taskActivity: (taskId) => auroraTaskJournal.get(taskId)",
+  "recentTaskActivity: (limit = 12) => auroraTaskJournal.list()",
+  "forgetTaskActivity: (taskId) => auroraTaskJournal.forget(taskId)",
+  "reviewTaskRecovery: (taskId) => auroraTaskJournal.inspectRecovery(taskId)"
+]) assert.ok(runtime.includes(expected), "Missing runtime workflow contract: " + expected);
 
-console.log("AURORA Stage 8 workflow observability tests passed: cross-surface task status, review-only recovery, saved workflow management, metadata-only journal, and fresh confirmation.");
+for (const expected of [
+  "automaticResume: false",
+  "requiresFreshConfirmation: true",
+  'title: "AURORA task"',
+  "function safeReceipt",
+  "function inspectRecovery",
+  "function forget(taskId)"
+]) assert.ok(journal.includes(expected), "Missing task-journal privacy/recovery contract: " + expected);
+
+assert.ok(workflows.includes("function instantiate"));
+assert.ok(workflows.includes("orchestrator.createPlan"));
+assert.ok(workflows.includes("function remove(id)"));
+console.log("AURORA Stage 8 tests passed: cross-surface task status, recent history, local deletion, review-only recovery, saved workflow management, metadata-only journal, and fresh confirmation.");
