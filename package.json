@@ -27,7 +27,6 @@
     "test:aurora-stage7": "node scripts/test-aurora-stage7-checkpoint.cjs",
     "test:aurora-stage8": "node scripts/test-aurora-stage8-workflow-observability.cjs",
     "test:aurora-stage9": "node scripts/test-aurora-knowledge-universe.cjs",
-    "test:aurora-device-inventory": "node scripts/test-aurora-device-capability-inventory.cjs",
     "test:aurora-stage10": "node scripts/test-aurora-stage10-capability-inventory.cjs"
   },
   "dependencies": {
