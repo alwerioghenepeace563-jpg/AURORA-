@@ -587,8 +587,16 @@ export default function App() {
         await AuroraNative.openAccessibilitySettings();
         return;
       }
-      const result = await AuroraNative.readScreen();
-      const text = String(result?.text || "").trim();
+      const contextSession = auroraRuntime.context.begin({ source: "screen", surface: "main_chat", userInitiated: true, ttlMs: 30000 });
+      let snapshot;
+      try {
+        const result = await AuroraNative.readScreen();
+        snapshot = auroraRuntime.context.consume(contextSession.id, result?.text || "");
+      } catch (captureError) {
+        auroraRuntime.context.revoke(contextSession.id);
+        throw captureError;
+      }
+      const text = snapshot.text;
       if (!text) throw new Error("No readable text was found on the current screen.");
       setScreenReadText(text);
       setScreenReadMessage("Screen text captured. Review it below before sending it to AURORA AI.");
