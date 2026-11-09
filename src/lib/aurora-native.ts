@@ -53,6 +53,7 @@ type AuroraNativePlugin = {
   readClipboardText(): Promise<{ available: boolean; text: string; truncated?: boolean; readOnly: true; notStored?: true; note?: string }>;
   writeClipboardText(options: { text: string }): Promise<{ written: boolean; characters: number; systemClipboard: true }>;
   pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
+  prepareAudioRecording(): Promise<{ cancelled: boolean; recorded?: boolean; contentUri?: string; mimeType?: string; recordingByAurora?: false; userControlledRecorder?: true; audioReadByAurora?: false }>;
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
   shareSelectedFile(options: { contentUri: string; mimeType: string }): Promise<{ opened: boolean; requiresUserDestination: boolean; fileSentByAurora: false }>;
   pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string }>;
@@ -202,6 +203,7 @@ export const auroraNative = {
   readClipboardText: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.readClipboardText(); },
   writeClipboardText: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.writeClipboardText(options); },
   pickMedia: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media picker is available only in Android."); return AuroraNative.pickMedia(options); },
+  prepareAudioRecording: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Audio recording handoff is available only in Android."); return AuroraNative.prepareAudioRecording(); },
   capturePhoto: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Camera capture is available only in Android."); return AuroraNative.capturePhoto(); },
   shareSelectedFile: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
