@@ -309,7 +309,8 @@ function createAuroraLayerRegistry() {
     stageSixDeferredDeviceValidation: STAGE_SIX_DEFERRED_DEVICE_VALIDATION,
     stageSevenAudit: STAGE_SEVEN_LAYER_AUDIT,
     stageSevenDeferredDeviceValidation: STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION,
-    stageEightAudit: STAGE_EIGHT_LAYER_AUDIT,\n    stageEightCheckpoint: STAGE_EIGHT_CHECKPOINT,
+    stageEightAudit: STAGE_EIGHT_LAYER_AUDIT,
+    stageEightCheckpoint: STAGE_EIGHT_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
