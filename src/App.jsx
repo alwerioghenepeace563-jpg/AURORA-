@@ -712,6 +712,11 @@ export default function App() {
   }, [messages, busy]);
 
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+    return connectAuroraNativeLifecycle(CapacitorApp, auroraRuntime.reliability);
+  }, []);
+
+  useEffect(() => {
     const syncApprovals = () => setPendingApprovals(auroraRuntime.approvals.listPending());
     const unsubscribe = auroraRuntime.subscribeApprovals(syncApprovals);
     syncApprovals();
