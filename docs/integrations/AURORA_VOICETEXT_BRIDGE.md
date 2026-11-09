@@ -7,7 +7,7 @@ AURORA VoiceText is the transcription service. The main AURORA Assistant sends a
 ## Request flow
 
 1. The user selects an audio file in AURORA and explicitly presses **Transcribe with VoiceText**.
-2. AURORA posts the selected audio as bounded base64 JSON to `/api/voicetext-transcribe`.
+2. AURORA posts the selected audio as base64 JSON to `/api/voicetext-transcribe`.
 3. The AURORA server forwards it to VoiceText `/api/aurora-transcribe` using a server-only bearer token.
 4. VoiceText calls its existing `transcribeWithFallback` provider chain and returns transcript text, detected language, available timestamp/speaker segments and provider label.
 5. AURORA displays the result for review. Saving to a project remains a separate explicit action.
@@ -28,11 +28,11 @@ Generate the secret privately (for example with a password manager). Do not send
 ## Current integration boundary
 
 - Audio formats: MP3, M4A/MP4 audio, WAV, WebM, OGG and AAC (subject to provider support).
-- AURORA UI upload limit: 1.2 MB per selected file. This keeps the encoded JSON within serverless request limits for this first bridge release.
-- VoiceText endpoint encoded payload limit: 1.8 MB.
+- AURORA UI upload limit: approximately 3 MB per selected file (4,000,000 encoded characters). The request is still bounded by Vercel's serverless body-size ceiling; it is not an unlimited upload path.
+- VoiceText endpoint encoded payload limit: 4,000,000 characters (approximately 3 MB of source audio).
 - The bridge returns transcript text, provider, language and available timestamp/speaker segments.
 - VoiceText's provider keys remain server-side. The integration endpoint does not persist uploaded audio or transcript records.
-- Video files, larger resumable/chunked jobs, async job polling, transcript polishing/summary handoff and device-level end-to-end validation are not included in this first bridge wave. Convert video to an audio file before using this first version.
+- Video files, uploads beyond the single-request hosting limit, resumable/chunked jobs, async job polling, transcript polishing/summary handoff and device-level end-to-end validation are not included in this first bridge wave. Convert video to an audio file before using this first version.
 - Provider quota, language coverage and diarization availability depend on VoiceText's configured providers.
 
 ## Verification
