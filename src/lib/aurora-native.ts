@@ -26,6 +26,10 @@ type AuroraNativePlugin = {
   stopAssistantService(): Promise<{ stopped: boolean }>;    requestContactsPermission(): Promise<{ granted: boolean }>;
     searchContacts(options: { query: string }): Promise<{ contacts: Array<{ id?: string; name: string; number: string }> }>;
     openDialer(options: { number: string }): Promise<{ opened: boolean }>;
+  searchOnMap(options: { query: string }): Promise<{ opened: boolean; query: string }>;
+  startMapDirections(options: { destination: string; mode: string }): Promise<{ opened: boolean; destination: string; mode: string }>;
+  prepareCalendarEvent(options: { title: string; beginTime: number; endTime: number; description?: string; location?: string }): Promise<{ opened: boolean; requiresUserSave: boolean }>;
+  searchMedia(options: { query: string }): Promise<{ opened: boolean; query: string }>;
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
@@ -120,6 +124,10 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
     return AuroraNative.openApp({ packageName: "com.whatsapp" });
   },
+  searchOnMap: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Map search handoff is available only in Android."); return AuroraNative.searchOnMap({ query }); },
+  startMapDirections: async (destination: string, mode = "driving") => { if (!Capacitor.isNativePlatform()) throw new Error("Map directions handoff is available only in Android."); return AuroraNative.startMapDirections({ destination, mode }); },
+  prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
+  searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
   openApp: async (packageName: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
     return AuroraNative.openApp({ packageName });
