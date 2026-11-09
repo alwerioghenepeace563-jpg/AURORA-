@@ -666,3 +666,11 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Added an AI Image Creator panel in Creative Studio with a bounded prompt, square/landscape/portrait aspect-ratio choices, an explicit Generate action, an in-app preview and a separate Download action. Generated output is not automatically saved to a project or uploaded elsewhere.
 - Added a focused regression test and included it in the consolidated Stage 11 test chain.
 - This wave requires a working server-side `GEMINI_API_KEY`, Gemini image-model access and available quota. Live provider generation, Android download behavior and physical-device testing remain unverified; this does not claim video generation.
+
+
+### Stage 11 wave 17 — AURORA VoiceText transcription bridge
+- Added a private VoiceText endpoint at `POST /api/aurora-transcribe`. It requires a server-side bearer token, validates bounded base64 audio and supported audio MIME types, and delegates to VoiceText's existing transcription provider chain rather than introducing a second transcription engine.
+- Added a server-side proxy in the main AURORA backend at `POST /api/voicetext-transcribe`. The proxy keeps the shared token server-side, validates audio payloads and normalises transcript, language, provider and timestamp/speaker segment metadata.
+- Updated the Creative Studio transcription action to send a user-selected audio file to VoiceText only after an explicit tap, display the returned transcript/available segments for review, and keep saving to the local project as a separate user action.
+- Added regression coverage in both repositories and documented the two matching server-only environment variables. VoiceText's provider credentials and the integration token are never placed in browser or Android client code.
+- First-wave boundary: audio only, maximum 1.2 MB selected file in the main AURORA UI. Video-to-audio extraction, larger resumable/chunked requests, asynchronous jobs, richer transcript polish/summary handoff and live provider round-trip/device validation remain future work. Both server deployments must have matching `AURORA_PLUGIN_TOKEN` / `VOICETEXT_PLUGIN_TOKEN` values before the connection is live.
