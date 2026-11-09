@@ -10,12 +10,20 @@ import { parseCalendarIntent } from "./aurora-intent-parser";
 import { createAuroraTaskOrchestrator } from "./aurora-task-orchestrator";
 import { auroraMemory } from "./aurora-memory";
 import { planAuroraActions } from "./aurora-task-planner";
+import { auroraEvents } from "./aurora-event-bus";
+import { auroraKnowledge } from "./aurora-knowledge-graph";
+import { createAuroraSpecialistCoordinator } from "./aurora-specialist-coordinator";
+import { auroraWorkflows } from "./aurora-workflow-registry";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
   approve: (proposal) => approvalBroker.request(proposal)
 });
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
+const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
+specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
+actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
+taskOrchestrator.subscribe((event) => auroraEvents.publish(event.type, event, { source: "task_orchestrator" }));
 let latestPendingTaskId = null;
 
 actionEngine.registerCapability({
@@ -26,7 +34,7 @@ actionEngine.registerCapability({
   risk: "low",
   approvalRequired: false,
   validate: (input) => typeof input?.content === "string" && input.content.trim().length > 0,
-  execute: (input) => auroraMemory.remember({ kind: input.kind || "fact", title: input.title || "Saved memory", content: input.content, tags: input.tags || [], source: "explicit_user_request" })
+  execute: (input) => { const record = auroraMemory.remember({ kind: input.kind || "fact", title: input.title || "Saved memory", content: input.content, tags: input.tags || [], source: "explicit_user_request" }); auroraKnowledge.addNode({ id: "memory-" + record.id, type: "memory", label: record.title, description: record.content, tags: record.tags }); auroraEvents.publish("memory.saved", { id: record.id, title: record.title }, { source: "memory" }); return record; }
 });
 
 actionEngine.registerCapability({
@@ -239,6 +247,9 @@ async function routeMessage(text) {
   if (receipt.status !== "completed") {
     return { error: receipt.error?.message || "AURORA could not route that request." };
   }
+  const coordinated = await specialists.coordinate(message);
+  const specialistResult = coordinated.results.find((item) => item.status === "completed" && item.result);
+  if (specialistResult) return specialistResult.result;
   return receipt.result || null;
 }
 
@@ -247,6 +258,12 @@ const auroraRuntime = Object.freeze({
   approvals: approvalBroker,
   tasks: taskOrchestrator,
   memory: auroraMemory,
+  knowledge: auroraKnowledge,
+  events: auroraEvents,
+  specialists,
+  workflows: auroraWorkflows,
+  saveWorkflow: (input) => auroraWorkflows.save(input, actionEngine.listCapabilities()),
+  prepareWorkflow: (workflowId) => { const plan = auroraWorkflows.instantiate(workflowId, actionEngine.listCapabilities(), taskOrchestrator); latestPendingTaskId = plan.id; return taskOrchestrator.runPlan(plan, { confirmed: false }); },
   createTaskPlan: (plan) => taskOrchestrator.createPlan(plan),
   runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),
   capabilities: () => actionEngine.listCapabilities(),
