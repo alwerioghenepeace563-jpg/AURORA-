@@ -5,7 +5,7 @@ import { BookOpen, Captions, FolderKanban, Plus, Save, Trash2, Download, Refresh
 
 const subjects=["biology","chemistry","physics","mathematics","english","computer_science","microbiology","other"];
 const projectTypes=["writing","video","audio","design","research","study","other"];
-function CreativeLearningWorkspace(){
+function CreativeLearningWorkspace({ authSession }){
  const [tab,setTab]=useState("projects"),[projects,setProjects]=useState([]),[selected,setSelected]=useState(""),[drafts,setDrafts]=useState([]),[assets,setAssets]=useState([]),[decks,setDecks]=useState([]),[plans,setPlans]=useState([]);
  const [projectTitle,setProjectTitle]=useState(""),[projectType,setProjectType]=useState("study"),[projectGoal,setProjectGoal]=useState("");
  const [draftTitle,setDraftTitle]=useState("Working draft"),[draftText,setDraftText]=useState("");
@@ -174,7 +174,7 @@ function CreativeLearningWorkspace(){
   const formatTime=seconds=>{const value=Math.max(0,Math.floor(Number(seconds)||0));return String(Math.floor(value/60)).padStart(2,"0")+":"+String(value%60).padStart(2,"0");};
   const readBase64=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("An audio section could not be read."));reader.readAsDataURL(blob);});
   const jobKey="aurora-voicetext-job:"+[mediaFile.name,mediaFile.size,mediaFile.lastModified].join(":");
-  const api=async(path,options={})=>{const response=await fetch(auroraApiUrl(path),options);const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||"VoiceText request failed.");return data;};
+  const api=async(path,options={})=>{const response=await fetch(auroraApiUrl(path),{...options,headers:{...(options.headers||{}),Authorization:"Bearer "+(authSession?.access_token||"")}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||"VoiceText request failed.");return data;};
   const sendSection=async(blob,offset,index)=>{
    const data=await readBase64(blob);
    if(!data||data.length>4000000)throw new Error("Audio section "+index+" exceeded the safe upload size. The previous sections are saved in the transcript; resume to continue.");
