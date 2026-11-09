@@ -609,3 +609,39 @@ The shared local-first knowledge service is implemented and its focused tests, a
 
 
 **Implementation wave 13 — media browser and user-controlled downloads:** Expanded media discovery to image/video results from Wikimedia Commons and video files exposed by Internet Archive metadata. Results include source pages, direct file URLs, MIME type and available licence/attribution metadata. Added curated official provider browser links (Pexels, Pixabay, Mixkit and Coverr) for users to use each site's own download controls where direct files are not exposed. Android downloads use the system DownloadManager, save under the public Downloads directory with visible notifications, accept only HTTPS direct URLs, and require explicit confirmation. Browser/PWA fallback opens the direct file for the browser to handle. This does not scrape protected streaming sites, bypass DRM/paywalls, or imply blanket reuse rights. Native Android compilation/device download validation remains outstanding.
+
+## Stage 11 — Expanded authoritative scope (active)
+
+The Stage 11 scope is intentionally expanded to include **everything already planned for the Creative and Learning Universe**, not only the features implemented in the first waves. The machine-readable scope in `src/core/aurora-layer-registry.js` is authoritative and covers all 12 capability families.
+
+**Creative production and media**
+- One Creative Studio for image, video, audio, caption, transcript, document and project workflows.
+- AI-assisted image/media generation through configured providers, editable outputs, provenance and explicit save/export.
+- Image/video discovery with source pages, licence/attribution metadata, browser handoff and supported direct public-file downloads.
+- Official provider download flows for platforms that do not expose a direct file; no DRM, paywall, login or platform-protection bypass.
+- Project briefs, storyboards, scripts, writing, captions, subtitle import/export/search, media references and reusable drafts.
+- Source-aware writing, bounded document/PDF extraction, summarisation and export.
+
+**Voice, multimodal and accessibility**
+- Voice-driven study, dictation, creative briefs and project navigation.
+- Spoken lessons and explanations with interruptible playback.
+- User-selected audio/video transcription, transcript correction, timestamps where reliable, captions and searchable cue navigation.
+- Larger media support through bounded chunking/resumable processing only where the selected provider supports it; no promise of unlimited file size or duration.
+- Accessible controls, screen-reader labels, keyboard/focus navigation, text scaling, contrast and reduced-motion support.
+
+**Learning and knowledge**
+- Learner-controlled study plans, revision schedules, session logs and progress.
+- Learner-supplied syllabus/course outlines/textbooks as grounding sources for explanations, lessons and practice.
+- Question generation, quizzes, flashcards, spaced repetition, adaptive review and weak-topic insights.
+- Evidence-linked explanations that distinguish supplied source facts from model-generated guidance; no guaranteed exam predictions.
+- Integration with Knowledge Universe while preserving source provenance, consent and explicit save controls.
+
+**Cross-system requirements**
+- All 12 capability families advance together through shared Main, Pulse and voice runtime services.
+- Provider/model/device capability checks and useful offline/unavailable fallbacks.
+- Explicit approval before upload, analysis, persistence, export, download or external sharing.
+- Student privacy, copyright/licence notices, bounded processing, failure recovery and regression evidence.
+- Code/CI evidence is kept separate from native Android compilation, physical-device testing and release certification.
+
+**Current status:** these items are now part of Stage 11's acceptance scope. Some are already implemented in waves 1–13; the remaining items are still planned work and must not be described as finished until code and tests exist. Stage 11 remains active.
+
