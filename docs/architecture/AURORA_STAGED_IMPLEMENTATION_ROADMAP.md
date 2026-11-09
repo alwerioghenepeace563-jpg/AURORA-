@@ -120,6 +120,8 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Implementation wave 2 completed in code:** Native Android speech recognition start/stop is now exposed through the shared Action Engine. Starting microphone capture requires explicit approval and microphone permission; transcript, error, and status events remain observable through the typed native bridge. Android notification permission requests are now exposed as a dedicated capability, and the assistant can report its native bridge, background-service foundation, wake-word and live-voice status without exposing private payloads. The Android build parity script now verifies the speech-recognition methods.
 
+**Implementation wave 3 completed in code:** Communication now includes an approval-gated SMS draft handoff that opens the Android composer without sending, and a text-sharing adapter that opens the system share sheet so the user chooses the destination. Native validation bounds phone numbers and message length; both flows require user action in the destination app.
+
 **Remaining Stage 5 work:** Expand screen and notification workflows, richer communication actions, location/maps capabilities beyond external handoff, calendar/task integrations, file/document processing, media creation, intelligence tools, and extension interoperability. Each new adapter must use the shared permission/consent/approval contracts, expose honest platform availability, and have automated regression coverage. No Stage 4 work is reopened; only ordinary regression checks apply.
 
 ### Stage 6 — Surface integration and device validation
