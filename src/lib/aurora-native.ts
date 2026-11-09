@@ -38,6 +38,8 @@ type AuroraNativePlugin = {
     openDialer(options: { number: string }): Promise<{ opened: boolean }>;
   prepareSms(options: { number: string; body?: string }): Promise<{ opened: boolean }>;
   setAudioVolume(options: { stream: "media" | "ring" | "alarm"; level: number }): Promise<{ stream: string; level: number; current: number; maximum: number; systemUiShown: boolean }>;
+  listLaunchableApps(): Promise<{ apps: Array<{ name: string; packageName: string; systemApp: boolean }>; count: number; limit: number; launcherAppsOnly: true }>;
+  getNetworkStatus(): Promise<{ connected: boolean; validated: boolean; internetAvailable: boolean; metered: boolean; transport: string; readOnly: true; ssidRead: false; trafficInspection: false }>;
   getStorageStatus(): Promise<{ totalBytes: number; availableBytes: number; usedBytes: number; readOnlySummary: true; fileContentsRead: false }>;
   prepareContact(options: { name: string; phone?: string; email?: string }): Promise<{ opened: boolean; requiresUserSave: boolean; savedByAurora: boolean }>;
   prepareAlarm(options: { hour: number; minute: number; message?: string }): Promise<{ opened: boolean; requiresUserConfirmation: boolean; alarmCreatedByAurora: boolean }>;
@@ -57,7 +59,7 @@ type AuroraNativePlugin = {
   getDeviceCapabilityInventory(): Promise<{ platform: string; device: { manufacturer: string; model: string; sdk: number }; hardware: Record<string, boolean>; permissions: Record<string, boolean>; specialAccess: Record<string, boolean>; readOnly: true; capturedAt: number }>;
   requestCameraPermission(): Promise<{ granted: boolean }>;
   setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
-  openDeviceSettings(options: { target: "wifi" | "bluetooth" | "display" | "hotspot" | "nfc" | "sound" | "battery" | "app_details" | "location" | "notifications" | "security" | "date_time" | "storage" | "nfc" | "sound" | "battery" | "app_details" | "location" | "notifications" | "security" | "date_time" | "storage" }): Promise<{ opened: boolean; target: string; settingsOnly: boolean; userMustApplyChanges: boolean; fallback?: boolean }>;
+  openDeviceSettings(options: { target: "wifi" | "bluetooth" | "display" | "hotspot" | "nfc" | "sound" | "battery" | "app_details" | "location" | "notifications" | "security" | "date_time" | "storage" }): Promise<{ opened: boolean; target: string; settingsOnly: boolean; userMustApplyChanges: boolean; fallback?: boolean }>;
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
@@ -170,6 +172,8 @@ export const auroraNative = {
     return AuroraNative.prepareEmail({ to, subject, body });
   },
   setAudioVolume: async (stream: "media" | "ring" | "alarm", level: number) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Volume control is available only in Android."); return AuroraNative.setAudioVolume({ stream, level }); },
+  listLaunchableApps: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("App discovery is available only in Android."); return AuroraNative.listLaunchableApps(); },
+  getNetworkStatus: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Network diagnostics are available only in Android."); return AuroraNative.getNetworkStatus(); },
   getStorageStatus: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Storage status is available only in Android."); return AuroraNative.getStorageStatus(); },
   prepareContact: async (name: string, phone = "", email = "") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Contact creation handoff is available only in Android."); return AuroraNative.prepareContact({ name, phone, email }); },
   prepareAlarm: async (hour: number, minute: number, message = "AURORA alarm") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Alarm handoff is available only in Android."); return AuroraNative.prepareAlarm({ hour, minute, message }); },
