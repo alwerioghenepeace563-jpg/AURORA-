@@ -21,7 +21,9 @@ function createAuroraCapabilityRuntime(options = {}) {
     "android.contacts": async () => (await requestAuroraContactsPermission()).granted === true,
     "android.accessibility": async () => (await auroraNative.isAccessibilityEnabled()).enabled === true,
     "android.notification_access": async () => (await auroraNative.hasNotificationAccess()).granted === true,
-    "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true
+    "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true,
+    "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true,
+    "android.overlay": async () => (await auroraNative.hasOverlayPermission()).granted === true
   };
   const authorize = async ({ capability, proposal }) => {
     for (const permission of capability.permissionRequirements || []) {
@@ -276,6 +278,139 @@ function createAuroraCapabilityRuntime(options = {}) {
     validate: (input) => typeof input?.enabled === "boolean" || "Choose on or off.",
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Flashlight control is available only in Android." }),
     execute: async ({ enabled }) => auroraNative.setFlashlight(enabled)
+  });
+
+
+  // Stage 5: expose the already-implemented native voice and Pulse services
+  // through the same Action Engine used by chat, overlay, and future surfaces.
+  engine.registerCapability({
+    id: "voice.speak_text",
+    label: "Speak a response",
+    category: "voice",
+    description: "Speak assistant text through Android text-to-speech.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    timeoutMs: 120000,
+    validate: (input) => {
+      const valid = requiredString(input?.text, "Speech text");
+      if (valid !== true) return valid;
+      return input.text.length <= 8000 || "Speech text must be 8000 characters or fewer.";
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Native speech output requires the Android app." }),
+    execute: async ({ text }) => {
+      const result = await auroraNative.speakText(text.trim());
+      if (!result?.started) throw new Error("Android text-to-speech did not start.");
+      return { started: true, engine: result.engine || "android-tts" };
+    }
+  });
+
+  engine.registerCapability({
+    id: "voice.stop_speaking",
+    label: "Stop speaking",
+    category: "voice",
+    description: "Stop current Android text-to-speech playback.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Native speech output requires the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.stopTextSpeech();
+      return { stopped: result?.stopped === true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "pulse.show_overlay",
+    label: "Show AURORA Pulse",
+    category: "device",
+    description: "Show the AURORA Pulse overlay after the user has granted Android overlay permission.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    permissionRequirements: ["android.overlay"],
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "AURORA Pulse overlay requires the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.showOverlay();
+      if (!result?.shown) throw new Error(result?.note || "Android did not show the AURORA Pulse overlay.");
+      return { shown: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "pulse.hide_overlay",
+    label: "Hide AURORA Pulse",
+    category: "device",
+    description: "Hide the currently visible AURORA Pulse overlay.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "AURORA Pulse overlay requires the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.hideOverlay();
+      if (!result?.hidden) throw new Error("Android did not confirm that the AURORA Pulse overlay was hidden.");
+      return { hidden: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "assistant.start_background_service",
+    label: "Start AURORA background service",
+    category: "voice",
+    description: "Start AURORA's Android foreground assistant service after microphone permission is granted.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.microphone"],
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The background assistant service requires the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.startAssistantService();
+      if (!result?.started) throw new Error(result?.note || "Android did not start the assistant service.");
+      return { started: true, note: result.note || null };
+    }
+  });
+
+  engine.registerCapability({
+    id: "assistant.stop_background_service",
+    label: "Stop AURORA background service",
+    category: "voice",
+    description: "Stop AURORA's Android foreground assistant service.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The background assistant service requires the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.stopAssistantService();
+      if (!result?.stopped) throw new Error("Android did not confirm that the assistant service stopped.");
+      return { stopped: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "device.open_accessibility_settings",
+    label: "Open accessibility settings",
+    category: "device",
+    description: "Open Android settings so the user can enable or disable AURORA's accessibility service.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Accessibility settings require the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.openAccessibilitySettings();
+      if (!result?.opened) throw new Error("Android accessibility settings could not be opened.");
+      return { opened: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "device.get_build_info",
+    label: "Get app build information",
+    category: "device",
+    description: "Read the installed AURORA version code and version name.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Installed build information requires the Android app." }),
+    execute: async () => auroraNative.getBuildInfo()
   });
 
   return engine;
