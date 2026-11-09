@@ -538,7 +538,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - AI-generated educational content can contain errors; learners are told to verify important facts against class notes or textbooks. The feature does not claim syllabus alignment unless source material is supplied.
 
 **Implementation wave 10 — User-selected image and PDF understanding (code committed; CI pending):**
-- Added a Creative Studio workflow to select one image (JPEG/PNG/WebP, up to 3 MB) or PDF (up to 6 MB) for source-grounded AI analysis.
+- Added a Creative Studio workflow to select one image (JPEG/PNG/WebP, up to 3 MB) or PDF (up to 3 MB) for source-grounded AI analysis.
 - Uses AURORA's existing server-side multimodal chat route; provider credentials remain server-side and the user must explicitly press Analyse before file contents are sent.
 - Results distinguish visible/stated content from uncertainty, are editable for review, and are saved as a project draft only after an explicit Save analysis action.
 - Added size and MIME checks before upload. The feature does not scan the device, upload files in the background, or silently save AI output.
