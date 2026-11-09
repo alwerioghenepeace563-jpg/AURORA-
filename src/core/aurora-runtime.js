@@ -20,6 +20,7 @@ import { createAuroraCapabilityIntelligence } from "./aurora-capability-intellig
 import { auroraConsents } from "./aurora-consent-registry";
 import { createAuroraUniversalSearch } from "./aurora-universal-search";
 import { createAuroraExtensionRegistry } from "./aurora-extension-registry";
+import { createAuroraDataInventory } from "./aurora-data-inventory";
 import { createAuroraRoutineScheduler } from "./aurora-routine-scheduler";
 import { createAuroraSupabaseMemoryAdapter } from "./aurora-supabase-memory-adapter";
 import { auroraSecureStorage as nativeSecureStorage, auroraReminder } from "../lib/aurora-secure-storage";
@@ -73,6 +74,17 @@ universalSearch.register("knowledge", (query, limit) => auroraKnowledge.search(q
 universalSearch.register("capabilities", (query, limit) => capabilityIntelligence.find(query, limit).map(item => ({ ...item, type: "capability", summary: item.description })), "Available tools");
 universalSearch.register("workflows", (query) => auroraWorkflows.list().filter(item => (item.title + " " + (item.summary || "")).toLowerCase().includes(query.toLowerCase())).map(item => ({ ...item, type: "workflow" })), "Saved workflows");
 universalSearch.register("tasks", (query) => auroraTaskJournal.list().filter(item => (item.plan?.title || "").toLowerCase().includes(query.toLowerCase())).map(item => ({ id: item.taskId, title: item.plan?.title || "Task", summary: item.status, type: "task" })), "Task history");
+const dataInventory = createAuroraDataInventory({
+  memories: () => ({ label: "Saved memories", location: "Local browser storage", count: auroraMemory.list().length, encrypted: false, note: "Local-first notes; individual cloud sync is opt-in." }),
+  knowledge: () => ({ label: "Knowledge graph", location: "Local browser storage", count: auroraKnowledge.status().nodeCount, encrypted: false }),
+  workflows: () => ({ label: "Saved workflows", location: "Local browser storage", count: auroraWorkflows.list().length, encrypted: false }),
+  task_history: () => ({ label: "Task recovery journal", location: "Local browser storage", count: auroraTaskJournal.list().length, encrypted: false, note: "Bounded task summaries and execution states." }),
+  permissions: () => ({ label: "Data-sharing permissions", location: "Local browser storage", count: auroraConsents.list().length, encrypted: false }),
+  extensions: () => ({ label: "Installed extension manifests", location: "Local browser storage", count: extensionRegistry.list().length, encrypted: false, note: "Declarative metadata only; no downloaded code." }),
+  routines: () => ({ label: "Scheduled routine reminders", location: "Local browser storage and Android alarm records", count: routineScheduler.list().length, encrypted: false, note: "Reminders only; workflow actions never run unattended." }),
+  memory_sync: () => ({ label: "Cloud memory sync", location: "Supabase", count: memorySync.status().records.length, encrypted: true, syncEnabled: memorySync.status().enabled, note: "Only individually selected memories are uploaded." }),
+  auth_session: () => ({ label: "Android sign-in session", location: nativeSecureStorage.isAvailable() ? "Android Keystore-backed encrypted storage" : "Browser session storage", count: null, encrypted: nativeSecureStorage.isAvailable(), note: "This inventory never reads or displays session contents." })
+});
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
 actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
@@ -234,6 +246,10 @@ async function routeMessage(text) {
     return { tool: "aurora_universal_search", results, context: results.length
       ? "I searched AURORA's connected local indexes. Results are read-only; nothing was opened, changed or executed. " + results.map(item => "[" + item.sourceLabel + "] " + item.title + (item.summary ? ": " + item.summary : "")).join(" | ")
       : "No matching records were found in AURORA's currently registered local search indexes." };
+  }
+  if (/^(?:show|list|inspect) (?:my )?(?:aurora )?(?:data inventory|storage report|stored data)\\??$/i.test(message) || /^what data does aurora store\\??$/i.test(message)) {
+    const report = dataInventory.inspect();
+    return { tool: "aurora_data_inventory", inventory: report, context: "AURORA data inventory (counts only; no private record contents are exposed): " + report.stores.map(item => item.label + ": " + (item.count == null ? "unknown count" : item.count) + " (" + item.location + (item.encrypted ? ", encrypted" : ", not encrypted") + (item.syncEnabled ? ", cloud sync enabled" : "") + ")").join("; ") + ". Total known records: " + report.totals.knownRecords + ". This report does not delete or upload anything." };
   }
   if (/^(?:show|list) (?:my )?(?:privacy settings|consents|data permissions)\??$/i.test(message)) {
     const grants = auroraConsents.list();
@@ -472,6 +488,7 @@ const auroraRuntime = Object.freeze({
   consents: auroraConsents,
   universalSearch,
   extensions: extensionRegistry,
+  dataInventory,
   executeExtension: (extensionId, capabilityId, input) => extensionRegistry.execute(extensionId, capabilityId, input),
   secureStorage,
   reminders: auroraReminder,
