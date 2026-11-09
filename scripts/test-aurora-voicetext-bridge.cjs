@@ -6,6 +6,9 @@ const workspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx"
 const env = fs.readFileSync(".env.example", "utf8");
 
 assert.match(endpoint, /VOICETEXT_PLUGIN_TOKEN/);
+assert.match(endpoint, /auth\\/v1\\/user/);
+assert.match(endpoint, /verified AURORA account/);
+assert.match(endpoint, /ownerId/);
 assert.match(endpoint, /VOICETEXT_API_URL/);
 assert.match(endpoint, /Authorization: "Bearer " \+ token/);
 assert.match(endpoint, /\/api\/aurora-transcribe/);
@@ -18,8 +21,12 @@ assert.match(workspace, /new MediaRecorder\(capture\.stream/);
 assert.match(workspace, /setTimeout\(finish,20000\)/);
 assert.match(workspace, /mediaResumeOffset/);
 assert.match(workspace, /Resume transcription/);
+assert.match(workspace, /authSession\?\.access_token/);
+assert.match(workspace, /reselect the same original file/);
 assert.doesNotMatch(workspace, /mediaFile\.size\s*>\s*\d+/);
 assert.doesNotMatch(workspace, /messages:\[\{role:"user",content:prompt,media:/);
 assert.match(env, /VOICETEXT_PLUGIN_TOKEN=/);
 assert.match(env, /VOICETEXT_API_URL=/);
+assert.match(env, /SUPABASE_URL=/);
+assert.match(env, /SUPABASE_ANON_KEY=/);
 console.log("AURORA VoiceText bridge contract checks passed.");
