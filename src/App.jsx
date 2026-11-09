@@ -1113,7 +1113,7 @@ export default function App() {
       try { preferredProvider = localStorage.getItem("aurora-active-ai-provider") || undefined; } catch {}
       const activeScheduleInstructions = schedules.filter((item) => item.status !== "cancelled" && new Date(item.startAt).getTime() <= Date.now() && Date.now() < new Date(item.endAt).getTime()).map((item) => "- " + item.title + ": " + item.instruction).join("\n");
       // Route clearly relevant requests through the shared AURORA capability tree before asking the AI.
-      const liveToolResult = await auroraRuntime.routeMessage(text);
+      const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "main_chat" });
       if (liveToolResult?.error) {
         setMessages((current) => [...current, { role: "assistant", content: liveToolResult.error }]);
         if (soundOn) speak(liveToolResult.error);
@@ -1276,7 +1276,7 @@ export default function App() {
     const next = [...pulseMessages, { role: "user", content: text }];
     setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
     try {
-      const liveToolResult = await auroraRuntime.routeMessage(text);
+      const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
       if (liveToolResult?.error) {
         setPulseMessages(items => [...items, { role: "assistant", content: liveToolResult.error }]);
         return;
