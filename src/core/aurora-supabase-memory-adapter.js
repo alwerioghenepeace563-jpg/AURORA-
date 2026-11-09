@@ -36,7 +36,7 @@ function createAuroraSupabaseMemoryAdapter(options = {}) {
     isConfigured: () => configured,
     async upsert(record) {
       if (!record || typeof record.id !== "string" || !record.id) throw new Error("A valid memory record is required.");
-      await request("/rest/v1/aurora_memories?on_conflict=id", {
+      await request("/rest/v1/aurora_memories?on_conflict=user_id,id", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ id: record.id, payload: record, updated_at: record.updatedAt || new Date().toISOString() })
