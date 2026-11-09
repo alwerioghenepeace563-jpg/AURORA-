@@ -139,3 +139,16 @@ assert.ok(capabilityRuntime.includes("approvalRequired: true"));
 assert.ok(capabilityRuntime.includes("fullResolutionSaved: false"));
 console.log("AURORA Stage 10 camera tests passed: user-invoked system camera, bounded thumbnail-only result and approval gate.");
 
+
+
+// Stage 10 Wave 8: explicit external-camera capture with thumbnail-only return.
+assert.ok(nativeJava.includes("public void capturePhoto(PluginCall call)"));
+assert.ok(nativeJava.includes("MediaStore.ACTION_IMAGE_CAPTURE"));
+assert.ok(nativeJava.includes("thumbnailOnly"));
+assert.ok(nativeJava.includes("fullResolutionSaved"));
+assert.ok(nativeBridge.includes("capturePhoto(): Promise"));
+assert.ok(nativeBridge.includes("capturePhoto: async"));
+assert.ok(capabilityRuntime.includes('id: "camera.capture_photo"'));
+assert.ok(capabilityRuntime.includes("approvalRequired: true"));
+assert.ok(capabilityRuntime.includes("fullResolutionSaved: false"));
+console.log("AURORA Stage 10 camera capture tests passed: explicit approval and thumbnail-only result.");
