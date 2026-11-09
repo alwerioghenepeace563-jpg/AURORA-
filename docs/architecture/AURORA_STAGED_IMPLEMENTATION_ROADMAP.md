@@ -408,6 +408,14 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Cancellation is represented explicitly. The shared Action Engine marks the action high-risk and approval-gated.
 - Added native bridge, capability and regression coverage. Recorder availability and returned URI behavior remain OEM/app-dependent and require physical-device validation.
 
+
+**Implementation wave 10 — Open a selected active notification (code committed; regression added):**
+- Added a notification-listener action that opens only the Android content intent for a still-active notification selected from AURORA's recent local cache.
+- The shared Action Engine validates that the notification key exists in the cached list, checks Notification Access, and requires high-risk action approval.
+- This operation only opens the originating app screen. It does not reply, dismiss, send, alter notification content, or act on an arbitrary notification key.
+- Stale notifications and notifications without a content action return an explicit not-opened result. Android/OEM app behavior still requires physical-device validation.
+- Added native listener, plugin bridge, Action Engine and regression coverage.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
