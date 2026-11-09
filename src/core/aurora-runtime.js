@@ -56,7 +56,7 @@ actionEngine.registerCapability({
   risk: "medium",
   approvalRequired: true,
   validate: (input) => typeof input?.id === "string" && input.id.trim().length > 0,
-  execute: (input) => ({ deleted: auroraMemory.forget(input.id) })
+  execute: (input) => { const deleted = auroraMemory.forget(input.id); if (deleted && !auroraMemory.list().some((item) => item.title === input.title)) auroraKnowledge.removeNode("memory-" + input.id); auroraEvents.publish("memory.forgotten", { id: input.id }, { source: "memory" }); return { deleted }; }
 });
 
 actionEngine.registerCapability({
@@ -243,13 +243,11 @@ async function routeMessage(text) {
     return { tool: "android_media", context: "AURORA handed the search for " + query + " to an installed media app. Playback remains under your app's controls." };
   }
 
-  const receipt = await actionEngine.execute({ capabilityId: "assistant.route_request", input: { text: message } });
-  if (receipt.status !== "completed") {
-    return { error: receipt.error?.message || "AURORA could not route that request." };
-  }
   const coordinated = await specialists.coordinate(message);
   const specialistResult = coordinated.results.find((item) => item.status === "completed" && item.result);
   if (specialistResult) return specialistResult.result;
+  const receipt = await actionEngine.execute({ capabilityId: "assistant.route_request", input: { text: message } });
+  if (receipt.status !== "completed") return { error: receipt.error?.message || "AURORA could not route that request." };
   return receipt.result || null;
 }
 
