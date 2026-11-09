@@ -643,3 +643,4 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .clw-file input{padding:8px}
 .clw-footnote{margin:0}
 @media(max-width:680px){.clw-grid{grid-template-columns:1fr}.clw-wide{grid-column:auto}.clw-panel{padding:13px}}
+.clw-flashcard{border:1px solid var(--glass-border,rgba(255,255,255,.1));border-radius:12px;padding:10px;margin-top:8px}.clw-flashcard>div{display:flex;gap:8px}.clw-flashcard button{border:1px solid var(--glass-border,rgba(255,255,255,.14));background:rgba(255,255,255,.06);color:inherit;border-radius:9px;padding:7px 10px;font-size:12px}
