@@ -460,6 +460,20 @@ for (const [name, content] of Object.entries(files)) {
   fs.writeFileSync(target, content);
 }
 
+const securePluginPath = path.join(javaRoot, "AuroraSecureStoragePlugin.java");
+const securePluginSource = fs.existsSync(securePluginPath) ? fs.readFileSync(securePluginPath, "utf8") : "";
+for (const method of ["set", "get", "remove"]) {
+  if (!securePluginSource.includes("void " + method + "(PluginCall call)")) {
+    throw new Error("Android Keystore secure-storage plugin is missing: " + method);
+  }
+}
+if (!securePluginSource.includes('@CapacitorPlugin(name = "AuroraSecureStorage")') ||
+    !securePluginSource.includes("AndroidKeyStore") ||
+    !securePluginSource.includes("AES/GCM/NoPadding") ||
+    !securePluginSource.includes("getNoBackupFilesDir")) {
+  throw new Error("Android secure storage must use Keystore-backed AES-GCM and no-backup app storage.");
+}
+
 const nativePluginPath = path.join(javaRoot, "AuroraAssistantPlugin.java");
 const nativePluginSource = fs.readFileSync(nativePluginPath, "utf8");
 const requiredNativeMethods = [
