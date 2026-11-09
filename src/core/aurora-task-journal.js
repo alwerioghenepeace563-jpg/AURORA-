@@ -1,3 +1,4 @@
+import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * Mission Recovery journal.
  * Persists task plans and execution receipts locally. Restored plans are
@@ -9,8 +10,9 @@ function createAuroraTaskJournal(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const now = options.now || (() => new Date().toISOString());
   function read() {
-    try { const value = JSON.parse(storage?.getItem(KEY) || "[]"); return Array.isArray(value) ? value.filter(x => x && typeof x.taskId === "string") : []; }
-    catch { return []; }
+    return readStoredJson(storage, KEY, [], value =>
+      Array.isArray(value) && value.every(item => isRecord(item) && typeof item.taskId === "string" && Array.isArray(item.events || [])),
+      "AURORA task journal");
   }
   function write(items) {
     if (!storage?.setItem) throw new Error("Task journal storage is unavailable.");
