@@ -228,7 +228,7 @@ const STAGE_EIGHT_CHECKPOINT = Object.freeze({
   status: "complete",
   startedAt: "2026-11-09",
   completedAt: "2026-11-09",
-  scope: "Stage 8 is active across all 12 capability families. Implementation waves add cross-surface task activity/status inspection, explicit recovery review, user-managed saved workflow inventory/removal, read-only workflow inspection with live capability-availability checks, and idempotency-gated recovery retries, stable provider idempotency keys, and truthful per-step verification summaries. Existing workflow preparation remains preview-first and every execution requires fresh confirmation.",
+  scope: "Stage 8 coordinated cross-surface task activity/status inspection, explicit recovery review, user-managed workflow inventory/removal, read-only workflow preflight, idempotency-gated recovery retries, stable provider idempotency keys, and truthful per-step verification across all 12 capability families. Existing workflow preparation remains preview-first and every execution requires fresh confirmation.",
   validationBoundary: "Stage 8 code and CI acceptance passed on commit 8f12f8766ffbb0e15f9ce110baae8ca787745cdc: dependency audit, complete core/architecture test chain, Stage 8 regressions, and web production build. Physical Android behavior and release certification remain separate deferred gates; this is not device certification.",
   deliverables: Object.freeze([
     "Expose task status and bounded activity history from Main Chat, Pulse, and voice through the shared runtime.",
@@ -240,7 +240,7 @@ const STAGE_EIGHT_CHECKPOINT = Object.freeze({
     "Propagate a stable provider idempotency key across original execution and explicitly approved retry attempts.",
     "Expose verified, partially verified, and unverified outcomes without treating an unverified receipt as proof of success.",
     "Keep workflow storage local, metadata-only task journaling, fresh execution confirmation, and existing capability approval gates.",
-    "Continue coordinated improvements across all 12 capability families with focused regression coverage."
+    "Complete coordinated workflow regressions across all 12 capability families; future capability expansion continues in Stage 9 and later stages."
   ])
 });
 
