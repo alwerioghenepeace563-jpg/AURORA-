@@ -300,6 +300,13 @@ Stage 8 will advance all 12 capability families together:
 - The shared runtime exposes the same inspection data for Main Chat, Pulse and voice.
 - Added a focused Stage 8 regression and 12-family architecture evidence.
 
+**Implementation wave 4 — Active task cancellation (code committed; CI pending):**
+- “Cancel task [ID]” and “stop task [ID]” now reach the shared orchestrator's cancellation controller for an active run.
+- A pending, unexecuted plan can still be discarded without running actions.
+- AURORA reports a cancellation *request*, not a guaranteed rollback. It explains that already completed external actions are not undone.
+- If the task is not active, AURORA reports that no cancellation action was taken.
+- Added Stage 8 regression coverage and architecture evidence across all 12 capability families.
+
 **Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
 
 ## Complete vision roadmap and remaining stages
