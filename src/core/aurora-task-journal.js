@@ -1,11 +1,13 @@
 import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * Mission Recovery journal.
- * Persists task plans and execution receipts locally. Restored plans are
- * review-only: a user must explicitly confirm them again before execution.
+ * Persists bounded execution metadata only. User-authored task titles,
+ * summaries, inputs, results and error messages are never persisted.
+ * Restored plans are review-only and require fresh confirmation.
  */
 const KEY = "aurora-task-journal-v1";
 const MAX = 100;
+const SAFE_TASK_ID = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,119}$/;
 function createAuroraTaskJournal(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const now = options.now || (() => new Date().toISOString());
@@ -21,7 +23,7 @@ function createAuroraTaskJournal(options = {}) {
   function safeReceipt(receipt) {
     if (!receipt || typeof receipt !== "object") return null;
     return {
-      requestId: typeof receipt.requestId === "string" ? receipt.requestId.slice(0, 120) : null,
+      requestId: typeof receipt.requestId === "string" && SAFE_TASK_ID.test(receipt.requestId) ? receipt.requestId : null,
       capabilityId: typeof receipt.capabilityId === "string" ? receipt.capabilityId.slice(0, 100) : null,
       status: typeof receipt.status === "string" ? receipt.status.slice(0, 40) : "unknown",
       at: typeof receipt.at === "string" ? receipt.at.slice(0, 40) : null,
@@ -33,8 +35,8 @@ function createAuroraTaskJournal(options = {}) {
   function safeResult(result) {
     if (!result || typeof result !== "object") return null;
     return {
-      taskId: typeof result.taskId === "string" ? result.taskId.slice(0, 120) : null,
-      title: typeof result.title === "string" ? result.title.slice(0, 160) : null,
+      taskId: typeof result.taskId === "string" && SAFE_TASK_ID.test(result.taskId) ? result.taskId : null,
+      title: "AURORA task",
       status: typeof result.status === "string" ? result.status.slice(0, 40) : "unknown",
       startedAt: typeof result.startedAt === "string" ? result.startedAt.slice(0, 40) : null,
       finishedAt: typeof result.finishedAt === "string" ? result.finishedAt.slice(0, 40) : null,
@@ -51,15 +53,32 @@ function createAuroraTaskJournal(options = {}) {
   function record(event) {
     if (!event || typeof event.type !== "string") return false;
     const taskId = event.taskId || event.plan?.id || event.result?.taskId;
-    if (!taskId) return false;
+    if (typeof taskId !== "string" || !SAFE_TASK_ID.test(taskId)) return false;
     const items = read();
     const index = items.findIndex(x => x.taskId === taskId);
     const current = index >= 0 ? items[index] : { taskId, createdAt: now(), events: [] };
-    if (event.plan) current.plan = { id: event.plan.id, title: event.plan.title, summary: event.plan.summary, steps: (event.plan.steps || []).map(step => ({ id: step.id, capabilityId: step.capabilityId, label: step.label, risk: step.risk, approvalRequired: step.approvalRequired, dependsOn: [...(step.dependsOn || [])] })) };
+    if (event.plan) current.plan = {
+      id: taskId,
+      title: "AURORA task",
+      summary: "Review the available steps and prepare a new plan.",
+      steps: (event.plan.steps || []).slice(0, 8).map(step => ({
+        id: typeof step.id === "string" ? step.id.slice(0, 64) : null,
+        capabilityId: typeof step.capabilityId === "string" ? step.capabilityId.slice(0, 100) : null,
+        label: typeof step.label === "string" ? step.label.slice(0, 100) : "AURORA capability",
+        risk: typeof step.risk === "string" ? step.risk.slice(0, 20) : "unknown",
+        approvalRequired: step.approvalRequired === true,
+        dependsOn: Array.isArray(step.dependsOn) ? step.dependsOn.filter(x => typeof x === "string").slice(0, 8).map(x => x.slice(0, 64)) : []
+      }))
+    };
     if (event.result) current.result = safeResult(event.result);
     current.status = event.result?.status || (event.type === "task.started" ? "running" : current.status || "prepared");
     current.updatedAt = now();
-    current.events = [...(current.events || []), { type: event.type, at: event.at || now(), stepId: event.stepId || event.step?.stepId || null, status: event.step?.status || null }].slice(-40);
+    current.events = [...(current.events || []), {
+      type: event.type.slice(0, 80),
+      at: typeof event.at === "string" ? event.at.slice(0, 40) : now(),
+      stepId: typeof (event.stepId || event.step?.stepId) === "string" ? (event.stepId || event.step.stepId).slice(0, 64) : null,
+      status: typeof event.step?.status === "string" ? event.step.status.slice(0, 40) : null
+    }].slice(-40);
     if (index >= 0) items.splice(index, 1);
     items.unshift(current);
     write(items);
@@ -68,7 +87,10 @@ function createAuroraTaskJournal(options = {}) {
   function list() { return read().map(item => ({ ...item, events: [...(item.events || [])] })); }
   function get(taskId) { return list().find(item => item.taskId === String(taskId)) || null; }
   function forget(taskId) { const items = read(), next = items.filter(x => x.taskId !== String(taskId)); if (next.length === items.length) return false; write(next); return true; }
-  function recoverable() { return list().filter(x => x.plan && ["prepared", "running", "awaiting_user", "failed", "blocked"].includes(x.status)).map(x => ({ taskId: x.taskId, title: x.plan.title, status: x.status, plan: x.plan, updatedAt: x.updatedAt, requiresFreshConfirmation: true })); }
+  function recoverable() {
+    return list().filter(x => x.plan && ["prepared", "running", "awaiting_user", "failed", "blocked"].includes(x.status))
+      .map(x => ({ taskId: x.taskId, title: "AURORA task", status: x.status, plan: x.plan, updatedAt: x.updatedAt, requiresFreshConfirmation: true }));
+  }
   return Object.freeze({ record, list, get, forget, recoverable, clear: () => storage?.removeItem?.(KEY) });
 }
 const auroraTaskJournal = createAuroraTaskJournal();
