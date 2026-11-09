@@ -176,7 +176,7 @@ function CreativeLearningWorkspace(){
   const sendSection=async(blob,offset,index)=>{
    const data=await readBase64(blob);
    if(!data||data.length>4000000)throw new Error("Audio section "+index+" exceeded the safe upload size. The previous sections are saved in the transcript; resume to continue.");
-   const response=await fetch(auroraApiUrl("/api/voicetext-transcribe"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audioBase64:data,mimeType:blob.type||"audio/webm",languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",requestId:(globalThis.crypto?.randomUUID?.()||String(Date.now()))+"-"+index})});
+   const response=await fetch(auroraApiUrl("/api/voicetext-transcribe"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audioBase64:data,mimeType:(blob.type||"audio/webm").split(";")[0].trim().toLowerCase(),languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",requestId:(globalThis.crypto?.randomUUID?.()||String(Date.now()))+"-"+index})});
    const result=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(result.error||"VoiceText could not transcribe section "+index+".");
    const transcript=typeof result.text==="string"?result.text.trim():"";
