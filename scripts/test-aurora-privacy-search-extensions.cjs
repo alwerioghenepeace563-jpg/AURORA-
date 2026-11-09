@@ -20,7 +20,7 @@ const assert = require("node:assert/strict");
   const { createAuroraUniversalSearch } = await import("../src/core/aurora-universal-search.js");
   const search = createAuroraUniversalSearch({ maxResults: 5 });
   search.register("notes", async q => q.includes("biology") ? [{ id: "n1", title: "Biology revision", content: "Cell structure" }] : []);
-  search.register("tools", async () => [{ id: "device.status", label: "Device status", description: "Battery information", score: 2 }], "Tools");
+  search.register("tools", async q => q.includes("battery") ? [{ id: "device.status", label: "Device status", description: "Battery information", score: 2 }] : [], "Tools");
   const results = await search.search("biology");
   assert.equal(results.length, 1);
   assert.equal(results[0].source, "notes");
