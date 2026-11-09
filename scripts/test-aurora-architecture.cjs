@@ -126,5 +126,16 @@ const path = require("node:path");
   assert.ok(stagedRoadmap.includes("Every stage advances every active layer"), "Every stage must upgrade the whole active system.");
   assert.ok(stagedRoadmap.includes("removed from the active upgrade queue"), "Final layers must leave the active queue only after acceptance.");
   assert.ok(stagedRoadmap.includes("Stage 1 — Whole-system baseline"), "Stage one checkpoint must be documented.");
+  assert.ok(stagedRoadmap.includes("Stage 2 — Shared contracts and enforcement"), "Stage two contract work must be tracked.");
+  assert.ok(stagedRoadmap.includes("The 12 layers remain active"), "No layer may be dropped before its own stage checks pass.");
+  const actionEngineSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-action-engine.js"), "utf8");
+  assert.ok(actionEngineSource.includes("permissionRequirements"), "Shared action contracts must declare permission requirements.");
+  assert.ok(actionEngineSource.includes("consentRequirements"), "Shared action contracts must declare consent requirements.");
+  assert.ok(actionEngineSource.includes("VERIFICATION_FAILED"), "Action completion must support result verification.");
+  const consentRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-consent-registry.js"), "utf8");
+  assert.ok(sharedRuntimeSource.includes("auroraConsents.isGranted(scope, source)"), "Shared runtime must enforce declared consent through the consent registry.");
+  for (const permissionId of ["android.contacts", "android.accessibility", "android.notification_access", "android.camera"]) {
+    assert.ok(capabilitySource.includes('"' + permissionId + '"'), "Missing shared Android permission adapter: " + permissionId);
+  }
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
