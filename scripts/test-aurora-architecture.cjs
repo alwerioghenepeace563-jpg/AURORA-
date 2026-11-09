@@ -132,6 +132,15 @@ const path = require("node:path");
   assert.ok(actionEngineSource.includes("permissionRequirements"), "Shared action contracts must declare permission requirements.");
   assert.ok(actionEngineSource.includes("consentRequirements"), "Shared action contracts must declare consent requirements.");
   assert.ok(actionEngineSource.includes("VERIFICATION_FAILED"), "Action completion must support result verification.");
+  assert.ok(actionEngineSource.includes("timeoutMs"), "Every capability must expose a bounded execution deadline.");
+  assert.ok(actionEngineSource.includes("ACTION_TIMEOUT"), "Execution deadlines must produce an explicit timeout receipt.");
+  assert.ok(actionEngineSource.includes("ACTION_CANCELLED"), "Action cancellation must be explicit.");
+  assert.ok(actionEngineSource.includes('idempotency: "request-id"'), "Repeated request IDs must use the shared idempotency contract.");
+  assert.ok(actionEngineSource.includes("cancel: (requestId)"), "The Action Engine must expose cancellation by request ID.");
+  assert.ok(actionEngineSource.includes("signal: controller.signal"), "Execution adapters must receive a cooperative cancellation signal.");
+  assert.ok(layerRegistrySource.includes("STAGE_TWO_LAYER_AUDIT"), "Every capability family must carry Stage 2 contract evidence.");
+  assert.ok(layerRegistrySource.includes('status: "complete"'), "Stage 2 contract checkpoint must be explicitly recorded as complete.");
+  assert.ok(layerRegistrySource.includes('adapterContractAudit: "passed"'), "Every active layer must pass the Stage 2 adapter contract audit.");
   const consentRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-consent-registry.js"), "utf8");
   assert.ok(sharedRuntimeSource.includes("auroraConsents.isGranted(scope, source)"), "Shared runtime must enforce declared consent through the consent registry.");
   for (const permissionId of ["android.contacts", "android.accessibility", "android.notification_access", "android.camera"]) {
