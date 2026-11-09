@@ -51,19 +51,37 @@ const STAGE_TWO_CHECKPOINT = Object.freeze({
   ])
 });
 
+const STAGE_THREE_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["Android-only Keystore vault boundary", "secure-store availability gate", "no browser fallback", "backup and migration device test pending"]),
+  voice_multimodal: Object.freeze(["shared runtime protected-memory service", "no raw vault contents in inventory", "platform-unavailable reporting"]),
+  screen_accessibility: Object.freeze(["notification and accessibility data remain separately scoped", "local persistence uses fail-closed readers", "no implicit screen-data migration"]),
+  communication_people: Object.freeze(["contacts remain outside memory sync unless explicitly saved", "consent registry is source-scoped", "no bulk contact upload path"]),
+  location_travel: Object.freeze(["location context is not auto-indexed", "consent remains default-deny", "no background location persistence introduced"]),
+  calendar_productivity: Object.freeze(["task journal, workflow and routine stores fail closed", "routine reminders remain approval-only", "recovery requires fresh confirmation"]),
+  files_knowledge: Object.freeze(["knowledge graph schema validation", "corrupt data preserved", "document contents not auto-migrated"]),
+  media_creative: Object.freeze(["media data not auto-collected into memory", "shared storage guard available", "no cloud media upload path introduced"]),
+  intelligence_personalisation: Object.freeze(["protected-memory vault contract", "local-first ordinary memory", "per-record sync rechecks revocable consent"]),
+  extensions_interoperability: Object.freeze(["extension manifests use fail-closed schema reader", "manifest capability allow-list validated", "arbitrary code remains disabled"]),
+  safety_privacy_security: Object.freeze(["malformed persisted consent fails closed", "protected record schema validation", "privacy inventory excludes record contents"]),
+  reliability_operations: Object.freeze(["six local stores fail closed on corruption", "extension and protected vault corruption tests", "sync revocation disables further uploads"])
+});
+
 const STAGE_THREE_CHECKPOINT = Object.freeze({
   id: 3,
   name: "Secure state and context",
   status: "in_progress",
   scope: "Harden local persistence, encrypted protected memory, key availability reporting, data inventory accuracy, consent boundaries, and optional per-record sync. Shared fail-closed JSON/schema validation now protects memory, consent, knowledge graph, task journal, workflow, and routine stores from silent reset. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
-  validationBoundary: "Automated tests cover the new Android-only protected-memory vault with a test adapter. Real Android Keystore behavior, backup exclusion, device migration, and end-to-end privacy UX still require device validation.",
+  validationBoundary: "Code-level persistence and sync audits plus automated tests are recorded for all 12 families. Real Android Keystore behavior, backup exclusion, device migration, app restore/upgrade behavior, and end-to-end privacy UX still require physical-device validation; Stage 3 must remain in progress until those checks are recorded.",
   deliverables: Object.freeze([
     "Add an Android-only protected-memory vault backed by the existing Keystore AES-GCM secure-store facade; refuse operation when unavailable and never fall back to browser storage.",
     "Bound protected records, validate identifiers and content, isolate record keys, and fail safely on corrupt indexes or records.",
     "Expose protected memory through the shared AURORA runtime so Main, Pulse, and voice can use the same service.",
     "Report protected-memory storage location and encryption availability in the privacy inventory without exposing record contents.",
     "Keep ordinary local-first memory separate from protected memory; do not silently migrate existing records or enable cloud sync.",
-    "Use a shared fail-closed persistence reader across memory, consent, knowledge graph, task journal, workflow, and routine stores; malformed data is preserved and reported rather than silently reset.",
+    "Use a shared fail-closed persistence reader across memory, consent, knowledge graph, task journal, workflow, routine, and extension stores; malformed data is preserved and reported rather than silently reset.",
+    "Validate protected-memory index entries and decrypted record schemas; reject malformed records without filtering or overwriting them.",
+    "Re-check source-scoped cloud-sync consent before every selected-record upload and disable sync immediately when consent is revoked.",
+    "Record Stage 3 code-level evidence for all 12 capability families while keeping Android device certification explicitly pending.",
     "Add regression tests proving corrupt JSON and invalid schemas do not overwrite existing local records.",
     "Keep all 12 capability families active while remaining Stage 3 storage, consent, and context boundaries are audited."
   ])
@@ -92,12 +110,14 @@ function createAuroraLayerRegistry() {
     stageTwoStatus: "contract-audited",
     adapterContractAudit: "passed",
     stageTwoEvidence: [...(STAGE_TWO_LAYER_AUDIT[item.id] || [])],
+    stageThreeEvidence: [...(STAGE_THREE_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
     stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
+    stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
       const item = families.find((family) => family.id === id);
@@ -119,4 +139,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, createAuroraLayerRegistry, auroraLayerRegistry };
