@@ -275,6 +275,13 @@ async function routeMessage(text) {
     const report = dataInventory.inspect();
     return { tool: "aurora_data_inventory", inventory: report, context: "AURORA data inventory (counts only; no private record contents are exposed): " + report.stores.map(item => item.label + ": " + (item.count == null ? "unknown count" : item.count) + " (" + item.location + (item.encrypted ? ", encrypted" : ", not encrypted") + (item.syncEnabled ? ", cloud sync enabled" : "") + ")").join("; ") + ". Total known records: " + report.totals.knownRecords + ". This report does not delete or upload anything." };
   }
+  if (/^prepare location access\\??$/i.test(message)) {
+    return { tool: "aurora_location_consent_preview", context: "AURORA can read one last-known device location only when you explicitly approve this request. It will report timestamp, estimated accuracy and freshness. No background tracking or location storage will be enabled. Say “confirm location access” to grant this scoped permission; Android will still ask for its separate location permission." };
+  }
+  if (/^confirm location access$/i.test(message)) {
+    auroraConsents.grant({ scope: "location.current", source: "android", purpose: "Allow AURORA to read the device's last-known location only when explicitly requested." });
+    return { tool: "aurora_location_consent_enabled", context: "Scoped current-location consent is enabled. AURORA will still require Android location permission and fresh approval for each location read. No background tracking is enabled." };
+  }
   if (/^(?:show|list) (?:my )?(?:privacy settings|consents|data permissions)\??$/i.test(message)) {
     const grants = auroraConsents.list();
     return { tool: "aurora_privacy_controls", consents: grants, context: grants.length
@@ -405,6 +412,13 @@ async function routeMessage(text) {
   if (/\b(?:clear|delete|erase)\s+(?:aurora'?s?\s+)?(?:recent\s+)?notification cache\b/i.test(message)) {
     const receipt = await actionEngine.execute({ capabilityId: "notifications.clear_recent", input: {} });
     return receipt.status === "completed" ? { tool: "android_notifications", context: "AURORA's locally stored notification previews were cleared. Android notifications themselves were not dismissed." } : { error: receipt.error?.message || "Could not clear AURORA's notification cache." };
+  }
+
+  if (/^(?:where am i|where am i right now|my current location)$/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "location.get_current", input: {} });
+    const result = receipt?.result || {};
+    if (receipt?.status !== "succeeded") return { tool: "aurora_current_location", receipt, context: receipt?.message || "AURORA could not read the current device location. Check permission and location settings." };
+    return { tool: "aurora_current_location", receipt, context: "AURORA read the device's last-known location. Coordinates: " + result.latitude + ", " + result.longitude + ". Estimated accuracy: " + (result.accuracyMeters >= 0 ? Math.round(result.accuracyMeters) + " metres" : "not reported") + ". Fix age: " + Math.round(result.ageMs / 1000) + " seconds. " + (result.fresh ? "This fix is recent." : "This fix may be stale; do not treat it as live GPS.") + " No background tracking or location storage was performed." };
   }
 
   // Device and productivity commands are parsed into registered, typed capabilities.
