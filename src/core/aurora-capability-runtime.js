@@ -28,6 +28,12 @@ function createAuroraCapabilityRuntime(options = {}) {
     "android.location": async () => (await auroraNative.requestLocationPermission()).granted === true
   };
   const authorize = async ({ capability, proposal }) => {
+    const consentRequirements = capability.consentRequirements || [];
+    if (consentRequirements.length) {
+      if (typeof options.authorize !== "function") return { authorized: false, code: "CONSENT_POLICY_UNAVAILABLE", reason: "Required consent policy is not configured." };
+      const consent = await options.authorize({ capability, proposal });
+      if (consent?.authorized !== true) return consent;
+    }
     for (const permission of capability.permissionRequirements || []) {
       const check = permissionChecks[permission];
       if (!check) return { authorized: false, code: "PERMISSION_POLICY_UNAVAILABLE", reason: "No permission adapter is registered for " + permission + "." };
@@ -35,10 +41,7 @@ function createAuroraCapabilityRuntime(options = {}) {
       try { granted = await check(); } catch { granted = false; }
       if (!granted) return { authorized: false, code: "PERMISSION_REQUIRED", reason: "The required Android permission was not granted: " + permission + "." };
     }
-    if ((capability.consentRequirements || []).length) {
-      if (typeof options.authorize !== "function") return { authorized: false, code: "CONSENT_POLICY_UNAVAILABLE", reason: "Required consent policy is not configured." };
-      return options.authorize({ capability, proposal });
-    }
+    if (consentRequirements.length) return { authorized: true };
     return typeof options.authorize === "function" ? options.authorize({ capability, proposal }) : { authorized: true };
   };
   const engine = createAuroraActionEngine({ approve: options.approve, authorize, now: options.now, createId: options.createId });
@@ -199,7 +202,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     risk: AURORA_ACTION_RISK.HIGH,
     approvalRequired: true,
     permissionRequirements: ["android.location"],
-    consentRequirements: ["location.current.read"],
+    consentRequirements: ["location.current:android"],
     validate: () => true,
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Device location requires Android, enabled location services, and user-granted permission." }),
     execute: async () => {
