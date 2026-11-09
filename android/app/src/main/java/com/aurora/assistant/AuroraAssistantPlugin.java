@@ -20,7 +20,7 @@ import java.net.URL;
 import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
-import com.getcapacitor.ActivityResult;
+import androidx.activity.result.ActivityResult;
 import android.database.Cursor;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -340,7 +340,7 @@ public class AuroraAssistantPlugin extends Plugin {
         String query = call.getString("query");
         if (query == null || query.trim().isEmpty()) { call.reject("A song, artist or media title is required."); return; }
         try {
-            Intent intent = new Intent(android.content.Intent.ACTION_MEDIA_PLAY_FROM_SEARCH);
+            Intent intent = new Intent(android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH);
             intent.putExtra(android.app.SearchManager.QUERY, query.trim());
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
