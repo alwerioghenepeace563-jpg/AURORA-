@@ -7,6 +7,8 @@ const assert = require("node:assert/strict");
  assert.throws(()=>creative.createProject({title:"Short film",type:"video"}),/approval/i);
  const project=creative.createProject({title:"Science explainer",type:"video",goal:"Explain cell structure",userApproved:true});
  assert.equal(creative.listProjects().length,1);
+ const media=creative.addAsset({projectId:project.id,type:"video_reference",title:"Clip reference",uri:"content://selected/media/1",mimeType:"video/mp4",sourceLabel:"System picker",userApproved:true});
+ assert.equal(media.mimeType,"video/mp4");
  assert.throws(()=>creative.addAsset({projectId:project.id,type:"text",title:"Outline",text:"Hello"}),/approval/i);
  creative.addAsset({projectId:project.id,type:"text",title:"Outline",text:"A clear introduction",userApproved:true});
  const draft=creative.saveDraft({projectId:project.id,title:"Narration",content:"First version",userApproved:true});
