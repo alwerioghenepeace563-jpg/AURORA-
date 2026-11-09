@@ -1,3 +1,4 @@
+import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * AURORA Hybrid Memory Core.
  * Local-first by default. Cloud sync is disabled until the user explicitly
@@ -31,11 +32,11 @@ function createAuroraMemory(options = {}) {
     for (const listener of listeners) { try { listener(event); } catch { /* isolate subscribers */ } }
   }
   function readAll() {
-    if (!storage?.getItem) return [];
-    try {
-      const value = JSON.parse(storage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(value) ? value.filter((item) => item && typeof item.id === "string") : [];
-    } catch { return []; }
+    return readStoredJson(storage, STORAGE_KEY, [], value =>
+      Array.isArray(value) && value.every(item => isRecord(item) && typeof item.id === "string" && item.id.length > 0 &&
+        typeof item.kind === "string" && typeof item.title === "string" && typeof item.content === "string" &&
+        (item.tags == null || Array.isArray(item.tags))),
+      "AURORA memory");
   }
   function writeAll(records) {
     if (!storage?.setItem) throw new Error("Local memory storage is unavailable.");
