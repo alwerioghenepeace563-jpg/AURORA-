@@ -747,3 +747,11 @@ A new tool should normally require only:
 4. A regression test for success, unavailable state, rejection and permission denial.
 
 Do not create a page by default. Add UI only when the user needs to configure a service, review permissions/approvals, or interact with a result. Never let model-generated text directly invoke arbitrary Android intents or JavaScript; it must resolve to a registered capability.
+
+## 19. User-selected file intelligence and command routing
+
+The Android capability registry now includes `files.pick_document`. It invokes Android's Storage Access Framework document picker (`ACTION_OPEN_DOCUMENT`), so AURORA does not browse the device filesystem or request broad storage permission. The user chooses the exact document in Android's picker. The native adapter returns the display name, MIME type and content URI. It previews only plain-text, JSON and XML content, with a hard 1 MB limit; other file types are identified but not decoded as text. Cancellation is a normal result, not an error. A future document pipeline can add PDF/image extraction behind separate explicit user actions and bounded processing.
+
+The shared runtime also routes explicit app-launch phrases through a fixed package allowlist (WhatsApp, Facebook, Chrome, YouTube and Android Settings). It never accepts arbitrary package identifiers from a model response. Explicit file/document requests open the system picker. Navigation and media phrases continue through their registered adapters. Chat, voice and Pulse should continue to call the same `auroraRuntime.routeMessage` entry point; these remain internal capabilities rather than new app pages.
+
+**Privacy boundary:** the picker is the user's selection boundary. AURORA reads only the selected supported text file and returns its bounded text preview to the caller. No background scan, recursive file enumeration, or silent upload is performed by this adapter.
