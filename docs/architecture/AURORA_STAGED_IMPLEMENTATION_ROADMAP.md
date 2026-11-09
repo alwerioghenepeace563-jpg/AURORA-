@@ -339,7 +339,19 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 | 6. Connected ecosystem | 12–13 | Opt-in predictive/sensor intelligence, connected devices and interoperable extensions |
 | 7. Experimental intelligence | 14 | Extensible research capabilities, evaluation, controlled experiments and safe rollout |
 
-### Stage 9 — Personal Knowledge Universe (next active stage)
+### Stage 9 — Personal Knowledge Universe (active)
+
+**Implementation wave 1 — Local-first knowledge universe core (code committed; CI pending):**
+- Added an explicit-approval index for notes, documents, projects, tasks, conversations, saved websites, recording transcripts, image descriptions and events.
+- Records retain provenance (source label, URI, capture time and method), project association, tags and bounded summaries.
+- Exact duplicate sources are detected before a new record is created.
+- Search supports source-type, project and tag scoping; related-source links and chronological timeline views are available.
+- Corrections require separate confirmation and retain a bounded revision trail; deletion requires separate confirmation and removes attached relationships.
+- The service is local-only, bounded to 500 records and 12,000 characters per source, and performs no background capture or cloud sync.
+- Shared runtime exposes add/search/relate/related/timeline/correct/delete APIs; federated search and privacy inventory include the new universe.
+- Added Stage 9 service and architecture regressions; Stage 9 evidence is recorded across all 12 capability families.
+
+**Stage 9 acceptance rule:** the latest core CI and web production build must pass; all 12 families must have evidence; selected-source provenance, duplicate handling, scoped search, relationships, timeline, correction, deletion and local-first privacy must remain covered. Android document picker UX and physical-device integration remain separate validation.
 - Build a durable relationship graph connecting user-approved notes, documents, projects, tasks, conversations, saved websites, recordings, images and events.
 - Support questions such as “find everything related to this project”, “what decisions did I make?” and “compare the original idea with the latest version”.
 - Add source citations/provenance, duplicate detection, timeline views, scoped search, user correction and deletion.
