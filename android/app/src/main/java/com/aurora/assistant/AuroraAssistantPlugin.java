@@ -762,6 +762,77 @@ public class AuroraAssistantPlugin extends Plugin {
 
 
     @PluginMethod
+    public void pickMedia(PluginCall call) {
+        String mediaType = call.getString("mediaType", "image");
+        String mime = "image".equals(mediaType) ? "image/*" :
+            "video".equals(mediaType) ? "video/*" :
+            "audio".equals(mediaType) ? "audio/*" : null;
+        if (mime == null) { call.reject("Choose image, video or audio media."); return; }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mime);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        startActivityForResult(call, intent, "handleMediaResult");
+    }
+
+    @com.getcapacitor.annotation.ActivityCallback
+    private void handleMediaResult(PluginCall call, ActivityResult activityResult) {
+        if (call == null) return;
+        if (activityResult == null || activityResult.getResultCode() != android.app.Activity.RESULT_OK
+            || activityResult.getData() == null || activityResult.getData().getData() == null) {
+            call.resolve(new JSObject().put("cancelled", true));
+            return;
+        }
+        Uri uri = activityResult.getData().getData();
+        try {
+            int flags = activityResult.getData().getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+            if (flags != 0) {
+                try { getContext().getContentResolver().takePersistableUriPermission(uri, flags); }
+                catch (SecurityException ignored) { }
+            }
+            String mime = getContext().getContentResolver().getType(uri);
+            String name = "Selected media";
+            try (Cursor cursor = getContext().getContentResolver().query(uri,
+                new String[] { android.provider.OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (index >= 0 && cursor.getString(index) != null) name = cursor.getString(index);
+                }
+            }
+            call.resolve(new JSObject().put("cancelled", false).put("name", name)
+                .put("mimeType", mime == null ? "application/octet-stream" : mime)
+                .put("contentUri", uri.toString()).put("readOnlySelection", true)
+                .put("contentLoaded", false));
+        } catch (Exception e) { call.reject("Could not read selected media metadata.", e); }
+    }
+
+    @PluginMethod
+    public void shareSelectedFile(PluginCall call) {
+        String rawUri = call.getString("contentUri");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        if (rawUri == null || !rawUri.startsWith("content://") || rawUri.length() > 2048) {
+            call.reject("Share only a content URI returned by AURORA's system picker."); return;
+        }
+        if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#    @PluginMethod
+    public void pickDocument(PluginCall call) {^_.+-]+/[A-Za-z0-9!#    @PluginMethod
+    public void pickDocument(PluginCall call) {^_.+-]+")) {
+            call.reject("Provide a valid media type."); return;
+        }
+        try {
+            Uri uri = Uri.parse(rawUri);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(mimeType);
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(send, "Share selected file");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(chooser);
+            call.resolve(new JSObject().put("opened", true).put("requiresUserDestination", true)
+                .put("fileSentByAurora", false));
+        } catch (Exception e) { call.reject("Android could not open the file share sheet.", e); }
+    }
+
+    @PluginMethod
     public void pickDocument(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
