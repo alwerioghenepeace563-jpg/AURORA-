@@ -466,7 +466,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added a draft studio with bounded content and up to ten previous revisions per draft.
 - Added SRT/WebVTT parsing, chronological cue validation, bounded caption imports and SRT/VTT export from user-selected caption text. This is caption-file handling, not automatic speech recognition.
 - Added flashcard decks, confirmed review ratings, practice quiz construction and deterministic answer grading from user-supplied question/answer material.
-- Added a dedicated Creative + Learning Studio in AURORA Tools, with project, caption and learning tabs; connected study-plan creation and progress tracking from the first wave.
+- Added a dedicated Creative + Learning Studio in AURORA Tools, with project, caption and learning tabs; connected study-plan creation, quiz practice, flashcard review and progress tracking from the first wave. Android system pickers now attach user-selected image/video/audio and document references to projects, and the Android Sharesheet can be opened for a selected file; media bytes are not copied or processed by this workspace.
 - Registered creative records in shared federated search and exposed all operations through the shared Main/Pulse/voice runtime.
 - Added regression coverage for project lifecycle, approvals, revisions, SRT/VTT round trips, flashcards, quiz grading, search and local-only storage.
 
