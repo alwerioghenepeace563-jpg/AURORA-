@@ -26,6 +26,7 @@ import { createAuroraRoutineScheduler } from "./aurora-routine-scheduler";
 import { createAuroraSupabaseMemoryAdapter } from "./aurora-supabase-memory-adapter";
 import { auroraSecureStorage as nativeSecureStorage, auroraReminder } from "../lib/aurora-secure-storage";
 import { createAuroraSecureStore } from "./aurora-secure-store";
+import { createAuroraProtectedMemory } from "./aurora-protected-memory";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
@@ -65,6 +66,7 @@ const secureStorage = createAuroraSecureStore({
   available: nativeSecureStorage.isAvailable(),
   adapter: nativeSecureStorage
 });
+const protectedMemory = createAuroraProtectedMemory({ secureStore: secureStorage });
 let pendingReminder = null;
 let pendingRoutine = null;
 const routineScheduler = createAuroraRoutineScheduler({ reminder: auroraReminder, workflows: auroraWorkflows });
@@ -94,6 +96,7 @@ const dataInventory = createAuroraDataInventory({
   extensions: () => ({ label: "Installed extension manifests", location: "Local browser storage", count: extensionRegistry.list().length, encrypted: false, note: "Declarative metadata only; no downloaded code." }),
   routines: () => ({ label: "Scheduled routine reminders", location: "Local browser storage and Android alarm records", count: routineScheduler.list().length, encrypted: false, note: "Reminders only; workflow actions never run unattended." }),
   memory_sync: () => ({ label: "Cloud memory sync", location: "Supabase", count: memorySync.status().records.length, encrypted: true, syncEnabled: memorySync.status().enabled, note: "Only individually selected memories are uploaded." }),
+  protected_memory: () => ({ label: "Protected memories", location: nativeSecureStorage.isAvailable() ? "Android Keystore-backed encrypted storage" : "Unavailable on this platform", count: null, encrypted: nativeSecureStorage.isAvailable(), note: "Protected memory is Android-only and never falls back to browser storage." }),
   auth_session: () => ({ label: "Android sign-in session", location: nativeSecureStorage.isAvailable() ? "Android Keystore-backed encrypted storage" : "Browser session storage", count: null, encrypted: nativeSecureStorage.isAvailable(), note: "This inventory never reads or displays session contents." })
 });
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
@@ -503,6 +506,7 @@ const auroraRuntime = Object.freeze({
   dataInventory,
   executeExtension: (extensionId, capabilityId, input) => extensionRegistry.execute(extensionId, capabilityId, input),
   secureStorage,
+  protectedMemory,
   reminders: auroraReminder,
   routines: routineScheduler,
   memory: auroraMemory,
