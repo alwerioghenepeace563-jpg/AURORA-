@@ -799,6 +799,7 @@ const auroraRuntime = Object.freeze({
   deleteCreativeProject: (id, options) => auroraCreativeUniverse.deleteProject(id, options),
   addCreativeAsset: (input) => auroraCreativeUniverse.addAsset(input),
   listCreativeAssets: (projectId) => auroraCreativeUniverse.listAssets(projectId),
+  buildCreativeProjectContext: (projectId, options) => auroraCreativeUniverse.buildProjectContext(projectId, options),
   saveCreativeDraft: (input) => auroraCreativeUniverse.saveDraft(input),
   listCreativeDrafts: (projectId) => auroraCreativeUniverse.listDrafts(projectId),
   deleteCreativeDraft: (id, options) => auroraCreativeUniverse.deleteDraft(id, options),
