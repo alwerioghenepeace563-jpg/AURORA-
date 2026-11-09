@@ -5,6 +5,7 @@
  */
 import { createAuroraApprovalBroker } from "./aurora-approval-broker";
 import { createAuroraCapabilityRuntime } from "./aurora-capability-runtime";
+import { auroraLayerRegistry } from "./aurora-layer-registry";
 import { runAuroraToolTree } from "../lib/aurora-tool-tree";
 import { parseCalendarIntent } from "./aurora-intent-parser";
 import { createAuroraTaskOrchestrator } from "./aurora-task-orchestrator";
@@ -479,6 +480,7 @@ async function routeMessage(text) {
 }
 
 const auroraRuntime = Object.freeze({
+  layers: auroraLayerRegistry,
   actions: actionEngine,
   approvals: approvalBroker,
   tasks: taskOrchestrator,
