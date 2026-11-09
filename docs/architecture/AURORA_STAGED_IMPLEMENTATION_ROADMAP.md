@@ -124,6 +124,8 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Implementation wave 2 completed in code:** Added approval-gated local search across recent Android notification previews, requiring Notification Access and returning only matching cached entries. Added approval-gated in-memory search over user-selected document text, bounded to 1 MB and 20 excerpts, with no document-content persistence. Both adapters include automated contract assertions.
 
+**Implementation wave 3 completed in code:** Added approval-gated SMS composer and Android share-sheet capabilities using existing native plugin methods. SMS is only drafted in the system composer and always requires the user to press Send; sharing requires the user to choose a destination. TypeScript wrappers and automated contract tests are included.
+
 **Remaining Stage 5 work:** Expand screen and notification workflows, richer communication actions, location/maps capabilities beyond external handoff, calendar/task integrations, file/document processing, media creation, intelligence tools, and extension interoperability. Each new adapter must use the shared permission/consent/approval contracts, expose honest platform availability, and have automated regression coverage. No Stage 4 work is reopened; only ordinary regression checks apply.
 
 ### Stage 6 — Surface integration and device validation
