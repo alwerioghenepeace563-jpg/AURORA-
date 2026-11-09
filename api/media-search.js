@@ -1,46 +1,15 @@
 import cors from "../lib/cors.cjs";
 const { applyAuroraCors } = cors;
-
-function decode(value="") {
-  return String(value).replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,"<").replace(/&gt;/g,">");
-}
-function httpsUrl(value) {
-  try {
-    const url=new URL(decode(value));
-    if(url.protocol!=="https:" || /(^|\\.)(localhost|local|internal)$/.test(url.hostname)) return "";
-    return url.href;
-  } catch { return ""; }
-}
-function parseImageResults(payload) {
-  const rows=Array.isArray(payload?.results)?payload.results:[];
-  const seen=new Set();
-  return rows.map(row=>{
-    const image= httpsUrl(row.image || row.thumbnail);
-    const page= httpsUrl(row.url || row.source);
-    const title=String(row.title||"Image result").replace(/<[^>]*>/g," ").replace(/\\s+/g," ").trim().slice(0,180);
-    const source=String(row.source||"").slice(0,100);
-    if(!image||!page||!title||seen.has(image)) return null;
-    seen.add(image);
-    return {id:image,title,imageUrl:image,pageUrl:page,source};
-  }).filter(Boolean).slice(0,12);
-}
-export default async function handler(req,res) {
-  if(applyAuroraCors(req,res,"GET, OPTIONS")) return;
-  res.setHeader("Cache-Control","no-store");
-  res.setHeader("Content-Type","application/json; charset=utf-8");
-  if(req.method!=="GET") {res.setHeader("Allow","GET, OPTIONS");return res.status(405).json({error:"Use GET."});}
-  const query=typeof req.query?.q==="string"?req.query.q.trim().slice(0,180):"";
-  if(query.length<2) return res.status(400).json({error:"Enter what kind of media you need."});
-  try {
-    const url="https://duckduckgo.com/i.js?o=json&q="+encodeURIComponent(query+" high quality image");
-    const response=await fetch(url,{headers:{"Accept":"application/json","User-Agent":"Mozilla/5.0 (compatible; AURORA Media Search/1.0)","Referer":"https://duckduckgo.com/"},signal:AbortSignal.timeout(9000)});
-    if(!response.ok) throw new Error("Image search returned HTTP "+response.status);
-    const payload=await response.json();
-    const results=parseImageResults(payload);
-    if(!results.length) throw new Error("No usable image results were returned.");
-    return res.status(200).json({query,source:"DuckDuckGo image search",results,rightsNotice:"These are web search results, not automatically licensed downloads. Open the source page and check its licence/usage terms before publishing or reusing."});
-  } catch(error) {
-    console.warn("AURORA media search unavailable:",error?.message||"Search failed");
-    return res.status(502).json({error:"Media search is temporarily unavailable. Try again or use a more specific description."});
-  }
+function safeUrl(value){try{const u=new URL(String(value||""));return u.protocol==="https:"?u.href:"";}catch{return "";}}
+function cleanTitle(value){return String(value||"Media result").replace(/<[^>]*>/g," ").replace(/&amp;/g,"&").replace(/\s+/g," ").trim().slice(0,180);}
+function imageResults(data){const seen=new Set();return (Array.isArray(data?.results)?data.results:[]).map(row=>{const imageUrl=safeUrl(row.image||row.thumbnail),pageUrl=safeUrl(row.url||row.source);if(!imageUrl||!pageUrl||seen.has(imageUrl))return null;seen.add(imageUrl);return {id:imageUrl,title:cleanTitle(row.title),imageUrl,pageUrl,directUrl:imageUrl,source:String(row.source||"").slice(0,100)};}).filter(Boolean).slice(0,12);}
+function videoResults(data){const seen=new Set();return (Array.isArray(data?.results)?data.results:[]).map(row=>{const pageUrl=safeUrl(row.url||row.content),imageUrl=safeUrl(row.thumbnail||row.image);if(!pageUrl||seen.has(pageUrl))return null;seen.add(pageUrl);const candidate=safeUrl(row.content_url||row.video_url||"");const directUrl=/\.(mp4|webm|mov|m4v)(?:$|\?)/i.test(candidate)?candidate:"";return {id:pageUrl,title:cleanTitle(row.title),pageUrl,imageUrl,directUrl,source:String(row.source||"Video search").slice(0,100),duration:String(row.duration||"").slice(0,30)};}).filter(Boolean).slice(0,12);}
+export default async function handler(req,res){
+ if(applyAuroraCors(req,res,"GET, OPTIONS"))return;
+ res.setHeader("Cache-Control","no-store");res.setHeader("Content-Type","application/json; charset=utf-8");
+ if(req.method!=="GET"){res.setHeader("Allow","GET, OPTIONS");return res.status(405).json({error:"Use GET."});}
+ const query=typeof req.query?.q==="string"?req.query.q.trim().slice(0,180):"";const type=req.query?.type==="video"?"video":"image";
+ if(query.length<2)return res.status(400).json({error:"Enter what kind of media you need."});
+ try{const endpoint=type==="video"?"https://duckduckgo.com/v.js?o=json&q=":"https://duckduckgo.com/i.js?o=json&q=";const response=await fetch(endpoint+encodeURIComponent(query),{headers:{"Accept":"application/json","User-Agent":"Mozilla/5.0 (compatible; AURORA Media Search/1.0)","Referer":"https://duckduckgo.com/"},signal:AbortSignal.timeout(9000)});if(!response.ok)throw new Error("Search provider returned HTTP "+response.status);const data=await response.json();const results=type==="video"?videoResults(data):imageResults(data);if(!results.length)throw new Error("No usable media results were returned.");return res.status(200).json({query,type,source:"DuckDuckGo "+type+" search",results,rightsNotice:"AURORA downloads only direct HTTPS media files in supported formats. It does not bypass streaming, login, paywall, DRM or platform download restrictions. Check source licences before reuse."});}
+ catch(error){console.warn("AURORA media search unavailable:",error?.message||"Search failed");return res.status(502).json({error:"Media search is temporarily unavailable. Try again or use a more specific description."});}
 }
