@@ -337,6 +337,40 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_workflow_saved", workflowId: saved.id, context: "Saved workflow “" + saved.title + "”. It will still ask for confirmation every time you run it." };
   }
 
+  const inspectWorkflowMatch = message.match(/^(?:inspect|review|explain) workflow (.+)$/i);
+  if (inspectWorkflowMatch) {
+    const query = inspectWorkflowMatch[1].trim().toLowerCase();
+    const matches = auroraWorkflows.list().filter(item => item.title.toLowerCase() === query || item.title.toLowerCase().includes(query));
+    if (matches.length !== 1) {
+      return { tool: "aurora_workflow_inspection", status: matches.length ? "ambiguous" : "not_found", context: matches.length ? "More than one workflow matches: " + matches.map(item => item.title).join(", ") + ". Specify its exact title." : "I couldn't find that saved workflow." };
+    }
+    const workflow = matches[0];
+    const available = new Map(actionEngine.listCapabilities().map(item => [item.id, item]));
+    const steps = workflow.steps.map(step => {
+      const capability = available.get(step.capabilityId);
+      return {
+        stepId: step.id,
+        capabilityId: step.capabilityId,
+        label: capability?.label || step.capabilityId,
+        availability: capability ? "available" : "unavailable",
+        risk: capability?.risk || "unknown",
+        approvalRequired: capability?.approvalRequired !== false,
+        dependencies: [...step.dependsOn]
+      };
+    });
+    const unavailable = steps.filter(step => step.availability !== "available");
+    const approvals = steps.filter(step => step.approvalRequired);
+    return {
+      tool: "aurora_workflow_inspection",
+      workflowId: workflow.id,
+      title: workflow.title,
+      summary: workflow.summary,
+      steps,
+      readyToPrepare: unavailable.length === 0,
+      context: "Read-only inspection of workflow “" + workflow.title + "”: " + steps.map((step, index) => (index + 1) + ". " + step.label + " — " + step.availability + ", risk " + step.risk + (step.approvalRequired ? ", approval required" : ", no additional approval flag") + (step.dependencies.length ? ", depends on " + step.dependencies.join(", ") : "")).join("; ") + ". " + (unavailable.length ? "Some capabilities are unavailable; this workflow cannot be prepared." : "All referenced capabilities are currently registered. This does not mean they have been tested or executed.") + " " + approvals.length + " step(s) require approval. No action was executed and no permission was granted."
+    };
+  }
+
   const runWorkflowMatch = message.match(/^(?:prepare|run|start) workflow (.+)$/i);
   if (runWorkflowMatch) {
     const query = runWorkflowMatch[1].trim().toLowerCase();
@@ -662,6 +696,7 @@ const auroraRuntime = Object.freeze({
   specialistHealth: (id) => id ? specialists.getHealth(id) : specialists.health(),
   workflows: auroraWorkflows,
   saveWorkflow: (input) => auroraWorkflows.save(input, actionEngine.listCapabilities()),
+  inspectWorkflow: (workflowId) => { const item = auroraWorkflows.get(workflowId); if (!item) return null; const available = new Map(actionEngine.listCapabilities().map(capability => [capability.id, capability])); return { id: item.id, title: item.title, summary: item.summary, steps: item.steps.map(step => { const capability = available.get(step.capabilityId); return { stepId: step.id, capabilityId: step.capabilityId, label: capability?.label || step.capabilityId, availability: capability ? "available" : "unavailable", risk: capability?.risk || "unknown", approvalRequired: capability?.approvalRequired !== false, dependencies: [...step.dependsOn] }; }) }; },
   prepareWorkflow: (workflowId) => { const plan = auroraWorkflows.instantiate(workflowId, actionEngine.listCapabilities(), taskOrchestrator); latestPendingTaskId = plan.id; return taskOrchestrator.runPlan(plan, { confirmed: false }); },
   createTaskPlan: (plan) => taskOrchestrator.createPlan(plan),
   runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),
