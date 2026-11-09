@@ -477,7 +477,7 @@ if (!securePluginSource.includes('@CapacitorPlugin(name = "AuroraSecureStorage")
 const nativePluginPath = path.join(javaRoot, "AuroraAssistantPlugin.java");
 const nativePluginSource = fs.readFileSync(nativePluginPath, "utf8");
 const requiredNativeMethods = [
-  "pickDocument", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
+  "pickDocument", "prepareSms", "shareText", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
   "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
   "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
   "setFlashlight", "startSpeechRecognition", "stopSpeechRecognition", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "status"
