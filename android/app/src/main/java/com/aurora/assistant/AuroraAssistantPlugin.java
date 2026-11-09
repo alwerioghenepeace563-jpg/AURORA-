@@ -1217,14 +1217,35 @@ public class AuroraAssistantPlugin extends Plugin {
                 if (level >= 0 && scale > 0) result.put("batteryPercent", Math.round(level * 100f / scale));
                 int plugged = battery.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0);
                 result.put("charging", plugged != 0);
+                result.put("chargingSource", plugged == 0 ? "none" : plugged == android.os.BatteryManager.BATTERY_PLUGGED_USB ? "usb" : plugged == android.os.BatteryManager.BATTERY_PLUGGED_AC ? "ac" : plugged == android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS ? "wireless" : "other");
                 result.put("batteryHealth", battery.getIntExtra(android.os.BatteryManager.EXTRA_HEALTH, -1));
+                int temperature = battery.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, -1);
+                if (temperature >= 0) result.put("batteryTemperatureC", temperature / 10.0);
+                int voltage = battery.getIntExtra(android.os.BatteryManager.EXTRA_VOLTAGE, -1);
+                if (voltage > 0) result.put("batteryVoltageMv", voltage);
+                result.put("batteryStatus", battery.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1));
+            }
+            android.app.ActivityManager activityManager = (android.app.ActivityManager) getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
+            if (activityManager != null) {
+                android.app.ActivityManager.MemoryInfo memory = new android.app.ActivityManager.MemoryInfo();
+                activityManager.getMemoryInfo(memory);
+                result.put("memoryAvailableBytes", memory.availMem);
+                result.put("memoryTotalBytes", memory.totalMem);
+                result.put("memoryLow", memory.lowMemory);
+                result.put("memoryThresholdBytes", memory.threshold);
+            }
+            if (Build.VERSION.SDK_INT >= 29) {
+                android.os.PowerManager power = (android.os.PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
+                if (power != null) result.put("thermalStatus", power.getCurrentThermalStatus());
             }
             result.put("platform", "android");
             result.put("sdk", Build.VERSION.SDK_INT);
             result.put("manufacturer", Build.MANUFACTURER);
             result.put("model", Build.MODEL);
+            result.put("readOnly", true);
+            result.put("capturedAt", System.currentTimeMillis());
             call.resolve(result);
-        } catch (Exception e) { call.reject("Could not read device status.", e); }
+        } catch (Exception e) { call.reject("Could not read device health status.", e); }
     }
 
     @PluginMethod
