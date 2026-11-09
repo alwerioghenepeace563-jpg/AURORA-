@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 4 — Reliability and recovery  
+**Current checkpoint:** Stage 5 — Capability adapter expansion  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -90,9 +90,9 @@ Implemented code-level hardening: Android-only protected-memory vault; shared ru
 
 These checks remain **deferred and unverified** by the user’s direction to finish the app first. They are mandatory before release sign-off, but do not prevent Stage 4 from beginning after the Stage 3 CI pass. Preserve local-first behavior; do not perform automatic migration or bulk upload.
 
-### Stage 4 — Reliability and recovery (implementation complete; verification in progress)
+### Stage 4 — Reliability and recovery (complete — code and CI checkpoint)
 
-**Code implementation checkpoint recorded. Automated verification is now being run on the active feature branch.**
+**Stage 4 is complete as a code-level reliability and recovery checkpoint.**
 
 The coordinated reliability foundation adds a shared lifecycle coordinator for visibility, foreground/background, online/offline, pagehide and pageshow events; bounded metadata-only failure diagnostics; cooperative cancellation for multi-step tasks; and a review-only recovery queue. The task journal now stores bounded execution receipt metadata only: it excludes task inputs, action result payloads, error messages and sensitive document/screen/media contents. Cancellation stops active Action Engine work and prevents later steps. Existing authorization, consent, approval, timeout and idempotency gates remain authoritative. A regression test verifies that private action payloads are not persisted in recovery records.
 
@@ -112,9 +112,9 @@ The final implementation pass extends reliability into persistent and scheduled 
 - Routine scheduling validates stored records and bounds, compensates if persistence fails after an Android alarm is created, and makes cancellation transactional: the saved record is restored if Android cannot cancel the reminder. Routines remain reminders only and never execute workflow steps in the background.
 - Existing extension execution remains metadata-only and routes every requested capability through the shared Action Engine; no downloaded code or autonomous extension execution is introduced.
 
-**Stage 4 implementation result:** The planned code changes now cover task execution, task journaling, specialist isolation, lifecycle diagnostics, recovery review, storage-backed workflows, memory sync, extension execution boundaries and scheduled background reminders. No Stage 5 work has started. The user previously asked to defer testing, but has now authorized completion work. The latest feature-branch CI run (GitHub Actions run 42590473519) passed dependency installation, the blocking dependency audit, all core/architecture tests, and the web production build. The dedicated feature-branch CI gate is verified. Per the project decision, Android APK compilation is deferred until the later release-preparation phase: its workflow is now manual-only and will not consume build time on every source push. The earlier Android run was cancelled during Gradle compilation when later pushes superseded it; this was not a confirmed Gradle build failure. APK compilation, archive validation, artifact upload, and physical-device lifecycle/interruption checks remain explicitly deferred and unverified. Stage 4 will be judged on its active code-level reliability, security, recovery, tests, and web CI gates; APK/device certification is a later release gate.
+**Stage 4 implementation result:** The planned code changes now cover task execution, task journaling, specialist isolation, lifecycle diagnostics, recovery review, storage-backed workflows, memory sync, extension execution boundaries and scheduled background reminders. No Stage 5 work has started. The user previously asked to defer testing, but has now authorized completion work. The latest feature-branch CI run (GitHub Actions run 42591318770) passed dependency installation, the blocking dependency audit, all core/architecture tests, and the web production build on commit `5c646116d4341b4ff62c30a34183bc02dcbd717c`. The dedicated feature-branch CI gate is verified. Per the project decision, Android APK compilation is deferred until the later release-preparation phase: its workflow is now manual-only and will not consume build time on every source push. The earlier Android run was cancelled during Gradle compilation when later pushes superseded it; this was not a confirmed Gradle build failure. APK compilation, archive validation, artifact upload, and physical-device lifecycle/interruption checks remain explicitly deferred and unverified. Stage 4 is closed on its active code-level reliability, security, recovery, tests, and web CI gates. APK/device certification is a later release gate. Stage 5 is now the active checkpoint; all 12 capability families remain in the active upgrade queue.
 
-### Stage 5 — Capability adapter expansion
+### Stage 5 — Capability adapter expansion (active)
 
 Upgrade Android, voice, screen, communication, maps, productivity, files, media, intelligence, and extension adapters behind the shared contracts. Each adapter must have automated tests and honest platform availability reporting.
 
