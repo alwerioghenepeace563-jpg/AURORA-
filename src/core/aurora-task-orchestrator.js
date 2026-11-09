@@ -19,6 +19,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
   const plans = new Map();
   const runs = new Map();
   const inFlight = new Map();
+  const controllers = new Map();
   const capabilityMap = () => new Map(actionEngine.listCapabilities().map((item) => [item.id, item]));
 
   function emit(type, payload) {
@@ -95,11 +96,14 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     }
     if (inFlight.has(plan.id)) return inFlight.get(plan.id);
     if (runs.has(plan.id)) return runs.get(plan.id);
+    const controller = new AbortController();
+    controllers.set(plan.id, controller);
     const operation = (async () => {
     const state = { taskId: plan.id, title: plan.title, status: "running", startedAt: new Date().toISOString(), steps: [] };
     emit("task.started", { taskId: plan.id, title: plan.title, totalSteps: plan.steps.length });
 
     for (const step of plan.steps) {
+      if (controller.signal.aborted) { state.status = "cancelled"; state.stoppedAtStep = step.id; break; }
       const unmet = step.dependsOn.filter((dependency) => !state.steps.some((item) => item.stepId === dependency && item.status === "completed"));
       if (unmet.length) {
         state.status = "blocked";
@@ -112,7 +116,8 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
         capabilityId: step.capabilityId,
         input: step.input,
         requestedBy: "task:" + plan.id,
-        requestId: plan.id + ":" + step.id
+        requestId: plan.id + ":" + step.id,
+        signal: controller.signal
       });
       const item = Object.freeze({
         stepId: step.id,
@@ -124,7 +129,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
       state.steps.push(item);
       emit("task.step_finished", { taskId: plan.id, step: item });
       if (receipt.status !== "completed") {
-        state.status = receipt.status === "rejected" ? "awaiting_user" : "failed";
+        state.status = controller.signal.aborted || receipt.error?.code === "ACTION_CANCELLED" ? "cancelled" : receipt.status === "rejected" ? "awaiting_user" : "failed";
         state.stoppedAtStep = step.id;
         break;
       }
@@ -148,13 +153,14 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     })();
     inFlight.set(plan.id, operation);
     try { return await operation; }
-    finally { inFlight.delete(plan.id); }
+    finally { inFlight.delete(plan.id); controllers.delete(plan.id); }
   }
 
   return Object.freeze({
     createPlan,
     getPlan,
     runPlan,
+    cancelPlan: (taskId) => { const id = String(taskId); const controller = controllers.get(id); if (!controller || controller.signal.aborted) return false; controller.abort(new Error("Task cancelled by the user.")); emit("task.cancel_requested", { taskId: id }); return true; },
     subscribe,
     listPlans: () => [...plans.values()],
     getRun: (id) => runs.get(String(id)) || null,
