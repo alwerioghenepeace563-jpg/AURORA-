@@ -819,6 +819,7 @@ const auroraRuntime = Object.freeze({
     return auroraKnowledgeUniverse.add({ type, title: item.title, content, summary: "Saved from AURORA Creative + Learning Studio", projectId: item.projectId || item.id, sourceLabel: "AURORA Creative + Learning Studio", sourceMethod: "explicit_creative_archive", tags: ["creative", kind], userApproved: true });
   },
   importSubtitles: (input) => auroraCreativeUniverse.importSubtitles(input),
+  searchProjectSubtitles: (query, options) => auroraCreativeUniverse.searchSubtitles(query, options),
   exportSubtitles: (assetId, format) => auroraCreativeUniverse.exportSubtitles(assetId, format),
   createFlashcardDeck: (input) => auroraCreativeUniverse.createDeck(input),
   listFlashcardDecks: () => auroraCreativeUniverse.listDecks(),
