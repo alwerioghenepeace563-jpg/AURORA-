@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageSevenStatus, "complete");
   assert.equal(summary.stageSevenCodeComplete, true);
   assert.equal(summary.stageSevenAuditedLayers, 12);
-  assert.equal(summary.nextStage, 8);
+  assert.equal(summary.nextStage, 9);
   assert.equal(Object.keys(audit).length, 12);
   for (const layer of registry.auroraLayerRegistry.list()) {
     assert.ok(layer.stageSevenEvidence.length >= 3, "Missing Stage 7 evidence for " + layer.id);
@@ -16,5 +16,5 @@ const assert = require("node:assert/strict");
   assert.equal(stage7.status, "complete");
   assert.equal(registry.auroraLayerRegistry.stageSevenDeferredDeviceValidation.status, "deferred");
   assert.match(stage7.validationBoundary, /Physical Android behavior/);
-  console.log("AURORA Stage 7 checkpoint passed: all 12 layers audited; Stage 8 is next; device certification remains deferred.");
+  console.log("AURORA Stage 7 checkpoint passed: all 12 layers audited; Stage 8 is complete; Stage 9 is next; device certification remains deferred.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
