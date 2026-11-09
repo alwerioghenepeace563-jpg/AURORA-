@@ -451,6 +451,17 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Distinguish supported Android APIs from unavailable or OEM-restricted controls; never simulate success.
 
 ### Stage 11 — Creative and Learning Universe (active; opened 2026-11-09)
+
+**Implementation wave 1 — Local-first learner-controlled study plans (code committed; CI pending):**
+- Added a shared Learning Universe service for creating bounded study plans across supported subjects, with learner-selected level, goal and topic list.
+- Added explicit approval before saving a plan or a study session; topic progress changes and plan deletion require confirmation.
+- Added practice-session logging with validated topic, bounded notes and a 1–600 minute duration. Progress summaries derive only from recorded sessions and explicitly updated topic states; AURORA does not invent study completion or grades.
+- Exposed create/list/update/log/progress/delete APIs through the single shared Main/Pulse/voice runtime and registered study plans in federated search.
+- Learning records remain local-only in this service; cloud sync and automatic capture are disabled. Corrupt persisted data fails closed.
+- Added focused regression coverage and included it in the core CI test chain.
+
+**Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
+
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
 
 Stage 10's device-specific validation remains a release backlog rather than a reason to hold the code roadmap: no unsupported hardware or OEM feature is represented as working, and all unavailable outcomes remain explicit.
