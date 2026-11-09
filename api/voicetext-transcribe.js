@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   const audioBase64 = typeof body?.audioBase64 === "string" ? body.audioBase64 : "";
   const mimeType = typeof body?.mimeType === "string" ? body.mimeType.toLowerCase() : "";
   if (!audioBase64 || audioBase64.length > 4000000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(audioBase64) || audioBase64.length % 4 !== 0) {
-    return res.status(audioBase64.length > 1800000 ? 413 : 400).json({ error: "Choose a valid audio file up to approximately 3 MB. The hosting request-size limit prevents unlimited single-request uploads." });
+    return res.status(audioBase64.length > 4000000 ? 413 : 400).json({ error: "Choose a valid audio file up to approximately 3 MB. The hosting request-size limit prevents unlimited single-request uploads." });
   }
   const supported = new Set(["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp3", "audio/ogg", "audio/mp4", "audio/aac", "audio/webm"]);
   if (!supported.has(mimeType)) return res.status(415).json({ error: "VoiceText currently accepts audio files only. Select an audio recording rather than a video." });
