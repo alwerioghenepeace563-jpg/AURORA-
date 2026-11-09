@@ -23,6 +23,7 @@ const assert = require("node:assert/strict");
  const vtt=renderSubtitles(cues,"vtt"); assert.match(vtt,/^WEBVTT/); assert.match(vtt,/00:00:01\.000 --> 00:00:02\.500/);
  const imported=creative.importSubtitles({projectId:project.id,title:"Captions",content:srt,userApproved:true});
  assert.equal(imported.cueCount,2); assert.match(creative.exportSubtitles(imported.id,"srt"),/Hello there/);
+ const captionHits=creative.searchSubtitles("hello",{projectId:project.id}); assert.equal(captionHits.length,1); assert.equal(captionHits[0].title,"Captions"); assert.equal(captionHits[0].startTime,"00:00:01.000"); assert.match(captionHits[0].text,/Hello there/); assert.deepEqual(creative.searchSubtitles("missing"),[]);
  assert.throws(()=>parseSubtitles("1\n00:00:04,000 --> 00:00:02,000\nBad"),/timestamps/i);
  assert.throws(()=>creative.importSubtitles({projectId:project.id,content:srt}),/approval/i);
  const deck=creative.createDeck({title:"Cell biology",subject:"Biology",cards:[{question:"What is a cell?",answer:"Basic unit of life"},{question:"What surrounds a cell?",answer:"Cell membrane"}],userApproved:true});
