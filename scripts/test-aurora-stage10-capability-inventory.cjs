@@ -122,3 +122,20 @@ for (const id of ['device.read_clipboard', 'device.write_clipboard']) {
 }
 assert.ok(capabilityRuntime.includes("notStored: true"));
 console.log("AURORA Stage 10 clipboard tests passed: explicit approval, bounded text and no persistence.");
+
+
+// Stage 10 Wave 8: camera capture is explicit and preview-only.
+assert.equal((nativeJava.match(/public void capturePhoto\(PluginCall call\)/g) || []).length, 1);
+assert.ok(nativeJava.includes("MediaStore.ACTION_IMAGE_CAPTURE"));
+assert.ok(nativeJava.includes('extras.get("data")'));
+assert.ok(nativeJava.includes("CompressFormat.JPEG"));
+assert.ok(nativeJava.includes("2 * 1024 * 1024"));
+assert.ok(nativeJava.includes('put("thumbnailOnly", true)'));
+assert.ok(nativeJava.includes('put("fullResolutionSaved", false)'));
+assert.ok(nativeBridge.includes("capturePhoto(): Promise"));
+assert.ok(nativeBridge.includes("capturePhoto: async"));
+assert.ok(capabilityRuntime.includes('id: "camera.capture_preview"'));
+assert.ok(capabilityRuntime.includes("approvalRequired: true"));
+assert.ok(capabilityRuntime.includes("fullResolutionSaved: false"));
+console.log("AURORA Stage 10 camera tests passed: user-invoked system camera, bounded thumbnail-only result and approval gate.");
+
