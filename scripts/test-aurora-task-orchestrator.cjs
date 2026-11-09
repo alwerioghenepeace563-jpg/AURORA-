@@ -58,6 +58,22 @@ const assert = require("node:assert/strict");
     steps: [{ capabilityId: "not.registered" }]
   }), /unknown capability/i);
 
+  let concurrentExecutions = 0;
+  const concurrentEngine = createAuroraActionEngine();
+  concurrentEngine.registerCapability({
+    id: "test.concurrent",
+    risk: "low",
+    execute: async () => { concurrentExecutions++; await new Promise((resolve) => setTimeout(resolve, 20)); return { ok: true }; }
+  });
+  const concurrentTasks = createAuroraTaskOrchestrator(concurrentEngine, { createId: () => "task-concurrent" });
+  const concurrentPlan = concurrentTasks.createPlan({ title: "Single execution", steps: [{ capabilityId: "test.concurrent" }] });
+  const concurrentResults = await Promise.all([
+    concurrentTasks.runPlan(concurrentPlan, { confirmed: true }),
+    concurrentTasks.runPlan(concurrentPlan, { confirmed: true })
+  ]);
+  assert.equal(concurrentExecutions, 1);
+  assert.equal(concurrentResults[0], concurrentResults[1]);
+
   const blockedEngine = createAuroraActionEngine({ approve: async () => ({ approved: false, reason: "Declined" }) });
   blockedEngine.registerCapability({ id: "test.blocked", risk: "high", execute: async () => { throw new Error("Must not run"); } });
   const blockedTasks = createAuroraTaskOrchestrator(blockedEngine, { createId: () => "task-blocked" });
