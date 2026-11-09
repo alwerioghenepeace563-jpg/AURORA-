@@ -182,5 +182,13 @@ assert.ok(capabilityRuntime.includes("approvalRequired: true"));
 assert.ok(capabilityRuntime.includes("notificationModified: false"));
 assert.ok(capabilityRuntime.includes("messageSent: false"));
 assert.ok(capabilityRuntime.includes("Select a notification from AURORA's recent notification list first."));
+
+assert.ok(notificationService.includes("public static boolean dismissNotification(String key)"));
+assert.ok(notificationService.includes("service.cancelNotification(key)"));
+assert.ok(nativeJava.includes("public void dismissNotification(PluginCall call)"));
+assert.ok(nativeBridge.includes("dismissNotification(options: { key: string })"));
+assert.ok(nativeBridge.includes("dismissNotification: async"));
+assert.ok(capabilityRuntime.includes('id: "notifications.dismiss_item"'));
+assert.ok(capabilityRuntime.includes("otherNotificationsAffected: false"));
 console.log("AURORA Stage 10 notification tests passed: explicit approval, active-item validation and open-only behavior.");
 
