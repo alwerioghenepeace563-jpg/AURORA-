@@ -40,7 +40,7 @@ function createAuroraMediaJobAdapter(options = {}) {
       if (!file || !Number.isFinite(file.size) || file.size <= 0) throw new Error("Choose a non-empty recording.");
       const token = await getAccessToken();
       if (!token) throw new Error("Sign in to AURORA before uploading a recording.");
-      const path = tokenUserIdPlaceholder(id, file.name);
+      const path = tokenUserIdPlaceholder(token, id, file.name);
       const response = await fetchImpl(baseUrl + "/storage/v1/object/" + bucket + "/" + path, {
         method: "POST",
         headers: { apikey: anonKey, Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream", "x-upsert": "true" },
@@ -98,6 +98,6 @@ function createAuroraMediaJobAdapter(options = {}) {
 }
 function tokenUserIdPlaceholder(jobId, filename) {
   const clean = String(filename || "recording").normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(-90) || "recording";
-  return "pending-user/" + jobId + "/" + clean;
+  return userId + "/" + jobId + "/" + clean;
 }
 export { createAuroraMediaJobAdapter };
