@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
   assert.equal(first.record.storage, "local");
   // A matching short hash alone must never cause a false duplicate.
   const stored = JSON.parse(values.get(AURORA_KNOWLEDGE_UNIVERSE_STORAGE_KEY));
-  stored.records = [{ ...first.record, id: "collision-decoy", title: "Different source", content: "Different content" }];
+  stored.records = [{ ...first.record, id: "collision-decoy", title: "Different source", content: "Different content", summary: "Different summary", tags: [], projectId: "other" }];
   values.set(AURORA_KNOWLEDGE_UNIVERSE_STORAGE_KEY, JSON.stringify(stored));
   const collisionSafe = universe.add({ type: "project", title: "AURORA core", content: "Shared intelligence connects memory, tasks and voice.", userApproved: true });
   assert.equal(collisionSafe.duplicate, false);
