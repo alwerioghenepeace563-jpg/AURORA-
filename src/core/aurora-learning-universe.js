@@ -58,6 +58,13 @@ function createAuroraLearningUniverse(options = {}) {
     return session;
   }
 
+  function listSessions(filters = {}) {
+    const state = read();
+    const planId = filters.planId ? bounded(filters.planId, 100) : "";
+    const limit = Number.isInteger(filters.limit) ? Math.max(1, Math.min(100, filters.limit)) : 30;
+    return state.sessions.filter(session => !planId || session.planId === planId).slice(0, limit).map(session => ({ ...session }));
+  }
+
   function progress(planId) {
     const state = read();
     const plans = planId ? state.plans.filter(plan => plan.id === planId) : state.plans;
@@ -76,7 +83,7 @@ function createAuroraLearningUniverse(options = {}) {
     state.sessions = state.sessions.filter(session => session.planId !== planId); write(state); return true;
   }
 
-  return Object.freeze({ createPlan, listPlans, updateTopic, logPractice, progress, removePlan, status: () => ({ storage: storage ? "local" : "unavailable", cloudSync: false, automaticCapture: false, subjects: [...SUBJECTS] }) });
+  return Object.freeze({ createPlan, listPlans, updateTopic, logPractice, listSessions, progress, removePlan, status: () => ({ storage: storage ? "local" : "unavailable", cloudSync: false, automaticCapture: false, subjects: [...SUBJECTS] }) });
 }
 
 const auroraLearningUniverse = createAuroraLearningUniverse();
