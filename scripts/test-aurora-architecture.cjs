@@ -73,7 +73,7 @@ const path = require("node:path");
     assert.ok(pluginSource.includes(`void ${nativeMethod}(PluginCall call)`), `Missing Android plugin method: ${nativeMethod}`);
   }
 
-  for (const capabilityId of ["communication.prepare_sms", "device.share_text"]) {
+  for (const capabilityId of ["communication.prepare_sms", "communication.share_text"]) {
     assert.ok(capabilitySource.includes('id: "' + capabilityId + '"'), "Missing Stage 5 communication/share adapter: " + capabilityId);
   }
   for (const nativeMethod of ["prepareSms", "shareText"]) {
