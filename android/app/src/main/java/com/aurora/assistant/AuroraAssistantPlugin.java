@@ -283,6 +283,42 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
 
+
+    @PluginMethod
+    public void prepareSms(PluginCall call) {
+        String number = call.getString("number");
+        String body = call.getString("body", "");
+        if (number == null || !number.trim().matches("[+0-9()\\\\s.-]{5,25}")) {
+            call.reject("Provide a valid phone number for the SMS composer."); return;
+        }
+        if (body == null || body.length() > 2000) { call.reject("The SMS draft must be 2000 characters or fewer."); return; }
+        try {
+            Uri uri = Uri.parse("smsto:" + Uri.encode(number.trim()));
+            Intent intent = new Intent(Intent.ACTION_SENDTO, uri);
+            if (!body.isEmpty()) intent.putExtra("sms_body", body);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject(); result.put("opened", true); call.resolve(result);
+        } catch (Exception e) { call.reject("No SMS application could open the message composer.", e); }
+    }
+
+    @PluginMethod
+    public void shareText(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.trim().isEmpty() || text.length() > 8000) {
+            call.reject("Provide text between 1 and 8000 characters to share."); return;
+        }
+        try {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_TEXT, text);
+            Intent chooser = Intent.createChooser(send, "Share with");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(chooser);
+            JSObject result = new JSObject(); result.put("opened", true); call.resolve(result);
+        } catch (Exception e) { call.reject("Android could not open the share sheet.", e); }
+    }
+
     @PluginMethod
     public void searchOnMap(PluginCall call) {
         String query = call.getString("query");
