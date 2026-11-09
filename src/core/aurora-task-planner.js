@@ -3,7 +3,7 @@
  * Converts clearly expressed multi-action requests into typed capability steps.
  * It never invents parameters or executes a plan; the runtime previews it first.
  */
-import { parseCalendarIntent } from "./aurora-intent-parser";
+import { parseCalendarIntent } from "./aurora-intent-parser.js";
 
 const APP_TARGETS = [
   { pattern: /whatsapp business/i, packageName: "com.whatsapp.w4b", label: "WhatsApp Business" },
