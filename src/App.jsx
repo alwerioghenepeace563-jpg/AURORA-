@@ -414,6 +414,7 @@ export default function App() {
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const pulseRecognitionRef = useRef(null);
+  const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
   const pulseInterruptionReleaseRef = useRef(null);
   const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
@@ -721,6 +722,36 @@ export default function App() {
     if (!Capacitor.isNativePlatform()) return undefined;
     return connectAuroraNativeLifecycle(CapacitorApp, auroraRuntime.reliability);
   }, []);
+
+  useEffect(() => {
+    if (!pulseOpen) {
+      if (pulseRecognitionRef.current || pulseInterruptionReleaseRef.current || pulseNativeSpeechListenersRef.current.length) cleanupPulseSpeech();
+      return undefined;
+    }
+    const previousFocus = document.activeElement;
+    const panel = pulsePanelRef.current;
+    const focusable = () => panel?.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') || [];
+    const first = focusable()[0];
+    (first || panel)?.focus?.();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); cleanupPulseSpeech(); setPulseOpen(false); return; }
+      if (event.key !== "Tab" || !panel) return;
+      const items = [...focusable()];
+      if (!items.length) { event.preventDefault(); panel.focus(); return; }
+      const firstItem = items[0], lastItem = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === firstItem) { event.preventDefault(); lastItem.focus(); }
+      else if (!event.shiftKey && document.activeElement === lastItem) { event.preventDefault(); firstItem.focus(); }
+    };
+    const onVisibility = () => { if (document.visibilityState === "hidden") cleanupPulseSpeech(); };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (pulseRecognitionRef.current || pulseInterruptionReleaseRef.current || pulseNativeSpeechListenersRef.current.length) cleanupPulseSpeech();
+      if (previousFocus && typeof previousFocus.focus === "function") requestAnimationFrame(() => previousFocus.focus());
+    };
+  }, [pulseOpen]);
 
   useEffect(() => {
     const syncApprovals = () => setPendingApprovals(auroraRuntime.approvals.listPending());
@@ -2078,12 +2109,13 @@ export default function App() {
         <AnimatePresence>
           {pulseOpen && (
             <motion.div className="aurora-pulse-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPulseOpen(false)}>
-              <motion.section className="aurora-pulse-panel" role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+              <motion.section ref={pulsePanelRef} tabIndex={-1} className="aurora-pulse-panel" role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
                 <style>{`
                   .pulse-launch-card{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:15px 17px;margin:16px 0 18px;border:1px solid #1f2a44;border-radius:20px;background:linear-gradient(120deg,#0d1322,#111b2d);color:#e8edf7;cursor:pointer}
                   .pulse-launch-orb,.aurora-pulse-orb{display:block;flex:none;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 42%,#0b3a55 72%,#b79cff 100%);box-shadow:0 0 12px #2dd4e688,0 0 30px #5aa2ff55}
                   .pulse-launch-orb{width:42px;height:42px}.pulse-launch-copy{display:grid;gap:4px;flex:1}.pulse-launch-copy strong{font-size:14px}.pulse-launch-copy small{font-size:12px;color:#8a96ad}.pulse-launch-arrow{color:#2dd4e6;font-size:22px}
-                  .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(3,8,20,.62);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+                  @media (prefers-reduced-motion: reduce){.aurora-pulse-backdrop,.aurora-pulse-panel{animation:none!important;transition:none!important}.aurora-pulse-orb,.pulse-launch-orb{animation:none!important;scroll-behavior:auto!important}}
+                   .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(3,8,20,.62);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
                   .aurora-pulse-panel{position:relative;width:min(520px,100%);height:min(760px,88vh);min-height:420px;padding:76px 20px 16px;border:1px solid #24456e;border-radius:28px;background:linear-gradient(155deg,#0b1426f7,#080c18fc);box-shadow:0 24px 80px #0009,0 0 32px #277dff33;color:#e8edf7;display:flex;flex-direction:column;gap:8px;overflow:hidden;pointer-events:auto}
                   .aurora-pulse-head{display:contents!important}.aurora-pulse-brand{display:none!important}.aurora-pulse-close{position:fixed;top:20px;right:22px;z-index:10003;pointer-events:auto}/* Pulse content visibility restored; layout rules follow below. */
                   /* AURORA_PULSE_CARD_LAYOUT_V2 */
@@ -2540,11 +2572,11 @@ export default function App() {
 .aurora-pulse-mic{display:inline-flex;align-items:center;justify-content:center;width:42px;min-width:42px;height:42px;border:1px solid rgba(92,220,255,.28);border-radius:14px;background:rgba(18,32,54,.88);color:#8cecff;cursor:pointer}.aurora-pulse-mic:disabled{opacity:.5}.aurora-pulse-mic.is-listening{box-shadow:0 0 18px rgba(65,220,255,.3);animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-thinking{animation:auroraPulseTalking .7s ease-in-out infinite alternate}
  `}
 </style>
-                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => setPulseOpen(false)}>Ã—</button></header>
+                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => setPulseOpen(false)}>Ã—</button></header>
                 <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
                 <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">â˜€</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loadingâ€¦" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">âŒ– {pulseWeather.city} â€º</span></button>
                 <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
-                <div className="aurora-pulse-chat" aria-live="polite">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinkingâ€¦</div>}</div>
+                <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinkingâ€¦</div>}</div>
                 <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
                   <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORAâ€¦" aria-label="Message AURORA Pulse" />
                   <button className={"aurora-pulse-mic" + (pulseListening ? " is-listening" : "")} type="button" onClick={togglePulseMic} aria-label={pulseListening ? "Stop listening" : "Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18} /></button>
