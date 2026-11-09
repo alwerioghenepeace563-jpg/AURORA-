@@ -152,3 +152,18 @@ assert.ok(capabilityRuntime.includes('id: "camera.capture_photo"'));
 assert.ok(capabilityRuntime.includes("approvalRequired: true"));
 assert.ok(capabilityRuntime.includes("fullResolutionSaved: false"));
 console.log("AURORA Stage 10 camera capture tests passed: explicit approval and thumbnail-only result.");
+
+
+// Stage 10 Wave 9: user-controlled audio recording handoff.
+assert.equal((nativeJava.match(/public void prepareAudioRecording\(PluginCall call\)/g) || []).length, 1);
+assert.ok(nativeJava.includes('new Intent("android.provider.MediaStore.RECORD_SOUND")'));
+assert.ok(nativeJava.includes("handleAudioRecordingResult(PluginCall call"));
+assert.ok(nativeJava.includes('put("userControlledRecorder", true)'));
+assert.ok(nativeJava.includes('put("audioReadByAurora", false)'));
+assert.ok(nativeBridge.includes("prepareAudioRecording(): Promise"));
+assert.ok(nativeBridge.includes("prepareAudioRecording: async"));
+assert.ok(capabilityRuntime.includes('id: "audio.prepare_recording"'));
+assert.ok(capabilityRuntime.includes("approvalRequired: true"));
+assert.ok(capabilityRuntime.includes("audioReadByAurora: false"));
+console.log("AURORA Stage 10 audio tests passed: explicit external recorder handoff, user-controlled recording and no automatic audio reading.");
+
