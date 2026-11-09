@@ -27,6 +27,7 @@ function CreativeLearningWorkspace(){
   setDrafts(auroraRuntime.listCreativeDrafts());setAssets(auroraRuntime.listCreativeAssets());setDecks(auroraRuntime.listFlashcardDecks());setPlans(auroraRuntime.listStudyPlans());setQuizHistory(auroraRuntime.listPracticeQuizAttempts({limit:20}));setQuizPerformance(auroraRuntime.practiceQuizPerformance());setDueCards(auroraRuntime.listDueFlashcards({limit:100}));setFlashSummary(auroraRuntime.flashcardReviewSummary());setLearningInsights(auroraRuntime.getLearningInsights());
  };
  useEffect(()=>{refresh();},[]);
+ useEffect(()=>()=>{try{browserRecognition.current?.stop();}catch{}if(auroraNative.isAndroid())auroraNative.stopSpeechRecognition().catch(()=>{});const handles=speechHandles.current.splice(0);handles.forEach(handle=>{try{handle.remove();}catch{}});},[]);
  const activeProject=projects.find(p=>p.id===selected);
  const projectDrafts=useMemo(()=>drafts.filter(d=>d.projectId===selected),[drafts,selected]);
  const projectAssets=useMemo(()=>assets.filter(a=>a.projectId===selected),[assets,selected]);
