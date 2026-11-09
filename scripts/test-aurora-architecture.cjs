@@ -73,7 +73,7 @@ const path = require("node:path");
     assert.ok(pluginSource.includes(`void ${nativeMethod}(PluginCall call)`), `Missing Android plugin method: ${nativeMethod}`);
   }
   assert.ok(pluginSource.includes("Intent.ACTION_INSERT"), "Calendar event must use Android's review-before-save editor.");
-  assert.ok(pluginSource.includes("Intent.ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android media handoff.");
+  assert.ok(pluginSource.includes("MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android media handoff.");
   assert.ok(pluginSource.includes("Intent.ACTION_OPEN_DOCUMENT"), "File access must use Android's user-selected document picker.");
   assert.ok(pluginSource.includes("1024 * 1024"), "Text file previews must enforce the 1 MB limit.");
   assert.ok(pluginSource.includes("Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"), "Notification access must be configured through Android Settings.");
