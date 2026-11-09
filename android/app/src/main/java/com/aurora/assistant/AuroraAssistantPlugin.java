@@ -846,7 +846,7 @@ public class AuroraAssistantPlugin extends Plugin {
     @PluginMethod
     public void getDeviceCapabilityInventory(PluginCall call) {
         try {
-            Context context = getContext();
+            android.content.Context context = getContext();
             PackageManager pm = context.getPackageManager();
             JSObject hardware = new JSObject();
             hardware.put("camera", pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY));
