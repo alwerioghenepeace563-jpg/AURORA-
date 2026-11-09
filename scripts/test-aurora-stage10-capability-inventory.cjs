@@ -29,7 +29,8 @@ assert.match(nativeJava, /hardware\.put\("networkLocation"/);
 assert.match(nativeJava, /specialAccess\.put\("notificationListener"/);
 assert.match(nativeJava, /result\.put\("readOnly", true\)/);
 assert.match(registry, /STAGE_TEN_CHECKPOINT/);
-assert.match(registry, /status: "in_progress"/);
+assert.match(registry, /status: "complete"/);
+assert.match(registry, /STAGE_ELEVEN_CHECKPOINT/);
 console.log("AURORA Stage 10 capability inventory tests passed: hardware, runtime permissions and special access are exposed read-only.");
 
 
