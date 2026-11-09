@@ -24,6 +24,7 @@ type AuroraNativePlugin = {
   requestOverlayPermission(): Promise<{ opened: boolean; granted: boolean }>;
   showOverlay(): Promise<{ requested: boolean; shown: boolean; note?: string }>;
   hideOverlay(): Promise<{ hidden: boolean }>;
+  getOverlayStatus(): Promise<{ shown: boolean; note: string }>;
   consumeWakeWord(): Promise<{ detected: boolean }>;
   consumePulseOpenRequest(): Promise<{ requested: boolean }>;
   startAssistantService(): Promise<{ started: boolean; note?: string }>;
@@ -101,6 +102,10 @@ export const auroraNative = {
   hideOverlay: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA Pulse floating overlay is available only in the Android app.");
     return AuroraNative.hideOverlay();
+  },
+  getOverlayStatus: async () => {
+    if (!Capacitor.isNativePlatform()) return { shown: false, note: "AURORA Pulse floating overlay is available only in the Android app." };
+    return AuroraNative.getOverlayStatus();
   },
   requestMicrophonePermission: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Microphone permission is available only in the Android app."); return AuroraNative.requestMicrophonePermission(); },
   requestNotificationPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestNotificationPermission(); },
