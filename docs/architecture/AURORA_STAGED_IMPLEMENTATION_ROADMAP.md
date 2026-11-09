@@ -376,7 +376,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 **Implementation waves:**
 1. Audit the existing native capability catalogue and expose a truthful support/permission/approval matrix.
 2. Complete device status and supported device-control adapters, including explicit unsupported/OEM-restricted outcomes.
-3. Complete communication workflows with user-reviewed drafts, attachment selection, contact resolution, call preparation and notification summaries. The email composer handoff is implemented with recipient validation, bounded subject/body, Action Engine approval and explicit user-controlled sending. Expanded Android utilities add contact creation, alarm/timer preparation and additional settings handoffs.
+3. Complete communication workflows with user-reviewed drafts, attachment selection, contact resolution, call preparation and notification summaries. The email composer handoff is implemented with recipient validation, bounded subject/body, Action Engine approval and explicit user-controlled sending. Expanded Android utilities add contact creation, alarm/timer preparation and additional settings handoffs. The next device-control wave adds approval-gated media/ring/alarm volume with visible Android volume UI, read-only storage capacity, and location, notification, security, date/time and storage settings shortcuts.
 4. Add capability-level tests for permission denial, user cancellation, unsupported hardware, handoff failure and positive verification.
 5. Verify the shared Main/Pulse/voice routes and all 12 family audits before closing the stage.
 
