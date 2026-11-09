@@ -1,6 +1,7 @@
 // AURORA's shared capability tree: one orchestrator can combine local memory,
 // device context, weather, web/news, and navigation for a single useful answer.
 import { auroraApiUrl } from "./aurora-native";
+import { voiceTextJobs } from "./voicetext-client";
 
 function formatPlace(address = {}) {
   return [address.road, address.suburb || address.neighbourhood,
@@ -176,6 +177,18 @@ async function journeyBrief(text) {
 }
 
 const capabilityTools = [
+  {
+    id: "voicetext_job_status",
+    description: "Checks a saved AURORA VoiceText transcription job and retrieves its progress or completed transcript using its job ID.",
+    matches: text => /\\b(?:voicetext|voice text|transcription job|transcript job)\\b/i.test(text) && /\\b(?:status|progress|resume|retrieve|result|transcript|job id)\\b/i.test(text),
+    run: async text => {
+      const id = text.match(/\\b[0-9a-f]{8}-[0-9a-f-]{27,}\\b/i)?.[0];
+      if (!id) return { context: "Tool: voicetext_job_status. Ask the user for the transcription job ID before checking its saved status." };
+      const job = await voiceTextJobs.get(id);
+      return { context: "Tool: voicetext_job_status. Saved VoiceText job: " + JSON.stringify(job) +
+        "\\nExplain the exact status and progress. If incomplete, tell the user it can resume from section " + (Number(job.completedChunks || 0) + 1) + ". Do not claim it is processing in the background unless status says processing." };
+    }
+  },
   {
     id: "journey_decision_brief",
     description: "Combines prior AURORA memory, current location, destination weather, news/events, traffic/road incident searches and Google Maps route links for go/no-go and departure timing.",
