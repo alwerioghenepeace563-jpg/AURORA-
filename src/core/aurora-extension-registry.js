@@ -1,3 +1,4 @@
+import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * Declarative extension catalogue. It stores manifests only: no downloaded
  * JavaScript, dynamic imports, eval, or arbitrary code execution.
@@ -10,7 +11,15 @@ function createAuroraExtensionRegistry(options = {}) {
   const getCapabilities = options.getCapabilities || (() => []);
   const now = options.now || (() => new Date().toISOString());
   const executeCapability = options.executeCapability;
-  function read() { try { const x = JSON.parse(storage?.getItem(KEY) || "[]"); return Array.isArray(x) ? x : []; } catch { return []; } }
+  function read() {
+    return readStoredJson(storage, KEY, [], value => Array.isArray(value) && value.length <= 100 && value.every(item =>
+      isRecord(item) && ID.test(String(item.id || "")) && typeof item.name === "string" &&
+      typeof item.version === "string" && Array.isArray(item.capabilities) &&
+      item.capabilities.every(id => typeof id === "string") &&
+      Array.isArray(item.permissions || []) && (item.permissions || []).every(id => typeof id === "string") &&
+      ["installed", "disabled"].includes(item.status) && item.executesCode === false
+    ), "AURORA extensions");
+  }
   function write(items) { if (!storage?.setItem) throw new Error("Extension storage is unavailable."); storage.setItem(KEY, JSON.stringify(items.slice(-100))); }
   function validate(manifest) {
     if (!manifest || !ID.test(String(manifest.id || ""))) throw new Error("Extension ID is invalid.");
