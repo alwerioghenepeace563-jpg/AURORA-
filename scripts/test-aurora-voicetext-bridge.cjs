@@ -15,7 +15,7 @@ assert.match(endpoint, /\/api\/aurora-transcribe/);
 assert.match(endpoint, /4000000/);
 assert.match(endpoint, /audio files only/);
 assert.match(workspace, /\/api\/voicetext-transcribe/);
-assert.match(workspace, /AURORA VoiceText/);
+assert.match(workspace, /VoiceText transcription/);
 assert.match(workspace, /Nigerian English and Nigerian Pidgin/);
 assert.match(workspace, /new MediaRecorder\(capture\.stream/);
 assert.match(workspace, /setTimeout\(finish,20000\)/);
