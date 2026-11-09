@@ -121,6 +121,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
           input: step.input,
           requestedBy: "task:" + plan.id,
           requestId: plan.id + ":" + step.id,
+          idempotencyKey: plan.id + ":" + step.id,
           signal: controller.signal
         });
       } catch (error) {
@@ -139,6 +140,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
         capabilityId: step.capabilityId,
         label: step.label,
         status: receipt.status,
+        verificationStatus: receipt.status !== "completed" ? "not_applicable" : receipt.verified === true ? "verified" : "unverified",
         receipt
       });
       state.steps.push(item);
@@ -151,6 +153,8 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     }
 
     if (state.status === "running") state.status = "completed";
+    state.verificationStatus = state.steps.length === 0 ? "not_applicable" : state.steps.every(item => item.verificationStatus === "verified") ? "verified" : state.steps.some(item => item.verificationStatus === "verified") ? "partially_verified" : "unverified";
+    emit("task.verification_summary", { taskId: plan.id, status: state.verificationStatus, verifiedSteps: state.steps.filter(item => item.verificationStatus === "verified").length, totalSteps: state.steps.length });
     state.finishedAt = new Date().toISOString();
     const result = Object.freeze({
       taskId: state.taskId,
@@ -160,6 +164,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
       finishedAt: state.finishedAt,
       stoppedAtStep: state.stoppedAtStep || null,
       blockedBy: state.blockedBy || [],
+      verificationStatus: state.verificationStatus,
       steps: Object.freeze([...state.steps])
     });
     runs.set(plan.id, result);
@@ -227,7 +232,8 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
         capabilityId: step.capabilityId,
         input: step.input,
         requestedBy: "task-retry:" + id,
-        requestId: id + ":" + step.id + ":manual-retry:" + attempt
+        requestId: id + ":" + step.id + ":manual-retry:" + attempt,
+        idempotencyKey: id + ":" + step.id
       });
     } catch (error) {
       receipt = Object.freeze({ requestId: id + ":" + step.id + ":manual-retry:" + attempt, capabilityId: step.capabilityId, status: "failed", error: Object.freeze({ code: typeof error?.code === "string" ? error.code.slice(0, 80) : "ACTION_ADAPTER_ERROR", message: "The retry adapter did not return a usable execution receipt." }), at: new Date().toISOString() });
