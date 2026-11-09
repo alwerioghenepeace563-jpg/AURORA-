@@ -452,7 +452,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 
 ### Stage 11 — Creative and Learning Universe (active; opened 2026-11-09)
 
-**Implementation wave 1 — Local-first learner-controlled study plans (code committed; CI pending):**
+**Implementation wave 1 — Local-first learner-controlled study plans (code committed; consolidated CI passed):**
 - Added a shared Learning Universe service for creating bounded study plans across supported subjects, with learner-selected level, goal and topic list.
 - Added explicit approval before saving a plan or a study session; topic progress changes and plan deletion require confirmation.
 - Added practice-session logging with validated topic, bounded notes and a 1–600 minute duration. Progress summaries derive only from recorded sessions and explicitly updated topic states; AURORA does not invent study completion or grades.
@@ -460,7 +460,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Learning records remain local-only in this service; cloud sync and automatic capture are disabled. Corrupt persisted data fails closed.
 - Added focused regression coverage and included it in the core CI test chain.
 
-**Implementation wave 2 — Creative workspace and learner tools (code committed; CI pending):**
+**Implementation wave 2 — Creative workspace and learner tools (code committed; consolidated CI passed):**
 - Added a local-first project workspace for writing, video, audio, design, research and study projects, with approved creation, confirmed updates/deletion and bounded project metadata.
 - Added user-approved project references and assets with provenance labels and validated HTTPS/content-URI references; no broad file scanning or automatic capture.
 - Added a draft studio with bounded content and up to ten previous revisions per draft.
@@ -470,27 +470,27 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Registered creative records in shared federated search and exposed all operations through the shared Main/Pulse/voice runtime.
 - Added regression coverage for project lifecycle, approvals, revisions, SRT/VTT round trips, flashcards, quiz grading, search and local-only storage.
 
-**Implementation wave 3 — Study session history and progress controls (code committed; CI pending):**
+**Implementation wave 3 — Study session history and progress controls (code committed; consolidated CI passed):**
 - Exposed bounded local study-session history queries from the Learning Universe and shared runtime, with plan filtering and a maximum of 100 returned records.
 - Added session logging controls to each study plan in Creative + Learning Studio, including topic selection, a validated 1–600 minute duration, optional session note, and a recent-session history preview.
 - Added confirmed plan deletion from the workspace; the Learning Universe removes that plan's associated session history together.
 - Extended focused learning regression tests for session history filtering and empty results.
 - Progress totals continue to derive from recorded sessions and explicit topic status changes; no inferred study time or automatic completion is recorded.
 
-**Implementation wave 4 — Source-aware project context (code committed; CI pending):**
+**Implementation wave 4 — Source-aware project context (code committed; consolidated CI passed):**
 - Added a bounded context assembler that combines a selected project's own metadata, saved drafts and user-selected project references into a source-labelled text pack.
 - The assembler caps output at 20,000 characters (12,000 by default), reports included/total source counts and whether content was truncated, and never silently scans other projects.
 - Added a project workspace preview and copy action so the learner/creator can explicitly review the context before pasting it into AURORA chat or another tool.
 - Added regression checks for project scoping, provenance labels, source count, bounded output and missing-project handling.
 - This is deterministic source assembly, not an AI-generated summary or automatic media transcription.
 
-**Implementation wave 5 — Safe draft version recovery (code committed; CI pending):**
+**Implementation wave 5 — Safe draft version recovery (code committed; consolidated CI passed):**
 - Added a confirmed revision-restore operation for saved creative drafts. Restoring a prior version first preserves the current draft as a new revision, then restores the selected historical content.
 - Added a workspace control for restoring the most recent prior version with a confirmation prompt.
 - Added regression coverage for confirmation requirements and preservation of the version being replaced.
 - Revision history remains bounded to ten prior versions per draft.
 
-**Implementation wave 5 — Persistent quiz history and performance (code committed; CI pending):**
+**Implementation wave 5 — Persistent quiz history and performance (code committed; consolidated CI passed):**
 - Added local quiz-attempt persistence with title, subject, timestamp, per-question prompt, submitted answer, expected answer, correctness and final score.
 - Added bounded history retrieval (maximum 100 per query; 500 retained attempts), subject filtering, and performance summaries for attempt count, average, best and latest score.
 - Added an explicit Save result action after grading; results are not stored merely because a quiz was opened or graded.
@@ -500,28 +500,28 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added regression coverage for approval, persistence, subject filters, performance aggregation, search and legacy-state compatibility.
 - Quiz checking is exact case-insensitive text matching, not semantic marking or AI-generated feedback.
 
-**Implementation wave 6 — Flashcard spaced-repetition queue (code committed; CI pending):**
+**Implementation wave 6 — Flashcard spaced-repetition queue (code committed; consolidated CI passed):**
 - Flashcard reviews now schedule the next due date from the user's explicit Again/Hard/Good/Easy rating, with bounded interval growth and local timestamps.
 - Added a due-card query and review summary for total, new, reviewed and currently due cards.
 - Added a dedicated due-review queue in the Learning workspace, showing the question, answer and source deck; rating a card recalculates its next review date.
 - Added regression checks for interval calculation, next-review timestamps, due filtering, summary counts and invalid date handling.
 - Scheduling is a simple transparent interval rule, not a claim of scientifically calibrated or AI-personalized learning.
 
-**Implementation wave 7 — Searchable subtitle cues (code committed; CI pending):**
+**Implementation wave 7 — Searchable subtitle cues (code committed; consolidated CI passed):**
 - Added phrase search across imported SRT/WebVTT cues, optionally restricted to the currently selected project.
 - Results retain the source caption asset, cue text, start/end timecodes and project provenance, with bounded result counts.
 - Added an in-workspace caption search field and timestamped match list.
 - Added regression coverage for phrase matching, project scoping and timecode formatting.
 - This searches user-imported caption text only; it does not generate transcripts from audio or video.
 
-**Implementation wave 6 — Adaptive learning insights (code committed; CI pending):**
+**Implementation wave 6 — Adaptive learning insights (code committed; consolidated CI passed):**
 - Added local analysis of saved quiz attempts, grouped by subject, with average score, answer accuracy and a bounded study recommendation.
 - Added weak-question ranking from repeated missed responses, including miss counts and rates, so learners can see which saved questions need another review.
 - Added a Learning Insights panel in Creative + Learning Studio. It uses only explicitly saved quiz attempts on this device.
 - Added regression tests for subject grouping, average scores, missed-question ranking and local-only reporting.
 - Insights are descriptive and rule-based; they do not claim semantic understanding, predict grades or automatically change study plans.
 
-**Implementation wave 8 — User-controlled speech-to-text capture (code committed; CI pending):**
+**Implementation wave 8 — User-controlled speech-to-text capture (code committed; consolidated CI passed):**
 - Added a Speech-to-text capture panel to the Creative + Learning Studio project workspace.
 - On Android, capture uses the existing native Android SpeechRecognizer bridge after an explicit microphone-permission check; supported browsers use their Web Speech recognition implementation as a fallback.
 - Capture starts only after the user taps Start listening, supports an explicit Stop action, reports recognition errors, and releases listeners/recognizer resources when the workspace closes.
@@ -529,7 +529,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added regression coverage for the UI, native bridge, permission gate, browser fallback, explicit save and native recognition result/error events.
 - This provides live dictated speech-to-text, not background listening, batch transcription of imported audio/video files, guaranteed offline recognition, or speaker diarisation. Android recognition availability and language quality remain device/service dependent.
 
-**Implementation wave 9 — Provider-backed lesson generation (code committed; CI pending):**
+**Implementation wave 9 — Provider-backed lesson generation (code committed; consolidated CI passed):**
 - Added an AI lesson builder to the Learning workspace, linked to a learner's saved study plan and selected topic.
 - Calls AURORA's existing server-side chat endpoint so configured provider fallback remains centralised; provider credentials are not exposed in the client.
 - Requests a structured lesson with objectives, prerequisites, explanation, key terms, an example, misconceptions, recap and practice questions.
@@ -537,19 +537,21 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added regression assertions for the endpoint route, lesson-generation UI, review-before-save state and explicit draft-save action.
 - AI-generated educational content can contain errors; learners are told to verify important facts against class notes or textbooks. The feature does not claim syllabus alignment unless source material is supplied.
 
-**Implementation wave 10 — User-selected image and PDF understanding (code committed; CI pending):**
+**Implementation wave 10 — User-selected image and PDF understanding (code committed; consolidated CI passed):**
 - Added a Creative Studio workflow to select one image (JPEG/PNG/WebP, up to 3 MB) or PDF (up to 3 MB) for source-grounded AI analysis.
 - Uses AURORA's existing server-side multimodal chat route; provider credentials remain server-side and the user must explicitly press Analyse before file contents are sent.
 - Results distinguish visible/stated content from uncertainty, are editable for review, and are saved as a project draft only after an explicit Save analysis action.
 - Added size and MIME checks before upload. The feature does not scan the device, upload files in the background, or silently save AI output.
 - This is bounded image/PDF understanding; it is not a general document ingestion engine or full OCR guarantee. AI descriptions may be incomplete and must be reviewed.
 
-**Implementation wave 11 — Batch transcription for user-selected audio/video (code committed; CI pending):**
+**Implementation wave 11 — Batch transcription for user-selected audio/video (code committed; consolidated CI passed):**
 - Added a Creative Studio import workflow for user-selected MP3, M4A/MP4 audio, WAV, WebM, OGG and MP4 video files, capped at 2.5 MB per file.
 - The user must press Transcribe and summarise before file content is sent to the existing server-side chat endpoint. The backend validates MIME type and encoded payload bounds and routes media requests only to the configured Gemini provider; provider credentials remain server-side.
 - The request asks for a source-grounded transcript, cautious speaker labels and timestamps where supported, unclear-word markers, plus a separate summary and key points. The output is editable and only saved to the local project after an explicit user action.
 - Media requests receive a larger output-token budget to reduce transcript truncation. The feature does not scan local storage, process media in the background, guarantee speaker diarisation or promise perfect transcription; provider availability, supported formats and media duration affect results.
 - Regression coverage checks the UI, file-size bound, MIME allowlist, server-side media validation, Gemini-only routing and explicit save boundary.
+
+**Stage 11 consolidated code/CI checkpoint — 2026-11-09:** The complete core and architecture regression chain, blocking dependency audit and web production build passed on commit `cf0cc6fd1b1faf6f21ae8df747352d7bd941feb0` (GitHub Actions run `42651110100`). This includes the speech-to-text, AI lesson, image/PDF and batch audio/video regression checks. Stage 11 remains active; passing CI validates code-level checks, not live provider quota, recognition quality, physical Android behavior or final feature acceptance.
 
 **Remaining Stage 11 scope:** AI-generated media, larger-scale and longer-duration batch transcription and summarisation of imported audio/video, richer source-aware writing and project assets, deeper provider-backed practice content and syllabus-grounded explanations, deeper voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
