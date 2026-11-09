@@ -150,6 +150,29 @@ function createAuroraCreativeUniverse(options = {}) {
     state.assets.unshift(asset); state.assets=state.assets.slice(0,1000); const project=state.projects.find(p=>p.id===projectId); project.assetIds.push(asset.id); project.updatedAt=now(); write(state);
     return {...asset,cues};
   }
+  function searchSubtitles(query, options = {}) {
+    const needle = bounded(query, 200).toLocaleLowerCase();
+    if (!needle) return [];
+    const projectId = bounded(options.projectId, 100);
+    const limit = Number.isInteger(options.limit) ? Math.max(1, Math.min(100, options.limit)) : 30;
+    const state = read(), matches = [];
+    for (const asset of state.assets) {
+      if (asset.type !== "subtitle" || (projectId && asset.projectId !== projectId)) continue;
+      let cues;
+      try { cues = JSON.parse(asset.text); } catch { continue; }
+      for (const cue of cues) {
+        if (String(cue.text || "").toLocaleLowerCase().includes(needle)) {
+          matches.push({
+            assetId: asset.id, projectId: asset.projectId, title: asset.title,
+            cueId: cue.id, startMs: cue.startMs, endMs: cue.endMs,
+            startTime: formatTimestamp(cue.startMs, "."), endTime: formatTimestamp(cue.endMs, "."),
+            text: cue.text
+          });
+        }
+      }
+    }
+    return matches.sort((a,b)=>a.startMs-b.startMs).slice(0,limit);
+  }
   function exportSubtitles(assetId,format="srt") {
     const asset=read().assets.find(a=>a.id===assetId&&a.type==="subtitle");
     if(!asset) throw new Error("Subtitle asset not found.");
@@ -294,7 +317,7 @@ function createAuroraCreativeUniverse(options = {}) {
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
   function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,quizAttemptCount:s.quizAttempts.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
-  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,listDueFlashcards,flashcardReviewSummary,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,buildProjectContext,search,status});
+  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,searchSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,listDueFlashcards,flashcardReviewSummary,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,buildProjectContext,search,status});
 }
 const auroraCreativeUniverse=createAuroraCreativeUniverse();
 export { createAuroraCreativeUniverse, auroraCreativeUniverse, STORAGE_KEY as AURORA_CREATIVE_UNIVERSE_STORAGE_KEY, parseSubtitles, renderSubtitles };
