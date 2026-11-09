@@ -18,6 +18,11 @@ function fingerprint(input) {
   for (let i = 0; i < value.length; i++) { hash ^= value.charCodeAt(i); hash = Math.imul(hash, 16777619); }
   return "ku-" + (hash >>> 0).toString(16);
 }
+function sameSource(left, right) {
+  return normalise(left.type) === normalise(right.type) &&
+    normalise(left.title) === normalise(right.title) &&
+    normalise(left.content) === normalise(right.content);
+}
 function createAuroraKnowledgeUniverse(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
@@ -42,7 +47,7 @@ function createAuroraKnowledgeUniverse(options = {}) {
     const uri = clean(input.uri, 1000);
     if (uri && !/^https?:\/\//i.test(uri)) throw new Error("Source links must use HTTP or HTTPS.");
     const data = read(), key = fingerprint({ type, title, content });
-    const duplicate = data.records.find(item => item.fingerprint === key);
+    const duplicate = data.records.find(item => item.fingerprint === key && sameSource(item, { type, title, content }));
     if (duplicate) return { record: { ...duplicate }, duplicate: true };
     if (data.records.length >= MAX_RECORDS) throw new Error("The local knowledge universe is full (500 records).");
     const timestamp = now();
