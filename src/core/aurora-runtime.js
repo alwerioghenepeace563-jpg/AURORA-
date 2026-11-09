@@ -519,6 +519,27 @@ async function routeMessage(text, options = {}) {
     };
   }
 
+  // Import a document only after the user explicitly asks and selects it in Android's system picker.
+  if (/^(?:hey aurora[, ]*)?(?:please\\s+)?(?:save|add|import) (?:the )?(?:selected )?(?:file|document) to (?:my )?(?:knowledge universe|knowledge base)$/i.test(message.trim())) {
+    const receipt = await actionEngine.execute({ capabilityId: "files.pick_document", input: {} });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "The file picker could not open." };
+    if (receipt.result?.cancelled) return { tool: "aurora_knowledge_file_import", status: "cancelled", context: "File selection was cancelled; nothing was saved." };
+    if (!receipt.result?.textIncluded || typeof receipt.result.text !== "string" || !receipt.result.text.trim()) {
+      return { tool: "aurora_knowledge_file_import", status: "not_imported", file: receipt.result?.name || "Selected file", context: "I selected the file, but it has no supported plain-text preview. Nothing was added to the knowledge universe. Images and other media need a user-provided description before they can be indexed." };
+    }
+    try {
+      const saved = auroraKnowledgeUniverse.add({
+        type: "document",
+        title: receipt.result.name || "Selected document",
+        content: receipt.result.text,
+        userApproved: true,
+        sourceLabel: receipt.result.name || "Android selected document",
+        sourceMethod: "android_document_picker"
+      });
+      return { tool: "aurora_knowledge_file_import", status: saved.duplicate ? "duplicate" : "saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type }, context: saved.duplicate ? "That document's text is already saved locally; I did not create a duplicate." : "The selected document's text was saved to your local knowledge universe. The original file was not uploaded or copied to cloud storage." };
+    } catch (error) { return { error: error?.message || "The selected document could not be saved." }; }
+  }
+
   const knowledgeSaveMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:add|save) (?:this )?(note|document|project|task|conversation|website|recording|image|event) to (?:my )?(?:knowledge universe|knowledge base):\s*(.{2,})$/i);
   if (knowledgeSaveMatch?.[2]) {
     const raw = knowledgeSaveMatch[2].trim();
