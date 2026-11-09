@@ -106,7 +106,7 @@ const assert = require("node:assert/strict");
   const retryResult = await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true });
   assert.equal(retryResult.status, "completed");
   assert.equal(retryCalls, 2);
-  assert.equal((await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true })).reason, "retry_limit_reached");
+  assert.equal((await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true })).reason, "retry_already_succeeded");
 
   const unsafeEngine = createAuroraActionEngine();
   unsafeEngine.registerCapability({ id: "test.unsafe_retry", risk: "low", execute: async () => { throw new Error("failed"); } });
