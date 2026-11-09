@@ -14,6 +14,25 @@ function createAuroraWorkflowRegistry(options = {}) {
         typeof item.title === "string" && Array.isArray(item.steps)),
       "AURORA workflows");
   }
+  function write(items) {
+    if (!storage?.setItem) throw new Error("Workflow storage unavailable.");
+    storage.setItem(KEY, JSON.stringify(items.slice(0, 100)));
+  }
+  function save(input = {}, capabilities = []) {
+    const title = String(input.title || "").trim();
+    if (!title || !Array.isArray(input.steps) || !input.steps.length || input.steps.length > 8) throw new Error("Workflow needs a title and 1–8 steps.");
+    const known = new Set(capabilities.map(c => c.id));
+    const steps = input.steps.map((s, i) => {
+      if (!known.has(s.capabilityId)) throw new Error("Workflow references an unavailable capability: " + String(s.capabilityId));
+      const id = String(s.id || "step-" + (i+1));
+      if (!SAFE.test(id)) throw new Error("Invalid workflow step ID.");
+      return { id, capabilityId: s.capabilityId, input: s.input && typeof s.input === "object" ? { ...s.input } : {}, dependsOn: Array.isArray(s.dependsOn) ? s.dependsOn.map(String) : [] };
+    });
+    const ids = new Set(steps.map(s => s.id));
+    if (ids.size !== steps.length || steps.some((s,i) => s.dependsOn.some(dep => !ids.has(dep) || dep === s.id || steps.findIndex(x => x.id === dep) >= i))) throw new Error("Workflow dependencies must refer to earlier unique steps.");
+    const record = { id: String(input.id || createId()), title: title.slice(0,120), summary: String(input.summary || title).slice(0,500), steps, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const items = read().filter(x => x.id !== record.id); items.unshift(record); write(items); return record;
+  }
   function instantiate(id, capabilities, orchestrator) {
     const item = read().find(x => x.id === String(id));
     if (!item) throw new Error("Workflow not found.");
