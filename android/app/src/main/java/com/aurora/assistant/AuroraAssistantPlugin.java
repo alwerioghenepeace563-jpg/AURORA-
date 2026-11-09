@@ -288,7 +288,7 @@ public class AuroraAssistantPlugin extends Plugin {
     public void prepareSms(PluginCall call) {
         String number = call.getString("number");
         String body = call.getString("body", "");
-        if (number == null || !number.trim().matches("[+0-9()\\\\s.-]{5,25}")) {
+        if (number == null || !number.trim().matches("[+0-9(). -]{5,25}")) {
             call.reject("Provide a valid phone number for the SMS composer."); return;
         }
         if (body == null || body.length() > 2000) { call.reject("The SMS draft must be 2000 characters or fewer."); return; }
