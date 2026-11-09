@@ -116,5 +116,6 @@ const assert = require("node:assert/strict");
   const unsafeRetry = await unsafeTasks.retryFailedStep("task-unsafe-retry", "write", { confirmed: true });
   assert.equal(unsafeRetry.status, "not_retryable");
   assert.equal(unsafeRetry.reason, "adapter_idempotency_not_proven");
-\n  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, idempotency and cooperative cancellation.");
+
+  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, idempotency and cooperative cancellation.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
