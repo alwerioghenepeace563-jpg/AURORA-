@@ -162,7 +162,7 @@ function createAuroraActionEngine(options = {}) {
       controller.abort(makeError("ACTION_TIMEOUT", "Action exceeded its " + capability.timeoutMs + " ms execution deadline."));
     }, capability.timeoutMs);
     const operation = (async () => {
-    const availability = await getAvailability(capability.id);
+    const availability = await raceWithSignal(getAvailability(capability.id), controller.signal);
     if (!availability.available) {
       const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "unavailable", error: { code: "CAPABILITY_UNAVAILABLE", message: availability.reason || "Capability is unavailable." }, at: now() });
       receipts.set(requestId, receipt);
@@ -172,8 +172,11 @@ function createAuroraActionEngine(options = {}) {
 
     const input = request.input ?? {};
     let valid;
-    try { valid = await capability.validate(input); }
-    catch (error) { throw makeError("INVALID_ACTION_INPUT", error?.message || "Action input is invalid.", { capabilityId: capability.id }); }
+    try { valid = await raceWithSignal(Promise.resolve().then(() => capability.validate(input)), controller.signal); }
+    catch (error) {
+      if (controller.signal.aborted) throw error;
+      throw makeError("INVALID_ACTION_INPUT", error?.message || "Action input is invalid.", { capabilityId: capability.id });
+    }
     if (valid !== true) throw makeError("INVALID_ACTION_INPUT", typeof valid === "string" ? valid : "Action input is invalid.", { capabilityId: capability.id });
 
     const proposal = Object.freeze({
@@ -188,9 +191,10 @@ function createAuroraActionEngine(options = {}) {
       let authorization;
       try {
         authorization = authorize
-          ? await authorize(Object.freeze({ proposal, capability: publicCapability(capability) }))
+          ? await raceWithSignal(Promise.resolve().then(() => authorize(Object.freeze({ proposal, capability: publicCapability(capability) }))), controller.signal)
           : { authorized: false, reason: "Required permission or consent policy is not configured." };
       } catch (error) {
+        if (controller.signal.aborted) throw error;
         authorization = { authorized: false, reason: error?.message || "Authorization checks could not be completed." };
       }
       if (authorization !== true && authorization?.authorized !== true) {
@@ -257,6 +261,17 @@ function createAuroraActionEngine(options = {}) {
     })();
     inFlight.set(requestId, operation);
     try { return await operation; }
+    catch (error) {
+      const reason = controller.signal.aborted ? (controller.signal.reason || error) : error;
+      const receipt = Object.freeze({
+        requestId, capabilityId: capability.id, status: "failed",
+        error: { code: timedOut ? "ACTION_TIMEOUT" : (reason?.code || "EXECUTION_FAILED"), message: reason?.message || "The action could not complete its preflight checks." },
+        at: now()
+      });
+      receipts.set(requestId, receipt);
+      emit("action.failed", { receipt });
+      return receipt;
+    }
     finally {
       clearTimeout(timeout);
       if (externalSignal) externalSignal.removeEventListener("abort", forwardAbort);
