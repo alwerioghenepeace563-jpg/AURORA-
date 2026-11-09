@@ -19,6 +19,8 @@ function createAuroraReliabilityCoordinator(options = {}) {
   getStatus:()=>Object.freeze({visibility,connectivity,diagnosticCount:diagnostics.length,recoverableCount:journal.recoverable().length,automaticRecovery:false}),
   getDiagnostics:(limit=max)=>diagnostics.slice(-Math.max(1,Math.min(max,Number(limit)||max))).map(x=>({...x})),
   getRecoveryQueue:()=>journal.recoverable(),
+  inspectRecoveryTask:(taskId)=>typeof journal.inspectRecovery==="function"?journal.inspectRecovery(taskId):null,
+  dismissRecoveryTask:(taskId)=>typeof journal.forget==="function"?journal.forget(taskId):false,
   publishLifecycle:(type,details={})=>{if(!/^(foreground|background|resume|connectivity)$/.test(String(type)))throw new Error("Unsupported lifecycle event.");return events.publish("app.lifecycle."+type,details,{source:"reliability"});},
   dispose:()=>{if(disposed)return false;disposed=true;for(const remove of removers.splice(0)){try{remove();}catch{}}return true;}
  });
