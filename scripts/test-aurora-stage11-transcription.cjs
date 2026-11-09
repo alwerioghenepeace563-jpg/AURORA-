@@ -5,6 +5,12 @@ const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
 
 assert.match(workspace, /Speech-to-text capture/);
+assert.match(workspace, /AI lesson builder/);
+assert.match(workspace, /auroraApiUrl\("\/api\/chat"\)/);
+assert.match(workspace, /Generate lesson/);
+assert.match(workspace, /Save as draft/);
+assert.match(workspace, /Lesson generated\. Review and edit it; it has not been saved yet\./);
+assert.match(workspace, /userApproved:true/);
 assert.match(workspace, /requestMicrophonePermission\(\)/);
 assert.match(workspace, /addSpeechResultListener/);
 assert.match(workspace, /addSpeechErrorListener/);
