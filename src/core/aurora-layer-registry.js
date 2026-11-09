@@ -78,13 +78,13 @@ const STAGE_FOUR_LAYER_AUDIT = Object.freeze({
  intelligence_personalisation:Object.freeze(["shared reliability service","bounded metadata-only diagnostics"]),
  extensions_interoperability:Object.freeze(["extension cancellation signal","extension failures isolated"]),
  safety_privacy_security:Object.freeze(["recovery preserves approval gates","no automatic consequential retry"]),
- reliability_operations:Object.freeze(["unified lifecycle/connectivity","bounded failure diagnostics","review-only recovery"])
+ reliability_operations:Object.freeze(["unified lifecycle/connectivity","bounded failure diagnostics","metadata-only execution receipts","review-only recovery"])
 });
 const STAGE_FOUR_CHECKPOINT = Object.freeze({
  id:4,name:"Reliability and recovery",status:"in_progress",
- scope:"Foundational wave: unified app lifecycle/connectivity events, bounded metadata-only diagnostics, cooperative task cancellation and review-only recovery. No unattended retries or automatic replay.",
+ scope:"Coordinated reliability foundation: unified app lifecycle/connectivity events, bounded metadata-only diagnostics, cooperative task cancellation, review-only recovery, and privacy-safe persisted execution receipt metadata. Task inputs and action payloads are excluded from recovery records. No unattended retries or automatic replay.",
  validationBoundary:"Code-level implementation and automated tests across all 12 active families; physical Android lifecycle and interruption validation remains later release/device work.",
- deliverables:Object.freeze(["Unify visibility, foreground/background, online/offline, pagehide and pageshow events.","Capture bounded metadata-only failure diagnostics; never copy sensitive payloads.","Propagate task cancellation to active Action Engine work and stop later steps.","Keep failed/interrupted tasks review-only; never replay automatically.","Require fresh confirmation and normal policy gates before resumed work.","Audit all 12 active capability families."])
+ deliverables:Object.freeze(["Unify visibility, foreground/background, online/offline, pagehide and pageshow events.","Capture bounded metadata-only failure diagnostics; never copy sensitive payloads.","Propagate task cancellation to active Action Engine work and stop later steps.","Persist bounded execution receipt metadata without task inputs, action outputs, or sensitive error details.", "Keep failed/interrupted tasks review-only; never replay automatically.","Require fresh confirmation and normal policy gates before resumed work.","Audit all 12 active capability families."])
 });
 
 const STAGE_THREE_DEFERRED_RELEASE_VALIDATION = Object.freeze({
