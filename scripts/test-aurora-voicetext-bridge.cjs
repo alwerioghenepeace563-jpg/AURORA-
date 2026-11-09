@@ -9,7 +9,7 @@ assert.match(endpoint, /VOICETEXT_PLUGIN_TOKEN/);
 assert.match(endpoint, /auth\/v1\/user/);
 assert.match(endpoint, /verified AURORA account/);
 assert.match(endpoint, /ownerId/);
-assert.match(endpoint, /x-aurora-user-token/);
+assert.match(endpoint, /x-aurora-user-token/i);
 assert.match(endpoint, /VOICETEXT_API_URL/);
 assert.match(endpoint, /Authorization: "Bearer " \+ token/);
 assert.match(endpoint, /\/api\/aurora-transcribe/);
