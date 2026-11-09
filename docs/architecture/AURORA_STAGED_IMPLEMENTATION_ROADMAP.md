@@ -248,7 +248,7 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 - Native status now checks both the running Android service and its active-state flag rather than trusting a stale preference alone.
 - Added wake-listener lifecycle tests and a machine-readable Stage 7 audit/checkpoint covering all 12 capability families.
 
-**Stage 7 COMPLETE — code-and-CI checkpoint (2026-11-09; physical-device validation deferred):**
+**Stage 7 implementation code checkpoint (2026-11-09; CI confirmation and physical-device validation pending):**
 - All 12 active capability families have Stage 7 evidence in `src/core/aurora-layer-registry.js`.
 - Screen and selected-document context remain explicit, bounded, one-shot, and scoped to the requesting surface.
 - Main Chat, Pulse, and voice continue to share the runtime, approvals, memory, task planning, location, and safe device handoffs.
@@ -261,6 +261,14 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 ### Stage 8 — Proactive intelligence and coordinated workflows (next)
 
 **Whole-system objective:** Make AURORA consistently useful across Main Chat, Pulse, voice, and Android by turning the existing context, memory, task planner, specialist coordinator, workflow registry, reminders, and capability catalogue into coherent user-controlled end-to-end workflows.
+
+**Implementation wave 1 — Cross-surface workflow observability and user controls (code committed; CI pending):**
+- Main Chat, Pulse, and voice share new read-only task status and bounded activity-history commands through the same runtime.
+- Users can explicitly inspect an interrupted task by ID. Recovery inspection distinguishes completed steps from steps whose external outcome cannot be verified; it never resumes or repeats actions.
+- Users can list saved workflows and remove a workflow by its exact title. Ambiguous or missing titles fail closed.
+- Runtime exports `taskActivity` and `reviewTaskRecovery` for shared surface integrations.
+- Added a Stage 8 regression to core CI and registry evidence across all 12 capability families.
+- The task journal continues to persist metadata only; user-authored task titles, summaries, inputs, private file contents, and action result payloads are not stored in recovery history.
 
 Stage 8 will advance all 12 capability families together:
 - Voice and surfaces: carry intent and task state across Main Chat, Pulse, and voice without losing the user's chosen context.
