@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
-import { runAuroraToolTree } from "./lib/aurora-tool-tree";
+import { auroraRuntime } from "./core/aurora-runtime";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
 import { AnimatePresence, motion } from "framer-motion";
@@ -608,6 +608,7 @@ export default function App() {
   const [tunerOpen, setTunerOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(true);
   const [notice, setNotice] = useState("");
+  const [pendingApprovals, setPendingApprovals] = useState(() => auroraRuntime.approvals.listPending());
   const [activityTab, setActivityTab] = useState("tasks");
   const [toolKind, setToolKind] = useState("search");
   const [toolScreen, setToolScreen] = useState("home");
@@ -655,6 +656,13 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, busy]);
+
+  useEffect(() => {
+    const syncApprovals = () => setPendingApprovals(auroraRuntime.approvals.listPending());
+    const unsubscribe = auroraRuntime.subscribeApprovals(syncApprovals);
+    syncApprovals();
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem("aurora-selected-voice", selectedVoice); } catch {}
@@ -1029,7 +1037,7 @@ export default function App() {
       try { preferredProvider = localStorage.getItem("aurora-active-ai-provider") || undefined; } catch {}
       const activeScheduleInstructions = schedules.filter((item) => item.status !== "cancelled" && new Date(item.startAt).getTime() <= Date.now() && Date.now() < new Date(item.endAt).getTime()).map((item) => "- " + item.title + ": " + item.instruction).join("\n");
       // Route clearly relevant requests through the shared AURORA capability tree before asking the AI.
-      const liveToolResult = await runAuroraToolTree(text);
+      const liveToolResult = await auroraRuntime.routeMessage(text);
       if (liveToolResult?.error) {
         setMessages((current) => [...current, { role: "assistant", content: liveToolResult.error }]);
         if (soundOn) speak(liveToolResult.error);
@@ -1192,7 +1200,12 @@ export default function App() {
     const next = [...pulseMessages, { role: "user", content: text }];
     setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
     try {
-      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile }) });
+      const liveToolResult = await auroraRuntime.routeMessage(text);
+      if (liveToolResult?.error) {
+        setPulseMessages(items => [...items, { role: "assistant", content: liveToolResult.error }]);
+        return;
+      }
+      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
@@ -2401,6 +2414,26 @@ export default function App() {
                 </form>
                 <div className="aurora-pulse-shortcuts"><button type="button" onClick={() => { const query = pulseDraft.trim().replace(/^search the web for\s*/i, ""); setPulseOpen(false); openTool("search"); setToolQuery(query); }}>âŒ• <span>Search</span></button><button type="button" onClick={() => { setPulseOpen(false); openAttachment("camera"); }}>â–£ <span>Camera</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("writing"); }}>âœŽ <span>Writing</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("translate"); }}>æ–‡ <span>Translate</span></button><button type="button" onClick={() => { setPulseOpen(false); setAttachmentOpen(true); }}>â€¢â€¢â€¢ <span>More</span></button></div>
                 <p className="aurora-pulse-foot">AURORA Pulse Â· close anytime to return to Profile</p>
+              </motion.section>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {pendingApprovals.length > 0 && (
+            <motion.div className="aurora-menu-backdrop" role="presentation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ zIndex: 10020 }}>
+              <motion.section role="dialog" aria-modal="true" aria-label="Approve AURORA action" initial={{ opacity: 0, y: 14, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} style={{ width: "min(440px, calc(100vw - 32px))", padding: 22, borderRadius: 22, background: "rgba(12,18,32,.97)", border: "1px solid rgba(130,180,255,.22)", color: "#f4f7ff", boxShadow: "0 24px 80px rgba(0,0,0,.5)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><span style={{ width: 38, height: 38, display: "grid", placeItems: "center", borderRadius: 13, background: "rgba(255,190,90,.12)", color: "#ffd18a" }}><ShieldCheck size={19}/></span><div><strong style={{ display: "block" }}>AURORA needs your approval</strong><small style={{ color: "#9eabc2" }}>Nothing happens until you choose</small></div></div>
+                <h3 style={{ margin: "0 0 8px", fontSize: 18 }}>{pendingApprovals[0].label}</h3>
+                <p style={{ margin: "0 0 12px", color: "#c1cada", lineHeight: 1.55 }}>{pendingApprovals[0].description || "A capability wants to perform an action."}</p>
+                <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.045)", color: "#aebbd0", fontSize: 12, overflowWrap: "anywhere" }}>Risk: {String(pendingApprovals[0].risk || "unknown").toUpperCase()} · Capability: {pendingApprovals[0].capabilityId}</div>
+                <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                  <button type="button" onClick={() => auroraRuntime.approvals.reject(pendingApprovals[0].id, "Declined by the user.")} style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.16)", background: "transparent", color: "#e5eaf4", fontWeight: 650 }}>Not now</button>
+                  <button type="button" onClick={() => auroraRuntime.approvals.approve(pendingApprovals[0].id)} style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: 0, background: "linear-gradient(110deg,#5bd8ed,#8d9cff)", color: "#07111d", fontWeight: 750 }}>Approve action</button>
+                </div>
               </motion.section>
             </motion.div>
           )}
