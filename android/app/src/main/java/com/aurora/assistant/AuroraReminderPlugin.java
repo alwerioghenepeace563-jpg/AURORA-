@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import org.json.JSONObject;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import com.getcapacitor.JSObject;
@@ -54,6 +56,11 @@ public class AuroraReminderPlugin extends Plugin {
             if (alarms == null) throw new IllegalStateException("Android alarm service is unavailable.");
             if (Build.VERSION.SDK_INT >= 23) alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending);
             else alarms.set(AlarmManager.RTC_WAKEUP, at, pending);
+            JSONObject saved = new JSONObject();
+            saved.put("id", id); saved.put("title", title.trim());
+            saved.put("message", message == null ? "" : message.trim().substring(0, Math.min(500, message.trim().length())));
+            saved.put("at", at);
+            getContext().getSharedPreferences("aurora_reminders", 0).edit().putString(id, saved.toString()).apply();
             JSObject result = new JSObject(); result.put("scheduled", true); result.put("id", id); result.put("at", at); result.put("exact", false);
             call.resolve(result);
         } catch (Exception error) { call.reject("Android could not schedule this reminder.", error); }
@@ -72,6 +79,7 @@ public class AuroraReminderPlugin extends Plugin {
             if (alarms != null) alarms.cancel(pending);
             pending.cancel(); cancelled = true;
         }
+        getContext().getSharedPreferences("aurora_reminders", 0).edit().remove(id).apply();
         call.resolve(new JSObject().put("cancelled", cancelled));
     }
 }
