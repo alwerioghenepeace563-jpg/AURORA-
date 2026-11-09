@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
-import { auroraNative } from "../lib/aurora-native";
+import { auroraNative, auroraApiUrl } from "../lib/aurora-native";
 import { BookOpen, Captions, FolderKanban, Plus, Save, Trash2, Download, RefreshCw, Mic, Square, FileText } from "lucide-react";
 
 const subjects=["biology","chemistry","physics","mathematics","english","computer_science","microbiology","other"];
@@ -21,6 +21,7 @@ function CreativeLearningWorkspace(){
  const [contextPreview,setContextPreview]=useState("");
  const [transcriptTitle,setTranscriptTitle]=useState("New transcript"),[transcriptText,setTranscriptText]=useState(""),[speechListening,setSpeechListening]=useState(false);
  const speechHandles=useRef([]),browserRecognition=useRef(null);
+ const [lessonPlanId,setLessonPlanId]=useState(""),[lessonTopic,setLessonTopic]=useState(""),[lessonOutput,setLessonOutput]=useState(""),[lessonBusy,setLessonBusy]=useState(false);
  const [notice,setNotice]=useState("");
  const refresh=()=>{
   const ps=auroraRuntime.listCreativeProjects();setProjects(ps);setSelected(current=>ps.some(p=>p.id===current)?current:(ps[0]?.id||""));
@@ -44,6 +45,23 @@ function CreativeLearningWorkspace(){
  const submitQuiz=()=>{if(!quiz)return;const result=run(()=>auroraRuntime.gradePracticeQuiz(quiz,quizAnswers),"Quiz graded.");if(result)setQuizResult(result);};
  const saveQuizResult=()=>{if(!quiz||!quizResult||quizSaved)return;const saved=run(()=>auroraRuntime.savePracticeQuizAttempt(quiz,quizAnswers,{userApproved:true}),"Quiz result saved locally to your practice history.");if(saved){setQuizSaved(true);refresh();}};
  const createPlan=()=>{const topics=topicsText.split("\n").map(v=>v.trim()).filter(Boolean);run(()=>auroraRuntime.createStudyPlan({title:planTitle,subject:planSubject,topics,userApproved:true}),"Study plan saved. Update each topic as you progress.");};
+ const generateLesson=async()=>{
+  const plan=plans.find(item=>item.id===lessonPlanId)||plans[0];
+  const topic=plan?.topics.find(item=>item.id===lessonTopic)||plan?.topics.find(item=>item.status!=="completed")||plan?.topics[0];
+  if(!plan||!topic){setNotice("Create a study plan with at least one topic first.");return;}
+  setLessonBusy(true);setNotice("AURORA is preparing a lesson. Check the explanation before relying on it.");
+  try{
+   const prompt="Create a clear, accurate study lesson for a learner. Subject: "+plan.subject+". Topic: "+topic.name+". Study goal: "+(plan.goal||"Understand the topic well")+". Include: learning objectives, prerequisite ideas, a step-by-step explanation, key terms, one worked or concrete example, common misconceptions, a short recap, and five practice questions with answers separated at the end. Distinguish established facts from simplifications. If uncertain, say so. Do not claim to use the learner's textbook or syllabus unless supplied.";
+   const response=await fetch(auroraApiUrl("/api/chat"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||"The lesson service is unavailable.");
+   if(typeof data.reply!=="string"||!data.reply.trim())throw new Error("AURORA returned an empty lesson. Try again.");
+   setLessonOutput(data.reply.trim());setNotice("Lesson generated. Review and edit it; it has not been saved yet.");
+  }catch(error){setNotice(error?.message||"Lesson generation failed. Your study plan remains unchanged.");}
+  finally{setLessonBusy(false);}
+ };
+ const saveGeneratedLesson=()=>{const plan=plans.find(item=>item.id===lessonPlanId)||plans[0];if(!selected){setNotice("Select a creative project in the Projects tab before saving this lesson as a draft.");return;}if(!lessonOutput.trim()){setNotice("Generate or enter lesson content first.");return;}run(()=>auroraRuntime.saveCreativeDraft({projectId:selected,title:(plan?.subject||"Study")+" — "+(lessonTopic||"Lesson"),content:lessonOutput,userApproved:true}),"Lesson saved as a draft in your selected creative project.");};
+
  const updateTopic=(plan,topic,status)=>run(()=>auroraRuntime.updateStudyTopic(plan.id,topic.id,status,{confirmed:true}),"Study progress updated.");
  const logSession=(plan)=>{const topicId=sessionTopic[plan.id]||plan.topics.find(t=>t.status!=="completed")?.id||plan.topics[0]?.id;const topic=plan.topics.find(t=>t.id===topicId);if(!topic){setNotice("This plan has no topics.");return;}run(()=>auroraRuntime.logStudySession({planId:plan.id,topic:topic.name,minutes:Number(sessionMinutes),note:sessionNote,userApproved:true}),"Study session saved to your local progress.");setSessionNote("");};
  const deletePlan=(plan)=>{if(window.confirm("Delete this study plan and its session history?"))run(()=>auroraRuntime.deleteStudyPlan(plan.id,{confirmed:true}),"Study plan and its session history deleted.");};
@@ -104,6 +122,14 @@ function CreativeLearningWorkspace(){
      <label>Subject<select value={planSubject} onChange={e=>setPlanSubject(e.target.value)}>{subjects.map(v=><option key={v}>{v}</option>)}</select></label>
      <label>Topics (one per line)<textarea rows={5} value={topicsText} onChange={e=>setTopicsText(e.target.value)}/></label>
      <button className="clw-primary" onClick={createPlan}><Plus size={15}/> Save study plan</button>
+    </div>
+    <div className="clw-panel clw-wide">
+     <h3><BookOpen size={16}/> AI lesson builder</h3>
+     <p className="clw-help">Generate a structured explanation for a topic in one of your saved study plans. This uses AURORA's configured chat service; check important facts against your class notes or textbook. Generated content is not saved until you choose Save as draft.</p>
+     <label>Study plan<select value={lessonPlanId||plans[0]?.id||""} onChange={e=>{setLessonPlanId(e.target.value);setLessonTopic("");}}><option value="">Choose a study plan</option>{plans.map(plan=><option key={plan.id} value={plan.id}>{plan.title} · {plan.subject}</option>)}</select></label>
+     <label>Topic<select value={lessonTopic} onChange={e=>setLessonTopic(e.target.value)}><option value="">Next unfinished topic</option>{(plans.find(item=>item.id===(lessonPlanId||plans[0]?.id))?.topics||[]).map(topic=><option key={topic.id} value={topic.id}>{topic.name}</option>)}</select></label>
+     <div className="clw-actions"><button className="clw-primary" onClick={generateLesson} disabled={lessonBusy||plans.length===0}>{lessonBusy?"Preparing lesson…":"Generate lesson"}</button><button onClick={saveGeneratedLesson} disabled={!lessonOutput.trim()}>Save as draft</button></div>
+     {lessonOutput&&<label>Review and edit generated lesson<textarea rows={12} value={lessonOutput} onChange={e=>setLessonOutput(e.target.value)}/></label>}
     </div>
     <div className="clw-panel">
      <h3>Practice quiz builder</h3>
