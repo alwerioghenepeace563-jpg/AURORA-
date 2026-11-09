@@ -52,5 +52,11 @@ public class AuroraTranscriptionService extends Service {
         return builder.build();
     }
 
+    @Override public void onTaskRemoved(Intent rootIntent) {
+        stopForeground(true);
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+
     @Override public android.os.IBinder onBind(Intent intent) { return null; }
 }
