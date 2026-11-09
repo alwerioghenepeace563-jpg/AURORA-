@@ -645,3 +645,10 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 
 **Current status:** these items are now part of Stage 11's acceptance scope. Some are already implemented in waves 1–13; the remaining items are still planned work and must not be described as finished until code and tests exist. Stage 11 remains active.
 
+
+### Stage 11 wave 14 — learner-supplied syllabus grounding
+- Added a learner-controlled syllabus/course-outline/class-note input to the AI lesson builder, bounded to 6,000 characters and sent only when the learner explicitly generates a lesson or quiz.
+- Generated lessons prioritise the supplied source, identify supporting headings where possible, and distinguish syllabus content from supplementary explanation. Without a supplied source, the lesson remains general rather than claiming syllabus alignment.
+- Added syllabus-based practice generation that requests question/answer pairs grounded only in the supplied source, validates returned pairs, and creates a reviewable quiz in the existing local quiz workflow. Quiz results are saved only when the learner chooses.
+- Added regression assertions for source-size bounds, explicit submission, grounding instructions and quiz construction. Factual alignment still requires learner review and is not a guarantee of exam coverage.
+
