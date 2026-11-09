@@ -259,6 +259,31 @@ const STAGE_NINE_LAYER_AUDIT = Object.freeze({
   reliability_operations: Object.freeze(["bounded local store fails closed on corrupt data", "exact duplicate sources are detected", "record count and content length are bounded"])
 });
 
+const STAGE_TEN_SCOPE = Object.freeze({
+  android_device: Object.freeze(["inventory and verify app search/launch, media, flashlight, volume, brightness, settings handoffs, device status and hardware detection", "distinguish implemented native adapters from planned or OEM-restricted controls", "require explicit user intent and truthful native execution receipts"]),
+  voice_multimodal: Object.freeze(["preserve one shared voice/action runtime across Main, Pulse and voice", "make voice-driven device and communication actions cancellable and observable", "keep microphone use permissioned and user-controlled"]),
+  screen_accessibility: Object.freeze(["review notification summaries and screen-context access for freshness, privacy and explicit invocation", "keep accessibility and notification permissions separately revocable", "avoid background screen capture or hidden notification forwarding"]),
+  communication_people: Object.freeze(["inventory contact lookup, message drafting, translation, email, attachments, call preparation, dictation and meeting notes", "require user review and final confirmation before sending, calling or sharing", "retain recipient and destination confirmation in handoff receipts"]),
+  location_travel: Object.freeze(["preserve one-shot location and map handoffs", "expose location freshness and provider limits", "do not introduce background tracking as a prerequisite for device mastery"]),
+  calendar_productivity: Object.freeze(["connect follow-ups and meeting notes to approved calendar/task workflows", "keep event creation review-before-save", "avoid duplicate reminders and consequential unattended changes"]),
+  files_knowledge: Object.freeze(["allow user-selected communication attachments and document context", "record provenance without silently copying private files", "keep Stage 9 knowledge browsing and picker backlog visible"]),
+  media_creative: Object.freeze(["complete media transport controls only where Android APIs and device support permit", "report unsupported media sessions instead of simulating playback", "preserve user control in the source media application"]),
+  intelligence_personalisation: Object.freeze(["route device and communication requests through shared intent, context and capability intelligence", "use approved knowledge/context only when relevant", "explain why a capability is unavailable or needs permission"]),
+  extensions_interoperability: Object.freeze(["expose only allow-listed device and communication capabilities to extensions", "apply the same permission, consent and approval contracts to every adapter", "prevent extensions from bypassing Android confirmation"]),
+  safety_privacy_security: Object.freeze(["separate runtime permission, source consent and action approval", "never silently send messages, place calls, share attachments or alter consequential settings", "minimise and bound notification and communication content"]),
+  reliability_operations: Object.freeze(["verify native handoff outcomes and report unverified results honestly", "add regression coverage for unavailable hardware, denied permissions and cancelled handoffs", "preserve cancellation, idempotency and recovery guarantees"])
+});
+
+const STAGE_TEN_CHECKPOINT = Object.freeze({
+  id: 10,
+  name: "Universal Android and Communication Mastery",
+  status: "in_progress",
+  startedAt: "2026-11-09",
+  scope: "Stage 10 coordinates Android device controls and communication workflows across all 12 capability families, using supported platform APIs, explicit permissions, user confirmation and verified outcomes.",
+  validationBoundary: "Stage opening and scope audit only. Individual capabilities must be implemented and tested before being described as available; OEM-restricted behavior and physical Android validation remain separate acceptance checks. Stage 9's remaining knowledge UI and picker-boundary checks remain tracked.",
+  deliverables: Object.freeze(["Complete the supported device-control catalogue and hardware capability detection.", "Complete user-reviewed communication workflows for notifications, messages, email, attachments, contacts, calls, dictation, follow-ups and meeting notes.", "Keep consequential sends, calls, sharing and settings changes behind fresh user confirmation.", "Distinguish supported APIs, unavailable features, permission denial and OEM restrictions.", "Add capability-specific automated tests and all-12-family audit evidence.", "Retain Stage 9 knowledge browsing and picker validation as explicit carried backlog."])
+});
+
 const STAGE_NINE_CHECKPOINT = Object.freeze({
   id: 9,
   name: "Personal Knowledge Universe",
@@ -328,11 +353,12 @@ function createAuroraLayerRegistry() {
     stageSevenEvidence: [...(STAGE_SEVEN_LAYER_AUDIT[item.id] || [])],
     stageEightEvidence: [...(STAGE_EIGHT_LAYER_AUDIT[item.id] || [])],
     stageNineEvidence: [...(STAGE_NINE_LAYER_AUDIT[item.id] || [])],
+    stageTenScope: [...(STAGE_TEN_SCOPE[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT, STAGE_TEN_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
@@ -345,6 +371,8 @@ function createAuroraLayerRegistry() {
     stageEightCheckpoint: STAGE_EIGHT_CHECKPOINT,
     stageNineAudit: STAGE_NINE_LAYER_AUDIT,
     stageNineCheckpoint: STAGE_NINE_CHECKPOINT,
+    stageTenScope: STAGE_TEN_SCOPE,
+    stageTenCheckpoint: STAGE_TEN_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -356,8 +384,10 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 9,
-      activeStage: 9,
+      nextStage: 10,
+      activeStage: 10,
+      stageTenStatus: STAGE_TEN_CHECKPOINT.status,
+      stageTenScopedLayers: families.filter(item => (STAGE_TEN_SCOPE[item.id] || []).length >= 3).length,
       stageNineStatus: STAGE_NINE_CHECKPOINT.status,
       stageNineAuditedLayers: families.filter(item => (STAGE_NINE_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageSevenStatus: STAGE_SEVEN_CHECKPOINT.status,
@@ -383,4 +413,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
