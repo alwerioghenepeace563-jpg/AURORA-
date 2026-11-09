@@ -209,17 +209,17 @@ const STAGE_SEVEN_CHECKPOINT = Object.freeze({
 });
 
 const STAGE_EIGHT_LAYER_AUDIT = Object.freeze({
-  android_device: Object.freeze(["task status and recovery review exposed through the shared runtime", "device handoffs remain sequenced and approval-gated", "no task recovery replays device actions automatically"]),
-  voice_multimodal: Object.freeze(["task activity can be queried through the shared assistant runtime", "task and workflow previews remain surface-independent", "voice confirmation is required before a prepared plan executes"]),
-  screen_accessibility: Object.freeze(["review commands expose task metadata without capturing screen content", "selected screen context remains opt-in and scoped to the requesting task", "recovery views do not replay accessibility reads"]),
-  communication_people: Object.freeze(["workflow inventory exposes only saved workflow metadata", "message, call and share steps retain native approval gates", "workflow removal never sends or repeats communication actions"]),
-  location_travel: Object.freeze(["task status reports map handoff state without refreshing location", "location and directions actions remain fresh-request and permission gated", "recovery requires a newly reviewed plan"]),
-  calendar_productivity: Object.freeze(["saved workflows can be listed and removed by exact title", "task status and event history are available across assistant surfaces", "scheduled routines remain reminders rather than unattended workflow execution"]),
+  android_device: Object.freeze(["task status and recovery review exposed through the shared runtime", "recent task history and local record deletion are user-accessible", "device handoffs remain sequenced and approval-gated", "no task recovery replays device actions automatically"]),
+  voice_multimodal: Object.freeze(["task activity can be queried through the shared assistant runtime", "recent task history and forget controls are shared across surfaces", "task and workflow previews remain surface-independent", "voice confirmation is required before a prepared plan executes"]),
+  screen_accessibility: Object.freeze(["review commands expose task metadata without capturing screen content", "task history deletion does not imply undoing external actions", "selected screen context remains opt-in and scoped to the requesting task", "recovery views do not replay accessibility reads"]),
+  communication_people: Object.freeze(["workflow inventory exposes only saved workflow metadata", "task history can be removed without affecting sent communications", "message, call and share steps retain native approval gates", "workflow removal never sends or repeats communication actions"]),
+  location_travel: Object.freeze(["task status reports map handoff state without refreshing location", "task journal removal does not alter external map or travel actions", "location and directions actions remain fresh-request and permission gated", "recovery requires a newly reviewed plan"]),
+  calendar_productivity: Object.freeze(["saved workflows can be listed and removed by exact title", "recent tasks can be inspected and forgotten locally", "task status and event history are available across assistant surfaces", "scheduled routines remain reminders rather than unattended workflow execution"]),
   files_knowledge: Object.freeze(["task journal persists bounded metadata only", "file and document contents are excluded from recovery history", "reviewed recovery requires a fresh context selection"]),
-  media_creative: Object.freeze(["workflow inventory includes media workflow metadata only", "media handoffs are not repeated during recovery", "task history excludes raw media payloads"]),
-  intelligence_personalisation: Object.freeze(["task status and recovery inspection share one runtime", "saved workflows remain local and user-managed", "memory and private task inputs are excluded from activity summaries"]),
-  extensions_interoperability: Object.freeze(["workflow plans resolve current registered capabilities before preparation", "removed or unavailable capabilities fail closed during instantiation", "extension actions retain Action Engine authorization"]),
-  safety_privacy_security: Object.freeze(["status and recovery commands are read-only", "recovery never auto-resumes or replays external actions", "fresh confirmation is required for every new plan", "journal stores metadata only and excludes task text and action inputs"]),
+  media_creative: Object.freeze(["workflow inventory includes media workflow metadata only", "task history deletion leaves original media assets untouched", "media handoffs are not repeated during recovery", "task history excludes raw media payloads"]),
+  intelligence_personalisation: Object.freeze(["task status and recovery inspection share one runtime", "recent-task listing and forget operations are exposed through shared runtime", "saved workflows remain local and user-managed", "memory and private task inputs are excluded from activity summaries"]),
+  extensions_interoperability: Object.freeze(["workflow plans resolve current registered capabilities before preparation", "removed or unavailable capabilities fail closed during instantiation", "extension actions retain Action Engine authorization", "task-history removal is local metadata management only"]),
+  safety_privacy_security: Object.freeze(["status and recovery commands are read-only", "recovery never auto-resumes or replays external actions", "fresh confirmation is required for every new plan", "task-history deletion never claims to reverse an executed action", "journal stores metadata only and excludes task text and action inputs"]),
   reliability_operations: Object.freeze(["task status exposes bounded recent journal events", "interrupted task inspection distinguishes completed from unverified steps", "workflow removal and task cancellation remain separate", "new Stage 8 command regressions are required in core CI"])
 });
 const STAGE_EIGHT_CHECKPOINT = Object.freeze({
@@ -233,6 +233,7 @@ const STAGE_EIGHT_CHECKPOINT = Object.freeze({
     "Expose task status and bounded activity history from Main Chat, Pulse, and voice through the shared runtime.",
     "Allow explicit review of interrupted task progress without automatic resumption or replay.",
     "Allow users to list and remove saved workflows by exact title.",
+    "Allow users to inspect bounded recent task history and forget an individual local journal record.",
     "Keep workflow storage local, metadata-only task journaling, fresh execution confirmation, and existing capability approval gates.",
     "Continue coordinated improvements across all 12 capability families with focused regression coverage."
   ])
