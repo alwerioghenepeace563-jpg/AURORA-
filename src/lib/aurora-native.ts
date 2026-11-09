@@ -36,6 +36,7 @@ type AuroraNativePlugin = {
   readRecentNotifications(): Promise<{ items: string; localOnly: boolean; limit: number }>;
   clearRecentNotifications(): Promise<{ cleared: boolean }>;
   getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; batteryHealth?: number; platform: string; sdk: number; manufacturer: string; model: string }>;
+  requestCameraPermission(): Promise<{ granted: boolean }>;
   setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>; 
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
@@ -141,6 +142,7 @@ export const auroraNative = {
   readRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification intelligence is available only in Android."); return AuroraNative.readRecentNotifications(); },
   clearRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification cache is available only in Android."); return AuroraNative.clearRecentNotifications(); },
   getDeviceStatus: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device status is available only in Android."); return AuroraNative.getDeviceStatus(); },
+  requestCameraPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestCameraPermission(); },
   setFlashlight: async (enabled: boolean) => { if (!Capacitor.isNativePlatform()) throw new Error("Flashlight control is available only in Android."); return AuroraNative.setFlashlight({ enabled }); },
   openApp: async (packageName: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
