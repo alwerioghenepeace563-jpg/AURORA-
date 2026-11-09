@@ -82,5 +82,13 @@ const assert = require("node:assert/strict");
   assert.equal(blocked.status, "awaiting_user");
   assert.equal(blocked.steps[0].status, "rejected");
 
-  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, stop-on-denial and idempotency.");
+  let started=false;
+  const ce=createAuroraActionEngine();
+  ce.registerCapability({id:"test.longrun",risk:"low",execute:async(_input,context)=>new Promise((_resolve,reject)=>{started=true;context.signal.addEventListener("abort",()=>reject(context.signal.reason),{once:true});})});
+  const ct=createAuroraTaskOrchestrator(ce,{createId:()=>"task-cancel"});
+  const cp=ct.createPlan({title:"Cancelable work",steps:[{id:"long",capabilityId:"test.longrun"},{id:"later",capabilityId:"test.longrun"}]});
+  const pending=ct.runPlan(cp,{confirmed:true}); while(!started) await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(ct.cancelPlan("task-cancel"),true); const cancelled=await pending;
+  assert.equal(cancelled.status,"cancelled"); assert.equal(cancelled.steps.length,1); assert.equal(ct.cancelPlan("task-cancel"),false);
+  console.log("AURORA task orchestration tests passed: preview-first plans, dependencies, approval gates, denial, idempotency and cooperative cancellation."); preview-first plans, ordered dependencies, approval gates, stop-on-denial and idempotency.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
