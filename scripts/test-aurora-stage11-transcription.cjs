@@ -13,7 +13,7 @@ assert.match(workspace, /stopSpeechRecognition\(\)/);
 assert.match(workspace, /window\.SpeechRecognition\s*\|\|\s*window\.webkitSpeechRecognition/);
 assert.match(workspace, /type:"transcript"/);
 assert.match(workspace, /userApproved:true/);
-assert.match(workspace, /review the recognised text before saving/i);
+assert.match(workspace, /review the transcript before saving/i);
 assert.match(bridge, /startSpeechRecognition\(\): Promise/);
 assert.match(bridge, /addSpeechResultListener/);
 assert.match(bridge, /addSpeechErrorListener/);
