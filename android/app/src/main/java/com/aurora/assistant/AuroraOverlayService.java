@@ -146,6 +146,12 @@ public class AuroraOverlayService extends Service {
     public class OverlayBridge {
         @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
         @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.GONE); }); }
+        @JavascriptInterface public void setOrbState(String state) {
+            String safe = "idle".equals(state) || "listening".equals(state) || "thinking".equals(state) || "speaking".equals(state) ? state : "idle";
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (orbView != null) orbView.evaluateJavascript("setOrbState('" + safe + "')", null);
+            });
+        }
         @JavascriptInterface
         public void dismiss() {
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
