@@ -23,7 +23,8 @@ function createAuroraCapabilityRuntime(options = {}) {
     "android.notification_access": async () => (await auroraNative.hasNotificationAccess()).granted === true,
     "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true,
     "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true,
-    "android.notifications": async () => (await auroraNative.requestNotificationPermission()).granted === true
+    "android.notifications": async () => (await auroraNative.requestNotificationPermission()).granted === true,
+    "android.calendar": async () => (await auroraNative.requestCalendarReadPermission()).granted === true
   };
   const authorize = async ({ capability, proposal }) => {
     for (const permission of capability.permissionRequirements || []) {
@@ -207,6 +208,25 @@ function createAuroraCapabilityRuntime(options = {}) {
       const result = await auroraNative.prepareCalendarEvent({ title: title.trim(), beginTime, endTime, description, location });
       if (!result?.opened || !result?.requiresUserSave) throw new Error("The calendar editor could not be opened.");
       return { editorOpened: true, requiresUserSave: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "calendar.search_events",
+    label: "Search upcoming calendar events",
+    category: "productivity",
+    description: "Search events on the device calendar for the next 90 days. Results are read locally and are not saved or uploaded.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.calendar"],
+    validate: (input) => {
+      if (input?.query !== undefined && (typeof input.query !== "string" || input.query.length > 100)) return "Calendar search query must be text no longer than 100 characters.";
+      return true;
+    },
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Calendar search requires the Android app and Calendar permission." }),
+    execute: async ({ query = "" }) => {
+      const result = await auroraNative.searchCalendarEvents(query.trim());
+      return { events: result.events || [], count: result.count || 0, limit: result.limit || 20, windowEnd: result.windowEnd, localOnly: true, notStored: true };
     }
   });
 
