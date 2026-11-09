@@ -18,6 +18,36 @@ function createAuroraTaskJournal(options = {}) {
     if (!storage?.setItem) throw new Error("Task journal storage is unavailable.");
     storage.setItem(KEY, JSON.stringify(items.slice(0, MAX)));
   }
+  function safeReceipt(receipt) {
+    if (!receipt || typeof receipt !== "object") return null;
+    return {
+      requestId: typeof receipt.requestId === "string" ? receipt.requestId.slice(0, 120) : null,
+      capabilityId: typeof receipt.capabilityId === "string" ? receipt.capabilityId.slice(0, 100) : null,
+      status: typeof receipt.status === "string" ? receipt.status.slice(0, 40) : "unknown",
+      at: typeof receipt.at === "string" ? receipt.at.slice(0, 40) : null,
+      error: receipt.error && typeof receipt.error === "object"
+        ? { code: typeof receipt.error.code === "string" ? receipt.error.code.slice(0, 80) : "ACTION_FAILED" }
+        : null
+    };
+  }
+  function safeResult(result) {
+    if (!result || typeof result !== "object") return null;
+    return {
+      taskId: typeof result.taskId === "string" ? result.taskId.slice(0, 120) : null,
+      title: typeof result.title === "string" ? result.title.slice(0, 160) : null,
+      status: typeof result.status === "string" ? result.status.slice(0, 40) : "unknown",
+      startedAt: typeof result.startedAt === "string" ? result.startedAt.slice(0, 40) : null,
+      finishedAt: typeof result.finishedAt === "string" ? result.finishedAt.slice(0, 40) : null,
+      stoppedAtStep: typeof result.stoppedAtStep === "string" ? result.stoppedAtStep.slice(0, 64) : null,
+      blockedBy: Array.isArray(result.blockedBy) ? result.blockedBy.filter(x => typeof x === "string").slice(0, 20).map(x => x.slice(0, 64)) : [],
+      steps: Array.isArray(result.steps) ? result.steps.slice(0, 8).map(step => ({
+        stepId: typeof step?.stepId === "string" ? step.stepId.slice(0, 64) : null,
+        capabilityId: typeof step?.capabilityId === "string" ? step.capabilityId.slice(0, 100) : null,
+        status: typeof step?.status === "string" ? step.status.slice(0, 40) : "unknown",
+        receipt: safeReceipt(step?.receipt)
+      })) : []
+    };
+  }
   function record(event) {
     if (!event || typeof event.type !== "string") return false;
     const taskId = event.taskId || event.plan?.id || event.result?.taskId;
@@ -26,7 +56,7 @@ function createAuroraTaskJournal(options = {}) {
     const index = items.findIndex(x => x.taskId === taskId);
     const current = index >= 0 ? items[index] : { taskId, createdAt: now(), events: [] };
     if (event.plan) current.plan = { id: event.plan.id, title: event.plan.title, summary: event.plan.summary, steps: (event.plan.steps || []).map(step => ({ id: step.id, capabilityId: step.capabilityId, label: step.label, risk: step.risk, approvalRequired: step.approvalRequired, dependsOn: [...(step.dependsOn || [])] })) };
-    if (event.result) current.result = event.result;
+    if (event.result) current.result = safeResult(event.result);
     current.status = event.result?.status || (event.type === "task.started" ? "running" : current.status || "prepared");
     current.updatedAt = now();
     current.events = [...(current.events || []), { type: event.type, at: event.at || now(), stepId: event.stepId || event.step?.stepId || null, status: event.step?.status || null }].slice(-40);
