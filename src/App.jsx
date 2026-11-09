@@ -545,6 +545,11 @@ export default function App() {
         setNativeNotice("AURORA background listening is stopped.");
       } else {
         await AuroraNative.requestMicrophonePermission();
+        const notificationPermission = await AuroraNative.requestNotificationPermission();
+        if (!notificationPermission?.granted) {
+          setNativeNotice("Allow notifications before enabling Hey AURORA, so Android can show the active microphone service. You can still use AURORA without wake-word listening.");
+          return;
+        }
         const result = await AuroraNative.startAssistantService();
         setNativeServiceOn(Boolean(result?.started));
         setNativeNotice(result?.note || "Hey AURORA listening is on. Say â€œHey AURORAâ€ to start hands-free chat.");
