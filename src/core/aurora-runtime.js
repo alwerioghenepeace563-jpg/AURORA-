@@ -354,7 +354,7 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_capability_discovery", capabilities: matches, context: matches.length ? "Registered AURORA capabilities (read-only discovery):\n" + matches.map(item => "- " + item.label + " [" + item.id + ", " + item.risk + (item.approvalRequired ? ", approval required" : "") + "]").join("\n") : "I couldn't find a registered capability matching that request. I cannot invent tools or bypass their approval requirements." };
   }
 
-  if (/^(?:show|list) (?:my )?(?:recent )?tasks\\??$/i.test(message)) {
+  if (/^(?:show|list) (?:my )?(?:recent )?tasks\??$/i.test(message)) {
     const items = auroraTaskJournal.list().slice(0, 12);
     return {
       tool: "aurora_recent_tasks",
