@@ -7,6 +7,7 @@ const nativeJava = read("android/app/src/main/java/com/aurora/assistant/AuroraAs
 const nativeBridge = read("src/lib/aurora-native.ts");
 const capabilityRuntime = read("src/core/aurora-capability-runtime.js");
 const registry = read("src/core/aurora-layer-registry.js");
+const manifest = read("android/app/src/main/AndroidManifest.xml");
 
 assert.equal((nativeJava.match(/public void getDeviceCapabilityInventory\(PluginCall call\)/g) || []).length, 1, "Native inventory must have exactly one plugin implementation.");
 for (const feature of ["FEATURE_CAMERA_ANY", "FEATURE_CAMERA_FLASH", "FEATURE_MICROPHONE", "FEATURE_TELEPHONY", "FEATURE_BLUETOOTH", "FEATURE_BLUETOOTH_LE", "FEATURE_WIFI", "FEATURE_LOCATION_GPS", "FEATURE_LOCATION_NETWORK", "FEATURE_NFC"]) {
@@ -77,3 +78,16 @@ for (const target of ["location", "notifications", "security", "date_time", "sto
   assert.ok(capabilityRuntime.includes('id: "device.open_' + target + '_settings"'));
 }
 console.log("AURORA Stage 10 device controls tests passed: approval-gated volume, read-only storage and five additional Android settings handoffs.");
+
+
+// Stage 10 Wave 5: launcher app discovery and privacy-safe connectivity diagnostics.
+assert.ok(nativeJava.includes("public void listLaunchableApps(PluginCall call)"));
+assert.ok(nativeJava.includes("public void getNetworkStatus(PluginCall call)"));
+assert.ok(nativeJava.includes("Intent.CATEGORY_LAUNCHER"));
+assert.ok(nativeJava.includes("NET_CAPABILITY_VALIDATED"));
+assert.ok(nativeBridge.includes("listLaunchableApps(): Promise"));
+assert.ok(nativeBridge.includes("getNetworkStatus(): Promise"));
+assert.ok(capabilityRuntime.includes('id: "apps.list_launchable"'));
+assert.ok(capabilityRuntime.includes('id: "device.get_network_status"'));
+assert.ok(nativeJava.includes("result.put(\"ssidRead\", false)"));
+console.log("AURORA Stage 10 discovery and connectivity tests passed: launcher-only app listing and privacy-safe network diagnostics.");
