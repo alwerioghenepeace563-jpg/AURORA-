@@ -58,7 +58,7 @@ The machine-readable source of truth is `src/core/aurora-layer-registry.js`. Tes
 
 ### Stage 2 — Shared contracts and enforcement
 
-<badge>Complete — automated contract checkpoint</badge>
+<badge>Implementation committed — CI verification pending</badge>
 
 Completed in the shared engine and adapter contract audit:
 - Capability descriptors expose validated permission and consent requirements, bounded timeout settings, request-ID idempotency, and optional mandatory verification.
@@ -71,7 +71,7 @@ Completed in the shared engine and adapter contract audit:
 
 Automated coverage includes fail-closed permission/consent checks, authorization success, verifier success/failure, malformed contracts, timeout, cancellation, request-ID idempotency, shared runtime wiring, and all 12 layer records.
 
-**Stage 2 result:** The shared-contract checkpoint is complete. This means the cross-family code/contract baseline is in place; it does not certify physical Android behavior, every surface's end-to-end UX, or final feature readiness. All 12 layers remain active for later implementation and device-validation stages.
+**Stage 2 implementation result:** The shared-contract foundation and all 12 code-level adapter audit records are committed. The checkpoint remains **in progress** until the full core/architecture CI run passes. This does not certify physical Android behavior, every surface's end-to-end UX, or final feature readiness. All 12 layers remain active for later implementation and device-validation stages. Do not advance to Stage 3 until CI verifies this checkpoint.
 
 ### Stage 3 — Secure state and context (next)
 
