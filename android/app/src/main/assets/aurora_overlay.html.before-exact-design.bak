@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:transparent;color:#e2e8f0;font-family:Inter,system-ui,-apple-system,sans-serif}
+body{padding:5px}
+.panel{height:100%;border:1px solid rgba(255,255,255,.14);border-radius:25px;background:rgba(11,15,29,.94);box-shadow:0 8px 32px rgba(0,0,0,.42),0 0 28px rgba(34,211,238,.09);overflow:hidden;display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:15px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:750;letter-spacing:2px}
+.dot{width:10px;height:10px;border-radius:50%;background:#67e8f9;box-shadow:0 0 14px #22d3ee}
+.sub{font-size:10px;color:#94a3b8;letter-spacing:1.3px;margin-top:3px}
+button{font:inherit;color:inherit;border:1px solid rgba(255,255,255,.12);background:rgba(30,41,59,.78);border-radius:12px;padding:9px 12px}
+.close{border:0;background:transparent;font-size:21px;padding:2px 8px;color:#94a3b8}
+main{padding:13px 15px;flex:1;min-height:0;display:flex;flex-direction:column}
+.orb-wrap{display:flex;justify-content:center;padding:4px 0 10px}
+.orb{width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#c4b5fd 0%,#818cf8 16%,#4f46e5 38%,#312e81 60%,#111827 75%);box-shadow:0 0 22px #6366f1aa,0 0 46px #22d3ee22,inset 0 0 16px #a5f3fc66;animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.045);filter:brightness(1.17)}}
+h2{font-size:16px;text-align:center;margin:1px 0 4px;font-weight:650}
+.hint{text-align:center;color:#94a3b8;font-size:11px;margin-bottom:12px}
+.chips{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.chips span{font-size:10px;padding:6px 9px;border-radius:20px;background:rgba(30,41,59,.7);border:1px solid rgba(255,255,255,.08);color:#cbd5e1}
+#conversation{overflow-y:auto;flex:1;min-height:40px;font-size:12px;line-height:1.5;white-space:pre-wrap}
+.msg{padding:9px 11px;border-radius:13px;margin:6px 0;overflow-wrap:anywhere}
+.user{background:#312e81aa;border:1px solid #818cf833}
+.assistant{background:#1e293b99;border:1px solid #ffffff0d}
+#error{font-size:11px;color:#fca5a5;min-height:14px}
+form{padding:12px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:7px;align-items:center}
+input{min-width:0;flex:1;color:#f1f5f9;background:rgba(30,41,59,.76);border:1px solid rgba(255,255,255,.13);border-radius:14px;padding:12px;font-size:12px;outline:none}
+input:focus{border-color:#67e8f9aa}
+.send{background:linear-gradient(135deg,#4f46e5,#0891b2);border:0;font-weight:700;padding:12px 14px}
+footer{text-align:center;font-size:9px;color:#64748b;padding:0 10px 10px}
+</style>
+</head>
+<body>
+<section class="panel">
+<header>
+<div><div class="brand"><span class="dot"></span>AURORA</div><div class="sub">PERSONAL INTELLIGENCE</div></div>
+<button class="close" aria-label="Close overlay" onclick="dismiss()">×</button>
+</header>
+<main>
+<div class="orb-wrap"><div class="orb"></div></div>
+<h2>I'm listening.</h2>
+<div class="hint">Your assistant, wherever you are.</div>
+<div class="chips"><span>AI Chat</span><span>Voice-ready</span><span>Quick help</span></div>
+<div id="conversation" aria-live="polite"></div>
+<div id="error"></div>
+</main>
+<form id="form">
+<input id="prompt" placeholder="Ask AURORA…" autocomplete="off" aria-label="Message AURORA">
+<button class="send" id="send" type="submit">➤</button>
+</form>
+<footer>Powered by AURORA AI · Tap × to dismiss</footer>
+</section>
+<script>
+const form=document.getElementById("form"),promptBox=document.getElementById("prompt"),send=document.getElementById("send"),conversation=document.getElementById("conversation"),errorBox=document.getElementById("error");
+function dismiss(){if(window.AuroraOverlay)window.AuroraOverlay.dismiss()}
+function addMessage(role,text){const node=document.createElement("div");node.className="msg "+role;node.textContent=text;conversation.appendChild(node);conversation.scrollTop=conversation.scrollHeight}
+form.addEventListener("submit",async event=>{
+ event.preventDefault();const text=promptBox.value.trim();if(!text||send.disabled)return;
+ promptBox.value="";errorBox.textContent="";addMessage("user",text);send.disabled=true;send.textContent="…";
+ try{
+  const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:text}],profile:{},toolContext:""})});
+  const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{}}catch{}
+  if(!response.ok)throw new Error(data.error||("Chat API HTTP "+response.status));
+  const reply=String(data.reply||"").trim();if(!reply)throw new Error("AURORA returned an empty response.");
+  addMessage("assistant",reply);
+ }catch(err){errorBox.textContent=err.message||"Could not reach AURORA AI."}
+ finally{send.disabled=false;send.textContent="➤";promptBox.focus()}
+});
+</script>
+</body>
+</html>

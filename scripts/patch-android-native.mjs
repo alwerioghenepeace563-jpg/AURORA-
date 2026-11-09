@@ -39,7 +39,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative"${reducedPermissionTest ? "" : ", permissions = { @Permission(alias = \"microphone\", strings = { Manifest.permission.RECORD_AUDIO }) }"})
+@CapacitorPlugin(name = "AuroraNative"${reducedPermissionTest ? "" : ', permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) }'})
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private boolean isTrustedUpdateUrl(URL url) {
@@ -169,6 +169,14 @@ public class AuroraAssistantPlugin extends Plugin {
         requestPermissionForAlias("microphone",call,"microphonePermissionCallback");
     }
     @PermissionCallback private void microphonePermissionCallback(PluginCall call) { if(getPermissionState("microphone")!=PermissionState.GRANTED){call.reject("Microphone permission is needed for Hey AURORA. You can deny it and use AURORA normally.");return;} JSObject r=new JSObject();r.put("granted",true);call.resolve(r); }
+    @PluginMethod public void requestNotificationPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED) { call.resolve(new JSObject().put("granted", true)); return; }
+        requestPermissionForAlias("notifications", call, "notificationPermissionCallback");
+    }
+    @PermissionCallback private void notificationPermissionCallback(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED) call.resolve(new JSObject().put("granted", true));
+        else call.reject("Allow notifications so Hey AURORA can show its active microphone service.");
+    }
     @PluginMethod public void consumeWakeWord(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean d=p.getBoolean("wake_detected",false);if(d)p.edit().putBoolean("wake_detected",false).apply();JSObject r=new JSObject();r.put("detected",d);call.resolve(r); }
     @PluginMethod
     public void startAssistantService(PluginCall call) {
@@ -225,6 +233,10 @@ public class AuroraAssistantPlugin extends Plugin {
 
     @PluginMethod
     public void readScreen(PluginCall call) {
+        if (getActivity() == null || getActivity().isFinishing()) {
+            call.reject("Screen context can only be captured while AURORA is open and in the foreground.");
+            return;
+        }
         String text = AuroraAccessibilityService.readVisibleText();
         if (text == null) {
             call.reject("Enable AURORA Screen Assistant in Android Accessibility settings first.");
@@ -444,7 +456,55 @@ public class AuroraAccessibilityService extends AccessibilityService {
 };
 
 for (const [name, content] of Object.entries(files)) {
-  fs.writeFileSync(path.join(javaRoot, name), content);
+  const target = path.join(javaRoot, name);
+  // The committed native plugin is the source of truth. Never replace it with
+  // this bootstrap template during CI, because that would erase registered
+  // adapters added after the original foundation was generated.
+  if (name === "AuroraAssistantPlugin.java" && fs.existsSync(target)) continue;
+  fs.writeFileSync(target, content);
+}
+
+const securePluginPath = path.join(javaRoot, "AuroraSecureStoragePlugin.java");
+const securePluginSource = fs.existsSync(securePluginPath) ? fs.readFileSync(securePluginPath, "utf8") : "";
+for (const method of ["set", "get", "remove"]) {
+  if (!securePluginSource.includes("void " + method + "(PluginCall call)")) {
+    throw new Error("Android Keystore secure-storage plugin is missing: " + method);
+  }
+}
+if (!securePluginSource.includes('@CapacitorPlugin(name = "AuroraSecureStorage")') ||
+    !securePluginSource.includes("AndroidKeyStore") ||
+    !securePluginSource.includes("AES/GCM/NoPadding") ||
+    !securePluginSource.includes("getNoBackupFilesDir")) {
+  throw new Error("Android secure storage must use Keystore-backed AES-GCM and no-backup app storage.");
+}
+
+const nativePluginPath = path.join(javaRoot, "AuroraAssistantPlugin.java");
+const nativePluginSource = fs.readFileSync(nativePluginPath, "utf8");
+const requiredNativeMethods = [
+  "pickDocument", "prepareSms", "shareText", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
+  "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
+  "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
+  "requestContactsPermission", "searchContacts", "openDialer", "hasOverlayPermission", "requestOverlayPermission", "setFlashlight", "startSpeechRecognition", "stopSpeechRecognition", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "status"
+];
+for (const method of requiredNativeMethods) {
+  if (!nativePluginSource.includes("void " + method + "(PluginCall call)")) {
+    throw new Error("Committed AuroraAssistantPlugin is missing required native adapter: " + method);
+  }
+}
+
+for (const [fileName, required] of [
+  ["AuroraSecureStoragePlugin.java", ["getOrCreateKey", "AES/GCM/NoPadding", "getNoBackupFilesDir", "void set(PluginCall call)", "void get(PluginCall call)", "void remove(PluginCall call)"]],
+  ["AuroraReminderPlugin.java", ["void requestNotificationPermission(PluginCall call)", "void schedule(PluginCall call)", "void cancel(PluginCall call)", "void list(PluginCall call)"]],
+  ["AuroraReminderReceiver.java", ["class AuroraReminderReceiver", "BOOT_COMPLETED", "setAndAllowWhileIdle"]]
+]) {
+  const filePath = path.join(javaRoot, fileName);
+  if (!fs.existsSync(filePath)) throw new Error("Missing required native foundation: " + fileName);
+  const source = fs.readFileSync(filePath, "utf8");
+  for (const marker of required) if (!source.includes(marker)) throw new Error(fileName + " is missing required implementation marker: " + marker);
+}
+const manifestText = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
+if (!manifestText.includes(".AuroraReminderReceiver") || !manifestText.includes("android.permission.RECEIVE_BOOT_COMPLETED")) {
+  throw new Error("Reminder receiver or reboot permission is missing from AndroidManifest.xml");
 }
 
 const xmlDir = path.join(android, "app/src/main/res/xml");
@@ -475,7 +535,8 @@ const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
   '<uses-permission android:name="android.permission.CAMERA" />',
-  '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
+  '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />',
+  '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />'
 ];
 for (const permission of permissions) {
   const key = permission.match(/android:name="([^"]+)"/)[1];
@@ -491,16 +552,23 @@ fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
 </paths>
 `);
 
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraReminderReceiver"')) {
+  manifest = manifest.replace("</application>", '        <receiver android:name=".AuroraReminderReceiver" android:enabled="true" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter></receiver>\n    </application>');
+}
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
 }
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAccessibilityService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAccessibilityService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true" android:label="AURORA Screen Assistant">\n            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>\n            <meta-data android:name="android.accessibilityservice" android:resource="@xml/aurora_accessibility_service" />\n        </service>\n    </application>');
 }
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraNotificationListenerService"')) {
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraNotificationListenerService" android:label="AURORA Notification Intelligence" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true"><intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter></service>\n    </application>');
+}
 const visiblePackages = [
   "com.whatsapp", "com.whatsapp.w4b", "com.google.android.youtube",
   "com.android.chrome", "com.android.settings", "com.google.android.gm",
-  "com.google.android.apps.maps", "com.google.android.apps.messaging", "com.android.vending"
+  "com.google.android.apps.maps", "com.google.android.apps.messaging",
+  "com.facebook.katana", "com.facebook.lite", "com.android.vending"
 ];
 if (!manifest.includes("<queries>")) {
   const queryXml = "    <queries>" + visiblePackages.map((name) => '<package android:name="' + name + '" />').join("") + "</queries>\\n";
@@ -539,6 +607,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AuroraAssistantPlugin.class);
+        registerPlugin(AuroraSecureStoragePlugin.class);
+        registerPlugin(AuroraReminderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -546,6 +616,8 @@ public class MainActivity extends BridgeActivity {
 fs.writeFileSync(mainActivity, expectedMainActivity);
 const verifiedMainActivity = fs.readFileSync(mainActivity, "utf8");
 if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraSecureStoragePlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraReminderPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }

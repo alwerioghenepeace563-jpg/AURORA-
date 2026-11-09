@@ -1,0 +1,24 @@
+const assert=require("node:assert/strict");
+(async()=>{
+ const {createAuroraTaskJournal}=await import("../src/core/aurora-task-journal.js");
+ const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+ const journal=createAuroraTaskJournal({storage,now:()=>"2026-11-09T00:00:00.000Z"});
+ const plan={id:"task-private",title:"PRIVATE TASK TITLE",summary:"PRIVATE TASK SUMMARY",steps:[{id:"read",capabilityId:"files.read",label:"Read file",risk:"medium",approvalRequired:true,input:{documentText:"PRIVATE DOCUMENT BODY"},dependsOn:[]}]};
+ journal.record({type:"task.plan_created",at:"2026-11-09T00:00:00.000Z",plan});
+ journal.record({type:"task.started",taskId:plan.id,at:"2026-11-09T00:00:01.000Z"});
+ journal.record({type:"task.finished",result:{taskId:plan.id,title:plan.title,status:"failed",verificationStatus:"partially_verified",startedAt:"2026-11-09T00:00:01.000Z",finishedAt:"2026-11-09T00:00:02.000Z",steps:[{stepId:"read",capabilityId:"files.read",status:"failed",verificationStatus:"unverified",receipt:{requestId:"task-private:read",capabilityId:"files.read",status:"failed",at:"2026-11-09T00:00:02.000Z",result:{documentText:"PRIVATE DOCUMENT BODY"},error:{code:"READ_FAILED",message:"PRIVATE ERROR DETAILS",details:{path:"/private/document"}}}}]}});
+ const raw=[...values.values()].join("\n");
+ for(const secret of ["PRIVATE TASK TITLE","PRIVATE TASK SUMMARY","PRIVATE DOCUMENT BODY","PRIVATE ERROR DETAILS","private/document"])assert.doesNotMatch(raw,new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+ const item=journal.get(plan.id);
+ assert.equal(item.result.status,"failed");
+ assert.equal(item.result.verificationStatus,"partially_verified");
+ assert.equal(item.result.steps[0].verificationStatus,"unverified");
+ assert.equal(item.result.steps[0].receipt.error.code,"READ_FAILED");
+ assert.equal("result"in item.result.steps[0].receipt,false);
+ assert.equal("input"in item.plan.steps[0],false);
+ assert.equal(item.plan.title,"AURORA task");
+ assert.equal(journal.recoverable()[0].requiresFreshConfirmation,true);
+ assert.equal(journal.forget(plan.id),true);
+ assert.equal(journal.recoverable().length,0);
+ console.log("AURORA task journal tests passed: metadata-only storage, redacted user text and fresh-confirmation recovery.");
+})().catch(error=>{console.error(error);process.exitCode=1;});

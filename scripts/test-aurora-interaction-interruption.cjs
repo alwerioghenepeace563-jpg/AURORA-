@@ -1,0 +1,23 @@
+const assert = require("node:assert/strict");
+(async () => {
+ const { createAuroraEventBus } = await import("../src/core/aurora-event-bus.js");
+ const { createAuroraInteractionInterruptionCoordinator } = await import("../src/core/aurora-interaction-interruption.js");
+ const events = createAuroraEventBus(), manager = createAuroraInteractionInterruptionCoordinator({ events });
+ let pulseStops = 0, voiceStops = 0;
+ const releasePulse = manager.register("pulse", () => pulseStops++);
+ manager.register("voice", () => voiceStops++);
+ assert.equal(manager.getActiveCount(), 2);
+ events.publish("app.lifecycle.background", { visibility: "background" });
+ assert.equal(pulseStops, 1); assert.equal(voiceStops, 1); assert.equal(manager.getActiveCount(), 0);
+ assert.equal(manager.isBackground(), true);
+ assert.equal(events.recent().filter(e => e.type === "interaction.interrupted").length, 2);
+ assert.equal(releasePulse(), false);
+ events.publish("app.lifecycle.resume", { automaticRecovery: false });
+ assert.equal(manager.isBackground(), false);
+ let immediateStop = 0;
+ events.publish("app.lifecycle.background", {});
+ manager.register("pulse", () => immediateStop++);
+ assert.equal(immediateStop, 1); assert.equal(manager.getActiveCount(), 0);
+ assert.equal(manager.dispose(), true); assert.equal(manager.dispose(), false);
+ console.log("AURORA interaction interruption tests passed: stop-on-background, metadata events, no auto-resume and cleanup.");
+})().catch(error => { console.error(error); process.exitCode = 1; });

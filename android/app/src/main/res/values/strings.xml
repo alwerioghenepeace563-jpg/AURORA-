@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AURORA</string>
+    <string name="title_activity_main">AURORA</string>
+    <string name="package_name">com.aurora.assistant</string>
+    <string name="custom_url_scheme">com.aurora.assistant</string>
+    <string name="aurora_accessibility_description">Allows AURORA to read visible text from other apps after you enable Screen Assistant in Android settings. Text is sent to AI only when you ask AURORA to read your screen.</string>
+</resources>

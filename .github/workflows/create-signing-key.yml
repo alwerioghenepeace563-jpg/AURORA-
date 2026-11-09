@@ -24,19 +24,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p signing-key-package
-          keytool -genkeypair -v \
-            -keystore signing-key-package/aurora-debug.keystore \
-            -storepass android \
-            -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-          keytool -list -v \
-            -keystore signing-key-package/aurora-debug.keystore \
-            -storepass android \
-            -alias androiddebugkey > signing-key-package/CERTIFICATE-INFO.txt
+          keytool -genkeypair -v -keystore signing-key-package/aurora-debug.keystore -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          keytool -list -v -keystore signing-key-package/aurora-debug.keystore -storepass android -alias androiddebugkey > signing-key-package/CERTIFICATE-INFO.txt
 
       - name: Prepare key instructions
         shell: bash
@@ -75,7 +64,7 @@ jobs:
           we check whether an update can be installed over it.
           EOF
           base64 -w 0 signing-key-package/aurora-debug.keystore > signing-key-package/BASE64-SECRET-VALUE.txt
-          printf '\n' >> signing-key-package/BASE64-SECRET-VALUE.txt
+          printf '\\n' >> signing-key-package/BASE64-SECRET-VALUE.txt
           chmod 600 signing-key-package/aurora-debug.keystore signing-key-package/BASE64-SECRET-VALUE.txt
 
       - name: Package signing key ZIP
@@ -87,4 +76,5 @@ jobs:
           name: AURORA-Permanent-Signing-Key
           path: AURORA-Permanent-Signing-Key.zip
           if-no-files-found: error
-          retention-days: 7
+          # GitHub Actions artifacts cannot be retained indefinitely; maximum is 90 days.
+          retention-days: 90

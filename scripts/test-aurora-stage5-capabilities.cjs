@@ -1,0 +1,35 @@
+const fs = require("node:fs");
+const assert = require("node:assert/strict");
+const registry = fs.readFileSync("src/core/aurora-layer-registry.js", "utf8");
+const runtime = fs.readFileSync("src/core/aurora-capability-runtime.js", "utf8");
+const chatRuntime = fs.readFileSync("src/core/aurora-runtime.js", "utf8");
+const plugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
+const manifest = fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const families = ["android_device","voice_multimodal","screen_accessibility","communication_people","location_travel","calendar_productivity","files_knowledge","media_creative","intelligence_personalisation","extensions_interoperability","safety_privacy_security","reliability_operations"];
+for (const id of families) assert.match(registry, new RegExp("\\b" + id + "\\s*:\\s*Object\\.freeze\\(\\["), "Stage 5 must audit " + id);
+assert.match(registry, /STAGE_FIVE_CHECKPOINT/);
+assert.ok(runtime.includes('id: "location.get_current"'));
+assert.ok(runtime.includes('permissionRequirements: ["android.location"]'));
+assert.ok(runtime.includes('consentRequirements: ["location.current:android"]'));
+assert.match(plugin, /requestLocationPermission/);
+assert.match(plugin, /getCurrentLocation/);
+assert.match(plugin, /ageMs/);
+assert.match(plugin, /backgroundTracking", false/);
+assert.match(manifest, /ACCESS_COARSE_LOCATION/);
+assert.match(manifest, /ACCESS_FINE_LOCATION/);
+assert.match(bridge, /requestLocationPermission/);
+assert.match(bridge, /getCurrentLocation/);
+assert.match(chatRuntime, /prepare location access/);
+assert.match(chatRuntime, /confirm location access/);
+assert.match(chatRuntime, /location.get_current/);
+assert.match(chatRuntime, /auroraConsents.grant/);
+assert.match(chatRuntime, /export \{ auroraRuntime \}/);
+const appSource = fs.readFileSync("src/App.jsx", "utf8");
+assert.match(appSource, /auroraRuntime\.surfaces\.route/);
+assert.match(appSource, /surface: "main_chat"/);
+assert.match(appSource, /surface: "pulse"/);
+for (const id of ["android.open_app","android.read_screen","contacts.search","communication.prepare_sms","communication.share_text","communication.open_dialer","maps.search_place","maps.get_directions","calendar.prepare_event","calendar.search_events","media.search_play","files.pick_document","files.search_selected_text","notifications.read_recent","notifications.search_recent","voice.start_listening","voice.speak_text","device.get_status"]) {
+  assert.ok(runtime.includes('id: "' + id + '"'), "Capability catalogue must retain " + id);
+}
+console.log("AURORA Stage 5 capability and 12-family audit checks passed.");

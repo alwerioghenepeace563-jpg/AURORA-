@@ -10,7 +10,26 @@
     "typecheck": "tsc --noEmit",
     "android:sync": "npm run build && npm run android:check && node scripts/patch-android-native.mjs && cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
-    "android:check": "node scripts/check-android-feature-parity.mjs"
+    "android:check": "node scripts/check-android-feature-parity.mjs",
+    "test:core": "node scripts/test-aurora-core.cjs && node scripts/test-aurora-tools.cjs && node scripts/test-aurora-runtime.cjs && node scripts/test-aurora-intent-parser.cjs && node scripts/test-aurora-task-orchestrator.cjs && node scripts/test-aurora-task-planner.cjs && node scripts/test-aurora-memory.cjs && node scripts/test-aurora-intelligence-ecosystem.cjs && node scripts/test-aurora-next-wave.cjs && node scripts/test-aurora-privacy-search-extensions.cjs && node scripts/test-aurora-secure-sync.cjs && node scripts/test-aurora-routine-scheduler.cjs && node scripts/test-aurora-extension-execution.cjs && node scripts/test-aurora-data-inventory.cjs && node scripts/test-aurora-action-contracts.cjs && node scripts/test-aurora-protected-memory.cjs && node scripts/test-aurora-storage-guard.cjs && node scripts/test-aurora-layer-registry.cjs && node scripts/test-aurora-reliability.cjs && node scripts/test-aurora-task-journal.cjs && node scripts/test-aurora-architecture.cjs && npm run test:aurora-pulse-native && npm run test:aurora-stage5 && npm run test:aurora-surfaces && npm run test:aurora-approval-events && npm run test:aurora-native-lifecycle && npm run test:aurora-interaction-interruption && npm run test:aurora-spoken-output && npm run test:aurora-pulse-accessibility && npm run test:aurora-environment-monitor && npm run test:aurora-context-sessions && npm run test:aurora-context-routing && npm run test:aurora-wake-listener && npm run test:aurora-stage7 && npm run test:aurora-stage8 && npm run test:aurora-stage9 && npm run test:aurora-stage10 && npm run test:aurora-stage11 && npm run test:aurora-voicetext-bridge",
+    "test:aurora-pulse-native": "node scripts/test-aurora-pulse-native-bridge.cjs",
+    "test:aurora-stage5": "node scripts/test-aurora-stage5-capabilities.cjs",
+    "test:aurora-surfaces": "node scripts/test-aurora-surface-gateway.cjs",
+    "test:aurora-approval-events": "node scripts/test-aurora-approval-event-bridge.cjs",
+    "test:aurora-native-lifecycle": "node scripts/test-aurora-native-lifecycle.cjs",
+    "test:aurora-interaction-interruption": "node scripts/test-aurora-interaction-interruption.cjs",
+    "test:aurora-spoken-output": "node scripts/test-aurora-spoken-output.cjs",
+    "test:aurora-pulse-accessibility": "node scripts/test-aurora-pulse-accessibility.cjs",
+    "test:aurora-environment-monitor": "node scripts/test-aurora-environment-monitor.cjs",
+    "test:aurora-context-sessions": "node scripts/test-aurora-context-sessions.cjs",
+    "test:aurora-context-routing": "node scripts/test-aurora-context-routing.cjs",
+    "test:aurora-wake-listener": "node scripts/test-aurora-wake-listener.cjs",
+    "test:aurora-stage7": "node scripts/test-aurora-stage7-checkpoint.cjs",
+    "test:aurora-stage8": "node scripts/test-aurora-stage8-workflow-observability.cjs",
+    "test:aurora-stage9": "node scripts/test-aurora-knowledge-universe.cjs && node scripts/test-aurora-stage9-import-boundary.cjs",
+    "test:aurora-stage10": "node scripts/test-aurora-stage10-capability-inventory.cjs",
+    "test:aurora-stage11": "node scripts/test-aurora-learning-universe.cjs && node scripts/test-aurora-creative-universe.cjs && node scripts/test-aurora-stage11-transcription.cjs && node scripts/test-aurora-stage11-media-search.cjs && node scripts/test-aurora-stage11-image-generation.cjs",
+    "test:aurora-voicetext-bridge": "node scripts/test-aurora-voicetext-bridge.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
@@ -24,7 +43,6 @@
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@vitejs/plugin-react": "^4.7.0",
-    "@vercel/node": "^5.3.0",
     "typescript": "^5.8.3",
     "vite": "^6.4.1",
     "@capacitor/cli": "^7.4.3"

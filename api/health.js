@@ -8,6 +8,13 @@ export default function handler(req, res) {
     process.env.OPENROUTER_API_KEY ? "openrouter" : null,
     process.env.GEMINI_API_KEY ? "gemini" : null
   ].filter(Boolean);
+  const voiceKeyConfigured = Boolean(process.env.ELEVENLABS_API_KEY || process.env.ELEVENLAB_API_KEY);
+  const voiceIdConfigured = Boolean(
+    process.env.ELEVENLABS_VOICE_ID || process.env.ELEVENLAB_VOICE_ID ||
+    process.env.ELEVENLABS_JESSICA_VOICE_ID || process.env.ELEVENLABS_BELLA_VOICE_ID ||
+    process.env.ELEVENLABS_LAURA_VOICE_ID || process.env.ELEVENLABS_LUCIAN_VOICE_ID ||
+    process.env.ELEVENLAB_LUCIAN_VOICE_ID
+  );
   const sharedStateConfigured = Boolean(
     (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) &&
     (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN)
@@ -19,6 +26,8 @@ export default function handler(req, res) {
     configuredProviders,
     providerOrder: ["groq", "openrouter", "gemini"].filter((provider) => configuredProviders.includes(provider)),
     providerState: sharedStateConfigured ? "shared-kv-and-client-sticky" : "client-sticky-plus-instance-fallback",
-    voiceConfigured: Boolean(process.env.ELEVENLABS_API_KEY || process.env.ELEVENLAB_API_KEY)
+    voiceKeyConfigured,
+    voiceIdConfigured,
+    voiceConfigured: voiceKeyConfigured && voiceIdConfigured
   });
 }

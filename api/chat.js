@@ -1,7 +1,10 @@
 import cors from "../lib/cors.cjs";
+import { searchAuroraWeb } from "./search.js";
 const { applyAuroraCors } = cors;
 import aiProvider from "../lib/ai-provider.cjs";
 const { getPreferredProvider, setPreferredProvider, providerOrder } = aiProvider;
+import auroraCore from "../lib/aurora-core.cjs";
+const { createTaskPlan, buildCoreInstructions } = auroraCore;
 
 async function chatHandler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
@@ -42,8 +45,19 @@ async function chatHandler(req, res) {
       }
       parts.push({ inlineData: { mimeType, data } });
     }
+    if (m.role === "user" && m.media && typeof m.media === "object") {
+      const mimeType = typeof m.media.mimeType === "string" ? m.media.mimeType : "";
+      const data = typeof m.media.data === "string" ? m.media.data : "";
+      const supportedMedia = ["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "audio/ogg", "video/mp4"];
+      if (!supportedMedia.includes(mimeType) || !data || data.length > 3600000 || !/^[A-Za-z0-9+/=]+$/.test(data)) {
+        return res.status(400).json({ error: "Audio/video must be a supported MP3, MP4, WAV, WebM or OGG file under the 2.5 MB upload limit." });
+      }
+      parts.push({ inlineData: { mimeType, data } });
+    }
     contents.push({ role: m.role === "assistant" ? "model" : "user", parts });
   }
+
+  const corePlan = createTaskPlan({ messages: body.messages, profile: body.profile, toolContext: body.toolContext });
 
   const configuredModel = (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim().replace(/^models\//, "");
   const candidates = [...new Set([configuredModel, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"])];
@@ -58,6 +72,37 @@ async function chatHandler(req, res) {
   };
   const activeScheduleInstructions = clean(profile.activeScheduleInstructions, 2400);
   const liveToolContext = clean(body.toolContext, 9000);
+
+  // AURORA_LIVE_SEARCH_CONTEXT: automatically retrieve web results for explicit
+  // online/current-information requests. Search failure must not block AI fallback.
+  let liveSearchContext = "";
+  try {
+    const latestUserMessage = [...body.messages].reverse().find(
+      message => message?.role === "user" && typeof message.content === "string"
+    );
+    const searchText = latestUserMessage?.content?.trim().slice(0, 240) || "";
+    const asksForLiveInfo = /\b(search (?:the )?(?:web|internet|online)|look up online|find online|latest|current|today'?s news|recent news|breaking news|headlines|news about|as of (?:today|now)|this week|current price|price of|what happened (?:today|recently))\b/i.test(searchText);
+    const hasUserAttachments = body.messages.some(message => message?.image || message?.document);
+
+    if (asksForLiveInfo && !hasUserAttachments && searchText.length >= 2) {
+      const searchResult = await searchAuroraWeb(searchText);
+      const rows = Array.isArray(searchResult?.results) ? searchResult.results.slice(0, 5) : [];
+      if (rows.length) {
+        liveSearchContext = [
+          "Search query: " + searchText,
+          "Search source: " + String(searchResult.source || "web search"),
+          ...rows.map((item, index) =>
+            String(index + 1) + ". " + String(item.title || "Untitled").slice(0, 220) +
+            "\nURL: " + String(item.url || "").slice(0, 500) +
+            "\nSnippet: " + String(item.snippet || "").slice(0, 700)
+          )
+        ].join("\n\n").slice(0, 6500);
+      }
+    }
+  } catch (searchError) {
+    console.warn("AURORA live search unavailable; continuing with AI providers:", searchError?.message || "Search failed");
+  }
+
   const profileContext = [
     clean(profile.nickname || profile.name, 80) ? "Preferred name: " + clean(profile.nickname || profile.name, 80) : "",
     clean(profile.wakeTime, 10) ? "Usual wake-up time: " + clean(profile.wakeTime, 10) : "",
@@ -75,20 +120,26 @@ async function chatHandler(req, res) {
     (profileContext ? "\nUse these user-provided preferences when relevant, without awkwardly repeating them:\n" + profileContext : "") +
     (activeScheduleInstructions ? "\nTEMPORARY SCHEDULE INSTRUCTIONS (only active during the scheduled time window; follow these for the current response unless they conflict with safety or the user’s latest explicit request):\n" + activeScheduleInstructions : "") +
     (liveToolContext ? "\nLIVE TOOL RESULTS (use these for the current request; they came from an AURORA capability that ran for this turn):\n" + liveToolContext + "\nUse this live result rather than claiming you cannot access the relevant information. Do not imply a tool ran when no result was supplied." : "") +
-    "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request.";
+
+    (liveSearchContext ? "\nLIVE WEB SEARCH RESULTS (retrieved for this request):\n" + liveSearchContext +
+      "\nUse these results for current claims, include relevant source links in Markdown, distinguish reported facts from inference, and mention uncertainty or conflicting results. Do not claim a source says more than its title/snippet supports." : "") +
+
+    "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request." +
+    "\n\n" + buildCoreInstructions(corePlan);
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
     contents,
     tools: [{ google_search: {} }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1200 }
+    generationConfig: { temperature: 0.7, maxOutputTokens: hasMedia ? 8192 : 1200 }
   };
 
   const groqKey = process.env.GROQ_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-  const hasAttachments = body.messages.some((m) => m && (m.document || m.image));
+  const hasAttachments = body.messages.some((m) => m && (m.document || m.image || m.media));
   const hasImages = body.messages.some((m) => m && m.image);
   const hasPdfs = body.messages.some((m) => m && m.document);
+  const hasMedia = body.messages.some((m) => m && m.media);
   const configuredProviders = [
     groqKey ? "groq" : null,
     openRouterKey ? "openrouter" : null,
@@ -102,9 +153,11 @@ async function chatHandler(req, res) {
       : storedProvider;
     const orderedProviders = providerOrder(requestedProvider, configuredProviders);
     // Images can use any configured vision-capable provider. PDFs use OpenRouter file input or Gemini native PDF input.
-    const availableProviders = hasPdfs
-      ? orderedProviders.filter((provider) => provider === "openrouter" || provider === "gemini")
-      : orderedProviders;
+    const availableProviders = hasMedia
+      ? orderedProviders.filter((provider) => provider === "gemini")
+      : hasPdfs
+        ? orderedProviders.filter((provider) => provider === "openrouter" || provider === "gemini")
+        : orderedProviders;
     const failures = [];
 
     for (const provider of availableProviders) {

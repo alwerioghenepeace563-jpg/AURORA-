@@ -1,0 +1,134 @@
+const assert = require("node:assert/strict");
+
+(async () => {
+  const { createAuroraActionEngine } = await import("../src/core/aurora-action-engine.js");
+  const { createAuroraTaskOrchestrator } = await import("../src/core/aurora-task-orchestrator.js");
+  let approvals = 0;
+  const executed = [];
+  const engine = createAuroraActionEngine({
+    createId: (() => { let n = 0; return () => "approval-" + (++n); })(),
+    approve: async () => { approvals++; return { approved: true }; }
+  });
+  engine.registerCapability({
+    id: "test.lookup",
+    label: "Look up information",
+    risk: "low",
+    execute: async ({ query }) => { executed.push("lookup:" + query); return { found: true }; },
+    verify: async (result) => result?.found === true
+  });
+  engine.registerCapability({
+    id: "test.prepare",
+    label: "Prepare a change",
+    risk: "high",
+    execute: async () => { executed.push("prepare"); return { prepared: true }; }
+  });
+
+  const tasks = createAuroraTaskOrchestrator(engine, { createId: () => "task-1" });
+  const events = [];
+  tasks.subscribe((event) => events.push(event.type));
+  const plan = tasks.createPlan({
+    title: "Research and prepare",
+    steps: [
+      { id: "lookup", capabilityId: "test.lookup", input: { query: "school timetable" } },
+      { id: "prepare", capabilityId: "test.prepare", input: {}, dependsOn: ["lookup"] }
+    ]
+  });
+  assert.equal(plan.steps.length, 2);
+  assert.equal(plan.steps[1].approvalRequired, true);
+
+  const preview = await tasks.runPlan(plan, { confirmed: false });
+  assert.equal(preview.status, "confirmation_required");
+  assert.equal(executed.length, 0);
+
+  const result = await tasks.runPlan(plan, { confirmed: true });
+  assert.equal(result.status, "completed");
+  assert.equal(result.steps.length, 2);
+  assert.equal(result.verificationStatus, "partially_verified");
+  assert.equal(result.steps[0].verificationStatus, "verified");
+  assert.equal(result.steps[1].verificationStatus, "unverified");
+  assert.deepEqual(executed, ["lookup:school timetable", "prepare"]);
+  assert.equal(approvals, 1);
+  assert.ok(events.includes("task.plan_created"));
+  assert.ok(events.includes("task.step_started"));
+  assert.ok(events.includes("task.finished"));
+  assert.equal(await tasks.runPlan(plan, { confirmed: true }), result);
+
+  assert.throws(() => tasks.createPlan({
+    title: "Bad dependency",
+    steps: [{ id: "first", capabilityId: "test.lookup", dependsOn: ["later"] }]
+  }), /earlier step/i);
+  assert.throws(() => tasks.createPlan({
+    title: "Unknown capability",
+    steps: [{ capabilityId: "not.registered" }]
+  }), /unknown capability/i);
+
+  let concurrentExecutions = 0;
+  const concurrentEngine = createAuroraActionEngine();
+  concurrentEngine.registerCapability({
+    id: "test.concurrent",
+    risk: "low",
+    execute: async () => { concurrentExecutions++; await new Promise((resolve) => setTimeout(resolve, 20)); return { ok: true }; }
+  });
+  const concurrentTasks = createAuroraTaskOrchestrator(concurrentEngine, { createId: () => "task-concurrent" });
+  const concurrentPlan = concurrentTasks.createPlan({ title: "Single execution", steps: [{ capabilityId: "test.concurrent" }] });
+  const concurrentResults = await Promise.all([
+    concurrentTasks.runPlan(concurrentPlan, { confirmed: true }),
+    concurrentTasks.runPlan(concurrentPlan, { confirmed: true })
+  ]);
+  assert.equal(concurrentExecutions, 1);
+  assert.equal(concurrentResults[0], concurrentResults[1]);
+
+  const blockedEngine = createAuroraActionEngine({ approve: async () => ({ approved: false, reason: "Declined" }) });
+  blockedEngine.registerCapability({ id: "test.blocked", risk: "high", execute: async () => { throw new Error("Must not run"); } });
+  const blockedTasks = createAuroraTaskOrchestrator(blockedEngine, { createId: () => "task-blocked" });
+  const blockedPlan = blockedTasks.createPlan({ title: "Approval test", steps: [{ capabilityId: "test.blocked" }] });
+  const blocked = await blockedTasks.runPlan(blockedPlan, { confirmed: true });
+  assert.equal(blocked.status, "awaiting_user");
+  assert.equal(blocked.steps[0].status, "rejected");
+
+  let started=false;
+  const ce=createAuroraActionEngine();
+  ce.registerCapability({id:"test.longrun",risk:"low",execute:async(_input,context)=>new Promise((_resolve,reject)=>{started=true;context.signal.addEventListener("abort",()=>reject(context.signal.reason),{once:true});})});
+  const ct=createAuroraTaskOrchestrator(ce,{createId:()=>"task-cancel"});
+  const cp=ct.createPlan({title:"Cancelable work",steps:[{id:"long",capabilityId:"test.longrun"},{id:"later",capabilityId:"test.longrun"}]});
+  const pending=ct.runPlan(cp,{confirmed:true}); while(!started) await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(ct.cancelPlan("task-cancel"),true); const cancelled=await pending;
+  assert.equal(cancelled.status,"cancelled"); assert.equal(cancelled.steps.length,1); assert.equal(ct.cancelPlan("task-cancel"),false);
+
+  let retryCalls = 0;
+  const retryKeys = [];
+  const retryEngine = createAuroraActionEngine();
+  retryEngine.registerCapability({
+    id: "test.retryable", risk: "low",
+    retryPolicy: { mode: "idempotent", evidence: "Read-only lookup keyed by immutable query and stable provider request token." },
+    execute: async (_input, context) => { retryKeys.push(context.idempotencyKey); retryCalls++; if (retryCalls === 1) { const error = new Error("Temporary provider outage"); error.code = "TEMPORARY_UNAVAILABLE"; throw error; } return { ok: true }; }
+  });
+  const retryTasks = createAuroraTaskOrchestrator(retryEngine, { createId: () => "task-retry" });
+  const retryPlan = retryTasks.createPlan({ title: "Retry review", steps: [{ id: "lookup", capabilityId: "test.retryable" }] });
+  const firstFailure = await retryTasks.runPlan(retryPlan, { confirmed: true });
+  assert.equal(firstFailure.status, "failed");
+  const retryInspection = retryTasks.inspectRetry("task-retry", "lookup");
+  assert.equal(retryInspection.status, "retry_available");
+  assert.equal(retryInspection.requiresFreshConfirmation, true);
+  assert.equal(retryInspection.attempt, 1);
+  assert.equal((await retryTasks.retryFailedStep("task-retry", "lookup")).status, "confirmation_required");
+  const retryResult = await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true });
+  assert.equal(retryResult.status, "completed");
+  assert.equal(retryCalls, 2);
+  assert.deepEqual(retryKeys, ["task-retry:lookup", "task-retry:lookup"]);
+  assert.equal((await retryTasks.retryFailedStep("task-retry", "lookup", { confirmed: true })).reason, "retry_already_succeeded");
+
+  const unsafeEngine = createAuroraActionEngine();
+  unsafeEngine.registerCapability({ id: "test.unsafe_retry", risk: "low", execute: async () => { throw new Error("failed"); } });
+  const unsafeTasks = createAuroraTaskOrchestrator(unsafeEngine, { createId: () => "task-unsafe-retry" });
+  const unsafePlan = unsafeTasks.createPlan({ title: "Unsafe retry", steps: [{ id: "write", capabilityId: "test.unsafe_retry" }] });
+  await unsafeTasks.runPlan(unsafePlan, { confirmed: true });
+  const unsafeInspection = unsafeTasks.inspectRetry("task-unsafe-retry", "write");
+  assert.equal(unsafeInspection.status, "not_retryable");
+  assert.equal(unsafeInspection.reason, "adapter_idempotency_not_proven");
+  const unsafeRetry = await unsafeTasks.retryFailedStep("task-unsafe-retry", "write", { confirmed: true });
+  assert.equal(unsafeRetry.status, "not_retryable");
+  assert.equal(unsafeRetry.reason, "adapter_idempotency_not_proven");
+
+  console.log("AURORA task orchestration tests passed: preview-first plans, ordered dependencies, approval gates, denial, truthful verification summaries, stable retry idempotency keys and cooperative cancellation.");
+})().catch((error) => { console.error(error); process.exitCode = 1; });
