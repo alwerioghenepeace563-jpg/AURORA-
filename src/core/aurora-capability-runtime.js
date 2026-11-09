@@ -94,49 +94,6 @@ function createAuroraCapabilityRuntime(options = {}) {
     id: "communication.prepare_sms",
     label: "Prepare a text message",
     category: "communication",
-    description: "Open Android's SMS composer with a recipient and optional draft; AURORA never sends the message.",
-    risk: AURORA_ACTION_RISK.MEDIUM,
-    approvalRequired: true,
-    validate: (input) => {
-      const valid = requiredString(input?.number, "Phone number");
-      if (valid !== true) return valid;
-      if (!/^[+0-9(). -]{5,25}$/.test(input.number.trim())) return "Enter a valid phone number.";
-      if (input.body !== undefined && (typeof input.body !== "string" || input.body.length > 2000)) return "Message drafts must be 2000 characters or fewer.";
-      return true;
-    },
-    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The Android SMS composer requires the native app." }),
-    execute: async ({ number, body = "" }) => {
-      const result = await auroraNative.prepareSms({ number: number.trim(), body });
-      if (!result?.opened) throw new Error("Android could not open the SMS composer.");
-      return { composerOpened: true, requiresUserSend: true };
-    }
-  });
-
-  engine.registerCapability({
-    id: "device.share_text",
-    label: "Share text",
-    category: "device",
-    description: "Open Android's share sheet so the user chooses the destination and confirms sharing.",
-    risk: AURORA_ACTION_RISK.MEDIUM,
-    approvalRequired: true,
-    validate: (input) => {
-      const valid = requiredString(input?.text, "Text to share");
-      if (valid !== true) return valid;
-      return input.text.length <= 8000 || "Text to share must be 8000 characters or fewer.";
-    },
-    availability: async () => ({ available: auroraNative.isAndroid(), reason: "The Android share sheet requires the native app." }),
-    execute: async ({ text }) => {
-      const result = await auroraNative.shareText({ text });
-      if (!result?.opened) throw new Error("Android could not open the share sheet.");
-      return { shareSheetOpened: true, userChoosesDestination: true };
-    }
-  });
-
-
-  engine.registerCapability({
-    id: "communication.prepare_sms",
-    label: "Prepare a text message",
-    category: "communication",
     description: "Open Android's SMS composer with a recipient and optional draft. AURORA never sends the message; the user reviews and taps Send.",
     risk: AURORA_ACTION_RISK.MEDIUM,
     approvalRequired: true,
