@@ -171,39 +171,56 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     finally { inFlight.delete(plan.id); controllers.delete(plan.id); }
   }
 
-  async function retryFailedStep(taskId, stepId, options = {}) {
+  function inspectRetry(taskId, stepId) {
     const id = String(taskId);
+    const stepKey = String(stepId);
     const plan = getPlan(id);
     const previous = runs.get(id);
     if (!plan || !previous || previous.status !== "failed") {
-      return Object.freeze({ status: "not_retryable", reason: "no_failed_task", taskId: id, stepId: String(stepId) });
+      return Object.freeze({ status: "not_retryable", reason: "no_failed_task", taskId: id, stepId: stepKey, requiresFreshConfirmation: false });
     }
-    if (options.confirmed !== true) {
-      return Object.freeze({ status: "confirmation_required", taskId: id, stepId: String(stepId), requiresFreshConfirmation: true });
-    }
-    const step = plan.steps.find(item => item.id === String(stepId));
-    const failed = previous.steps.find(item => item.stepId === String(stepId));
+    const step = plan.steps.find(item => item.id === stepKey);
+    const failed = previous.steps.find(item => item.stepId === stepKey);
     if (!step || !failed || failed.status !== "failed") {
-      return Object.freeze({ status: "not_retryable", reason: "step_not_failed", taskId: id, stepId: String(stepId) });
+      return Object.freeze({ status: "not_retryable", reason: "step_not_failed", taskId: id, stepId: stepKey, requiresFreshConfirmation: false });
     }
     const completed = new Set(previous.steps.filter(item => item.status === "completed").map(item => item.stepId));
     if (step.dependsOn.some(dependency => !completed.has(dependency))) {
-      return Object.freeze({ status: "not_retryable", reason: "dependencies_not_completed", taskId: id, stepId: step.id });
+      return Object.freeze({ status: "not_retryable", reason: "dependencies_not_completed", taskId: id, stepId: stepKey, requiresFreshConfirmation: false });
     }
     if (typeof actionEngine.getRetryEligibility !== "function") {
-      return Object.freeze({ status: "not_retryable", reason: "retry_contract_unavailable", taskId: id, stepId: step.id });
+      return Object.freeze({ status: "not_retryable", reason: "retry_contract_unavailable", taskId: id, stepId: stepKey, requiresFreshConfirmation: false });
     }
     const eligibility = actionEngine.getRetryEligibility(step.capabilityId);
     if (eligibility?.eligible !== true) {
-      emit("task.retry_denied", { taskId: id, stepId: step.id, reason: eligibility?.reason || "adapter_idempotency_not_proven" });
-      return Object.freeze({ status: "not_retryable", reason: eligibility?.reason || "adapter_idempotency_not_proven", taskId: id, stepId: step.id });
+      return Object.freeze({ status: "not_retryable", reason: eligibility?.reason || "adapter_idempotency_not_proven", taskId: id, stepId: stepKey, capabilityId: step.capabilityId, requiresFreshConfirmation: false });
     }
     const retryKey = id + ":" + step.id;
-    if (retryResults.get(retryKey)?.status === "completed") return Object.freeze({ status: "not_retryable", reason: "retry_already_succeeded", taskId: id, stepId: step.id });
-    const attempt = (retryAttempts.get(retryKey) || 0) + 1;
-    if (attempt > 2) return Object.freeze({ status: "not_retryable", reason: "retry_limit_reached", taskId: id, stepId: step.id });
+    if (retryResults.get(retryKey)?.status === "completed") return Object.freeze({ status: "not_retryable", reason: "retry_already_succeeded", taskId: id, stepId: stepKey, requiresFreshConfirmation: false });
+    const nextAttempt = (retryAttempts.get(retryKey) || 0) + 1;
+    if (nextAttempt > 2) return Object.freeze({ status: "not_retryable", reason: "retry_limit_reached", taskId: id, stepId: stepKey, requiresFreshConfirmation: false });
+    return Object.freeze({
+      status: "retry_available",
+      taskId: id,
+      stepId: stepKey,
+      capabilityId: step.capabilityId,
+      attempt: nextAttempt,
+      evidence: String(eligibility.evidence || "The capability adapter declares an idempotent retry contract.").slice(0, 240),
+      requiresFreshConfirmation: true
+    });
+  }
+
+  async function retryFailedStep(taskId, stepId, options = {}) {
+    const inspection = inspectRetry(taskId, stepId);
+    if (inspection.status !== "retry_available") return inspection;
+    if (options.confirmed !== true) return Object.freeze({ ...inspection, status: "confirmation_required" });
+    const id = String(taskId);
+    const plan = getPlan(id);
+    const step = plan.steps.find(item => item.id === String(stepId));
+    const retryKey = id + ":" + step.id;
+    const attempt = inspection.attempt;
     retryAttempts.set(retryKey, attempt);
-    emit("task.retry_started", { taskId: id, stepId: step.id, attempt, evidence: eligibility.evidence });
+    emit("task.retry_started", { taskId: id, stepId: step.id, attempt, evidence: inspection.evidence });
     let receipt;
     try {
       receipt = await actionEngine.execute({
@@ -230,6 +247,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     getPlan,
     runPlan,
     retryFailedStep,
+    inspectRetry,
     cancelPlan: (taskId) => { const id = String(taskId); const controller = controllers.get(id); if (!controller || controller.signal.aborted) return false; controller.abort(new Error("Task cancelled by the user.")); emit("task.cancel_requested", { taskId: id }); return true; },
     subscribe,
     listPlans: () => [...plans.values()],
