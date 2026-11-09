@@ -136,6 +136,18 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Stage 5 COMPLETE — 2026-11-09 (code-level checkpoint):** All 12 capability families have coordinated audit coverage; the native Pulse bridge, calendar search, permission-gated one-shot location adapter, shared Action Engine approval/consent contracts, and chat-runtime location consent flow are implemented. The full GitHub Actions core/architecture test chain and web production build passed on commit `a42da3eb4f889ac1dc4e335fe5faae292bcf648b` (run 42597055150). Existing document/media actions remain deliberately user-selected and provider/platform bounded. This closes Stage 5 at the capability-adapter layer. **Not claimed:** APK compilation, physical-device behavior, or release readiness.
 
+### Stage 6 — Surface integration and device validation
+
+**Wave 4 — Safe interaction interruption and spoken-output cancellation (code committed; device validation pending):**
+- A shared interaction-interruption coordinator observes foreground/background lifecycle events and stops registered live sessions.
+- Main Chat and Pulse microphone sessions register with the coordinator. Interrupted sessions are cleared and never silently restarted on resume.
+- Spoken output (cloud audio, Android TTS, and browser speech synthesis) now registers as a voice session. Backgrounding cancels active playback and speech; delayed voice API responses are discarded instead of starting playback after resume.
+- Turning voice responses off also cancels current spoken output. Completion/error paths release their interruption registrations.
+- Metadata-only interruption events identify the affected surface without carrying transcripts, audio, or message content.
+- Added coordinator behavior tests and spoken-output source regression checks to the core test chain.
+
+**Still pending in Stage 6:** native voice service validation, Pulse overlay lifecycle verification, accessibility and reduced-motion checks, battery/offline behavior, low-memory device tests, and full physical Android validation. No APK, signing, or keystore work is part of this stage.
+
 ### Stage 6 — Surface integration and device validation (active)
 
 **Implementation wave 1:** Added a shared surface gateway consumed by Main chat and AURORA Pulse. Main chat, Pulse, and voice transcript submissions are registered as supported surface identities and route through the same existing capability runtime. The gateway bounds input, rejects unknown surfaces, normalizes failures, and emits metadata-only lifecycle events; it never publishes message text or tool results. Voice transcripts enter through the existing Main/Pulse send paths and therefore inherit the same gateway and approval broker.
