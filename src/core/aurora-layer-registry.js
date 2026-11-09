@@ -18,6 +18,22 @@ const FAMILIES = Object.freeze([
   { id: "reliability_operations", label: "Reliability and operations", owner: "event bus/journal/diagnostics", dependsOn: ["shared-runtime", "action-contracts", "task-journal", "data-inventory"] }
 ]);
 
+const STAGE_TWO_CHECKPOINT = Object.freeze({
+  id: 2,
+  name: "Shared contracts and enforcement",
+  status: "in_progress",
+  scope: "Shared authorization and verification contracts are implemented in the common engine; each capability family still needs its adapter-level contract audit and tests.",
+  deliverables: Object.freeze([
+    "Capability descriptors support stable permission and consent requirements.",
+    "Missing policy handlers fail closed when a capability declares required permissions or consent.",
+    "Android contacts, accessibility, notification access, and camera permission checks run through the shared capability authorization gate.",
+    "Consequential actions retain the shared approval broker.",
+    "Capabilities can require a verifier before registration and report verified completion separately.",
+    "The shared runtime delegates consent checks to the default-deny consent registry.",
+    "All 12 families retain an explicit active status until their adapter-level contracts are audited."
+  ])
+});
+
 const STAGE_ONE_CHECKPOINT = Object.freeze({
   id: 1,
   name: "Whole-system baseline",
@@ -38,11 +54,13 @@ function createAuroraLayerRegistry() {
     ...item,
     dependsOn: Object.freeze([...item.dependsOn]),
     checkpoint: "stage-1-mapped",
+    stageTwoStatus: "shared-contracts-available",
+    adapterContractAudit: "pending",
     implementationStatus: "requires-audit",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT]),
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
       const item = families.find((family) => family.id === id);
@@ -54,11 +72,13 @@ function createAuroraLayerRegistry() {
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
       nextStage: 2,
-      stageOneStatus: STAGE_ONE_CHECKPOINT.status
+      stageOneStatus: STAGE_ONE_CHECKPOINT.status,
+      stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
+      stageTwoContractReady: families.filter((item) => item.stageTwoStatus === "shared-contracts-available").length
     })
   });
 }
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
