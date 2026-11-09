@@ -167,6 +167,9 @@ const path = require("node:path");
   assert.ok(sharedRuntimeSource.includes("nothing was saved") && sharedRuntimeSource.includes("Nothing was added to the knowledge universe"), "Unsupported or cancelled file imports must not claim success.");
   assert.ok(sharedRuntimeSource.includes("knowledgeSaveMatch") && sharedRuntimeSource.includes("knowledgeSearchMatch"), "Chat, Pulse and voice must expose explicit Stage 9 save and search commands.");
   assert.ok(sharedRuntimeSource.includes("aurora_knowledge_timeline"), "Stage 9 timeline must be reachable through the shared conversational runtime.");
+  for (const route of ["knowledgeRecordMatch", "relatedKnowledgeMatch", "connectKnowledgeMatch", "aurora_knowledge_source", "aurora_related_knowledge", "aurora_knowledge_link"]) {
+    assert.ok(sharedRuntimeSource.includes(route), "Missing Stage 9 source inspection/relationship route: " + route);
+  }
   for (const api of ["addKnowledgeSource", "searchKnowledge", "relateKnowledge", "relatedKnowledge", "knowledgeTimeline", "correctKnowledge", "forgetKnowledge"]) assert.ok(sharedRuntimeSource.includes(api), "Missing shared knowledge API: " + api);
   for (const contract of ["userApproved !== true", "fingerprint", "source:", "function search(", "function timeline(", "function correct(", "function remove(", "MAX_RECORDS = 500", "MAX_CONTENT = 12000"]) assert.ok(knowledgeUniverseSource.includes(contract), "Missing Stage 9 knowledge contract: " + contract);
   assert.ok(knowledgeUniverseSource.includes("cloudSync: false") && knowledgeUniverseSource.includes("automaticCapture: false"), "Knowledge indexing must remain local and user initiated.");
