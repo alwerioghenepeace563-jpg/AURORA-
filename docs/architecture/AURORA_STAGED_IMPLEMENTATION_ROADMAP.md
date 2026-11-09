@@ -490,6 +490,16 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Added regression coverage for confirmation requirements and preservation of the version being replaced.
 - Revision history remains bounded to ten prior versions per draft.
 
+**Implementation wave 5 — Persistent quiz history and performance (code committed; CI pending):**
+- Added local quiz-attempt persistence with title, subject, timestamp, per-question prompt, submitted answer, expected answer, correctness and final score.
+- Added bounded history retrieval (maximum 100 per query; 500 retained attempts), subject filtering, and performance summaries for attempt count, average, best and latest score.
+- Added an explicit Save result action after grading; results are not stored merely because a quiz was opened or graded.
+- Added a Practice History view with feedback for each saved attempt and aggregate score indicators.
+- Added saved quiz attempts to creative federated search.
+- Preserved compatibility with existing version-1 local creative records that predate the optional quiz-history field; no user project or draft data is discarded during this additive migration.
+- Added regression coverage for approval, persistence, subject filters, performance aggregation, search and legacy-state compatibility.
+- Quiz checking is exact case-insensitive text matching, not semantic marking or AI-generated feedback.
+
 **Remaining Stage 11 scope:** creative media import/transcription/subtitle/summarisation integration, source-aware writing and project assets, learning explanations/practice content, voice-driven workflows, accessible media/study surfaces, and all-12-family acceptance evidence remain active work. The first wave is a foundation, not Stage 11 completion.
 
 **Stage 10 COMPLETE — 2026-11-09 (code/CI checkpoint):** all 12 capability families have Stage 10 audit evidence. Implemented scope includes read-only device capability/health/connectivity/storage diagnostics; launcher app discovery; supported flashlight, volume and settings handoffs; one-shot location and maps; calendar, alarm and timer preparation; user-reviewed SMS/email/contact/call workflows; local notification search/open/dismiss; user-selected document/media import and sharing; active media play/pause/next/previous where a media notification exposes supported transport actions; and bounded TXT/Markdown/CSV/JSON Save As export. All sensitive actions preserve Android permissions, Action Engine approval and final user confirmation. The core/architecture test chain, blocking dependency audit and web production build passed on commit `e711cee0774cc5d26da9f1d26860958940d6a57e` (run `42642861145`). Physical Android behavior, native Java compilation/device execution, OEM-specific capabilities and release certification remain deferred; APK and release readiness are not claimed.
