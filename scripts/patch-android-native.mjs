@@ -498,8 +498,8 @@ for (const [fileName, required] of [
   const source = fs.readFileSync(filePath, "utf8");
   for (const marker of required) if (!source.includes(marker)) throw new Error(fileName + " is missing required implementation marker: " + marker);
 }
-const manifest = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
-if (!manifest.includes(".AuroraReminderReceiver") || !manifest.includes("android.permission.RECEIVE_BOOT_COMPLETED")) {
+const manifestText = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
+if (!manifestText.includes(".AuroraReminderReceiver") || !manifestText.includes("android.permission.RECEIVE_BOOT_COMPLETED")) {
   throw new Error("Reminder receiver or reboot permission is missing from AndroidManifest.xml");
 }
 
