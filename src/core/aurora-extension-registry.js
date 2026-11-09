@@ -9,6 +9,7 @@ function createAuroraExtensionRegistry(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const getCapabilities = options.getCapabilities || (() => []);
   const now = options.now || (() => new Date().toISOString());
+  const executeCapability = options.executeCapability;
   function read() { try { const x = JSON.parse(storage?.getItem(KEY) || "[]"); return Array.isArray(x) ? x : []; } catch { return []; } }
   function write(items) { if (!storage?.setItem) throw new Error("Extension storage is unavailable."); storage.setItem(KEY, JSON.stringify(items.slice(-100))); }
   function validate(manifest) {
@@ -31,8 +32,16 @@ function createAuroraExtensionRegistry(options = {}) {
     const record = { ...value, installedAt: now(), status: "installed", executesCode: false };
     items.push(record); write(items); return Object.freeze({ ...record });
   }
+  async function execute(extensionId, capabilityId, input = {}) {
+    const extension = read().find(item => item.id === String(extensionId) && item.status === "installed");
+    if (!extension) throw new Error("Installed extension was not found.");
+    if (!extension.capabilities.includes(String(capabilityId))) throw new Error("This extension did not request that capability.");
+    if (typeof executeCapability !== "function") throw new Error("The AURORA capability executor is unavailable.");
+    // The normal Action Engine still applies its own risk checks and approval gate.
+    return executeCapability({ capabilityId: String(capabilityId), input: input && typeof input === "object" ? input : {} });
+  }
   function uninstall(id) { const items=read(), next=items.filter(x=>x.id!==String(id)); if(next.length===items.length)return false; write(next); return true; }
   function list() { return read().map(x=>Object.freeze({ ...x, capabilities:[...(x.capabilities||[])], permissions:[...(x.permissions||[])] })); }
-  return Object.freeze({ preview, install, uninstall, list });
+  return Object.freeze({ preview, install, execute, uninstall, list });
 }
 export { createAuroraExtensionRegistry };
