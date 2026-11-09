@@ -10,6 +10,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.MessageDigest;
@@ -87,7 +88,14 @@ public class AuroraSecureStoragePlugin extends Plugin {
             File file = entryFile(key);
             JSObject result = new JSObject();
             if (!file.isFile()) { result.put("found", false); call.resolve(result); return; }
-            byte[] packed = Base64.decode(java.nio.file.Files.readAllBytes(file.toPath()), Base64.NO_WRAP);
+            byte[] encoded;
+            try (FileInputStream input = new FileInputStream(file)) {
+                encoded = new byte[(int) file.length()];
+                int offset = 0, count;
+                while (offset < encoded.length && (count = input.read(encoded, offset, encoded.length - offset)) > 0) offset += count;
+                if (offset != encoded.length) throw new IllegalStateException("Stored secure value could not be read completely.");
+            }
+            byte[] packed = Base64.decode(encoded, Base64.NO_WRAP);
             if (packed.length < 13) throw new IllegalStateException("Stored secure value is invalid.");
             byte[] iv = java.util.Arrays.copyOfRange(packed, 0, 12);
             byte[] encrypted = java.util.Arrays.copyOfRange(packed, 12, packed.length);
