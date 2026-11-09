@@ -46,7 +46,7 @@ const assert = require("node:assert/strict");
   assert.equal(universe.status().cloudSync, false);
   assert.equal(universe.status().automaticCapture, false);
   assert.equal(values.has(AURORA_KNOWLEDGE_UNIVERSE_STORAGE_KEY), true);
-  assert.equal(universe.clear({ confirmed: true }), 3);
+  assert.equal(universe.clear({ confirmed: true }), 4);
   assert.equal(universe.list().length, 0);
   console.log("AURORA Stage 9 knowledge-universe tests passed: explicit source approval, provenance, deduplication, scoped search, relationships, timeline, corrections, confirmed deletion and local-only storage.");
 })().catch(error => { console.error(error); process.exitCode = 1; });
