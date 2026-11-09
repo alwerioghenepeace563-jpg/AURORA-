@@ -17,6 +17,39 @@ const actionEngine = createAuroraCapabilityRuntime({
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
 
 actionEngine.registerCapability({
+  id: "memory.save",
+  label: "Save a memory",
+  category: "memory",
+  description: "Save a user-requested note or fact to AURORA's local-first memory.",
+  risk: "low",
+  approvalRequired: false,
+  validate: (input) => typeof input?.content === "string" && input.content.trim().length > 0,
+  execute: (input) => auroraMemory.remember({ kind: input.kind || "fact", title: input.title || "Saved memory", content: input.content, tags: input.tags || [], source: "explicit_user_request" })
+});
+
+actionEngine.registerCapability({
+  id: "memory.search",
+  label: "Search saved memories",
+  category: "memory",
+  description: "Search locally stored AURORA memories by relevance.",
+  risk: "low",
+  approvalRequired: false,
+  validate: (input) => typeof input?.query === "string" && input.query.trim().length > 0,
+  execute: (input) => ({ items: auroraMemory.search(input.query, { limit: 10 }) })
+});
+
+actionEngine.registerCapability({
+  id: "memory.forget",
+  label: "Forget a saved memory",
+  category: "memory",
+  description: "Delete a selected saved memory from AURORA's local memory.",
+  risk: "medium",
+  approvalRequired: true,
+  validate: (input) => typeof input?.id === "string" && input.id.trim().length > 0,
+  execute: (input) => ({ deleted: auroraMemory.forget(input.id) })
+});
+
+actionEngine.registerCapability({
   id: "assistant.route_request",
   label: "Understand and route a request",
   category: "intelligence",
@@ -30,6 +63,36 @@ actionEngine.registerCapability({
 
 async function routeMessage(text) {
   const message = String(text || "").trim();
+
+  const rememberMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:remember|save(?: this)?|make a note that)\s+(?:that\s+)?(.+)$/i);
+  if (rememberMatch?.[1]) {
+    const receipt = await actionEngine.execute({ capabilityId: "memory.save", input: { title: "Saved memory", content: rememberMatch[1].trim() } });
+    return receipt.status === "completed"
+      ? { tool: "aurora_memory_save", context: "Saved to AURORA's local memory: " + receipt.result.title + ". You can ask me to recall it or forget it later." }
+      : { error: receipt.error?.message || "I couldn't save that memory." };
+  }
+
+  const recallMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:what do you remember about|recall|find in my memories|search my memories for)\s+(.+?)\??$/i);
+  if (recallMatch?.[1]) {
+    const receipt = await actionEngine.execute({ capabilityId: "memory.search", input: { query: recallMatch[1].trim() } });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "Memory search failed." };
+    const items = receipt.result?.items || [];
+    return { tool: "aurora_memory_search", context: items.length
+      ? "Saved memories matching your request:\n" + items.map((item) => "- " + item.title + ": " + item.content).join("\n")
+      : "I couldn't find a saved memory matching that request. I won't make one up." };
+  }
+
+  const forgetMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?forget (?:the memory|what i said|that) (?:about\s+)?(.+?)\??$/i);
+  if (forgetMatch?.[1]) {
+    const search = await actionEngine.execute({ capabilityId: "memory.search", input: { query: forgetMatch[1].trim() } });
+    const items = search.status === "completed" ? search.result?.items || [] : [];
+    if (!items.length) return { tool: "aurora_memory_forget", context: "I couldn't find a matching saved memory to delete." };
+    if (items.length > 1) return { tool: "aurora_memory_forget", context: "I found multiple matching memories. Please be more specific so I don't delete the wrong one: " + items.slice(0, 5).map((item) => item.title + " — " + item.content.slice(0, 100)).join("; ") };
+    const receipt = await actionEngine.execute({ capabilityId: "memory.forget", input: { id: items[0].id } });
+    return receipt.status === "completed"
+      ? { tool: "aurora_memory_forget", context: "AURORA has deleted the selected local memory after your approval." }
+      : { error: receipt.error?.message || "The memory was not deleted." };
+  }
   if (/\b(?:enable|set up|configure|manage)\s+(?:aurora\s+)?notification access\b/i.test(message)) {
     const receipt = await actionEngine.execute({ capabilityId: "notifications.open_access_settings", input: {} });
     return receipt.status === "completed" ? { tool: "android_notification_settings", context: "Android's Notification Access settings are open. Enable or disable AURORA there whenever you choose." } : { error: receipt.error?.message || "Could not open notification settings." };
