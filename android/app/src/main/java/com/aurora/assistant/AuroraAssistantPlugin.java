@@ -1004,6 +1004,50 @@ public class AuroraAssistantPlugin extends Plugin {
             call.reject("Share only a content URI returned by AURORA's system picker."); return;
         }
         if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#    @PluginMethod
+    public void openMediaSource(PluginCall call) {
+        String rawUrl = call.getString("url");
+        if (rawUrl == null || rawUrl.length() > 2048) { call.reject("Provide a valid media source URL."); return; }
+        try {
+            URL parsed = new URL(rawUrl);
+            if (!"https".equalsIgnoreCase(parsed.getProtocol())) { call.reject("Only secure HTTPS source pages can be opened."); return; }
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(parsed.toString()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("opened", true).put("userControlsDownload", true));
+        } catch (Exception e) { call.reject("No browser is available to open this media source.", e); }
+    }
+
+    @PluginMethod
+    public void downloadPublicMedia(PluginCall call) {
+        String rawUrl = call.getString("url");
+        String rawName = call.getString("filename", "aurora-media");
+        String kind = call.getString("mediaKind", "image");
+        if (rawUrl == null || rawUrl.length() > 2048 || !("image".equals(kind) || "video".equals(kind))) { call.reject("Provide a valid direct media URL."); return; }
+        try {
+            URL parsed = new URL(rawUrl);
+            if (!"https".equalsIgnoreCase(parsed.getProtocol())) { call.reject("Only secure HTTPS downloads are supported."); return; }
+            String path = parsed.getPath().toLowerCase(java.util.Locale.ROOT);
+            String ext = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1) : "";
+            java.util.Set<String> images = new java.util.HashSet<>(java.util.Arrays.asList("jpg", "jpeg", "png", "webp", "gif"));
+            java.util.Set<String> videos = new java.util.HashSet<>(java.util.Arrays.asList("mp4", "webm", "mov", "m4v"));
+            if (("image".equals(kind) && !images.contains(ext)) || ("video".equals(kind) && !videos.contains(ext))) { call.reject("This is not a direct downloadable media file. Open the source page and use its official download option if available."); return; }
+            String filename = rawName.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (filename.length() > 90) filename = filename.substring(0, 90);
+            if (!filename.contains(".")) filename += "." + ext;
+            android.app.DownloadManager manager = (android.app.DownloadManager) getContext().getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+            if (manager == null) { call.reject("Android Download Manager is unavailable."); return; }
+            android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(Uri.parse(parsed.toString()));
+            request.setTitle(filename);
+            request.setDescription("AURORA media download");
+            request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "AURORA/" + filename);
+            request.setAllowedOverMetered(true);
+            request.setAllowedOverRoaming(false);
+            long id = manager.enqueue(request);
+            call.resolve(new JSObject().put("queued", true).put("downloadId", id).put("filename", filename).put("destination", "Downloads/AURORA"));
+        } catch (Exception e) { call.reject("AURORA could not start this download.", e); }
+    }
+    @PluginMethod
     public void pickDocument(PluginCall call) {^_.+-]+/[A-Za-z0-9!#    @PluginMethod
     public void pickDocument(PluginCall call) {^_.+-]+")) {
             call.reject("Provide a valid media type."); return;
