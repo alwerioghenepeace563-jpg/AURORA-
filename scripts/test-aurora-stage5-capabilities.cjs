@@ -25,7 +25,10 @@ assert.match(chatRuntime, /confirm location access/);
 assert.match(chatRuntime, /location.get_current/);
 assert.match(chatRuntime, /auroraConsents.grant/);
 assert.match(chatRuntime, /export \{ auroraRuntime \}/);
-assert.match(fs.readFileSync("src/App.jsx", "utf8"), /auroraRuntime\.routeMessage/);
+const appSource = fs.readFileSync("src/App.jsx", "utf8");
+assert.match(appSource, /auroraRuntime\.surfaces\.route/);
+assert.match(appSource, /surface: "main_chat"/);
+assert.match(appSource, /surface: "pulse"/);
 for (const id of ["android.open_app","android.read_screen","contacts.search","communication.prepare_sms","communication.share_text","communication.open_dialer","maps.search_place","maps.get_directions","calendar.prepare_event","calendar.search_events","media.search_play","files.pick_document","files.search_selected_text","notifications.read_recent","notifications.search_recent","voice.start_listening","voice.speak_text","device.get_status"]) {
   assert.ok(runtime.includes('id: "' + id + '"'), "Capability catalogue must retain " + id);
 }
