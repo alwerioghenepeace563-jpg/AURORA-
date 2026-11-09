@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.provider.Settings;
 import android.net.Uri;
 import java.io.File;
@@ -33,6 +35,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) })
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
+    private TextToSpeech textToSpeech;
+    private boolean textToSpeechReady = false;
     private boolean isTrustedUpdateUrl(URL url) {
         if (url == null || !"https".equalsIgnoreCase(url.getProtocol())) return false;
         String host = url.getHost().toLowerCase(java.util.Locale.ROOT);
@@ -123,6 +127,71 @@ public class AuroraAssistantPlugin extends Plugin {
             cleanupSpeechRecognizer();
             call.resolve(speechPayload("stopped", true));
         });
+    }
+
+    @PluginMethod
+    public void speakText(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.trim().isEmpty() || text.length() > 2500) {
+            call.reject("Provide text between 1 and 2500 characters for Android speech.");
+            return;
+        }
+        final String utterance = text.trim();
+        getActivity().runOnUiThread(() -> {
+            try {
+                if (textToSpeech != null && textToSpeechReady) {
+                    speakWithAndroidTts(utterance, call);
+                    return;
+                }
+                if (textToSpeech != null) {
+                    call.reject("Android speech is still initializing. Try again in a moment.");
+                    return;
+                }
+                textToSpeech = new TextToSpeech(getContext(), status -> {
+                    if (status != TextToSpeech.SUCCESS) {
+                        textToSpeech = null;
+                        call.reject("Android text-to-speech could not initialize. Check the phone's Text-to-speech settings.");
+                        return;
+                    }
+                    textToSpeechReady = true;
+                    int language = textToSpeech.setLanguage(java.util.Locale.UK);
+                    if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        textToSpeech.setLanguage(java.util.Locale.US);
+                    }
+                    textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                        @Override public void onStart(String id) {
+                            JSObject event = new JSObject(); event.put("status", "started"); notifyListeners("ttsStatus", event);
+                        }
+                        @Override public void onDone(String id) {
+                            JSObject event = new JSObject(); event.put("status", "done"); notifyListeners("ttsStatus", event);
+                        }
+                        @Override public void onError(String id) {
+                            JSObject event = new JSObject(); event.put("status", "error"); notifyListeners("ttsStatus", event);
+                        }
+                    });
+                    speakWithAndroidTts(utterance, call);
+                });
+            } catch (Exception error) {
+                call.reject("Android text-to-speech failed: " + (error.getMessage() == null ? "unknown error" : error.getMessage()));
+            }
+        });
+    }
+
+    private void speakWithAndroidTts(String text, PluginCall call) {
+        String id = "aurora-tts-" + java.util.UUID.randomUUID().toString();
+        int result = textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, id);
+        if (result == TextToSpeech.ERROR) {
+            call.reject("Android could not start speech. Check the selected system voice.");
+            return;
+        }
+        JSObject response = new JSObject(); response.put("started", true); response.put("engine", "android-tts");
+        call.resolve(response);
+    }
+
+    @PluginMethod
+    public void stopTextSpeech(PluginCall call) {
+        try { if (textToSpeech != null) textToSpeech.stop(); } catch (Exception ignored) {}
+        call.resolve(new JSObject().put("stopped", true));
     }
 
     private void cleanupSpeechRecognizer() {
