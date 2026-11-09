@@ -18,6 +18,14 @@ function defaultId() {
   return globalThis.crypto?.randomUUID?.() || "aurora-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 }
 
+function normalizeRequirements(value, label) {
+  if (value == null) return Object.freeze([]);
+  if (!Array.isArray(value) || value.length > 20 || value.some(item => typeof item !== "string" || !/^[a-z][a-z0-9_.:-]{1,100}$/.test(item))) {
+    throw makeError("INVALID_CAPABILITY_CONTRACT", "Capability " + label + " requirements must be an array of stable identifiers.");
+  }
+  return Object.freeze([...new Set(value)]);
+}
+
 function createAuroraActionEngine(options = {}) {
   const capabilities = new Map();
   const receipts = new Map();
@@ -26,6 +34,7 @@ function createAuroraActionEngine(options = {}) {
   const approve = typeof options.approve === "function" ? options.approve : async () => ({ approved: false });
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
   const createId = typeof options.createId === "function" ? options.createId : defaultId;
+  const authorize = typeof options.authorize === "function" ? options.authorize : null;
 
   function emit(type, payload = {}) {
     const event = Object.freeze({ type, at: now(), ...payload });
@@ -59,7 +68,11 @@ function createAuroraActionEngine(options = {}) {
       validate: typeof definition.validate === "function" ? definition.validate : () => true,
       execute: definition.execute,
       source: String(definition.source || "builtin"),
-      version: String(definition.version || "1")
+      version: String(definition.version || "1"),
+      permissionRequirements: normalizeRequirements(definition.permissionRequirements, "permission"),
+      consentRequirements: normalizeRequirements(definition.consentRequirements, "consent"),
+      verificationRequired: definition.verificationRequired === true,
+      verify: typeof definition.verify === "function" ? definition.verify : null
     });
     capabilities.set(capability.id, capability);
     emit("capability.registered", { capability: publicCapability(capability) });
@@ -71,7 +84,10 @@ function createAuroraActionEngine(options = {}) {
       id: capability.id, label: capability.label, category: capability.category,
       description: capability.description, risk: capability.risk,
       approvalRequired: capability.approvalRequired, source: capability.source,
-      version: capability.version
+      version: capability.version,
+      permissionRequirements: [...capability.permissionRequirements],
+      consentRequirements: [...capability.consentRequirements],
+      verificationRequired: capability.verificationRequired
     });
   }
 
@@ -115,8 +131,27 @@ function createAuroraActionEngine(options = {}) {
     const proposal = Object.freeze({
       requestId, capabilityId: capability.id, label: capability.label,
       description: capability.description, risk: capability.risk,
-      input, requestedBy: String(request.requestedBy || "user")
+      input, requestedBy: String(request.requestedBy || "user"),
+      permissionRequirements: [...capability.permissionRequirements],
+      consentRequirements: [...capability.consentRequirements]
     });
+
+    if (capability.permissionRequirements.length || capability.consentRequirements.length || authorize) {
+      let authorization;
+      try {
+        authorization = authorize
+          ? await authorize(Object.freeze({ proposal, capability: publicCapability(capability) }))
+          : { authorized: false, reason: "Required permission or consent policy is not configured." };
+      } catch (error) {
+        authorization = { authorized: false, reason: error?.message || "Authorization checks could not be completed." };
+      }
+      if (authorization !== true && authorization?.authorized !== true) {
+        const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "rejected", error: { code: authorization?.code || "POLICY_DENIED", message: authorization?.reason || "The action did not pass AURORA policy checks." }, at: now() });
+        receipts.set(requestId, receipt);
+        emit("action.policy_denied", { receipt });
+        return receipt;
+      }
+    }
     emit("action.proposed", { proposal });
 
     if (capability.approvalRequired) {
@@ -134,8 +169,14 @@ function createAuroraActionEngine(options = {}) {
 
     emit("action.started", { requestId, capabilityId: capability.id });
     try {
-      const result = await capability.execute(input, { requestId, capabilityId: capability.id });
-      const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "completed", result: result ?? null, at: now() });
+      const context = Object.freeze({ requestId, capabilityId: capability.id, risk: capability.risk, requestedBy: proposal.requestedBy });
+      const result = await capability.execute(input, context);
+      if (capability.verificationRequired && !capability.verify) throw makeError("VERIFICATION_NOT_CONFIGURED", "This capability requires a verification adapter before it can be considered complete.", { capabilityId: capability.id });
+      if (capability.verify) {
+        const verified = await capability.verify(result, input, context);
+        if (verified !== true && verified?.verified !== true) throw makeError("VERIFICATION_FAILED", verified?.reason || "The action result could not be verified.", { capabilityId: capability.id });
+      }
+      const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "completed", result: result ?? null, verified: capability.verify ? true : null, at: now() });
       receipts.set(requestId, receipt);
       emit("action.completed", { receipt });
       return receipt;
