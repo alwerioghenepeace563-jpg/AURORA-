@@ -672,3 +672,9 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 /* Media search download controls */
 .clw-media-result .clw-actions button{font-size:11px;padding:7px 9px;border-radius:8px;}
 .clw-media-result .clw-actions{gap:6px;}
+
+/* AURORA media provider browser */
+.clw-provider-links{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0;padding:12px;border:1px solid rgba(132,180,230,.16);border-radius:12px}
+.clw-provider-links strong{width:100%;font-size:12px}
+.clw-provider-links a{font-size:11px;color:var(--cyan);text-decoration:none;padding:6px 9px;border-radius:8px;background:rgba(80,140,190,.09)}
+.clw-media-result img{width:100%;height:130px;object-fit:cover;border-radius:9px;background:rgba(120,150,180,.1)}
