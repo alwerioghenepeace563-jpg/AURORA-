@@ -17,7 +17,27 @@ const requiredString = (value, field) => {
 };
 
 function createAuroraCapabilityRuntime(options = {}) {
-  const engine = createAuroraActionEngine({ approve: options.approve, now: options.now, createId: options.createId });
+  const permissionChecks = {
+    "android.contacts": async () => (await requestAuroraContactsPermission()).granted === true,
+    "android.accessibility": async () => (await auroraNative.isAccessibilityEnabled()).enabled === true,
+    "android.notification_access": async () => (await auroraNative.hasNotificationAccess()).granted === true,
+    "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true
+  };
+  const authorize = async ({ capability, proposal }) => {
+    for (const permission of capability.permissionRequirements || []) {
+      const check = permissionChecks[permission];
+      if (!check) return { authorized: false, code: "PERMISSION_POLICY_UNAVAILABLE", reason: "No permission adapter is registered for " + permission + "." };
+      let granted = false;
+      try { granted = await check(); } catch { granted = false; }
+      if (!granted) return { authorized: false, code: "PERMISSION_REQUIRED", reason: "The required Android permission was not granted: " + permission + "." };
+    }
+    if ((capability.consentRequirements || []).length) {
+      if (typeof options.authorize !== "function") return { authorized: false, code: "CONSENT_POLICY_UNAVAILABLE", reason: "Required consent policy is not configured." };
+      return options.authorize({ capability, proposal });
+    }
+    return typeof options.authorize === "function" ? options.authorize({ capability, proposal }) : { authorized: true };
+  };
+  const engine = createAuroraActionEngine({ approve: options.approve, authorize, now: options.now, createId: options.createId });
 
   engine.registerCapability({
     id: "android.open_app",
@@ -41,6 +61,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     description: "Read visible screen text using the user's enabled accessibility service.",
     risk: AURORA_ACTION_RISK.HIGH,
     approvalRequired: true,
+    permissionRequirements: ["android.accessibility"],
     validate: () => true,
     availability: async () => {
       if (!auroraNative.isAndroid()) return { available: false, reason: "Screen reading requires the Android app." };
@@ -60,13 +81,10 @@ function createAuroraCapabilityRuntime(options = {}) {
     description: "Find a contact after Android grants Contacts permission.",
     risk: AURORA_ACTION_RISK.MEDIUM,
     approvalRequired: false,
+    permissionRequirements: ["android.contacts"],
     validate: (input) => requiredString(input?.query, "Search query"),
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Contact search requires the Android app." }),
-    execute: async ({ query }) => {
-      const permission = await requestAuroraContactsPermission();
-      if (!permission.granted) throw Object.assign(new Error("Contacts permission was not granted."), { code: "PERMISSION_REQUIRED" });
-      return { contacts: await searchAuroraContacts(query.trim()) };
-    }
+    execute: async ({ query }) => ({ contacts: await searchAuroraContacts(query.trim()) })
   });
 
   engine.registerCapability({
@@ -208,6 +226,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     description: "Read up to 20 recent notification previews stored locally after the user enables Android Notification Access.",
     risk: AURORA_ACTION_RISK.HIGH,
     approvalRequired: true,
+    permissionRequirements: ["android.notification_access"],
     validate: () => true,
     availability: async () => {
       if (!auroraNative.isAndroid()) return { available: false, reason: "Notification intelligence requires Android." };
@@ -253,13 +272,10 @@ function createAuroraCapabilityRuntime(options = {}) {
     description: "Turn the Android device flashlight on or off at the user's explicit request.",
     risk: AURORA_ACTION_RISK.LOW,
     approvalRequired: false,
+    permissionRequirements: ["android.camera"],
     validate: (input) => typeof input?.enabled === "boolean" || "Choose on or off.",
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Flashlight control is available only in Android." }),
-    execute: async ({ enabled }) => {
-      const permission = await AuroraNativePermission.requestCameraPermission();
-      if (!permission.granted) throw Object.assign(new Error("Camera permission was not granted."), { code: "PERMISSION_REQUIRED" });
-      return auroraNative.setFlashlight(enabled);
-    }
+    execute: async ({ enabled }) => auroraNative.setFlashlight(enabled)
   });
 
   return engine;
