@@ -17,7 +17,7 @@ function createAuroraDataInventory(sources = {}) {
     for (const [id, provider] of providers) {
       try {
         const value = provider() || {};
-        const count = Number(value.count);
+        const count = value.count == null ? null : Number(value.count);
         stores.push(Object.freeze({
           id,
           label: String(value.label || id).slice(0, 100),
