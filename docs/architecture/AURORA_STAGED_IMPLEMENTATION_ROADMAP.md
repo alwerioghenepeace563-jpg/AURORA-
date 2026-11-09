@@ -371,10 +371,12 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 
 **Stage 10 opening scope audit:** the machine-readable registry now records targets across all 12 capability families. This is a scope map, not evidence that every listed capability is implemented. Device and communication features must be checked against the actual Android adapter, permission contract, approval behavior and device support before being marked available.
 
+**Expanded Android utility scope:** Stage 10 is broader than email. Alongside existing app launch, SMS, email, sharing, dialler, maps, location, calendar, media, file picker, notifications, flashlight and device inventory adapters, this wave adds user-reviewed contact creation, alarm and timer handoffs, and NFC, sound, battery and AURORA app-details settings shortcuts. Android retains final control: contacts are not written directly, alarms/timers require user confirmation, and settings changes remain user-applied.
+
 **Implementation waves:**
 1. Audit the existing native capability catalogue and expose a truthful support/permission/approval matrix.
 2. Complete device status and supported device-control adapters, including explicit unsupported/OEM-restricted outcomes.
-3. Complete communication workflows with user-reviewed drafts, attachment selection, contact resolution, call preparation and notification summaries. The email composer handoff is implemented with recipient validation, bounded subject/body, Action Engine approval and explicit user-controlled sending.
+3. Complete communication workflows with user-reviewed drafts, attachment selection, contact resolution, call preparation and notification summaries. The email composer handoff is implemented with recipient validation, bounded subject/body, Action Engine approval and explicit user-controlled sending. Expanded Android utilities add contact creation, alarm/timer preparation and additional settings handoffs.
 4. Add capability-level tests for permission denial, user cancellation, unsupported hardware, handoff failure and positive verification.
 5. Verify the shared Main/Pulse/voice routes and all 12 family audits before closing the stage.
 
