@@ -520,7 +520,7 @@ async function routeMessage(text, options = {}) {
   }
 
   // Import a document only after the user explicitly asks and selects it in Android's system picker.
-  if (/^(?:hey aurora[, ]*)?(?:please\\s+)?(?:save|add|import) (?:the )?(?:selected )?(?:file|document) to (?:my )?(?:knowledge universe|knowledge base)$/i.test(message.trim())) {
+  if (/^(?:hey aurora[, ]*)?(?:please\s+)?(?:save|add|import) (?:the )?(?:selected )?(?:file|document) to (?:my )?(?:knowledge universe|knowledge base)$/i.test(message.trim())) {
     const receipt = await actionEngine.execute({ capabilityId: "files.pick_document", input: {} });
     if (receipt.status !== "completed") return { error: receipt.error?.message || "The file picker could not open." };
     if (receipt.result?.cancelled) return { tool: "aurora_knowledge_file_import", status: "cancelled", context: "File selection was cancelled; nothing was saved." };
