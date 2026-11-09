@@ -476,6 +476,42 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void prepareEmail(PluginCall call) {
+        String to = call.getString("to");
+        String subject = call.getString("subject", "");
+        String body = call.getString("body", "");
+        if (to == null || to.trim().isEmpty() || to.length() > 500) {
+            call.reject("Provide email recipients (maximum 500 characters)."); return;
+        }
+        String[] recipients = to.trim().split("[,;]");
+        if (recipients.length > 10) { call.reject("Use no more than 10 email recipients."); return; }
+        for (String recipient : recipients) {
+            String address = recipient.trim();
+            if (!address.matches("(?i)[A-Z0-9.!#$%&'*+/=?^_{}|~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+")) {
+                call.reject("Check the email address: " + address); return;
+            }
+        }
+        if (subject == null || subject.length() > 200) { call.reject("Email subject must be 200 characters or fewer."); return; }
+        if (body == null || body.length() > 8000) { call.reject("Email draft must be 8000 characters or fewer."); return; }
+        try {
+            Uri mailto = Uri.parse("mailto:" + Uri.encode(to.trim(), "@,;"));
+            Intent intent = new Intent(Intent.ACTION_SENDTO, mailto);
+            if (!subject.isEmpty()) intent.putExtra(Intent.EXTRA_SUBJECT, subject);
+            if (!body.isEmpty()) intent.putExtra(Intent.EXTRA_TEXT, body);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            JSObject result = new JSObject();
+            result.put("opened", true);
+            result.put("recipientCount", recipients.length);
+            result.put("requiresUserReview", true);
+            result.put("requiresUserSend", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("No email application could open the draft. No email was sent.", e);
+        }
+    }
+
+    @PluginMethod
     public void shareText(PluginCall call) {
         String text = call.getString("text");
         if (text == null || text.trim().isEmpty() || text.length() > 8000) {
