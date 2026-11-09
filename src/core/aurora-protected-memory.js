@@ -28,19 +28,20 @@ function createAuroraProtectedMemory(options = {}) {
   async function readIndex() {
     const raw = await read(INDEX_KEY);
     if (!raw) return [];
+    let ids;
     try {
-      const ids = JSON.parse(raw);
-      if (!Array.isArray(ids) || ids.length > MAX_RECORDS || ids.some(id => typeof id !== "string" || !SAFE_ID.test(id)) || new Set(ids).size !== ids.length) {
-        throw new Error("Protected memory index has an invalid structure; no records were changed.");
-      }
-      return ids;
+      ids = JSON.parse(raw);
     } catch {
       throw new Error("Protected memory index is unreadable; no records were changed.");
     }
+    if (!Array.isArray(ids) || ids.length > MAX_RECORDS || ids.some(id => typeof id !== "string" || !SAFE_ID.test(id)) || new Set(ids).size !== ids.length) {
+      throw new Error("Protected memory index has an invalid structure; no records were changed.");
+    }
+    return ids;
   }
   async function remember(input = {}) {
     assertAvailable();
-    const content = String(input.content || "").replace(/\u0000/g, "").trim();
+    const content = String(input.content || "").replace(/\\u0000/g, "").trim();
     if (!content || content.length > MAX_CONTENT) throw new Error("Protected memory must contain 1–4,000 characters.");
     const id = String(input.id || globalThis.crypto?.randomUUID?.() || "pm-" + Date.now().toString(36)).slice(0, 80);
     if (!SAFE_ID.test(id)) throw new Error("Protected memory ID is invalid.");
