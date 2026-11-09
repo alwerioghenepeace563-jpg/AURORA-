@@ -287,10 +287,11 @@ const STAGE_TEN_CHECKPOINT = Object.freeze({
 const STAGE_NINE_CHECKPOINT = Object.freeze({
   id: 9,
   name: "Personal Knowledge Universe",
-  status: "in_progress",
+  status: "complete",
   startedAt: "2026-11-09",
+  completedAt: "2026-11-09",
   scope: "Stage 9 builds an explicit-consent, local-first knowledge universe for user-selected notes, documents, projects, tasks, conversations, websites, recordings, image descriptions and events, with provenance, relationships, duplicate detection, scoped search, timeline, correction and confirmed deletion.",
-  validationBoundary: "Code checkpoint only until the full Stage 9 core CI chain and web production build pass. Physical Android file-picker integration and cross-surface UX remain separate device validation.",
+  validationBoundary: "Stage 9 code checkpoint complete: the shared local-first service, Main/Pulse/voice runtime APIs, Knowledge Universe browse/search/edit/delete UI, explicit Android picker review/cancellation/provenance boundary, all-12-family audit, focused regression tests, full core/architecture CI, and web production build are implemented and passed on the current feature branch. Physical Android picker behavior and device-level extraction remain deferred and unverified; they are not implied by web CI.",
   deliverables: Object.freeze(["Index only explicitly user-approved sources; never scan private stores automatically.", "Preserve source type, label, URI, capture time and method as provenance.", "Detect exact duplicate sources before creating another record.", "Search by source type, project and tags; expose related records and timelines.", "Allow confirmed corrections with a bounded revision trail and confirmed deletion.", "Keep source text local by default with cloud sync disabled in this service.", "Expose APIs and federated search through the shared Main/Pulse/voice runtime.", "Audit Stage 9 behavior across all 12 capability families."])
 });
 
@@ -389,6 +390,7 @@ function createAuroraLayerRegistry() {
       stageTenStatus: STAGE_TEN_CHECKPOINT.status,
       stageTenScopedLayers: families.filter(item => (STAGE_TEN_SCOPE[item.id] || []).length >= 3).length,
       stageNineStatus: STAGE_NINE_CHECKPOINT.status,
+      stageNineCodeComplete: STAGE_NINE_CHECKPOINT.status === "complete",
       stageNineAuditedLayers: families.filter(item => (STAGE_NINE_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageSevenStatus: STAGE_SEVEN_CHECKPOINT.status,
       stageSevenCodeComplete: STAGE_SEVEN_CHECKPOINT.status === "complete",
