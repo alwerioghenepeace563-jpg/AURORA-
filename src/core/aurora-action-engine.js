@@ -145,6 +145,7 @@ function createAuroraActionEngine(options = {}) {
     const capability = capabilities.get(request.capabilityId);
     if (!capability) throw makeError("CAPABILITY_NOT_FOUND", "AURORA does not know this capability.", { id: request.capabilityId });
     const requestId = String(request.requestId || createId());
+    const idempotencyKey = String(request.idempotencyKey || requestId);
     if (receipts.has(requestId)) return receipts.get(requestId);
     if (inFlight.has(requestId)) return inFlight.get(requestId);
 
@@ -180,7 +181,7 @@ function createAuroraActionEngine(options = {}) {
     if (valid !== true) throw makeError("INVALID_ACTION_INPUT", typeof valid === "string" ? valid : "Action input is invalid.", { capabilityId: capability.id });
 
     const proposal = Object.freeze({
-      requestId, capabilityId: capability.id, label: capability.label,
+      requestId, idempotencyKey, capabilityId: capability.id, label: capability.label,
       description: capability.description, risk: capability.risk,
       input, requestedBy: String(request.requestedBy || "user"),
       permissionRequirements: [...capability.permissionRequirements],
@@ -237,7 +238,7 @@ function createAuroraActionEngine(options = {}) {
     }
     emit("action.started", { requestId, capabilityId: capability.id });
     try {
-      const context = Object.freeze({ requestId, capabilityId: capability.id, risk: capability.risk, requestedBy: proposal.requestedBy, signal: controller.signal });
+      const context = Object.freeze({ requestId, idempotencyKey, capabilityId: capability.id, risk: capability.risk, requestedBy: proposal.requestedBy, signal: controller.signal });
       const result = await raceWithSignal(Promise.resolve().then(() => capability.execute(input, context)), controller.signal);
       if (capability.verificationRequired && !capability.verify) throw makeError("VERIFICATION_NOT_CONFIGURED", "This capability requires a verification adapter before it can be considered complete.", { capabilityId: capability.id });
       if (capability.verify) {
