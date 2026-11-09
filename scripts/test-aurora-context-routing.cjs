@@ -7,5 +7,5 @@ assert.match(runtime, /surface: requestSurface, userInitiated: true, ttlMs: 3000
 assert.match(runtime, /contextSessions\\.consume\\(contextSession\\.id, receipt\\.result\\.text\\)/);
 assert.match(runtime, /source: documentContext\\.source, characterCount: documentContext\\.text\\.length, truncated: documentContext\\.truncated/);
 assert.match(gateway, /routeMessage\\(message, \\{ surface, requestId \\}\\)/);
-assert.doesNotMatch(runtime, /events\\.publish\\(["']context\\.document[^)]*text/);
+assert.doesNotMatch(runtime, /events\.publish\(["']context\.document[^)]*text/);
 console.log("AURORA context-routing tests passed: selected document text is bounded and scoped to the requesting surface.");
