@@ -68,7 +68,7 @@ async function routeMessage(text) {
 
   const confirmTask = message.match(/^(?:please\s+)?(?:confirm|run|execute)\s+(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})$/i);
   if (confirmTask) {
-    const taskId = confirmTask[1];
+    const taskId = confirmTask[1] || latestPendingTaskId;
     if (!latestPendingTaskId || taskId !== latestPendingTaskId) {
       return { tool: "aurora_task", context: "That task is not the current pending plan. Ask AURORA to prepare the actions again so you can review the latest plan." };
     }
@@ -84,7 +84,7 @@ async function routeMessage(text) {
 
   const cancelTask = message.match(/^(?:please\s+)?(?:cancel|discard)\s+(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})$/i);
   if (cancelTask) {
-    if (cancelTask[1] !== latestPendingTaskId) return { tool: "aurora_task", context: "That is not the current pending task plan." };
+    if ((cancelTask[1] || latestPendingTaskId) !== latestPendingTaskId || !latestPendingTaskId) return { tool: "aurora_task", context: "That is not the current pending task plan." };
     latestPendingTaskId = null;
     return { tool: "aurora_task_cancelled", context: "The pending task plan was discarded. No actions were run." };
   }
