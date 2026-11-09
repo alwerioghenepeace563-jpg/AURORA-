@@ -121,6 +121,21 @@ function createAuroraCreativeUniverse(options = {}) {
     state.drafts.unshift(draft); state.drafts=state.drafts.slice(0,300); write(state); return {...draft};
   }
   function listDrafts(projectId) { return read().drafts.filter(d=>!projectId||d.projectId===projectId).map(d=>({...d,revisions:[...d.revisions]})); }
+  function restoreDraftRevision(id, revisionIndex = 0, options = {}) {
+    requireConfirm(options);
+    if (!Number.isInteger(revisionIndex) || revisionIndex < 0 || revisionIndex > 9) throw new Error("Choose a valid saved revision.");
+    const state = read(), draft = state.drafts.find(item => item.id === id);
+    if (!draft) throw new Error("Draft not found.");
+    const revision = draft.revisions[revisionIndex];
+    if (!revision || !isText(revision.content)) throw new Error("Saved revision not found.");
+    draft.revisions.splice(revisionIndex, 1);
+    draft.revisions.unshift({ content: draft.content, savedAt: draft.updatedAt });
+    draft.revisions = draft.revisions.slice(0, 10);
+    draft.content = revision.content.slice(0, 100000);
+    draft.updatedAt = now();
+    write(state);
+    return { ...draft, revisions: [...draft.revisions] };
+  }
   function deleteDraft(id,options={}) { requireConfirm(options); const state=read(),before=state.drafts.length; state.drafts=state.drafts.filter(d=>d.id!==id); if(state.drafts.length===before)return false; write(state); return true; }
   function importSubtitles(input={}) {
     requireApproval(input);
@@ -199,7 +214,7 @@ function createAuroraCreativeUniverse(options = {}) {
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
   function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
-  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,buildProjectContext,search,status});
+  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,buildProjectContext,search,status});
 }
 const auroraCreativeUniverse=createAuroraCreativeUniverse();
 export { createAuroraCreativeUniverse, auroraCreativeUniverse, STORAGE_KEY as AURORA_CREATIVE_UNIVERSE_STORAGE_KEY, parseSubtitles, renderSubtitles };
