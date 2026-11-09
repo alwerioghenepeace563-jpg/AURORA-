@@ -30,7 +30,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }) })
+@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }) })
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private boolean isTrustedUpdateUrl(URL url) {
@@ -401,6 +401,23 @@ public class AuroraAssistantPlugin extends Plugin {
             result.put("model", Build.MODEL);
             call.resolve(result);
         } catch (Exception e) { call.reject("Could not read device status.", e); }
+    }
+
+    @PluginMethod
+    public void requestCameraPermission(PluginCall call) {
+        if (getPermissionState("camera") == PermissionState.GRANTED) {
+            JSObject result = new JSObject(); result.put("granted", true); call.resolve(result); return;
+        }
+        requestPermissionForAlias("camera", call, "cameraPermissionCallback");
+    }
+
+    @PermissionCallback
+    private void cameraPermissionCallback(PluginCall call) {
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            call.reject("Camera permission is needed to control the flashlight. You can deny it and continue using AURORA.");
+            return;
+        }
+        JSObject result = new JSObject(); result.put("granted", true); call.resolve(result);
     }
 
     @PluginMethod
