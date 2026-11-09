@@ -33,7 +33,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "contacts", strings = { Manifest.permission.READ_CONTACTS }), @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) })
+@CapacitorPlugin(name = "AuroraNative", permissions = { @Permission(alias = "contacts", strings = { Manifest.permission.READ_CONTACTS }), @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "camera", strings = { Manifest.permission.CAMERA }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }), @Permission(alias = "calendar_read", strings = { Manifest.permission.READ_CALENDAR }) })
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
@@ -93,6 +93,19 @@ public class AuroraAssistantPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Could not open Android overlay permission settings.", e);
         }
+    }
+
+    @PluginMethod
+    public void requestCalendarReadPermission(PluginCall call) {
+        if (getPermissionState("calendar_read") == PermissionState.GRANTED) {
+            call.resolve(new JSObject().put("granted", true)); return;
+        }
+        requestPermissionForAlias("calendar_read", call, "calendarReadPermissionCallback");
+    }
+
+    @PermissionCallback
+    private void calendarReadPermissionCallback(PluginCall call) {
+        call.resolve(new JSObject().put("granted", getPermissionState("calendar_read") == PermissionState.GRANTED));
     }
 
     @PluginMethod
@@ -466,6 +479,63 @@ public class AuroraAssistantPlugin extends Plugin {
             getContext().startActivity(intent);
             JSObject result = new JSObject(); result.put("opened", true); result.put("requiresUserSave", true); call.resolve(result);
         } catch (Exception e) { call.reject("Could not open a calendar to review this event.", e); }
+    }
+
+    @PluginMethod
+    public void searchCalendarEvents(PluginCall call) {
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Grant Calendar permission before searching events."); return;
+        }
+        String query = call.getString("query", "");
+        if (query.length() > 100) { call.reject("Calendar search query must be 100 characters or fewer."); return; }
+        Cursor cursor = null;
+        try {
+            long now = System.currentTimeMillis();
+            long horizon = now + (90L * 24L * 60L * 60L * 1000L);
+            String selection = android.provider.CalendarContract.Events.DTSTART + " >= ? AND "
+                + android.provider.CalendarContract.Events.DTSTART + " <= ?";
+            java.util.ArrayList<String> args = new java.util.ArrayList<>();
+            args.add(String.valueOf(now)); args.add(String.valueOf(horizon));
+            if (query != null && !query.trim().isEmpty()) {
+                selection += " AND " + android.provider.CalendarContract.Events.TITLE + " LIKE ?";
+                args.add("%" + query.trim() + "%");
+            }
+            String[] projection = {
+                android.provider.CalendarContract.Events._ID,
+                android.provider.CalendarContract.Events.TITLE,
+                android.provider.CalendarContract.Events.DTSTART,
+                android.provider.CalendarContract.Events.DTEND,
+                android.provider.CalendarContract.Events.EVENT_LOCATION
+            };
+            cursor = getContext().getContentResolver().query(
+                android.provider.CalendarContract.Events.CONTENT_URI,
+                projection, selection, args.toArray(new String[0]),
+                android.provider.CalendarContract.Events.DTSTART + " ASC"
+            );
+            JSArray events = new JSArray();
+            int count = 0;
+            if (cursor != null) {
+                while (cursor.moveToNext() && count < 20) {
+                    JSObject item = new JSObject();
+                    item.put("id", cursor.getString(cursor.getColumnIndexOrThrow(android.provider.CalendarContract.Events._ID)));
+                    item.put("title", cursor.getString(cursor.getColumnIndexOrThrow(android.provider.CalendarContract.Events.TITLE)));
+                    item.put("beginTime", cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.CalendarContract.Events.DTSTART)));
+                    int endIndex = cursor.getColumnIndex(android.provider.CalendarContract.Events.DTEND);
+                    item.put("endTime", endIndex >= 0 && !cursor.isNull(endIndex) ? cursor.getLong(endIndex) : 0L);
+                    int locationIndex = cursor.getColumnIndex(android.provider.CalendarContract.Events.EVENT_LOCATION);
+                    item.put("location", locationIndex >= 0 ? cursor.getString(locationIndex) : "");
+                    events.put(item); count++;
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("events", events); result.put("count", count); result.put("limit", 20);
+            result.put("windowEnd", horizon); result.put("localOnly", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Could not read upcoming calendar events.", e);
+        } finally {
+            if (cursor != null) try { cursor.close(); } catch (Exception ignored) {}
+        }
     }
 
     @PluginMethod
