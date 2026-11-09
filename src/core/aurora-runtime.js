@@ -831,6 +831,7 @@ const auroraRuntime = Object.freeze({
   savePracticeQuizAttempt: (quiz, answers, options) => auroraCreativeUniverse.saveQuizAttempt(quiz, answers, options),
   listPracticeQuizAttempts: (filters) => auroraCreativeUniverse.listQuizAttempts(filters),
   practiceQuizPerformance: (filters) => auroraCreativeUniverse.quizPerformance(filters),
+  getLearningInsights: (filters) => auroraCreativeUniverse.learningInsights(filters),
   createStudyPlan: (input) => auroraLearningUniverse.createPlan(input),
   listStudyPlans: (filters) => auroraLearningUniverse.listPlans(filters),
   updateStudyTopic: (planId, topicId, status, options) => auroraLearningUniverse.updateTopic(planId, topicId, status, options),
