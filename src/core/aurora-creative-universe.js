@@ -169,7 +169,34 @@ function createAuroraCreativeUniverse(options = {}) {
     if(!["again","hard","good","easy"].includes(rating)) throw new Error("Unsupported flashcard rating.");
     const state=read(),deck=state.decks.find(d=>d.id===deckId),card=deck?.cards.find(c=>c.id===cardId);
     if(!card) throw new Error("Flashcard not found.");
-    card.lastRating=rating; card.lastReviewedAt=now(); card.reviewCount=(card.reviewCount||0)+1; write(state); return {...card};
+    const reviewedAt = now();
+    const previousInterval = Number.isInteger(card.intervalDays) ? card.intervalDays : 0;
+    const intervalDays = rating === "again" ? 1
+      : rating === "hard" ? Math.max(1, Math.round(previousInterval ? previousInterval * 1.2 : 2))
+      : rating === "good" ? Math.max(3, Math.round(previousInterval ? previousInterval * 2.5 : 3))
+      : Math.max(7, Math.round(previousInterval ? previousInterval * 3.5 : 7));
+    card.lastRating=rating; card.lastReviewedAt=reviewedAt; card.reviewCount=(card.reviewCount||0)+1;
+    card.intervalDays=intervalDays;
+    card.nextReviewAt=new Date(Date.parse(reviewedAt)+intervalDays*86400000).toISOString();
+    write(state); return {...card};
+  }
+  function listDueFlashcards(options = {}) {
+    const at = options.at ? Date.parse(options.at) : Date.now();
+    if (!Number.isFinite(at)) throw new Error("A valid review date is required.");
+    const state = read(), due = [];
+    for (const deck of state.decks) for (const card of deck.cards) {
+      if (card.nextReviewAt && Date.parse(card.nextReviewAt) <= at) {
+        due.push({ ...card, deckId: deck.id, deckTitle: deck.title, subject: deck.subject || "" });
+      }
+    }
+    return due.sort((a,b)=>Date.parse(a.nextReviewAt)-Date.parse(b.nextReviewAt))
+      .slice(0,Math.max(1,Math.min(200,Number.isInteger(options.limit)?options.limit:100)));
+  }
+  function flashcardReviewSummary(options = {}) {
+    const due = listDueFlashcards(options);
+    const state = read(), total = state.decks.reduce((sum,deck)=>sum+deck.cards.length,0);
+    const reviewed = state.decks.reduce((sum,deck)=>sum+deck.cards.filter(card=>card.lastReviewedAt).length,0);
+    return { totalCards: total, reviewedCards: reviewed, dueCards: due.length, newCards: Math.max(0,total-reviewed), localOnly:true };
   }
   function buildQuiz(input={}) {
     requireApproval(input);
@@ -267,7 +294,7 @@ function createAuroraCreativeUniverse(options = {}) {
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
   function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,quizAttemptCount:s.quizAttempts.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
-  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,buildProjectContext,search,status});
+  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,listDueFlashcards,flashcardReviewSummary,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,buildProjectContext,search,status});
 }
 const auroraCreativeUniverse=createAuroraCreativeUniverse();
 export { createAuroraCreativeUniverse, auroraCreativeUniverse, STORAGE_KEY as AURORA_CREATIVE_UNIVERSE_STORAGE_KEY, parseSubtitles, renderSubtitles };
