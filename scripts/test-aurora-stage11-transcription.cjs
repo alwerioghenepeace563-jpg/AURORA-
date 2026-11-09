@@ -9,7 +9,7 @@ assert.match(workspace, /AI lesson builder/);
 assert.match(workspace, /Image and PDF understanding/);
 assert.match(workspace, /application\\/pdf/);
 assert.match(workspace, /image\\/jpeg/);
-assert.match(workspace, /analysisFile\\.size<=6000000/);
+assert.match(workspace, /analysisFile\\.size<=3000000/);
 assert.match(workspace, /analysisFile\\.size<=3000000/);
 assert.match(workspace, /Analyse selected file/);
 assert.match(workspace, /Save analysis as draft/);
