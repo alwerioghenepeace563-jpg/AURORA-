@@ -164,6 +164,23 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "device.set_audio_volume", label: "Set device volume", category: "device",
+    description: "Set media, ring or alarm volume from 0 to 100 and show Android system volume UI. Requires fresh user approval.",
+    risk: AURORA_ACTION_RISK.MEDIUM, approvalRequired: true,
+    validate: (input) => ["media", "ring", "alarm"].includes(input?.stream) && Number.isInteger(input?.level) && input.level >= 0 && input.level <= 100 || "Choose media, ring or alarm and a volume level from 0 to 100.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Volume control requires Android." }),
+    execute: async ({ stream, level }) => { const result = await auroraNative.setAudioVolume(stream, level); if (!Number.isFinite(result?.current)) throw new Error("Android did not verify the volume change."); return { ...result, verified: true }; }
+  });
+
+  engine.registerCapability({
+    id: "device.get_storage_status", label: "Inspect device storage", category: "device",
+    description: "Read total, used and available app-data storage capacity. Does not inspect file names or contents.",
+    risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Storage status requires Android." }),
+    execute: async () => auroraNative.getStorageStatus()
+  });
+
+  engine.registerCapability({
     id: "contacts.prepare_new", label: "Prepare a new contact", category: "communication",
     description: "Open Android contact form with a name and optional phone/email. User reviews and saves; AURORA does not write contacts directly.",
     risk: AURORA_ACTION_RISK.MEDIUM, approvalRequired: true,
@@ -578,6 +595,16 @@ function createAuroraCapabilityRuntime(options = {}) {
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in the Android app." }),
     execute: async () => { const result = await auroraNative.openDeviceSettings("app_details"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; }
   });
+
+  engine.registerCapability({ id: "device.open_location_settings", label: "Open location settings", category: "device", description: "Open Android location settings; the user controls location services.", risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true, availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in Android." }), execute: async () => { const result = await auroraNative.openDeviceSettings("location"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; } });
+
+  engine.registerCapability({ id: "device.open_notifications_settings", label: "Open AURORA notification settings", category: "device", description: "Open Android notification settings for AURORA; the user controls notification preferences.", risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true, availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in Android." }), execute: async () => { const result = await auroraNative.openDeviceSettings("notifications"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; } });
+
+  engine.registerCapability({ id: "device.open_security_settings", label: "Open security settings", category: "device", description: "Open Android security settings; the user controls security options.", risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true, availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in Android." }), execute: async () => { const result = await auroraNative.openDeviceSettings("security"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; } });
+
+  engine.registerCapability({ id: "device.open_date_time_settings", label: "Open date and time settings", category: "device", description: "Open Android date and time settings; the user controls clock settings.", risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true, availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in Android." }), execute: async () => { const result = await auroraNative.openDeviceSettings("date_time"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; } });
+
+  engine.registerCapability({ id: "device.open_storage_settings", label: "Open storage settings", category: "device", description: "Open Android storage settings; the user controls storage management.", risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true, availability: async () => ({ available: auroraNative.isAndroid(), reason: "This settings handoff is available only in Android." }), execute: async () => { const result = await auroraNative.openDeviceSettings("storage"); if (!result?.opened) throw new Error("Android did not confirm that the requested settings page opened."); return { ...result, noDirectSettingMutation: true }; } });
 
   engine.registerCapability({
     id: "device.open_hotspot_settings",
