@@ -199,6 +199,27 @@ const path = require("node:path");
   assert.ok(voiceStart.includes("approvalRequired: true"), "Starting microphone capture must require explicit approval.");
   assert.ok(voiceStart.includes('permissionRequirements: ["android.microphone"]'), "Voice input must require microphone permission.");
 
+
+  for (const capabilityId of ["communication.prepare_sms", "communication.share_text"]) {
+    assert.ok(capabilitySource.includes('id: "' + capabilityId + '"'), "Missing Stage 5 communication adapter: " + capabilityId);
+  }
+  const smsCapability = capabilitySource.slice(
+    capabilitySource.indexOf('id: "communication.prepare_sms"'),
+    capabilitySource.indexOf('id: "communication.share_text"')
+  );
+  assert.ok(smsCapability.includes("approvalRequired: true"), "SMS drafting must require fresh approval.");
+  assert.ok(smsCapability.includes("requiresUserSend: true"), "AURORA must never send SMS without the user's final action.");
+  const shareCapability = capabilitySource.slice(
+    capabilitySource.indexOf('id: "communication.share_text"'),
+    capabilitySource.indexOf('id: "communication.open_dialer"')
+  );
+  assert.ok(shareCapability.includes("approvalRequired: true"), "Sharing content externally must require fresh approval.");
+  assert.ok(shareCapability.includes("requiresUserDestination: true"), "The user must choose and confirm the share destination.");
+  for (const method of ["prepareSms", "shareText"]) {
+    assert.ok(nativeSource.includes(method + ": async"), "Missing Stage 5 TypeScript native wrapper: " + method);
+    assert.ok(pluginSource.includes("void " + method + "(PluginCall call)"), "Missing Stage 5 Android plugin method: " + method);
+  }
+
   assert.ok(capabilitySource.includes('id: "notifications.search_recent"'), "Recent notifications must be searchable through the shared Action Engine.");
   const notificationSearch = capabilitySource.slice(
     capabilitySource.indexOf('id: "notifications.search_recent"'),
