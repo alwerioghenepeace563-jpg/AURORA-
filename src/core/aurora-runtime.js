@@ -802,6 +802,20 @@ const auroraRuntime = Object.freeze({
   saveCreativeDraft: (input) => auroraCreativeUniverse.saveDraft(input),
   listCreativeDrafts: (projectId) => auroraCreativeUniverse.listDrafts(projectId),
   deleteCreativeDraft: (id, options) => auroraCreativeUniverse.deleteDraft(id, options),
+  saveCreativeItemToKnowledge: (input = {}) => {
+    if (input.userApproved !== true) throw new Error("Explicit approval is required to add this creative item to Knowledge Universe.");
+    const kind = String(input.kind || "");
+    const id = String(input.id || "");
+    let item, type, content;
+    if (kind === "project") { item = auroraCreativeUniverse.listProjects().find(value => value.id === id); type = "project"; content = item?.description || item?.goal || item?.title; }
+    else if (kind === "draft") { item = auroraCreativeUniverse.listDrafts().find(value => value.id === id); type = "note"; content = item?.content; }
+    else if (kind === "asset") { item = auroraCreativeUniverse.listAssets().find(value => value.id === id); type = item?.type === "subtitle" ? "document" : item?.type === "image_reference" ? "image" : item?.type === "audio_reference" ? "recording" : "document"; content = item?.text || item?.sourceLabel || item?.title; }
+    else if (kind === "deck") { item = auroraCreativeUniverse.listDecks().find(value => value.id === id); type = "note"; content = item?.cards?.map(card => card.question + " — " + card.answer).join("\n"); }
+    else if (kind === "study_plan") { item = auroraLearningUniverse.listPlans().find(value => value.id === id); type = "project"; content = item?.topics?.map(topic => topic.name).join("\n"); }
+    else throw new Error("Unsupported creative item type.");
+    if (!item || !content) throw new Error("Creative item not found or it has no text to archive.");
+    return auroraKnowledgeUniverse.add({ type, title: item.title, content, summary: "Saved from AURORA Creative + Learning Studio", projectId: item.projectId || item.id, sourceLabel: "AURORA Creative + Learning Studio", sourceMethod: "explicit_creative_archive", tags: ["creative", kind], userApproved: true });
+  },
   importSubtitles: (input) => auroraCreativeUniverse.importSubtitles(input),
   exportSubtitles: (assetId, format) => auroraCreativeUniverse.exportSubtitles(assetId, format),
   createFlashcardDeck: (input) => auroraCreativeUniverse.createDeck(input),
