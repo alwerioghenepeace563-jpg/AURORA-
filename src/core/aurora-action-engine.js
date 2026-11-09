@@ -191,8 +191,17 @@ function createAuroraActionEngine(options = {}) {
     if (capability.approvalRequired) {
       emit("action.approval_required", { proposal });
       let decision;
-      try { decision = await approve(proposal); }
-      catch (error) { decision = { approved: false, reason: error?.message || "Approval could not be completed." }; }
+      try { decision = await raceWithSignal(Promise.resolve().then(() => approve(proposal)), controller.signal); }
+      catch (error) {
+        if (controller.signal.aborted) {
+          const reason = controller.signal.reason || error;
+          const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "failed", error: { code: reason?.code || "ACTION_CANCELLED", message: reason?.message || "Action was cancelled." }, at: now() });
+          receipts.set(requestId, receipt);
+          emit("action.failed", { receipt });
+          return receipt;
+        }
+        decision = { approved: false, reason: error?.message || "Approval could not be completed." };
+      }
       if (decision?.approved !== true) {
         const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "rejected", error: { code: "APPROVAL_REQUIRED", message: decision?.reason || "Approval was not granted." }, at: now() });
         receipts.set(requestId, receipt);
@@ -201,7 +210,13 @@ function createAuroraActionEngine(options = {}) {
       }
     }
 
-    if (controller.signal.aborted) throw controller.signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled.");
+    if (controller.signal.aborted) {
+      const reason = controller.signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled.");
+      const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "failed", error: { code: reason.code || "ACTION_CANCELLED", message: reason.message || "Action was cancelled." }, at: now() });
+      receipts.set(requestId, receipt);
+      emit("action.failed", { receipt });
+      return receipt;
+    }
     emit("action.started", { requestId, capabilityId: capability.id });
     try {
       const context = Object.freeze({ requestId, capabilityId: capability.id, risk: capability.risk, requestedBy: proposal.requestedBy, signal: controller.signal });
