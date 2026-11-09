@@ -126,6 +126,8 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 **Implementation wave 5 completed:** Native contacts permission and search are implemented against Android's contacts provider with a 20-result cap and minimal returned fields. Phone-call preparation now opens Android ACTION_DIAL; AURORA never places a call silently.
 
+**Implementation wave 6 completed:** Removed duplicate SMS capability registration and consolidated text sharing under one canonical communication capability. Added a CI regression guard that checks the production capability catalogue for unique IDs and protects required calendar, file, media, notification, maps and voice adapters from accidental removal.
+
 **Remaining Stage 5 work:** Complete the Pulse floating overlay's native lifecycle, improve location/maps beyond external app handoff, expand screen and notification workflows, calendar/task integrations, richer file/document processing, media creation, intelligence tools, and extension interoperability. Every adapter must use shared permission/consent/approval contracts, honest platform availability, and automated regression coverage. No Stage 4 work is reopened; only ordinary regression checks apply.
 
 ### Stage 6 — Surface integration and device validation
