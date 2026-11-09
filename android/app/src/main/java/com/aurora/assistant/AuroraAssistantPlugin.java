@@ -512,6 +512,29 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setAudioVolume(PluginCall call) {
+        String stream = call.getString("stream", "media"); Integer level = call.getInt("level");
+        if (!java.util.Arrays.asList("media", "ring", "alarm").contains(stream) || level == null || level < 0 || level > 100) { call.reject("Choose media, ring or alarm volume and a level from 0 to 100."); return; }
+        try {
+            android.media.AudioManager audio = (android.media.AudioManager) getContext().getSystemService(android.content.Context.AUDIO_SERVICE);
+            if (audio == null) { call.reject("Android audio service is unavailable."); return; }
+            int type = "ring".equals(stream) ? android.media.AudioManager.STREAM_RING : ("alarm".equals(stream) ? android.media.AudioManager.STREAM_ALARM : android.media.AudioManager.STREAM_MUSIC);
+            int maximum = audio.getStreamMaxVolume(type); int requested = Math.round((level / 100f) * maximum);
+            audio.setStreamVolume(type, requested, android.media.AudioManager.FLAG_SHOW_UI);
+            JSObject result = new JSObject(); result.put("stream", stream); result.put("level", level); result.put("current", audio.getStreamVolume(type)); result.put("maximum", maximum); result.put("systemUiShown", true); call.resolve(result);
+        } catch (Exception e) { call.reject("Android could not adjust the requested volume.", e); }
+    }
+
+    @PluginMethod
+    public void getStorageStatus(PluginCall call) {
+        try {
+            android.os.StatFs stats = new android.os.StatFs(android.os.Environment.getDataDirectory().getAbsolutePath());
+            long total = stats.getTotalBytes(); long available = stats.getAvailableBytes();
+            JSObject result = new JSObject(); result.put("totalBytes", total); result.put("availableBytes", available); result.put("usedBytes", Math.max(0L, total - stats.getFreeBytes())); result.put("readOnlySummary", true); result.put("fileContentsRead", false); call.resolve(result);
+        } catch (Exception e) { call.reject("Android storage information is unavailable.", e); }
+    }
+
+    @PluginMethod
     public void prepareContact(PluginCall call) {
         String name = call.getString("name"); String phone = call.getString("phone", ""); String email = call.getString("email", "");
         if (name == null || name.trim().isEmpty() || name.length() > 120) { call.reject("A contact name (up to 120 characters) is required."); return; }
@@ -967,6 +990,11 @@ public class AuroraAssistantPlugin extends Plugin {
             case "sound": intent = new Intent(Settings.ACTION_SOUND_SETTINGS); break;
             case "battery": intent = new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS); break;
             case "app_details": intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName())); break;
+            case "location": intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS); break;
+            case "notifications": intent = new Intent("android.settings.APP_NOTIFICATION_SETTINGS"); intent.putExtra("android.provider.extra.APP_PACKAGE", getContext().getPackageName()); intent.putExtra("app_package", getContext().getPackageName()); break;
+            case "security": intent = new Intent(Settings.ACTION_SECURITY_SETTINGS); break;
+            case "date_time": intent = new Intent(Settings.ACTION_DATE_SETTINGS); break;
+            case "storage": intent = new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS); break;
             default: call.reject("Unsupported device settings page."); return;
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
