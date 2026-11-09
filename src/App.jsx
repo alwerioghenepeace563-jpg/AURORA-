@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
+import { auroraSecureStorage } from "./lib/aurora-secure-storage";
 import { auroraRuntime } from "./core/aurora-runtime";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
@@ -297,6 +298,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState("");
   const [authSession, setAuthSession] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null"); } catch { return null; } });
+  const [authStorageReady, setAuthStorageReady] = useState(() => !AuroraNative.isAndroid());
   const [guestMode, setGuestMode] = useState(false);
   const [authVerified, setAuthVerified] = useState(false);
   const [publicAuthConfig, setPublicAuthConfig] = useState(null);
@@ -319,6 +321,52 @@ export default function App() {
   const authUrl = (publicAuthConfig?.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
   const authKey = publicAuthConfig?.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || "";
   const authConfigured = Boolean(authUrl && authKey);
+
+  async function persistAuroraAuthSession(session) {
+    const serialized = JSON.stringify(session);
+    if (AuroraNative.isAndroid()) {
+      await auroraSecureStorage.set("auth.session", serialized);
+      try { localStorage.removeItem("aurora-auth-session"); } catch {}
+    } else {
+      localStorage.setItem("aurora-auth-session", serialized);
+    }
+  }
+
+  async function clearAuroraAuthSession() {
+    try { localStorage.removeItem("aurora-auth-session"); } catch {}
+    if (AuroraNative.isAndroid()) {
+      try { await auroraSecureStorage.remove("auth.session"); } catch {}
+    }
+  }
+
+  useEffect(() => {
+    if (!AuroraNative.isAndroid()) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await auroraSecureStorage.get("auth.session");
+        if (cancelled) return;
+        if (saved.found && saved.value) {
+          const session = JSON.parse(saved.value);
+          setAuthSession(session);
+          try { localStorage.removeItem("aurora-auth-session"); } catch {}
+        } else {
+          const legacy = localStorage.getItem("aurora-auth-session");
+          if (legacy) {
+            await auroraSecureStorage.set("auth.session", legacy);
+            if (cancelled) return;
+            localStorage.removeItem("aurora-auth-session");
+            setAuthSession(JSON.parse(legacy));
+          }
+        }
+      } catch {
+        if (!cancelled) setAuthMessage("AURORA could not unlock secure sign-in storage. Please restart the app and try again.");
+      } finally {
+        if (!cancelled) setAuthStorageReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [page, setPage] = useState("home");
   const [adminData, setAdminData] = useState(null);
   const [adminLoading, setAdminLoading] = useState(false);
@@ -781,7 +829,7 @@ export default function App() {
       if (!response.ok) throw new Error(data.msg || data.message || data.error_description || data.error || "Authentication failed. Check your details and try again.");
       if (data.access_token) {
         const session = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at || (Math.floor(Date.now()/1000) + (data.expires_in || 3600)), user: data.user };
-        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        await persistAuroraAuthSession(session);
         setAuthSession(session);
         setGuestMode(false);
         setAuthMessage("");
@@ -808,7 +856,7 @@ export default function App() {
   }
 
   function handleSignOut() {
-    try { localStorage.removeItem("aurora-auth-session"); } catch {}
+    void clearAuroraAuthSession();
     setAuthSession(null);
     setGuestMode(false);
     setAuthVerified(false);
@@ -847,7 +895,7 @@ export default function App() {
           expires_at: Number(params.get("expires_at")) || Math.floor(Date.now() / 1000) + 3600,
           user
         };
-        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        await persistAuroraAuthSession(session);
         setAuthSession(session);
         setAuthMessage("");
         if (rawUrl === window.location.href) {
@@ -878,6 +926,7 @@ export default function App() {
   }, [authConfigured, authUrl, authKey]);
 
   useEffect(() => {
+    if (!authStorageReady) return;
     if (!authConfigured || !authSession?.access_token) {
       setAuthVerified(false);
       return;
@@ -889,20 +938,21 @@ export default function App() {
     }).then(async (response) => {
       if (!response.ok) throw new Error("Session is no longer valid.");
       return response.json();
-    }).then((user) => {
+    }).then(async (user) => {
       if (cancelled) return;
       const verifiedSession = { ...authSession, user };
-      localStorage.setItem("aurora-auth-session", JSON.stringify(verifiedSession));
+      await persistAuroraAuthSession(verifiedSession);
+      if (cancelled) return;
       setAuthSession(verifiedSession);
       setAuthVerified(true);
     }).catch(() => {
       if (!cancelled) handleSignOut();
     });
     return () => { cancelled = true; };
-  }, [authSession?.access_token, authConfigured, authUrl, authKey]);
+  }, [authSession?.access_token, authConfigured, authUrl, authKey, authStorageReady]);
 
   useEffect(() => {
-    if (!authSession?.access_token || !authConfigured) return;
+    if (!authStorageReady || !authSession?.access_token || !authConfigured) return;
     if (authSession.expires_at && authSession.expires_at < Math.floor(Date.now()/1000) + 60 && authSession.refresh_token) {
       fetch(authUrl + "/auth/v1/token?grant_type=refresh_token", {
         method: "POST",
@@ -912,11 +962,11 @@ export default function App() {
         const data = await response.json().catch(() => ({}));
         if (!response.ok || !data.access_token) throw new Error("Session expired");
         const session = { ...authSession, ...data, expires_at: data.expires_at || Math.floor(Date.now()/1000)+(data.expires_in || 3600) };
-        localStorage.setItem("aurora-auth-session", JSON.stringify(session));
+        await persistAuroraAuthSession(session);
         setAuthSession(session);
       }).catch(() => handleSignOut());
     }
-  }, [authSession, authConfigured, authUrl, authKey]);
+  }, [authSession, authConfigured, authUrl, authKey, authStorageReady]);
 
   function navigate(next) {
     if (next === "tools") setToolScreen("home");
