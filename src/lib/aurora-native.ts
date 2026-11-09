@@ -37,6 +37,7 @@ type AuroraNativePlugin = {
     searchContacts(options: { query: string }): Promise<{ contacts: Array<{ id?: string; name: string; number: string }> }>;
     openDialer(options: { number: string }): Promise<{ opened: boolean }>;
   prepareSms(options: { number: string; body?: string }): Promise<{ opened: boolean }>;
+  prepareEmail(options: { to: string; subject?: string; body?: string }): Promise<{ opened: boolean; recipientCount: number; requiresUserReview: boolean; requiresUserSend: boolean }>;
   shareText(options: { text: string }): Promise<{ opened: boolean }>;
   searchOnMap(options: { query: string }): Promise<{ opened: boolean; query: string }>;
   startMapDirections(options: { destination: string; mode: string }): Promise<{ opened: boolean; destination: string; mode: string }>;
@@ -158,6 +159,10 @@ export const auroraNative = {
   prepareSms: async (number: string, body = "") => {
     if (!Capacitor.isNativePlatform()) throw new Error("SMS composer handoff is available only in Android.");
     return AuroraNative.prepareSms({ number, body });
+  },
+  prepareEmail: async (to: string, subject = "", body = "") => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Email composer handoff is available only in the Android app.");
+    return AuroraNative.prepareEmail({ to, subject, body });
   },
   shareText: async (text: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Android share sheet is available only in the native app.");
