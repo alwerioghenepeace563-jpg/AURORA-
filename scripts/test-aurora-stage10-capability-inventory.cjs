@@ -60,3 +60,20 @@ assert.ok(nativeJava.includes("ContactsContract.Intents.Insert.NAME"));
 assert.ok(nativeJava.includes("requiresUserSave"));
 assert.ok(nativeJava.includes("requiresUserConfirmation"));
 console.log("AURORA Stage 10 expanded utility tests passed: contact, alarm, timer and extra Android settings handoffs.");
+
+
+// Stage 10 Wave 4: volume control and read-only storage capacity plus expanded settings shortcuts.
+assert.ok(nativeJava.includes("public void setAudioVolume(PluginCall call)"));
+assert.ok(nativeJava.includes("FLAG_SHOW_UI"));
+assert.ok(nativeJava.includes("public void getStorageStatus(PluginCall call)"));
+assert.ok(nativeJava.includes("fileContentsRead"));
+assert.ok(nativeBridge.includes("setAudioVolume(options:"));
+assert.ok(nativeBridge.includes("getStorageStatus(): Promise"));
+assert.ok(capabilityRuntime.includes('id: "device.set_audio_volume"'));
+assert.ok(capabilityRuntime.includes('id: "device.get_storage_status"'));
+assert.ok(manifest.includes("android.permission.MODIFY_AUDIO_SETTINGS"));
+for (const target of ["location", "notifications", "security", "date_time", "storage"]) {
+  assert.ok(nativeJava.includes('case "' + target + '"'));
+  assert.ok(capabilityRuntime.includes('id: "device.open_' + target + '_settings"'));
+}
+console.log("AURORA Stage 10 device controls tests passed: approval-gated volume, read-only storage and five additional Android settings handoffs.");
