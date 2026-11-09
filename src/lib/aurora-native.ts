@@ -60,6 +60,7 @@ type AuroraNativePlugin = {
   openNotificationAccessSettings(): Promise<{ opened: boolean }>;
   hasNotificationAccess(): Promise<{ granted: boolean }>;
   readRecentNotifications(): Promise<{ items: string; localOnly: boolean; limit: number }>;
+  openNotification(options: { key: string }): Promise<{ opened: boolean; note: string }>;
   clearRecentNotifications(): Promise<{ cleared: boolean }>;
   getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; batteryHealth?: number; platform: string; sdk: number; manufacturer: string; model: string }>;
   getDeviceCapabilityInventory(): Promise<{ platform: string; device: { manufacturer: string; model: string; sdk: number }; hardware: Record<string, boolean>; permissions: Record<string, boolean>; specialAccess: Record<string, boolean>; readOnly: true; capturedAt: number }>;
@@ -210,6 +211,7 @@ export const auroraNative = {
   openNotificationAccessSettings: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification access settings are available only in Android."); return AuroraNative.openNotificationAccessSettings(); },
   hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },
   readRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification intelligence is available only in Android."); return AuroraNative.readRecentNotifications(); },
+  openNotification: async (key: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Opening notifications is available only in Android."); return AuroraNative.openNotification({ key }); },
   clearRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification cache is available only in Android."); return AuroraNative.clearRecentNotifications(); },
   getDeviceStatus: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device status is available only in Android."); return AuroraNative.getDeviceStatus(); },
   getDeviceCapabilityInventory: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device capability inventory is available only in the Android app."); return AuroraNative.getDeviceCapabilityInventory(); },
