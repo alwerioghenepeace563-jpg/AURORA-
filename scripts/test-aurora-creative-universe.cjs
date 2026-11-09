@@ -34,7 +34,7 @@ const assert = require("node:assert/strict");
  assert.equal(graded.percentage,100);
  assert.equal(creative.search("Narration")[0].kind,"draft");
  const context=creative.buildProjectContext(project.id,{maxChars:2000});
- assert.equal(context.sourceAware,true); assert.equal(context.includedSources,3); assert.match(context.text,/Project: Science explainer/); assert.match(context.text,/First version|Revised version/); assert.ok(context.text.length<=2000);
+ assert.equal(context.sourceAware,true); assert.equal(context.includedSources,4); assert.match(context.text,/Project: Science explainer/); assert.match(context.text,/First version|Revised version/); assert.ok(context.text.length<=2000);
  assert.throws(()=>creative.buildProjectContext("missing"),/Project not found/i);
  assert.equal(creative.status().cloudSync,false);
  assert.throws(()=>createAuroraCreativeUniverse({storage:{getItem:()=>"broken"}}).status(),/corrupt/i);
