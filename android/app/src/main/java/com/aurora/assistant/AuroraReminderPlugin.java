@@ -11,10 +11,28 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import com.getcapacitor.PermissionState;
 
-@CapacitorPlugin(name = "AuroraReminder")
+@CapacitorPlugin(name = "AuroraReminder", permissions = { @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) })
 public class AuroraReminderPlugin extends Plugin {
     private int requestCode(String id) { return id.hashCode() & 0x7fffffff; }
+
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED) {
+            call.resolve(new JSObject().put("granted", true)); return;
+        }
+        requestPermissionForAlias("notifications", call, "notificationPermissionCallback");
+    }
+
+    @PermissionCallback
+    private void notificationPermissionCallback(PluginCall call) {
+        boolean granted = Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED;
+        if (granted) call.resolve(new JSObject().put("granted", true));
+        else call.reject("Notification permission was not granted. You can still use AURORA without reminders.");
+    }
 
     @PluginMethod
     public void schedule(PluginCall call) {
