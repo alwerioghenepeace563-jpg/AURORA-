@@ -524,7 +524,7 @@ const auroraRuntime = Object.freeze({
   saveWorkflow: (input) => auroraWorkflows.save(input, actionEngine.listCapabilities()),
   prepareWorkflow: (workflowId) => { const plan = auroraWorkflows.instantiate(workflowId, actionEngine.listCapabilities(), taskOrchestrator); latestPendingTaskId = plan.id; return taskOrchestrator.runPlan(plan, { confirmed: false }); },
   createTaskPlan: (plan) => taskOrchestrator.createPlan(plan),
-  runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),
+  runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),\n  retryFailedTaskStep: (taskId, stepId, options) => taskOrchestrator.retryFailedStep(taskId, stepId, options),
   capabilities: () => actionEngine.listCapabilities(),
   availability: (capabilityId) => actionEngine.getAvailability(capabilityId),
   inspectCapabilities: () => capabilityIntelligence.inspect(),
