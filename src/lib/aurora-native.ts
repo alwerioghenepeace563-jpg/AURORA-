@@ -60,6 +60,7 @@ type AuroraNativePlugin = {
   prepareAudioRecording(): Promise<{ cancelled: boolean; recorded?: boolean; contentUri?: string; mimeType?: string; recordingByAurora?: false; userControlledRecorder?: true; audioReadByAurora?: false }>;
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
   shareSelectedFile(options: { contentUri: string; mimeType: string }): Promise<{ opened: boolean; requiresUserDestination: boolean; fileSentByAurora: false }>;
+  downloadMedia(options: { url: string; filename: string; mimeType: string; confirmed: boolean }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string; managedByAndroid: true; notificationVisible: true }>;
   pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string }>;
   openNotificationAccessSettings(): Promise<{ opened: boolean }>;
   hasNotificationAccess(): Promise<{ granted: boolean }>;
@@ -216,6 +217,7 @@ export const auroraNative = {
   prepareAudioRecording: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Audio recording handoff is available only in Android."); return AuroraNative.prepareAudioRecording(); },
   capturePhoto: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Camera capture is available only in Android."); return AuroraNative.capturePhoto(); },
   shareSelectedFile: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
+  downloadMedia: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct media downloads require the AURORA Android app."); return AuroraNative.downloadMedia(options); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
   openNotificationAccessSettings: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification access settings are available only in Android."); return AuroraNative.openNotificationAccessSettings(); },
   hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },
