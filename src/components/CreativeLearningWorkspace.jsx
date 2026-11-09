@@ -62,12 +62,106 @@ function CreativeLearningWorkspace(){
    <div className="clw-panel clw-wide"><h3>Draft studio</h3>{!activeProject?<p className="clw-empty">Create or select a project to save drafts.</p>:<><p className="clw-context">Project: <strong>{activeProject.title}</strong></p><label>Draft title<input value={draftTitle} onChange={e=>setDraftTitle(e.target.value)}/></label><label>Your writing<textarea rows={6} value={draftText} onChange={e=>setDraftText(e.target.value)} placeholder="Paste a script, outline, notes or a draft here..."/></label><button className="clw-primary" onClick={saveDraft} disabled={!draftText.trim()}><Save size={15}/> Save draft</button><div className="clw-list">{projectDrafts.map(d=><article key={d.id}><strong>{d.title}</strong><p>{d.content.slice(0,180)}</p><small>{d.revisions.length} previous version(s)</small>{d.revisions.length>0&&<button onClick={()=>{if(window.confirm("Restore the most recently saved version of this draft? The current version will be kept in history."))run(()=>auroraRuntime.restoreCreativeDraftRevision(d.id,0,{confirmed:true}),"Previous draft version restored.");}}>Restore previous version</button>}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"draft",id:d.id,userApproved:true}),"Draft added to Knowledge Universe.")}>Save to Knowledge Universe</button></article>)}</div><h3>Source-aware project context</h3><p className="clw-help">Assemble only this project’s saved drafts and selected references into a bounded, source-labelled context pack. No AI analysis or media extraction is claimed.</p><div className="clw-actions"><button onClick={buildContext}>Build project context</button>{contextPreview&&<button onClick={copyContext}>Copy context</button>}</div>{contextPreview&&<textarea className="clw-context-preview" rows={8} readOnly value={contextPreview}/>}<h3>Project references</h3>{projectAssets.map(a=><div className="clw-reference" key={a.id}>{a.title} <small>· {a.type}</small>{a.uri&&a.mimeType&&<button onClick={()=>shareAsset(a)}>Share…</button>}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"asset",id:a.id,userApproved:true}),"Reference added to Knowledge Universe.")}>Save to Knowledge Universe</button></div>)}</>}</div>
   </div>}
   {tab==="captions"&&<div className="clw-panel"><h3>Subtitle workshop</h3><p className="clw-help">Import an SRT or WebVTT caption file you choose. AURORA validates cue order and timing, then lets you export SRT. This does not claim to transcribe audio automatically.</p><label>Project<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Choose a project</option>{projects.map(p=><option value={p.id} key={p.id}>{p.title}</option>)}</select></label><label>Caption title<input value={subtitleTitle} onChange={e=>setSubtitleTitle(e.target.value)}/></label><label className="clw-file">Choose subtitle file<input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" onChange={e=>setSubtitleFile(e.target.files?.[0]||null)}/></label><button className="clw-primary" onClick={importCaptions} disabled={!subtitleFile||!selected}>Import captions</button><h3>Search inside captions</h3><label>Find a word or phrase<input value={subtitleQuery} onChange={e=>setSubtitleQuery(e.target.value)} placeholder="Search imported subtitle text"/></label>{subtitleQuery.trim()&&<div className="clw-list">{subtitleMatches.length===0?<p className="clw-empty">No matching caption cues in this project.</p>:subtitleMatches.map(match=><article className="clw-caption-hit" key={match.assetId+match.cueId}><strong>{match.title} · {match.startTime}</strong><p>{match.text}</p><small>Ends {match.endTime}</small></article>)}</div>}<div className="clw-list">{projectAssets.filter(a=>a.type==="subtitle").map(a=><article key={a.id}><strong>{a.title}</strong><p>{a.cueCount||0} subtitle cues</p><button onClick={()=>exportCaptions(a)}><Download size={14}/> Export SRT</button></article>)}</div></div>}
-  {tab==="learning"&&<div className="clw-grid">
-   <div className="clw-panel"><h3>Study plan</h3><label>Plan title<input value={planTitle} onChange={e=>setPlanTitle(e.target.value)}/></label><label>Subject<select value={planSubject} onChange={e=>setPlanSubject(e.target.value)}>{subjects.map(v=><option key={v}>{v}</option>)}</select></label><label>Topics (one per line)<textarea rows={5} value={topicsText} onChange={e=>setTopicsText(e.target.value)}/></label><button className="clw-primary" onClick={createPlan}><Plus size={15}/> Save study plan</button></div>
-   <div className="clw-panel"><h3>Practice quiz builder</h3><p className="clw-help">Add one question and answer per line, separated by |.</p><label>Question | answer<textarea rows={5} value={quizText} onChange={e=>setQuizText(e.target.value)}/></label><button className="clw-primary" onClick={createQuiz}>Create practice quiz</button>{quiz&&<div className="clw-list"><strong>{quiz.title}</strong>{quiz.questions.map((q,index)=><label key={index}>{q.prompt}<input value={quizAnswers[index]||""} onChange={e=>setQuizAnswers(v=>({...v,[index]:e.target.value}))} placeholder="Your answer"/></label>)}<button className="clw-primary" onClick={submitQuiz}>Grade my answers</button>{quizResult&&<div className="clw-quiz-result"><p>Score: {quizResult.correct}/{quizResult.total} ({quizResult.percentage}%)</p><button onClick={saveQuizResult} disabled={quizSaved} className="clw-primary">{quizSaved?"Result saved":"Save result to history"}</button><div className="clw-quiz-feedback">{quizResult.results.map(item=><p key={item.index}><strong>{item.correct?"Correct":"Review"}:</strong> {item.submitted||"No answer"} · Expected: {item.expectedAnswer}</p>)}</div></div>}</div>}</div><div className="clw-panel clw-wide"><h3>Practice history</h3><div className="clw-quiz-stats"><span>{quizPerformance.attemptCount} attempts</span><span>Average {quizPerformance.averagePercentage}%</span><span>Best {quizPerformance.bestPercentage}%</span><span>Latest {quizPerformance.latestPercentage===null?"—":quizPerformance.latestPercentage+"%"}</span></div>{quizHistory.length===0?<p className="clw-empty">Saved quiz results will appear here.</p>:quizHistory.map(attempt=><article className="clw-quiz-history" key={attempt.id}><strong>{attempt.quizTitle}</strong><p>{attempt.subject||"General"} · {attempt.correct}/{attempt.total} correct · {attempt.percentage}%</p><small>{new Date(attempt.createdAt).toLocaleString()}</small>{attempt.results.map(item=><p key={item.index}>{item.correct?"✓":"Review"} · {item.prompt} <small>Answer: {item.expectedAnswer}</small></p>)}</article>)}</div></div>
-   <div className="clw-panel"><h3>Flashcard review queue</h3><div className="clw-quiz-stats"><span>{flashSummary.totalCards} total</span><span>{flashSummary.newCards} new</span><span>{flashSummary.reviewedCards} reviewed</span><span>{flashSummary.dueCards} due</span></div>{dueCards.length===0?<p className="clw-empty">No cards are due right now. Review dates are calculated from your ratings.</p>:dueCards.map(card=><article className="clw-flashcard" key={card.deckId+card.id}><strong>{card.question}</strong><p>{card.deckTitle} · {card.subject||"General"}</p><p>{card.answer}</p><div>{["again","hard","good","easy"].map(rating=><button key={rating} onClick={()=>run(()=>auroraRuntime.reviewFlashcard(card.deckId,card.id,rating,{confirmed:true}),"Review rating saved and next review date scheduled.")}>{rating[0].toUpperCase()+rating.slice(1)}</button>)}</div></article>)}</div><div className="clw-panel"><h3>Flashcards</h3><label>Deck title<input value={deckTitle} onChange={e=>setDeckTitle(e.target.value)}/></label><label>Subject<select value={deckSubject} onChange={e=>setDeckSubject(e.target.value)}>{subjects.map(v=><option key={v}>{v}</option>)}</select></label><label>Cards (question | answer, one per line)<textarea rows={5} value={cardsText} onChange={e=>setCardsText(e.target.value)}/></label><button className="clw-primary" onClick={createDeck}><Plus size={15}/> Create flashcards</button><small>{decks.length} deck(s) saved</small>{decks.map(deck=><article key={deck.id}><strong>{deck.title}</strong><p>{deck.cards.length} flashcards</p>{deck.cards.map(card=><div className="clw-flashcard" key={card.id}><strong>{card.question}</strong><p>{card.answer}</p><div><button onClick={()=>run(()=>auroraRuntime.reviewFlashcard(deck.id,card.id,"again",{confirmed:true}),"Marked for another review.")}>Again</button><button onClick={()=>run(()=>auroraRuntime.reviewFlashcard(deck.id,card.id,"good",{confirmed:true}),"Flashcard marked as understood.")}>Got it</button></div></div>)}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"deck",id:deck.id,userApproved:true}),"Flashcard deck added to Knowledge Universe.")}>Save deck to Knowledge Universe</button></article>)}</div>
-   <div className="clw-panel clw-wide"><h3>Progress tracker</h3>{plans.length===0?<p className="clw-empty">Your study plans will appear here.</p>:plans.map(plan=><article className="clw-plan" key={plan.id}><strong>{plan.title} · {plan.subject}</strong><p>{auroraRuntime.studyProgress(plan.id).completionRate}% complete · {auroraRuntime.studyProgress(plan.id).studyMinutes} study minutes · {auroraRuntime.studyProgress(plan.id).sessionCount} sessions</p><label>Log a study session<select value={sessionTopic[plan.id]||plan.topics[0]?.id||""} onChange={e=>setSessionTopic(v=>({...v,[plan.id]:e.target.value}))}>{plan.topics.map(topic=><option value={topic.id} key={topic.id}>{topic.name}</option>)}</select></label><label>Minutes studied<input type="number" min="1" max="600" value={sessionMinutes} onChange={e=>setSessionMinutes(e.target.value)}/></label><label>Session note (optional)<input value={sessionNote} onChange={e=>setSessionNote(e.target.value)} placeholder="What did you cover?"/></label><button onClick={()=>logSession(plan)} className="clw-primary">Save study session</button><button onClick={()=>deletePlan(plan)}>Delete plan</button><div className="clw-session-history">{auroraRuntime.listStudySessions({planId:plan.id,limit:5}).map(session=><p key={session.id}>{session.topic} · {session.minutes} min <small>{new Date(session.studiedAt).toLocaleDateString()}</small>{session.note&&<span> — {session.note}</span>}</p>)}</div>{plan.topics.map(topic=><label className="clw-topic" key={topic.id}>{topic.name}<select value={topic.status} onChange={e=>updateTopic(plan,topic,e.target.value)}><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="needs_review">Needs review</option></select></label>)}</article>)}</div>
-  </div>}
+  {tab==="learning" && (
+   <div className="clw-grid">
+    <div className="clw-panel">
+     <h3>Study plan</h3>
+     <label>Plan title<input value={planTitle} onChange={e=>setPlanTitle(e.target.value)}/></label>
+     <label>Subject<select value={planSubject} onChange={e=>setPlanSubject(e.target.value)}>{subjects.map(v=><option key={v}>{v}</option>)}</select></label>
+     <label>Topics (one per line)<textarea rows={5} value={topicsText} onChange={e=>setTopicsText(e.target.value)}/></label>
+     <button className="clw-primary" onClick={createPlan}><Plus size={15}/> Save study plan</button>
+    </div>
+    <div className="clw-panel">
+     <h3>Practice quiz builder</h3>
+     <p className="clw-help">Add one question and answer per line, separated by |.</p>
+     <label>Question | answer<textarea rows={5} value={quizText} onChange={e=>setQuizText(e.target.value)}/></label>
+     <button className="clw-primary" onClick={createQuiz}>Create practice quiz</button>
+     {quiz && (
+      <div className="clw-list">
+       <strong>{quiz.title}</strong>
+       {quiz.questions.map((q,index)=>(
+        <label key={index}>{q.prompt}<input value={quizAnswers[index]||""} onChange={e=>setQuizAnswers(v=>({...v,[index]:e.target.value}))} placeholder="Your answer"/></label>
+       ))}
+       <button className="clw-primary" onClick={submitQuiz}>Grade my answers</button>
+       {quizResult && (
+        <div className="clw-quiz-result">
+         <p>Score: {quizResult.correct}/{quizResult.total} ({quizResult.percentage}%)</p>
+         <button onClick={saveQuizResult} disabled={quizSaved} className="clw-primary">{quizSaved?"Result saved":"Save result to history"}</button>
+         <div className="clw-quiz-feedback">
+          {quizResult.results.map(item=>(
+           <p key={item.index}><strong>{item.correct?"Correct":"Review"}:</strong> {item.submitted||"No answer"} · Expected: {item.expectedAnswer}</p>
+          ))}
+         </div>
+        </div>
+       )}
+      </div>
+     )}
+    </div>
+    <div className="clw-panel clw-wide">
+     <h3>Practice history</h3>
+     <div className="clw-quiz-stats">
+      <span>{quizPerformance.attemptCount} attempts</span><span>Average {quizPerformance.averagePercentage}%</span>
+      <span>Best {quizPerformance.bestPercentage}%</span><span>Latest {quizPerformance.latestPercentage===null?"—":quizPerformance.latestPercentage+"%"}</span>
+     </div>
+     {quizHistory.length===0?<p className="clw-empty">Saved quiz results will appear here.</p>:quizHistory.map(attempt=>(
+      <article className="clw-quiz-history" key={attempt.id}>
+       <strong>{attempt.quizTitle}</strong><p>{attempt.subject||"General"} · {attempt.correct}/{attempt.total} correct · {attempt.percentage}%</p>
+       <small>{new Date(attempt.createdAt).toLocaleString()}</small>
+       {attempt.results.map(item=><p key={item.index}>{item.correct?"✓":"Review"} · {item.prompt} <small>Answer: {item.expectedAnswer}</small></p>)}
+      </article>
+     ))}
+    </div>
+    <div className="clw-panel">
+     <h3>Flashcard review queue</h3>
+     <div className="clw-quiz-stats">
+      <span>{flashSummary.totalCards} total</span><span>{flashSummary.newCards} new</span>
+      <span>{flashSummary.reviewedCards} reviewed</span><span>{flashSummary.dueCards} due</span>
+     </div>
+     {dueCards.length===0?<p className="clw-empty">No cards are due right now. Review dates are calculated from your ratings.</p>:dueCards.map(card=>(
+      <article className="clw-flashcard" key={card.deckId+card.id}>
+       <strong>{card.question}</strong><p>{card.deckTitle} · {card.subject||"General"}</p><p>{card.answer}</p>
+       <div>{["again","hard","good","easy"].map(rating=><button key={rating} onClick={()=>run(()=>auroraRuntime.reviewFlashcard(card.deckId,card.id,rating,{confirmed:true}),"Review rating saved and next review date scheduled.")}>{rating[0].toUpperCase()+rating.slice(1)}</button>)}</div>
+      </article>
+     ))}
+    </div>
+    <div className="clw-panel">
+     <h3>Flashcards</h3>
+     <label>Deck title<input value={deckTitle} onChange={e=>setDeckTitle(e.target.value)}/></label>
+     <label>Subject<select value={deckSubject} onChange={e=>setDeckSubject(e.target.value)}>{subjects.map(v=><option key={v}>{v}</option>)}</select></label>
+     <label>Cards (question | answer, one per line)<textarea rows={5} value={cardsText} onChange={e=>setCardsText(e.target.value)}/></label>
+     <button className="clw-primary" onClick={createDeck}><Plus size={15}/> Create flashcards</button>
+     <small>{decks.length} deck(s) saved</small>
+     {decks.map(deck=>(
+      <article key={deck.id}>
+       <strong>{deck.title}</strong><p>{deck.cards.length} flashcards</p>
+       {deck.cards.map(card=>(
+        <div className="clw-flashcard" key={card.id}>
+         <strong>{card.question}</strong><p>{card.answer}</p>
+         <div><button onClick={()=>run(()=>auroraRuntime.reviewFlashcard(deck.id,card.id,"again",{confirmed:true}),"Marked for another review.")}>Again</button><button onClick={()=>run(()=>auroraRuntime.reviewFlashcard(deck.id,card.id,"good",{confirmed:true}),"Flashcard marked as understood.")}>Got it</button></div>
+        </div>
+       ))}
+       <button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"deck",id:deck.id,userApproved:true}),"Flashcard deck added to Knowledge Universe.")}>Save deck to Knowledge Universe</button>
+      </article>
+     ))}
+    </div>
+    <div className="clw-panel clw-wide">
+     <h3>Progress tracker</h3>
+     {plans.length===0?<p className="clw-empty">Your study plans will appear here.</p>:plans.map(plan=>(
+      <article className="clw-plan" key={plan.id}>
+       <strong>{plan.title} · {plan.subject}</strong>
+       <p>{auroraRuntime.studyProgress(plan.id).completionRate}% complete · {auroraRuntime.studyProgress(plan.id).studyMinutes} study minutes · {auroraRuntime.studyProgress(plan.id).sessionCount} sessions</p>
+       <label>Log a study session<select value={sessionTopic[plan.id]||plan.topics[0]?.id||""} onChange={e=>setSessionTopic(v=>({...v,[plan.id]:e.target.value}))}>{plan.topics.map(topic=><option value={topic.id} key={topic.id}>{topic.name}</option>)}</select></label>
+       <label>Minutes studied<input type="number" min="1" max="600" value={sessionMinutes} onChange={e=>setSessionMinutes(e.target.value)}/></label>
+       <label>Session note (optional)<input value={sessionNote} onChange={e=>setSessionNote(e.target.value)} placeholder="What did you cover?"/></label>
+       <button onClick={()=>logSession(plan)} className="clw-primary">Save study session</button>
+       <button onClick={()=>deletePlan(plan)}>Delete plan</button>
+       <div className="clw-session-history">{auroraRuntime.listStudySessions({planId:plan.id,limit:5}).map(session=><p key={session.id}>{session.topic} · {session.minutes} min <small>{new Date(session.studiedAt).toLocaleDateString()}</small>{session.note&&<span> — {session.note}</span>}</p>)}</div>
+       {plan.topics.map(topic=><label className="clw-topic" key={topic.id}>{topic.name}<select value={topic.status} onChange={e=>updateTopic(plan,topic,e.target.value)}><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="needs_review">Needs review</option></select></label>)}
+      </article>
+     ))}
+    </div>
+   </div>
+  )}
   <p className="clw-footnote">Saved locally. No automatic recording, media scanning or cloud upload. Saving and deleting are initiated by you.</p>
  </section>;
 }
