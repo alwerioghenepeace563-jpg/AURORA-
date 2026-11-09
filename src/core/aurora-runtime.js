@@ -8,6 +8,7 @@ import { createAuroraCapabilityRuntime } from "./aurora-capability-runtime";
 import { runAuroraToolTree } from "../lib/aurora-tool-tree";
 import { parseCalendarIntent } from "./aurora-intent-parser";
 import { createAuroraTaskOrchestrator } from "./aurora-task-orchestrator";
+import { auroraMemory } from "./aurora-memory";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
@@ -137,6 +138,7 @@ const auroraRuntime = Object.freeze({
   actions: actionEngine,
   approvals: approvalBroker,
   tasks: taskOrchestrator,
+  memory: auroraMemory,
   createTaskPlan: (plan) => taskOrchestrator.createPlan(plan),
   runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),
   capabilities: () => actionEngine.listCapabilities(),
