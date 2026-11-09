@@ -116,7 +116,9 @@ The final implementation pass extends reliability into persistent and scheduled 
 
 ### Stage 5 — Capability adapter expansion (active)
 
-Upgrade Android, voice, screen, communication, maps, productivity, files, media, intelligence, and extension adapters behind the shared contracts. Each adapter must have automated tests and honest platform availability reporting.
+**Implementation wave 1 completed in code:** The shared Action Engine now exposes the existing Android native voice output, speech stop, Pulse overlay show/hide, foreground assistant service start/stop, accessibility settings handoff, and installed build information adapters. Microphone and overlay permissions are explicit shared authorization requirements; background-service start is approval-gated. Native-only capabilities report unavailable outside Android. Existing maps, contacts, dialler, calendar, files, media, notifications, screen access, device status, and flashlight adapters remain wired through the same engine.
+
+**Remaining Stage 5 work:** Expand voice input/session lifecycle, screen and notification workflows, richer communication actions, location/maps capabilities beyond external handoff, calendar/task integrations, file/document processing, media creation, intelligence tools, and extension interoperability. Each new adapter must use the shared permission/consent/approval contracts, expose honest platform availability, and have automated regression coverage. No Stage 4 work is reopened; only ordinary regression checks apply.
 
 ### Stage 6 — Surface integration and device validation
 
