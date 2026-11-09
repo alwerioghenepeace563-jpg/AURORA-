@@ -121,16 +121,16 @@ async function routeMessage(text) {
     return { tool: "aurora_workflow_preview", taskId: plan.id, steps: preview.steps, context: "Workflow “" + matches[0].title + "” is ready. Nothing has run. Review the steps, then say confirm task " + plan.id + " or cancel task " + plan.id + "." };
   }
 
-  const capabilityMatch = message.match(/^(?:what|show|list|find) (?:are )?(?:my |aurora )?(?:available )?(?:tools|capabilities)(?: for)?(?: (.+))?\\??$/i);
+  const capabilityMatch = message.match(/^(?:what|show|list|find) (?:are )?(?:my |aurora )?(?:available )?(?:tools|capabilities)(?: for)?(?: (.+))?\??$/i);
   if (capabilityMatch) {
     const matches = capabilityMatch[1] ? capabilityIntelligence.find(capabilityMatch[1], 10) : capabilityIntelligence.inspect();
-    return { tool: "aurora_capability_discovery", capabilities: matches, context: matches.length ? "Registered AURORA capabilities (read-only discovery):\\n" + matches.map(item => "- " + item.label + " [" + item.id + ", " + item.risk + (item.approvalRequired ? ", approval required" : "") + "]").join("\\n") : "I couldn't find a registered capability matching that request. I cannot invent tools or bypass their approval requirements." };
+    return { tool: "aurora_capability_discovery", capabilities: matches, context: matches.length ? "Registered AURORA capabilities (read-only discovery):\n" + matches.map(item => "- " + item.label + " [" + item.id + ", " + item.risk + (item.approvalRequired ? ", approval required" : "") + "]").join("\n") : "I couldn't find a registered capability matching that request. I cannot invent tools or bypass their approval requirements." };
   }
 
-  const recoveryMatch = message.match(/^(?:show|list|review) (?:my )?(?:interrupted|recoverable|recent) tasks\\??$/i);
+  const recoveryMatch = message.match(/^(?:show|list|review) (?:my )?(?:interrupted|recoverable|recent) tasks\??$/i);
   if (recoveryMatch) {
     const items = auroraTaskJournal.recoverable();
-    return { tool: "aurora_task_recovery", tasks: items, context: items.length ? "Recoverable task records are available. Review the saved plan and prepare it again; every recovered plan requires fresh confirmation before anything runs.\\n" + items.map(item => "- " + item.title + " [" + item.status + "] — " + item.taskId).join("\\n") : "There are no interrupted or recoverable task plans in the local journal." };
+    return { tool: "aurora_task_recovery", tasks: items, context: items.length ? "Recoverable task records are available. Review the saved plan and prepare it again; every recovered plan requires fresh confirmation before anything runs.\\n" + items.map(item => "- " + item.title + " [" + item.status + "] — " + item.taskId).join("\n") : "There are no interrupted or recoverable task plans in the local journal." };
   }
 
   const knowledgeMatch = message.match(/^(?:search|find) (?:my )?(?:knowledge graph|knowledge) for (.+)$/i);
