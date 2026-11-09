@@ -166,6 +166,48 @@ const STAGE_SIX_CHECKPOINT = Object.freeze({
   deferredDeviceValidation: STAGE_SIX_DEFERRED_DEVICE_VALIDATION
 });
 
+const STAGE_SEVEN_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["explicit user-started microphone foreground service", "persistent notification with an immediate Stop action", "no sticky service restart after process death", "native app launch and one-shot device handoffs"]),
+  voice_multimodal: Object.freeze(["Hey AURORA phrase detection through Android speech recognition", "shared Main/Pulse/voice gateway and runtime", "foreground/background interruption and spoken-output cancellation", "visible permission and listening state"]),
+  screen_accessibility: Object.freeze(["user-invoked one-shot screen context sessions", "foreground-only external-window capture with no background text caching", "bounded review-before-send screen text", "Pulse keyboard, focus, live-region and reduced-motion safeguards"]),
+  communication_people: Object.freeze(["safe installed-app launch and system handoffs", "SMS/share/dialler actions retain approval and user confirmation", "contacts access remains permission-gated and bounded"]),
+  location_travel: Object.freeze(["one-shot permission-gated current-location adapter", "timestamp, age, accuracy and freshness disclosure", "map search and validated directions handoffs", "no always-on location tracking"]),
+  calendar_productivity: Object.freeze(["shared task planner and orchestrator", "user-controlled reminder and routine scheduling", "calendar reads remain permission/approval-gated", "interrupted tasks require fresh confirmation"]),
+  files_knowledge: Object.freeze(["user-selected document picker", "short-lived one-shot bounded document context", "surface-scoped delivery with metadata-only events", "no silent file upload or automatic persistence"]),
+  media_creative: Object.freeze(["user-controlled media search and handoff", "bounded context-session source contract", "no automatic media collection or upload"]),
+  intelligence_personalisation: Object.freeze(["shared memory and knowledge services across assistant surfaces", "universal search and capability intelligence", "source-scoped opt-in memory sync and protected-memory boundaries"]),
+  extensions_interoperability: Object.freeze(["extension manifests remain declarative and metadata-only", "extension actions route through the shared Action Engine", "shared permission, consent and approval policy"]),
+  safety_privacy_security: Object.freeze(["explicit microphone and notification permission before wake listening", "foreground notification exposes active microphone state and Stop control", "screen/document context is opt-in, bounded and one-shot", "consequential actions retain approval and cancellation"]),
+  reliability_operations: Object.freeze(["wake listener stops on explicit Stop or after wake detection", "no sticky auto-restart and stale listening state is cleared", "shared interruption coordinator and review-only recovery", "focused and cross-layer regressions run in core CI"])
+});
+const STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION = Object.freeze({
+  status: "deferred",
+  reason: "Stage 7 code and automated CI checkpoint is complete. The current workflow does not build APKs or certify physical-device behavior; those checks remain a separate device/release gate.",
+  checks: Object.freeze([
+    "Verify Hey AURORA phrase detection, microphone indicator, notification Stop action, and background/foreground lifecycle on the target Android devices.",
+    "Verify Android speech-recognition provider behavior, network use, battery impact, and language/accent recognition; this is not a low-power DSP hotword engine.",
+    "Verify Read Screen foreground boundaries, TalkBack, document picker, and selected-context handoff on device.",
+    "Verify location freshness, app handoffs, notification permissions, and listener cleanup on supported Android versions."
+  ])
+});
+const STAGE_SEVEN_CHECKPOINT = Object.freeze({
+  id: 7,
+  name: "Native assistant activation and contextual intelligence",
+  status: "complete",
+  completedAt: "2026-11-09",
+  scope: "All 12 capability families have coordinated Stage 7 code-level integration and automated regression coverage. The native assistant listener is explicit opt-in, foreground-notified, stoppable from its notification, and does not auto-restart after process death. Screen and document context are bounded, one-shot, user-initiated, and surface-scoped. Existing location, app handoff, task, memory, media, permission, approval, cancellation and recovery services remain on the shared runtime.",
+  validationBoundary: "This is a code-and-CI checkpoint only. Physical Android behavior, speech-recognition provider privacy/battery characteristics, TalkBack, and low-memory/device-specific behavior remain unverified until tested on real devices. APK compilation, signing, keystore changes, and deployment remain deferred.",
+  deliverables: Object.freeze([
+    "Coordinate Stage 7 improvements and regression evidence across all 12 active capability families.",
+    "Provide explicit user-started wake-phrase listening with microphone and notification permission gates, visible persistent status, notification Stop control, and no sticky auto-restart.",
+    "Keep screen and selected-document context user-invoked, bounded, one-shot, surface-scoped, and excluded from global content events.",
+    "Preserve shared Main Chat, Pulse and voice routing, memory, task planning, location, app handoffs, and Action Engine safety policy.",
+    "Pass focused Stage 7 tests, the complete core/architecture CI suite, dependency audit, and web production build.",
+    "Keep physical Android certification as a separate deferred release gate; do not build APKs or change signing material in this stage."
+  ]),
+  deferredDeviceValidation: STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION
+});
+
 const STAGE_FIVE_LAYER_AUDIT = Object.freeze({
   android_device: Object.freeze(["Android app launch and device status adapters", "flashlight control behind camera permission", "Pulse overlay native show/hide/status bridge", "one-shot location read with explicit freshness metadata"]),
   voice_multimodal: Object.freeze(["native speech recognition start/stop", "native speech synthesis start/stop", "shared speech lifecycle events", "foreground assistant service approval gate"]),
@@ -226,13 +268,15 @@ function createAuroraLayerRegistry() {
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
     stageFiveAudit: STAGE_FIVE_LAYER_AUDIT,
     stageSixAudit: STAGE_SIX_LAYER_AUDIT,
     stageSixDeferredDeviceValidation: STAGE_SIX_DEFERRED_DEVICE_VALIDATION,
+    stageSevenAudit: STAGE_SEVEN_LAYER_AUDIT,
+    stageSevenDeferredDeviceValidation: STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -244,7 +288,10 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 7,
+      nextStage: 8,
+      stageSevenStatus: STAGE_SEVEN_CHECKPOINT.status,
+      stageSevenCodeComplete: STAGE_SEVEN_CHECKPOINT.status === "complete",
+      stageSevenAuditedLayers: families.filter((item) => (STAGE_SEVEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageSixStatus: STAGE_SIX_CHECKPOINT.status,
       stageSixCodeComplete: STAGE_SIX_CHECKPOINT.status === "complete",
       stageSixAuditedLayers: families.filter((item) => (STAGE_SIX_LAYER_AUDIT[item.id] || []).length >= 2).length,
@@ -262,4 +309,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, createAuroraLayerRegistry, auroraLayerRegistry };
