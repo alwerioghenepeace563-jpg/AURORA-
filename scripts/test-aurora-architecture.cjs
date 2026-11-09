@@ -78,6 +78,7 @@ const path = require("node:path");
   assert.ok(pluginSource.includes("1024 * 1024"), "Text file previews must enforce the 1 MB limit.");
   assert.ok(pluginSource.includes("Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"), "Notification access must be configured through Android Settings.");
   assert.ok(pluginSource.includes("AuroraNotificationListenerService.readRecent"), "Notifications must be read through the opt-in listener.");
+  assert.ok(fs.readFileSync(path.join(__dirname, "../android/app/src/main/java/com/aurora/assistant/AuroraNotificationListenerService.java"), "utf8").includes("getNoBackupFilesDir"), "Notification previews must be excluded from Android cloud backups.");
   assert.ok(pluginSource.includes("CameraManager"), "Flashlight control must use Android CameraManager.");
   assert.ok(pluginSource.includes("requestPermissionForAlias(\"camera\""), "Flashlight control must request camera permission before activation.");
   assert.ok(pluginSource.includes("BatteryManager.EXTRA_LEVEL"), "Device status must include battery information.");
