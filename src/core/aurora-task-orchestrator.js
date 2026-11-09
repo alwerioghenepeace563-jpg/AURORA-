@@ -114,13 +114,26 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
         break;
       }
       emit("task.step_started", { taskId: plan.id, stepId: step.id, capabilityId: step.capabilityId });
-      const receipt = await actionEngine.execute({
-        capabilityId: step.capabilityId,
-        input: step.input,
-        requestedBy: "task:" + plan.id,
-        requestId: plan.id + ":" + step.id,
-        signal: controller.signal
-      });
+      let receipt;
+      try {
+        receipt = await actionEngine.execute({
+          capabilityId: step.capabilityId,
+          input: step.input,
+          requestedBy: "task:" + plan.id,
+          requestId: plan.id + ":" + step.id,
+          signal: controller.signal
+        });
+      } catch (error) {
+        const code = typeof error?.code === "string" ? error.code.slice(0, 80) : "ACTION_ADAPTER_ERROR";
+        receipt = Object.freeze({
+          requestId: plan.id + ":" + step.id,
+          capabilityId: step.capabilityId,
+          status: "failed",
+          error: Object.freeze({ code, message: "The action adapter did not return a usable execution receipt." }),
+          at: new Date().toISOString()
+        });
+        emit("task.adapter_fault", { taskId: plan.id, stepId: step.id, capabilityId: step.capabilityId, code });
+      }
       const item = Object.freeze({
         stepId: step.id,
         capabilityId: step.capabilityId,
@@ -191,12 +204,18 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     if (attempt > 2) return Object.freeze({ status: "not_retryable", reason: "retry_limit_reached", taskId: id, stepId: step.id });
     retryAttempts.set(retryKey, attempt);
     emit("task.retry_started", { taskId: id, stepId: step.id, attempt, evidence: eligibility.evidence });
-    const receipt = await actionEngine.execute({
-      capabilityId: step.capabilityId,
-      input: step.input,
-      requestedBy: "task-retry:" + id,
-      requestId: id + ":" + step.id + ":manual-retry:" + attempt
-    });
+    let receipt;
+    try {
+      receipt = await actionEngine.execute({
+        capabilityId: step.capabilityId,
+        input: step.input,
+        requestedBy: "task-retry:" + id,
+        requestId: id + ":" + step.id + ":manual-retry:" + attempt
+      });
+    } catch (error) {
+      receipt = Object.freeze({ requestId: id + ":" + step.id + ":manual-retry:" + attempt, capabilityId: step.capabilityId, status: "failed", error: Object.freeze({ code: typeof error?.code === "string" ? error.code.slice(0, 80) : "ACTION_ADAPTER_ERROR", message: "The retry adapter did not return a usable execution receipt." }), at: new Date().toISOString() });
+      emit("task.retry_adapter_fault", { taskId: id, stepId: step.id, attempt, code: receipt.error.code });
+    }
     const result = Object.freeze({
       taskId: id, stepId: step.id, attempt, status: receipt.status,
       receipt, requiresFreshConfirmationForFurtherActions: true
