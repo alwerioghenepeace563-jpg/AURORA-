@@ -11,7 +11,7 @@
     "android:sync": "npm run build && npm run android:check && node scripts/patch-android-native.mjs && cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "android:check": "node scripts/check-android-feature-parity.mjs",
-    "test:core": "node scripts/test-aurora-core.cjs && node scripts/test-aurora-tools.cjs && node scripts/test-aurora-runtime.cjs && node scripts/test-aurora-intent-parser.cjs && node scripts/test-aurora-task-orchestrator.cjs && node scripts/test-aurora-task-planner.cjs && node scripts/test-aurora-memory.cjs && node scripts/test-aurora-intelligence-ecosystem.cjs && node scripts/test-aurora-next-wave.cjs && node scripts/test-aurora-privacy-search-extensions.cjs && node scripts/test-aurora-secure-sync.cjs && node scripts/test-aurora-routine-scheduler.cjs && node scripts/test-aurora-extension-execution.cjs && node scripts/test-aurora-data-inventory.cjs && node scripts/test-aurora-action-contracts.cjs && node scripts/test-aurora-protected-memory.cjs && node scripts/test-aurora-storage-guard.cjs && node scripts/test-aurora-layer-registry.cjs && node scripts/test-aurora-reliability.cjs && node scripts/test-aurora-task-journal.cjs && node scripts/test-aurora-architecture.cjs && npm run test:aurora-pulse-native && npm run test:aurora-stage5 && npm run test:aurora-surfaces && npm run test:aurora-approval-events && npm run test:aurora-native-lifecycle && npm run test:aurora-interaction-interruption && npm run test:aurora-spoken-output && npm run test:aurora-pulse-accessibility",
+    "test:core": "node scripts/test-aurora-core.cjs && node scripts/test-aurora-tools.cjs && node scripts/test-aurora-runtime.cjs && node scripts/test-aurora-intent-parser.cjs && node scripts/test-aurora-task-orchestrator.cjs && node scripts/test-aurora-task-planner.cjs && node scripts/test-aurora-memory.cjs && node scripts/test-aurora-intelligence-ecosystem.cjs && node scripts/test-aurora-next-wave.cjs && node scripts/test-aurora-privacy-search-extensions.cjs && node scripts/test-aurora-secure-sync.cjs && node scripts/test-aurora-routine-scheduler.cjs && node scripts/test-aurora-extension-execution.cjs && node scripts/test-aurora-data-inventory.cjs && node scripts/test-aurora-action-contracts.cjs && node scripts/test-aurora-protected-memory.cjs && node scripts/test-aurora-storage-guard.cjs && node scripts/test-aurora-layer-registry.cjs && node scripts/test-aurora-reliability.cjs && node scripts/test-aurora-task-journal.cjs && node scripts/test-aurora-architecture.cjs && npm run test:aurora-pulse-native && npm run test:aurora-stage5 && npm run test:aurora-surfaces && npm run test:aurora-approval-events && npm run test:aurora-native-lifecycle && npm run test:aurora-interaction-interruption && npm run test:aurora-spoken-output && npm run test:aurora-pulse-accessibility && npm run test:aurora-environment-monitor",
     "test:aurora-pulse-native": "node scripts/test-aurora-pulse-native-bridge.cjs",
     "test:aurora-stage5": "node scripts/test-aurora-stage5-capabilities.cjs",
     "test:aurora-surfaces": "node scripts/test-aurora-surface-gateway.cjs",
@@ -19,7 +19,8 @@
     "test:aurora-native-lifecycle": "node scripts/test-aurora-native-lifecycle.cjs",
     "test:aurora-interaction-interruption": "node scripts/test-aurora-interaction-interruption.cjs",
     "test:aurora-spoken-output": "node scripts/test-aurora-spoken-output.cjs",
-    "test:aurora-pulse-accessibility": "node scripts/test-aurora-pulse-accessibility.cjs"
+    "test:aurora-pulse-accessibility": "node scripts/test-aurora-pulse-accessibility.cjs",
+    "test:aurora-environment-monitor": "node scripts/test-aurora-environment-monitor.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
