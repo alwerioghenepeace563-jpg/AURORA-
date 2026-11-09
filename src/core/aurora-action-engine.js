@@ -18,6 +18,16 @@ function defaultId() {
   return globalThis.crypto?.randomUUID?.() || "aurora-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 }
 
+function normalizeTimeout(value) {
+  if (value == null) return 15000;
+  if (!Number.isInteger(value) || value < 100 || value > 120000) throw makeError("INVALID_CAPABILITY_CONTRACT", "Capability timeoutMs must be an integer from 100 to 120000.");
+  return value;
+}
+function raceWithSignal(operation, signal) {
+  if (!signal) return operation;
+  if (signal.aborted) return Promise.reject(signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled."));
+  return Promise.race([operation, new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled.")), { once: true }))]);
+}
 function normalizeRequirements(value, label) {
   if (value == null) return Object.freeze([]);
   if (!Array.isArray(value) || value.length > 20 || value.some(item => typeof item !== "string" || !/^[a-z][a-z0-9_.:-]{1,100}$/.test(item))) {
@@ -30,6 +40,7 @@ function createAuroraActionEngine(options = {}) {
   const capabilities = new Map();
   const receipts = new Map();
   const inFlight = new Map();
+  const controllers = new Map();
   const listeners = new Set();
   const approve = typeof options.approve === "function" ? options.approve : async () => ({ approved: false });
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
@@ -73,7 +84,9 @@ function createAuroraActionEngine(options = {}) {
       permissionRequirements: normalizeRequirements(definition.permissionRequirements, "permission"),
       consentRequirements: normalizeRequirements(definition.consentRequirements, "consent"),
       verificationRequired: definition.verificationRequired === true,
-      verify: typeof definition.verify === "function" ? definition.verify : null
+      verify: typeof definition.verify === "function" ? definition.verify : null,
+      timeoutMs: normalizeTimeout(definition.timeoutMs),
+      idempotency: "request-id"
     });
     capabilities.set(capability.id, capability);
     emit("capability.registered", { capability: publicCapability(capability) });
@@ -88,7 +101,9 @@ function createAuroraActionEngine(options = {}) {
       version: capability.version,
       permissionRequirements: [...capability.permissionRequirements],
       consentRequirements: [...capability.consentRequirements],
-      verificationRequired: capability.verificationRequired
+      verificationRequired: capability.verificationRequired,
+      timeoutMs: capability.timeoutMs,
+      idempotency: capability.idempotency
     });
   }
 
@@ -114,6 +129,19 @@ function createAuroraActionEngine(options = {}) {
     if (receipts.has(requestId)) return receipts.get(requestId);
     if (inFlight.has(requestId)) return inFlight.get(requestId);
 
+    const controller = new AbortController();
+    controllers.set(requestId, controller);
+    const externalSignal = request.signal;
+    const forwardAbort = () => controller.abort(externalSignal.reason || makeError("ACTION_CANCELLED", "Action was cancelled."));
+    if (externalSignal) {
+      if (externalSignal.aborted) forwardAbort();
+      else externalSignal.addEventListener("abort", forwardAbort, { once: true });
+    }
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort(makeError("ACTION_TIMEOUT", "Action exceeded its " + capability.timeoutMs + " ms execution deadline."));
+    }, capability.timeoutMs);
     const operation = (async () => {
     const availability = await getAvailability(capability.id);
     if (!availability.available) {
@@ -168,13 +196,14 @@ function createAuroraActionEngine(options = {}) {
       }
     }
 
+    if (controller.signal.aborted) throw controller.signal.reason || makeError("ACTION_CANCELLED", "Action was cancelled.");
     emit("action.started", { requestId, capabilityId: capability.id });
     try {
-      const context = Object.freeze({ requestId, capabilityId: capability.id, risk: capability.risk, requestedBy: proposal.requestedBy });
-      const result = await capability.execute(input, context);
+      const context = Object.freeze({ requestId, capabilityId: capability.id, risk: capability.risk, requestedBy: proposal.requestedBy, signal: controller.signal });
+      const result = await raceWithSignal(Promise.resolve().then(() => capability.execute(input, context)), controller.signal);
       if (capability.verificationRequired && !capability.verify) throw makeError("VERIFICATION_NOT_CONFIGURED", "This capability requires a verification adapter before it can be considered complete.", { capabilityId: capability.id });
       if (capability.verify) {
-        const verified = await capability.verify(result, input, context);
+        const verified = await raceWithSignal(Promise.resolve().then(() => capability.verify(result, input, context)), controller.signal);
         if (verified !== true && verified?.verified !== true) throw makeError("VERIFICATION_FAILED", verified?.reason || "The action result could not be verified.", { capabilityId: capability.id });
       }
       const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "completed", result: result ?? null, verified: capability.verify ? true : null, at: now() });
@@ -184,7 +213,7 @@ function createAuroraActionEngine(options = {}) {
     } catch (error) {
       const receipt = Object.freeze({
         requestId, capabilityId: capability.id, status: "failed",
-        error: { code: error?.code || "EXECUTION_FAILED", message: error?.message || "The action failed." },
+        error: { code: timedOut ? "ACTION_TIMEOUT" : (error?.code || (controller.signal.aborted ? "ACTION_CANCELLED" : "EXECUTION_FAILED")), message: error?.message || (timedOut ? "Action timed out." : "The action failed.") },
         at: now()
       });
       receipts.set(requestId, receipt);
@@ -194,11 +223,23 @@ function createAuroraActionEngine(options = {}) {
     })();
     inFlight.set(requestId, operation);
     try { return await operation; }
-    finally { inFlight.delete(requestId); }
+    finally {
+      clearTimeout(timeout);
+      if (externalSignal) externalSignal.removeEventListener("abort", forwardAbort);
+      controllers.delete(requestId);
+      inFlight.delete(requestId);
+    }
   }
 
   return Object.freeze({
     registerCapability, listCapabilities, getAvailability, execute, subscribe,
+    cancel: (requestId) => {
+      const controller = controllers.get(String(requestId));
+      if (!controller || controller.signal.aborted) return false;
+      controller.abort(makeError("ACTION_CANCELLED", "Action was cancelled by the caller."));
+      emit("action.cancel_requested", { requestId: String(requestId) });
+      return true;
+    },
     getReceipt: (requestId) => receipts.get(requestId) || null,
     riskLevels: RISK
   });
