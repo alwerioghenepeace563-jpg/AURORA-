@@ -1,4 +1,4 @@
-import { readStoredJson, isRecord, isArrayOf } from "./aurora-storage-guard";
+import { readStoredJson, isRecord, isArrayOf } from "./aurora-storage-guard.js";
 
 const STORAGE_KEY = "aurora.learning.universe.v1";
 const SUBJECTS = Object.freeze(["biology","chemistry","physics","mathematics","english","computer_science","microbiology","other"]);
