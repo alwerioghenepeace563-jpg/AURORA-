@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   const body = parseBody(req.body);
   const action = req.method === "GET" ? "status" : (body.action || "transcribe");
   const requestId = safeText(req.query?.requestId || body.requestId, 80);
-  const userToken = typeof req.headers.authorization === "string" ? req.headers.authorization.replace(/^Bearer\\s+/i, "") : "";
+  const userToken = accessToken;
   let upstreamUrl = baseUrl + "/api/aurora-transcribe";
   let upstreamMethod = "POST";
   let upstreamBody = null;
