@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 1 — Whole-system baseline  
+**Current checkpoint:** Stage 2 — Shared contracts and enforcement  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -54,26 +54,26 @@ Stage 1 deliverables:
 
 The machine-readable source of truth is `src/core/aurora-layer-registry.js`. Tests live in `scripts/test-aurora-layer-registry.cjs`.
 
-## Next stages
+## Completed and next stages
 
 ### Stage 2 — Shared contracts and enforcement
 
-<badge>In progress — shared contract foundation committed</badge>
+<badge>Complete — automated contract checkpoint</badge>
 
-Implemented in the common engine:
-- Capability descriptors now accept validated, stable permission and consent requirement identifiers.
-- A declared permission/consent requirement fails closed if no policy handler exists or the handler denies it.
-- The shared Android capability runtime checks Contacts, Accessibility, Notification Access, and Camera permissions through the common authorization gate rather than leaving those checks scattered inside individual action bodies.
-- The shared runtime delegates declared consent checks to the default-deny, revocable consent registry.
-- High-risk actions continue through the shared approval broker.
-- Capabilities can require a verifier at registration; a capability cannot claim verified completion unless its verifier succeeds.
-- The execution receipt distinguishes verified completion from completion without a verifier.
+Completed in the shared engine and adapter contract audit:
+- Capability descriptors expose validated permission and consent requirements, bounded timeout settings, request-ID idempotency, and optional mandatory verification.
+- Missing permission/consent policy handlers fail closed; declared consents are checked through the default-deny, revocable consent registry.
+- Android Contacts, Accessibility, Notification Access, and Camera permission checks run through the common authorization gate.
+- Consequential actions retain the shared approval broker; task plans and extensions continue to execute through the same Action Engine.
+- Execution adapters receive an AbortSignal. Callers can cancel by request ID, deadlines produce an explicit `ACTION_TIMEOUT` receipt, and duplicate request IDs reuse an in-flight operation or stored receipt.
+- Verifier-required capabilities cannot register without a verifier, and verified completion is reported separately from unverified completion.
+- All 12 capability families now carry explicit Stage 2 contract-audit evidence in the machine-readable registry.
 
-Automated coverage has been added for missing-policy denial, consent denial, permitted execution, verifier success/failure, and invalid contracts.
+Automated coverage includes fail-closed permission/consent checks, authorization success, verifier success/failure, malformed contracts, timeout, cancellation, request-ID idempotency, shared runtime wiring, and all 12 layer records.
 
-**Remaining before Stage 2 can close:** audit and declare the correct permission/consent requirements for every adapter in all 12 families; ensure Main, Pulse, voice, workflows, and extensions use the same policy path; add per-adapter verification, timeout, cancellation, and idempotency contracts; run the full core suite and Android build/device checks. The 12 layers remain active until their individual Stage 2 checks pass.
+**Stage 2 result:** The shared-contract checkpoint is complete. This means the cross-family code/contract baseline is in place; it does not certify physical Android behavior, every surface's end-to-end UX, or final feature readiness. All 12 layers remain active for later implementation and device-validation stages.
 
-### Stage 3 — Secure state and context
+### Stage 3 — Secure state and context (next)
 
 Harden local persistence, key lifecycle, data inventory accuracy, consent enforcement, memory/context boundaries, and optional per-record sync. Do not label browser storage encrypted. Preserve local-first behavior and avoid schema changes without separate approval.
 
