@@ -1,10 +1,11 @@
 -- AURORA per-user memory sync. Apply this migration in the Supabase SQL editor.
 -- Row Level Security ensures users can only access their own records.
 create table if not exists public.aurora_memories (
-  id text primary key,
+  id text not null,
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   payload jsonb not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
 );
 
 alter table public.aurora_memories enable row level security;
