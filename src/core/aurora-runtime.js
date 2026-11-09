@@ -17,6 +17,9 @@ import { auroraWorkflows } from "./aurora-workflow-registry";
 import { auroraTaskJournal } from "./aurora-task-journal";
 import { createAuroraMemorySync } from "./aurora-memory-sync";
 import { createAuroraCapabilityIntelligence } from "./aurora-capability-intelligence";
+import { auroraConsents } from "./aurora-consent-registry";
+import { createAuroraUniversalSearch } from "./aurora-universal-search";
+import { createAuroraExtensionRegistry } from "./aurora-extension-registry";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
@@ -25,6 +28,13 @@ const actionEngine = createAuroraCapabilityRuntime({
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
 const memorySync = createAuroraMemorySync(auroraMemory);
 const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
+const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
+const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities() });
+universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
+universalSearch.register("knowledge", (query, limit) => auroraKnowledge.search(query, limit).map(item => ({ ...item, type: "knowledge", summary: item.description })), "Knowledge graph");
+universalSearch.register("capabilities", (query, limit) => capabilityIntelligence.find(query, limit).map(item => ({ ...item, type: "capability", summary: item.description })), "Available tools");
+universalSearch.register("workflows", (query) => auroraWorkflows.list().filter(item => (item.title + " " + (item.summary || "")).toLowerCase().includes(query.toLowerCase())).map(item => ({ ...item, type: "workflow" })), "Saved workflows");
+universalSearch.register("tasks", (query) => auroraTaskJournal.list().filter(item => (item.plan?.title || "").toLowerCase().includes(query.toLowerCase())).map(item => ({ id: item.taskId, title: item.plan?.title || "Task", summary: item.status, type: "task" })), "Task history");
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
 actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
@@ -78,6 +88,26 @@ actionEngine.registerCapability({
 
 async function routeMessage(text) {
   const message = String(text || "").trim();
+
+  const universalMatch = message.match(/^(?:search everything|search all|universal search) for (.+)$/i);
+  if (universalMatch) {
+    const results = await universalSearch.search(universalMatch[1], { limit: 15 });
+    return { tool: "aurora_universal_search", results, context: results.length
+      ? "I searched AURORA's connected local indexes. Results are read-only; nothing was opened, changed or executed. " + results.map(item => "[" + item.sourceLabel + "] " + item.title + (item.summary ? ": " + item.summary : "")).join(" | ")
+      : "No matching records were found in AURORA's currently registered local search indexes." };
+  }
+  if (/^(?:show|list) (?:my )?(?:privacy settings|consents|data permissions)\??$/i.test(message)) {
+    const grants = auroraConsents.list();
+    return { tool: "aurora_privacy_controls", consents: grants, context: grants.length
+      ? "Explicitly granted data permissions: " + grants.map(item => item.scope + " from " + item.source).join("; ")
+      : "No scoped data-sharing grants are currently recorded. AURORA uses default-deny for registered context scopes." };
+  }
+  if (/^(?:show|list) (?:my )?(?:extensions|installed extensions)\??$/i.test(message)) {
+    const items = extensionRegistry.list();
+    return { tool: "aurora_extensions", extensions: items, context: items.length
+      ? "Installed declarative extensions (metadata only): " + items.map(item => item.name + " " + item.version + " — " + item.capabilities.join(", ")).join("; ")
+      : "No extensions are installed. AURORA currently supports metadata-only extension registration; it does not execute downloaded extension code." };
+  }
 
   const confirmTask = message.match(/^(?:please\s+)?(?:confirm|run|execute)\s+(?:(?:the\s+)?(?:aurora\s+)?task\s+([a-zA-Z0-9_.-]{4,80})|(?:the\s+)?plan)$/i);
   if (confirmTask) {
@@ -300,6 +330,9 @@ const auroraRuntime = Object.freeze({
   taskJournal: auroraTaskJournal,
   memorySync,
   capabilityIntelligence,
+  consents: auroraConsents,
+  universalSearch,
+  extensions: extensionRegistry,
   memory: auroraMemory,
   knowledge: auroraKnowledge,
   events: auroraEvents,
