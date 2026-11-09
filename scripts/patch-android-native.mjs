@@ -458,7 +458,7 @@ const requiredNativeMethods = [
   "pickDocument", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
   "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
   "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
-  "setFlashlight", "requestCameraPermission"
+  "setFlashlight", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "status"
 ];
 for (const method of requiredNativeMethods) {
   if (!nativePluginSource.includes("void " + method + "(PluginCall call)")) {
@@ -562,6 +562,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AuroraAssistantPlugin.class);
+        registerPlugin(AuroraSecureStoragePlugin.class);
+        registerPlugin(AuroraReminderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -569,6 +571,8 @@ public class MainActivity extends BridgeActivity {
 fs.writeFileSync(mainActivity, expectedMainActivity);
 const verifiedMainActivity = fs.readFileSync(mainActivity, "utf8");
 if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraSecureStoragePlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraReminderPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
