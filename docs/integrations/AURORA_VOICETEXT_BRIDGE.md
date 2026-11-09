@@ -7,10 +7,11 @@ AURORA VoiceText is the transcription service. The main AURORA Assistant sends a
 ## Request flow
 
 1. The user selects an audio file in AURORA and explicitly presses **Transcribe with VoiceText**.
-2. AURORA posts the selected audio as base64 JSON to `/api/voicetext-transcribe`.
-3. The AURORA server forwards it to VoiceText `/api/aurora-transcribe` using a server-only bearer token.
-4. VoiceText calls its existing `transcribeWithFallback` provider chain and returns transcript text, detected language, available timestamp/speaker segments and provider label.
-5. AURORA displays the result for review. Saving to a project remains a separate explicit action.
+2. AURORA plays the local file through a browser media pipeline and captures independent 20-second audio sections.
+3. Each section is sent sequentially as bounded base64 JSON to `/api/voicetext-transcribe`; the entire recording is never encoded into one serverless request.
+4. The AURORA server forwards each section to VoiceText `/api/aurora-transcribe` using a server-only bearer token.
+5. VoiceText calls its existing `transcribeWithFallback` provider chain and returns transcript text, detected language, available timestamp/speaker segments and provider label.
+6. AURORA offsets timestamps to the original recording timeline, appends each completed section, and preserves the last completed offset so the user can resume after a section failure. Saving to a project remains a separate explicit action.
 
 ## Required server environment
 
@@ -28,11 +29,12 @@ Generate the secret privately (for example with a password manager). Do not send
 ## Current integration boundary
 
 - Audio formats: MP3, M4A/MP4 audio, WAV, WebM, OGG and AAC (subject to provider support).
-- AURORA UI upload limit: approximately 3 MB per selected file (4,000,000 encoded characters). The request is still bounded by Vercel's serverless body-size ceiling; it is not an unlimited upload path.
-- VoiceText endpoint encoded payload limit: 4,000,000 characters (approximately 3 MB of source audio).
+- AURORA no longer applies a whole-file size cap in the Creative Studio picker. It sends sequential 20-second audio sections instead of a single large upload.
+- Each individual VoiceText endpoint request remains bounded at 4,000,000 encoded characters (approximately 3 MB of source audio); normal 20-second WebM/Opus sections are much smaller.
 - The bridge returns transcript text, provider, language and available timestamp/speaker segments.
 - VoiceText's provider keys remain server-side. The integration endpoint does not persist uploaded audio or transcript records.
-- Video files, uploads beyond the single-request hosting limit, resumable/chunked jobs, async job polling, transcript polishing/summary handoff and device-level end-to-end validation are not included in this first bridge wave. Convert video to an audio file before using this first version.
+- Long audio is segmented in-session and can resume from the last completed section after a failed request. Resume state and partial transcript are held in memory only; closing/reloading the app loses that progress. This is not durable cloud upload storage or background job processing.
+- Video files, cross-session cloud resume, async job polling, transcript polishing/summary handoff and device-level end-to-end validation are not included. Convert video to an audio file before using this workflow.
 - Provider quota, language coverage and diarization availability depend on VoiceText's configured providers.
 
 ## Verification
