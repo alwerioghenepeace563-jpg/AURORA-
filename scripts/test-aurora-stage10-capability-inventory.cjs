@@ -193,6 +193,20 @@ assert.ok(capabilityRuntime.includes("otherNotificationsAffected: false"));
 console.log("AURORA Stage 10 notification tests passed: explicit approval, active-item validation and open-only behavior.");
 
 
+// Stage 10 Wave 14: user-selected Save As export for bounded text documents.
+assert.ok(nativeJava.includes("public void exportTextDocument(PluginCall call)"));
+assert.ok(nativeJava.includes("Intent.ACTION_CREATE_DOCUMENT"));
+assert.ok(nativeJava.includes("handleTextExportResult"));
+assert.ok(nativeJava.includes("openOutputStream(uri, \"w\")"));
+assert.ok(nativeJava.includes("destinationChosenByUser"));
+assert.ok(nativeJava.includes("content.length() > 1000000"));
+assert.ok(nativeBridge.includes("exportTextDocument(options:"));
+assert.ok(nativeBridge.includes("exportTextDocument: async"));
+assert.ok(capabilityRuntime.includes('id: "files.export_text_document"'));
+assert.ok(capabilityRuntime.includes("approvalRequired: true"));
+assert.ok(capabilityRuntime.includes("destinationChosenByUser: true"));
+console.log("AURORA Stage 10 file-export tests passed: bounded UTF-8 export, Save As picker, user-selected destination and explicit approval.");
+
 // Stage 10 Wave 13: approval-gated Android active media-session transport controls.
 assert.ok(notificationService.includes("controlActiveMedia(String requestedAction)"));
 for (const action of ["play_pause", "next", "previous"]) assert.ok(notificationService.includes('"'+action+'"'));
