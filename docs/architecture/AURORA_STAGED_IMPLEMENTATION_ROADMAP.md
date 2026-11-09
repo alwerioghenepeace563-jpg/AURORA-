@@ -359,7 +359,7 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 
 ### Stage 10 — Universal Android and Communication Mastery (complete — code/CI checkpoint)
 
-**Stage opening (2026-11-09):** Stage 10 was the active coordinated implementation stage. The Stage 9 core knowledge service, source selection contracts and shared runtime passed the latest core/web CI checkpoint, but Stage 9 is not being falsely marked complete. Its remaining work—broader knowledge browsing/editing UI, Android picker cancellation/provenance boundary tests, and final cross-surface acceptance review—remains an explicit carried backlog and must still be closed.
+**Stage opening (2026-11-09):** Stage 10 became the active coordinated implementation stage after Stage 9's local-first knowledge service, Main/Pulse/voice runtime APIs, Knowledge Universe workspace and explicit picker boundaries reached their code/CI checkpoint. Stage 9 is closed at that boundary; physical Android picker and extraction validation remain release/device checks, not an open Stage 9 coding backlog.
 
 **Implementation wave 1 — Read-only Android capability inventory (code committed; automated regression added):**
 - Added native `getDeviceCapabilityInventory` to inspect camera, flash, microphone, telephony, Bluetooth, Wi-Fi, GPS and NFC hardware feature declarations.
