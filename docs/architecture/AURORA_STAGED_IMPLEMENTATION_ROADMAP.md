@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 9 — Personal Knowledge Universe (active)  
+**Current checkpoint:** Stage 10 — Universal Android and Communication Mastery (active; Stage 9 validation backlog retained)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -357,7 +357,21 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Add source citations/provenance, duplicate detection, timeline views, scoped search, user correction and deletion.
 - Keep private content local by default; cloud indexing and cross-device sync require explicit per-source consent.
 
-### Stage 10 — Universal Android and Communication Mastery
+### Stage 10 — Universal Android and Communication Mastery (active)
+
+**Stage opening (2026-11-09):** Stage 10 is now the active coordinated implementation stage. The Stage 9 core knowledge service, source selection contracts and shared runtime passed the latest core/web CI checkpoint, but Stage 9 is not being falsely marked complete. Its remaining work—broader knowledge browsing/editing UI, Android picker cancellation/provenance boundary tests, and final cross-surface acceptance review—remains an explicit carried backlog and must still be closed.
+
+**Stage 10 opening scope audit:** the machine-readable registry now records targets across all 12 capability families. This is a scope map, not evidence that every listed capability is implemented. Device and communication features must be checked against the actual Android adapter, permission contract, approval behavior and device support before being marked available.
+
+**Implementation waves:**
+1. Audit the existing native capability catalogue and expose a truthful support/permission/approval matrix.
+2. Complete device status and supported device-control adapters, including explicit unsupported/OEM-restricted outcomes.
+3. Complete communication workflows with user-reviewed drafts, attachment selection, contact resolution, call preparation and notification summaries.
+4. Add capability-level tests for permission denial, user cancellation, unsupported hardware, handoff failure and positive verification.
+5. Verify the shared Main/Pulse/voice routes and all 12 family audits before closing the stage.
+
+**Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
+
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
 - Complete communication workflows: notification summaries, draft replies, translation, email composition, attachments, contact lookup, call preparation, dictation, follow-ups and meeting notes.
 - Preserve Android permission boundaries and explicit confirmation for sending, calling, sharing or changing consequential settings.
