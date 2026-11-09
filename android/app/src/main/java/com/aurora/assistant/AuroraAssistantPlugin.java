@@ -1063,6 +1063,24 @@ public class AuroraAssistantPlugin extends Plugin {
         call.resolve(AuroraNotificationListenerService.readRecent(getContext()));
     }
 
+
+    @PluginMethod
+    public void openNotification(PluginCall call) {
+        String key = call.getString("key");
+        if (key == null || key.trim().isEmpty() || key.length() > 512) {
+            call.reject("Provide a valid notification key from AURORA's recent notification list.");
+            return;
+        }
+        String enabled = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        String expected = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+        boolean granted = false;
+        if (enabled != null) for (String item : enabled.split(":")) if (expected.equalsIgnoreCase(item)) granted = true;
+        if (!granted) { call.reject("Enable AURORA Notification Access in Android Settings first."); return; }
+        boolean opened = AuroraNotificationListenerService.openNotification(key);
+        call.resolve(new JSObject().put("opened", opened)
+            .put("note", opened ? "Android opened the selected notification's app screen." : "The notification is no longer active or has no open action."));
+    }
+
     @PluginMethod
     public void clearRecentNotifications(PluginCall call) {
         AuroraNotificationListenerService.clearRecent(getContext());
