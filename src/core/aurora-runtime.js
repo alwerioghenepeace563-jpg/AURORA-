@@ -34,7 +34,7 @@ actionEngine.registerCapability({
   risk: "low",
   approvalRequired: false,
   validate: (input) => typeof input?.content === "string" && input.content.trim().length > 0,
-  execute: (input) => { const record = auroraMemory.remember({ kind: input.kind || "fact", title: input.title || "Saved memory", content: input.content, tags: input.tags || [], source: "explicit_user_request" }); auroraKnowledge.addNode({ id: "memory-" + record.id, type: "memory", label: record.title, description: record.content, tags: record.tags }); auroraEvents.publish("memory.saved", { id: record.id, title: record.title }, { source: "memory" }); return record; }
+  execute: (input) => { const record = auroraMemory.remember({ kind: input.kind || "fact", title: input.title || "Saved memory", content: input.content, tags: input.tags || [], source: "explicit_user_request" }); try { auroraKnowledge.addNode({ id: "memory-" + record.id, type: "memory", label: record.title, description: record.content, tags: record.tags }); } catch { /* memory remains available if graph storage is unavailable */ } auroraEvents.publish("memory.saved", { id: record.id, title: record.title }, { source: "memory" }); return record; }
 });
 
 actionEngine.registerCapability({
@@ -95,6 +95,31 @@ async function routeMessage(text) {
     if ((cancelTask[1] || latestPendingTaskId) !== latestPendingTaskId || !latestPendingTaskId) return { tool: "aurora_task", context: "That is not the current pending task plan." };
     latestPendingTaskId = null;
     return { tool: "aurora_task_cancelled", context: "The pending task plan was discarded. No actions were run." };
+  }
+
+  const saveWorkflowMatch = message.match(/^save this as (?:a )?workflow(?: called| named)? (.+)$/i);
+  if (saveWorkflowMatch && latestPendingTaskId) {
+    const pending = taskOrchestrator.getPlan(latestPendingTaskId);
+    if (!pending) return { tool: "aurora_workflow", context: "There is no pending plan to save." };
+    const saved = auroraWorkflows.save({ title: saveWorkflowMatch[1].trim(), summary: pending.summary, steps: pending.steps }, actionEngine.listCapabilities());
+    return { tool: "aurora_workflow_saved", workflowId: saved.id, context: "Saved workflow “" + saved.title + "”. It will still ask for confirmation every time you run it." };
+  }
+
+  const runWorkflowMatch = message.match(/^(?:prepare|run|start) workflow (.+)$/i);
+  if (runWorkflowMatch) {
+    const query = runWorkflowMatch[1].trim().toLowerCase();
+    const matches = auroraWorkflows.list().filter((item) => item.title.toLowerCase() === query || item.title.toLowerCase().includes(query));
+    if (matches.length !== 1) return { tool: "aurora_workflow", context: matches.length ? "I found multiple workflows: " + matches.map(item => item.title).join(", ") + ". Please specify one." : "I couldn't find that saved workflow." };
+    const plan = auroraWorkflows.instantiate(matches[0].id, actionEngine.listCapabilities(), taskOrchestrator);
+    latestPendingTaskId = plan.id;
+    const preview = await taskOrchestrator.runPlan(plan, { confirmed: false });
+    return { tool: "aurora_workflow_preview", taskId: plan.id, steps: preview.steps, context: "Workflow “" + matches[0].title + "” is ready. Nothing has run. Review the steps, then say confirm task " + plan.id + " or cancel task " + plan.id + "." };
+  }
+
+  const knowledgeMatch = message.match(/^(?:search|find) (?:my )?(?:knowledge graph|knowledge) for (.+)$/i);
+  if (knowledgeMatch) {
+    const matches = auroraKnowledge.search(knowledgeMatch[1], 10);
+    return { tool: "aurora_knowledge_search", context: matches.length ? "Related saved knowledge:\n" + matches.map(item => "- " + item.label + " (" + item.type + "): " + item.description).join("\n") : "No matching knowledge records were found." };
   }
 
   latestPendingTaskId = null;
