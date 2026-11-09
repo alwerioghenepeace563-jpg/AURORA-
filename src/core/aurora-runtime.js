@@ -526,6 +526,7 @@ const auroraRuntime = Object.freeze({
   knowledge: auroraKnowledge,
   events: auroraEvents,
   specialists,
+  specialistHealth: (id) => id ? specialists.getHealth(id) : specialists.health(),
   workflows: auroraWorkflows,
   saveWorkflow: (input) => auroraWorkflows.save(input, actionEngine.listCapabilities()),
   prepareWorkflow: (workflowId) => { const plan = auroraWorkflows.instantiate(workflowId, actionEngine.listCapabilities(), taskOrchestrator); latestPendingTaskId = plan.id; return taskOrchestrator.runPlan(plan, { confirmed: false }); },
