@@ -808,6 +808,48 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void readClipboardText(PluginCall call) {
+        try {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            if (clipboard == null || !clipboard.hasPrimaryClip()) {
+                call.resolve(new JSObject().put("available", false).put("text", "").put("readOnly", true));
+                return;
+            }
+            android.content.ClipData clip = clipboard.getPrimaryClip();
+            if (clip == null || clip.getItemCount() == 0) {
+                call.resolve(new JSObject().put("available", false).put("text", "").put("readOnly", true));
+                return;
+            }
+            CharSequence value = clip.getItemAt(0).getText();
+            if (value == null) {
+                call.resolve(new JSObject().put("available", false).put("text", "")
+                    .put("note", "The clipboard does not contain plain text.").put("readOnly", true));
+                return;
+            }
+            String text = value.toString();
+            boolean truncated = text.length() > 8000;
+            if (truncated) text = text.substring(0, 8000);
+            call.resolve(new JSObject().put("available", true).put("text", text)
+                .put("truncated", truncated).put("readOnly", true).put("notStored", true));
+        } catch (Exception e) { call.reject("Android could not read clipboard text.", e); }
+    }
+
+    @PluginMethod
+    public void writeClipboardText(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.length() == 0 || text.length() > 8000) {
+            call.reject("Clipboard text must contain 1 to 8000 characters."); return;
+        }
+        try {
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            if (clipboard == null) { call.reject("Android clipboard service is unavailable."); return; }
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("AURORA", text));
+            call.resolve(new JSObject().put("written", true).put("characters", text.length())
+                .put("systemClipboard", true));
+        } catch (Exception e) { call.reject("Android could not update the clipboard.", e); }
+    }
+
+    @PluginMethod
     public void pickMedia(PluginCall call) {
         String mediaType = call.getString("mediaType", "image");
         String mime = "image".equals(mediaType) ? "image/*" :
