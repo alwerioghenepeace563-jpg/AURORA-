@@ -50,7 +50,8 @@ type AuroraNativePlugin = {
   getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; batteryHealth?: number; platform: string; sdk: number; manufacturer: string; model: string }>;
   getDeviceCapabilityInventory(): Promise<{ platform: string; device: { manufacturer: string; model: string; sdk: number }; hardware: Record<string, boolean>; permissions: Record<string, boolean>; specialAccess: Record<string, boolean>; readOnly: true; capturedAt: number }>;
   requestCameraPermission(): Promise<{ granted: boolean }>;
-  setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>; 
+  setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
+  openDeviceSettings(options: { target: "wifi" | "bluetooth" | "display" | "hotspot" }): Promise<{ opened: boolean; target: string; settingsOnly: boolean; userMustApplyChanges: boolean; fallback?: boolean }>;
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
@@ -183,6 +184,7 @@ export const auroraNative = {
   getDeviceCapabilityInventory: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device capability inventory is available only in the Android app."); return AuroraNative.getDeviceCapabilityInventory(); },
   requestCameraPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestCameraPermission(); },
   setFlashlight: async (enabled: boolean) => { if (!Capacitor.isNativePlatform()) throw new Error("Flashlight control is available only in Android."); return AuroraNative.setFlashlight({ enabled }); },
+  openDeviceSettings: async (target: "wifi" | "bluetooth" | "display" | "hotspot") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device settings handoff is available only in Android."); return AuroraNative.openDeviceSettings({ target }); },
   openApp: async (packageName: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("Opening other apps is available only in the Android app.");
     return AuroraNative.openApp({ packageName });
