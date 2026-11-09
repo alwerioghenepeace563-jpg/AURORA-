@@ -34,8 +34,12 @@ const appEnv = import.meta.env || {};
 const supabaseMemoryAdapter = createAuroraSupabaseMemoryAdapter({
   url: appEnv.VITE_SUPABASE_URL || appEnv.VITE_SUPABASE_API || "",
   anonKey: appEnv.VITE_SUPABASE_ANON_KEY || "",
-  getAccessToken: () => {
+  getAccessToken: async () => {
     try {
+      if (nativeSecureStorage.isAvailable()) {
+        const saved = await nativeSecureStorage.get("auth.session");
+        return saved.found && saved.value ? JSON.parse(saved.value)?.access_token || null : null;
+      }
       const session = JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null");
       return session?.access_token || null;
     } catch { return null; }
@@ -46,6 +50,15 @@ const secureStorage = createAuroraSecureStore({
   adapter: nativeSecureStorage
 });
 let pendingReminder = null;
+async function hasSignedInSupabaseSession() {
+  try {
+    if (nativeSecureStorage.isAvailable()) {
+      const saved = await nativeSecureStorage.get("auth.session");
+      return Boolean(saved.found && saved.value && JSON.parse(saved.value)?.access_token);
+    }
+    return Boolean(JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null")?.access_token);
+  } catch { return false; }
+}
 const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities() });
@@ -122,6 +135,8 @@ async function routeMessage(text) {
   if (confirmReminder) {
     if (!pendingReminder || confirmReminder[1] !== pendingReminder.id) return { tool: "aurora_reminder", context: "That is not the current pending reminder. Prepare it again so you can review it." };
     try {
+      const permission = await auroraReminder.requestPermission();
+      if (!permission?.granted) return { tool: "aurora_reminder", context: "Notification permission is needed before AURORA can schedule a reminder." };
       const scheduled = await auroraReminder.schedule(pendingReminder);
       pendingReminder = null;
       return { tool: "aurora_reminder_scheduled", reminder: scheduled, context: "Reminder scheduled by Android. Android may deliver it a little later than the requested time because this uses a battery-friendly, inexact alarm." };
@@ -136,15 +151,13 @@ async function routeMessage(text) {
 
   if (/^prepare memory sync\\??$/i.test(message)) {
     if (!supabaseMemoryAdapter.isConfigured()) return { tool: "aurora_memory_sync", context: "Supabase memory sync is not configured in this build." };
-    const token = supabaseMemoryAdapter.isConfigured() ? (() => { try { return JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null")?.access_token; } catch { return null; } })() : null;
-    if (!token) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
+    if (!(await hasSignedInSupabaseSession())) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
     return { tool: "aurora_memory_sync_preview", context: "Memory sync will use your signed-in Supabase account, protected by per-user database policies. Only individual memories you explicitly choose to sync will be uploaded; there is no bulk upload. Say “confirm enable memory sync” to turn on the per-record sync controls." };
   }
   if (/^confirm enable memory sync$/i.test(message)) {
     if (!supabaseMemoryAdapter.isConfigured()) return { tool: "aurora_memory_sync", context: "Supabase memory sync is not configured in this build." };
     try {
-      const token = JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null")?.access_token;
-      if (!token) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
+      if (!(await hasSignedInSupabaseSession())) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
       auroraConsents.grant({ scope: "memory.cloud_sync", source: "supabase", purpose: "Allow individually selected AURORA memories to sync to this signed-in account." });
       const status = memorySync.configure({ enabled: true, adapter: supabaseMemoryAdapter, consent: true });
       return { tool: "aurora_memory_sync_enabled", status, context: "Memory sync is enabled. Existing memories were not uploaded. To sync one, say “sync memory” followed by its memory ID." };
