@@ -121,14 +121,14 @@ actionEngine.registerCapability({
 async function routeMessage(text) {
   const message = String(text || "").trim();
 
-  const reminderMatch = message.match(/^remind me to (.{2,180}) in (\\d{1,5})\\s*(minutes?|mins?|hours?|hrs?|days?)$/i);
+  const reminderMatch = message.match(/^remind me to (.{2,180}) in (\d{1,5})\s*(minutes?|mins?|hours?|hrs?|days?)$/i);
   if (reminderMatch) {
     const amount = Number(reminderMatch[2]);
     const unit = reminderMatch[3].toLowerCase();
     const multiplier = /^m/.test(unit) ? 60000 : /^h/.test(unit) ? 3600000 : 86400000;
     const at = Date.now() + amount * multiplier;
     if (!Number.isSafeInteger(amount) || amount < 1 || at > Date.now() + 31536000000) return { tool: "aurora_reminder", context: "Choose a reminder between 1 minute and 365 days from now." };
-    pendingReminder = { id: "reminder-" + (globalThis.crypto?.randomUUID?.() || Date.now().toString(36)), title: reminderMatch[1].trim(), message: "AURORA reminder", at };
+    pendingReminder = { id: "reminder-" + (globalThis.crypto?.randomUUID?.() || Date.now().toString(36)), title: reminderMatch[1].trim(), message: "It's time to: " + reminderMatch[1].trim(), at };
     return { tool: "aurora_reminder_preview", reminder: pendingReminder, context: "Reminder preview: “" + pendingReminder.title + "” at " + new Date(at).toLocaleString() + ". Nothing is scheduled yet. Say confirm reminder " + pendingReminder.id + " to schedule it, or cancel reminder " + pendingReminder.id + "." };
   }
   const confirmReminder = message.match(/^confirm reminder ([a-zA-Z0-9_.-]{4,100})$/i);
@@ -149,7 +149,7 @@ async function routeMessage(text) {
     return { tool: "aurora_reminder_cancelled", context: "Pending reminder discarded. Nothing was scheduled." };
   }
 
-  if (/^prepare memory sync\\??$/i.test(message)) {
+  if (/^prepare memory sync\??$/i.test(message)) {
     if (!supabaseMemoryAdapter.isConfigured()) return { tool: "aurora_memory_sync", context: "Supabase memory sync is not configured in this build." };
     if (!(await hasSignedInSupabaseSession())) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
     return { tool: "aurora_memory_sync_preview", context: "Memory sync will use your signed-in Supabase account, protected by per-user database policies. Only individual memories you explicitly choose to sync will be uploaded; there is no bulk upload. Say “confirm enable memory sync” to turn on the per-record sync controls." };
