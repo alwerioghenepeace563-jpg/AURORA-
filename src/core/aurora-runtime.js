@@ -23,8 +23,70 @@ actionEngine.registerCapability({
   execute: (input) => runAuroraToolTree(input.text)
 });
 
+
+function parseCalendarIntent(message, now = new Date()) {
+  const match = message.match(/^\s*(?:hey aurora[, ]*)?(?:please\s+)?(?:remind me to|add|create|schedule|put)\s+(.+?)\s+(?:for\s+)?(?:on\s+)?(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{4}-\d{2}-\d{2})\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*$/i);
+  if (!match) return null;
+  const title = match[1].replace(/\s+(?:in|to)\s+(?:my\s+)?calendar$/i, "").trim();
+  if (!title) return null;
+  const dayToken = match[2].toLowerCase();
+  const hourInput = Number(match[3]);
+  const minute = Number(match[4] || 0);
+  const meridiem = match[5].toLowerCase();
+  if (hourInput < 1 || hourInput > 12 || minute > 59) return null;
+  const date = new Date(now.getTime());
+  if (dayToken === "tomorrow") date.setDate(date.getDate() + 1);
+  else if (dayToken !== "today") {
+    const weekdays = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+    if (dayToken.includes("-")) {
+      const [year, month, day] = dayToken.split("-").map(Number);
+      date.setFullYear(year, month - 1, day);
+    } else {
+      const target = weekdays.indexOf(dayToken);
+      const delta = (target - date.getDay() + 7) % 7 || 7;
+      date.setDate(date.getDate() + delta);
+    }
+  }
+  let hour = hourInput % 12;
+  if (meridiem === "pm") hour += 12;
+  date.setHours(hour, minute, 0, 0);
+  if (!Number.isFinite(date.getTime()) || date.getTime() <= now.getTime()) return null;
+  return { title, beginTime: date.getTime(), endTime: date.getTime() + 60 * 60 * 1000 };
+}
+
 async function routeMessage(text) {
   const message = String(text || "").trim();
+  // Device and productivity commands are parsed into registered, typed capabilities.
+  if (/^(?:what(?:'s| is)\s+)?(?:my\s+)?(?:battery|device status|phone status)\??$/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "device.get_status", input: {} });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "Device status is unavailable." };
+    const s = receipt.result || {};
+    return { tool: "android_device_status", context: "Battery: " + (s.batteryPercent == null ? "unknown" : s.batteryPercent + "%") + (s.charging ? " (charging)" : "") + ". Device: " + [s.manufacturer, s.model].filter(Boolean).join(" ") + ", Android SDK " + s.sdk + "." };
+  }
+
+  if (/\b(?:turn on|switch on|enable)\s+(?:the\s+)?(?:flashlight|torch)\b/i.test(message) || /^(?:flashlight|torch)\s+on$/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "device.set_flashlight", input: { enabled: true } });
+    return receipt.status === "completed" ? { tool: "android_flashlight", context: "Flashlight turned on." } : { error: receipt.error?.message || "Could not turn on the flashlight." };
+  }
+  if (/\b(?:turn off|switch off|disable)\s+(?:the\s+)?(?:flashlight|torch)\b/i.test(message) || /^(?:flashlight|torch)\s+off$/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "device.set_flashlight", input: { enabled: false } });
+    return receipt.status === "completed" ? { tool: "android_flashlight", context: "Flashlight turned off." } : { error: receipt.error?.message || "Could not turn off the flashlight." };
+  }
+
+  if (/\b(?:read|check|show|summari[sz]e)\s+(?:my\s+)?(?:recent\s+)?notifications\b/i.test(message)) {
+    const receipt = await actionEngine.execute({ capabilityId: "notifications.read_recent", input: {} });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "Notification access is unavailable." };
+    const items = receipt.result?.items || [];
+    return { tool: "android_notifications", context: items.length ? "Recent notifications (stored locally):\n" + items.map((item) => "- " + [item.title, item.text].filter(Boolean).join(": ")).join("\n") : "There are no recent notification previews in AURORA's local cache." };
+  }
+
+  const calendarIntent = parseCalendarIntent(message);
+  if (calendarIntent) {
+    const receipt = await actionEngine.execute({ capabilityId: "calendar.prepare_event", input: calendarIntent });
+    if (receipt.status !== "completed") return { error: receipt.error?.message || "Calendar event preparation was not completed." };
+    return { tool: "android_calendar", context: "I opened the calendar editor for “" + calendarIntent.title + "”. Please review the date and time and save it there." };
+  }
+
   // Explicit app-launch requests use a fixed package allowlist; package IDs are never model supplied.
   const appTargets = [
     { pattern: /\bwhats?app\b/i, packageName: "com.whatsapp", label: "WhatsApp" },
@@ -90,6 +152,7 @@ const auroraRuntime = Object.freeze({
   availability: (capabilityId) => actionEngine.getAvailability(capabilityId),
   execute: (request) => actionEngine.execute(request),
   routeMessage,
+  parseCalendarIntent,
   subscribe: (listener) => actionEngine.subscribe(listener),
   subscribeApprovals: (listener) => approvalBroker.subscribe(listener)
 });
