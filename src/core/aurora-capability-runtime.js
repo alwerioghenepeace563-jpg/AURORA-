@@ -173,6 +173,19 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "camera.capture_preview", label: "Capture a photo preview", category: "device",
+    description: "Open the user's camera app and return only the thumbnail preview Android provides. The user must take the photo; AURORA does not silently capture, save a full-resolution image or upload it.",
+    risk: AURORA_ACTION_RISK.HIGH, approvalRequired: true, validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Camera preview capture requires the Android app and an installed camera application." }),
+    execute: async () => {
+      const result = await auroraNative.capturePhoto();
+      if (result?.cancelled) return { cancelled: true, captured: false };
+      if (!result?.thumbnailBase64 || result.thumbnailOnly !== true || result.fullResolutionSaved !== false) throw new Error("Android did not return a verified camera preview.");
+      return { ...result, captured: true, fullResolutionSaved: false };
+    }
+  });
+
+  engine.registerCapability({
     id: "apps.list_launchable", label: "List launchable apps", category: "device",
     description: "List up to 200 launcher-visible installed apps with display names and package identifiers. Does not read app data or launch/uninstall anything.",
     risk: AURORA_ACTION_RISK.LOW, approvalRequired: false, validate: () => true,
