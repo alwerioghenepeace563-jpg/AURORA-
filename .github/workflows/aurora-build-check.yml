@@ -2,7 +2,7 @@ name: AURORA Build Check
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/aurora-pulse-profile-overlay]
   pull_request:
     branches: [main]
 
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Report dependency security audit (non-blocking)
@@ -49,6 +49,8 @@ jobs:
             console.log('Audit report could not be parsed:', error.message);
           }
           NODE
+      - name: Enforce dependency security audit
+        run: npm audit --audit-level=low
       - name: Run AURORA core and architecture tests
         run: npm run test:core
       - name: Build web app
