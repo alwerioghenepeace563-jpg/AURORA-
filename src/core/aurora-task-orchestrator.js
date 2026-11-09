@@ -20,6 +20,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
   const runs = new Map();
   const inFlight = new Map();
   const controllers = new Map();\n  const retryAttempts = new Map();
+  const retryResults = new Map();
   const capabilityMap = () => new Map(actionEngine.listCapabilities().map((item) => [item.id, item]));
 
   function emit(type, payload) {
@@ -183,9 +184,11 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
       emit("task.retry_denied", { taskId: id, stepId: step.id, reason: eligibility?.reason || "adapter_idempotency_not_proven" });
       return Object.freeze({ status: "not_retryable", reason: eligibility?.reason || "adapter_idempotency_not_proven", taskId: id, stepId: step.id });
     }
-    const attempt = (retryAttempts.get(id + ":" + step.id) || 0) + 1;
+    const retryKey = id + ":" + step.id;
+    if (retryResults.get(retryKey)?.status === "completed") return Object.freeze({ status: "not_retryable", reason: "retry_already_succeeded", taskId: id, stepId: step.id });
+    const attempt = (retryAttempts.get(retryKey) || 0) + 1;
     if (attempt > 2) return Object.freeze({ status: "not_retryable", reason: "retry_limit_reached", taskId: id, stepId: step.id });
-    retryAttempts.set(id + ":" + step.id, attempt);
+    retryAttempts.set(retryKey, attempt);
     emit("task.retry_started", { taskId: id, stepId: step.id, attempt, evidence: eligibility.evidence });
     const receipt = await actionEngine.execute({
       capabilityId: step.capabilityId,
