@@ -423,6 +423,14 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Only the selected active notification is dismissed; no other notifications are cleared and no reply or message is sent.
 - Stale or unsupported notification keys return an explicit unsuccessful result. Physical Android/OEM behavior remains to be verified.
 
+
+**Implementation wave 12 — Expanded read-only device health diagnostics (code committed; regression added):**
+- Extended the existing device-status adapter with battery temperature and voltage when Android reports them, charging source, battery status and a timestamp.
+- Added system-wide available/total memory and low-memory pressure indicators through Android's memory summary API. This reports aggregate system memory only; it does not inspect application memory contents.
+- Added Android thermal status on API 29+ devices, with the field omitted on older versions.
+- The shared Action Engine verifies that the result is marked read-only and timestamped. The operation requests no new permissions and changes no device settings.
+- Added bridge typing and regression checks. Sensor availability and OEM reporting differences remain device-validation items.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
