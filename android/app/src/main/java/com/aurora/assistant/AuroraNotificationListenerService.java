@@ -3,6 +3,11 @@ package com.aurora.assistant;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.content.Context;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import android.os.Bundle;
 import android.app.Notification;
 import com.getcapacitor.JSObject;
@@ -10,8 +15,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class AuroraNotificationListenerService extends NotificationListenerService {
-    private static final String PREFS = "aurora_notification_cache";
-    private static final String KEY = "recent";
     private static final int MAX_ITEMS = 20;
 
     @Override
@@ -41,7 +44,7 @@ public class AuroraNotificationListenerService extends NotificationListenerServi
                     JSONObject previous = old.optJSONObject(i);
                     if (previous != null && !sbn.getKey().equals(previous.optString("key"))) next.put(previous);
                 }
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY, next.toString()).apply();
+                writeArray(this, next);
             }
         } catch (Exception ignored) { }
     }
@@ -52,20 +55,44 @@ public class AuroraNotificationListenerService extends NotificationListenerServi
         return clean.length() > max ? clean.substring(0, max) : clean;
     }
 
+    private static File cacheFile(Context context) {
+        return new File(context.getNoBackupFilesDir(), "aurora-notification-previews.json");
+    }
+
     private static JSONArray readArray(Context context) {
-        try { return new JSONArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]")); }
-        catch (Exception ignored) { return new JSONArray(); }
+        File file = cacheFile(context);
+        if (!file.exists()) return new JSONArray();
+        try (FileInputStream input = new FileInputStream(file);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            return new JSONArray(new String(output.toByteArray(), StandardCharsets.UTF_8));
+        } catch (Exception ignored) { return new JSONArray(); }
+    }
+
+    private static void writeArray(Context context, JSONArray array) {
+        File target = cacheFile(context);
+        File temporary = new File(context.getNoBackupFilesDir(), "aurora-notification-previews.tmp");
+        try (FileOutputStream output = new FileOutputStream(temporary)) {
+            output.write(array.toString().getBytes(StandardCharsets.UTF_8));
+            output.getFD().sync();
+        } catch (Exception ignored) { temporary.delete(); return; }
+        if (target.exists() && !target.delete()) { temporary.delete(); return; }
+        if (!temporary.renameTo(target)) temporary.delete();
     }
 
     public static JSObject readRecent(Context context) {
         JSObject result = new JSObject();
         result.put("items", readArray(context).toString());
         result.put("localOnly", true);
+        result.put("excludedFromBackup", true);
         result.put("limit", MAX_ITEMS);
         return result;
     }
 
     public static void clearRecent(Context context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY).apply();
+        cacheFile(context).delete();
+        new File(context.getNoBackupFilesDir(), "aurora-notification-previews.tmp").delete();
     }
 }
