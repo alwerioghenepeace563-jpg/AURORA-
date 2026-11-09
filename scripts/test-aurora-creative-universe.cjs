@@ -59,7 +59,7 @@ const assert = require("node:assert/strict");
  assert.equal(insights.subjects[0].averagePercentage,0);
  assert.equal(insights.reviewTargets[0].prompt,"What is a cell?");
  assert.equal(insights.reviewTargets[0].missed,1);
- assert.equal(insights.reviewTargets[0].missRate,50);
+ assert.equal(insights.reviewTargets[0].missRate,100); // Miss rate is scoped to the same subject, not pooled across unrelated subjects.
 
  assert.equal(creative.search("What is a cell").some(item=>item.kind==="quiz_attempt"),true);
  const legacyValues=new Map([["aurora.creative.universe.v1",JSON.stringify({version:1,projects:[],assets:[],drafts:[],decks:[]})]]);
