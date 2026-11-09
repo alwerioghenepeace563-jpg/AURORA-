@@ -103,7 +103,7 @@ const STAGE_THREE_CHECKPOINT = Object.freeze({
   id: 3,
   name: "Secure state and context",
   status: "complete",
-  scope: "Stage 3 code-level secure-state and context hardening is implemented and the full CI pipeline passed on commit 68b9b6df623503209276751fecd78872f82be3b0 (run 42583043179). Shared fail-closed JSON/schema validation protects memory, consent, knowledge graph, task journal, workflow, routine, and extension stores. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
+  scope: "Stage 3 code-level secure-state and context hardening, including Android encrypted protected memory, is implemented and the full CI pipeline passed on commit 68b9b6df623503209276751fecd78872f82be3b0 (run 42583043179). Shared fail-closed JSON/schema validation protects memory, consent, knowledge graph, task journal, workflow, routine, and extension stores. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
   validationBoundary: "All 12 family code audits and automated core/architecture tests passed, including dependency installation and web build. Physical-device validation of Android Keystore behavior, backup exclusion, restore/upgrade, device migration, and end-to-end privacy UX is explicitly deferred to release hardening, not blockers for Stage 4. They remain unverified and must pass before release sign-off.",
   deliverables: Object.freeze([
     "Add an Android-only protected-memory vault backed by the existing Keystore AES-GCM secure-store facade; refuse operation when unavailable and never fall back to browser storage.",
