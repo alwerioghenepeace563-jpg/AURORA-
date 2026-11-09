@@ -6,7 +6,8 @@ import {
   auroraNative,
   requestAuroraContactsPermission,
   searchAuroraContacts,
-  openAuroraDialer
+  openAuroraDialer,
+  requestAuroraCameraPermission as AuroraNativePermission
 } from "../lib/aurora-native";
 import { createAuroraActionEngine, AURORA_ACTION_RISK } from "./aurora-action-engine";
 
