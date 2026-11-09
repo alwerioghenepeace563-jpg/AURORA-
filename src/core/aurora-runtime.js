@@ -106,7 +106,13 @@ const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
 const reliability = createAuroraReliabilityCoordinator({ events: auroraEvents, taskJournal: auroraTaskJournal });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
 actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
-taskOrchestrator.subscribe((event) => { auroraTaskJournal.record(event); auroraEvents.publish(event.type, event, { source: "task_orchestrator" }); });
+taskOrchestrator.subscribe((event) => {
+  try { auroraTaskJournal.record(event); }
+  catch (error) {
+    auroraEvents.publish("task.journal_persistence_failed", { taskId: event.taskId || event.result?.taskId || null, code: typeof error?.code === "string" ? error.code.slice(0, 80) : "JOURNAL_WRITE_FAILED" }, { source: "task_journal" });
+  }
+  auroraEvents.publish(event.type, event, { source: "task_orchestrator" });
+});
 let latestPendingTaskId = null;
 
 actionEngine.registerCapability({
