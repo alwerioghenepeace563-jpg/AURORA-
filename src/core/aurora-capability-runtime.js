@@ -388,7 +388,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     validate: (input) => ["image", "video", "audio"].includes(input?.mediaType) || "Choose image, video or audio.",
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "The Android system media picker is required." }),
     execute: async ({ mediaType }) => {
-      const result = await auroraNative.pickMedia(mediaType);
+      const result = await auroraNative.pickMedia({ mediaType });
       if (result?.cancelled) return { cancelled: true };
       return { cancelled: false, name: result?.name || "Selected media", mimeType: result?.mimeType || "application/octet-stream", contentUri: result?.contentUri || null, readOnlySelection: true, contentLoaded: false };
     }
@@ -404,7 +404,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     validate: (input) => requiredString(input?.contentUri, "Selected file URI") === true && input.contentUri.startsWith("content://") && input.contentUri.length <= 2048 && requiredString(input?.mimeType, "File media type") === true || "Share only a selected content URI and a valid media type.",
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Android file sharing requires the native app." }),
     execute: async ({ contentUri, mimeType }) => {
-      const result = await auroraNative.shareSelectedFile(contentUri, mimeType);
+      const result = await auroraNative.shareSelectedFile({ contentUri, mimeType });
       if (!result?.opened) throw new Error("Android did not open the file share sheet.");
       return { shareSheetOpened: true, requiresUserDestination: true, fileSentByAurora: false };
     }
