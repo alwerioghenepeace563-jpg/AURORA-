@@ -33,11 +33,18 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Locate preinstalled Android SDK tools
+        run: |
+          test -n "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+
+      - name: Accept Android SDK licenses
+        run: yes | "$SDKMANAGER" --licenses >/dev/null
 
       - name: Install Android platform and build tools
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
