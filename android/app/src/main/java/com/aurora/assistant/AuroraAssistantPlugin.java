@@ -936,6 +936,51 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void exportTextDocument(PluginCall call) {
+        String content = call.getString("content");
+        String filename = call.getString("filename", "AURORA-export.txt");
+        String mimeType = call.getString("mimeType", "text/plain");
+        java.util.List<String> allowed = java.util.Arrays.asList("text/plain", "text/markdown", "text/csv", "application/json");
+        if (content == null || content.length() > 1000000) { call.reject("Export text must be between 1 and 1,000,000 characters."); return; }
+        if (!allowed.contains(mimeType)) { call.reject("Choose plain text, Markdown, CSV or JSON export."); return; }
+        if (filename == null || filename.trim().isEmpty() || filename.length() > 100 || filename.contains("/") || filename.contains("\\\\")) {
+            call.reject("Provide a filename of up to 100 characters without a path."); return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mimeType);
+        intent.putExtra(Intent.EXTRA_TITLE, filename.trim());
+        startActivityForResult(call, intent, "handleTextExportResult");
+    }
+
+    @com.getcapacitor.annotation.ActivityCallback
+    private void handleTextExportResult(PluginCall call, ActivityResult activityResult) {
+        if (call == null) return;
+        if (activityResult == null || activityResult.getResultCode() != android.app.Activity.RESULT_OK
+            || activityResult.getData() == null || activityResult.getData().getData() == null) {
+            call.resolve(new JSObject().put("cancelled", true).put("saved", false));
+            return;
+        }
+        Uri uri = activityResult.getData().getData();
+        String content = call.getString("content");
+        if (content == null || content.length() > 1000000 || !"content".equals(uri.getScheme())) {
+            call.resolve(new JSObject().put("saved", false).put("cancelled", false).put("reason", "invalid_export_target"));
+            return;
+        }
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        try (java.io.OutputStream output = getContext().getContentResolver().openOutputStream(uri, "w")) {
+            if (output == null) throw new IllegalStateException("The selected destination could not be opened.");
+            output.write(bytes);
+            output.flush();
+            call.resolve(new JSObject().put("saved", true).put("cancelled", false)
+                .put("bytesWritten", bytes.length).put("characters", content.length())
+                .put("destinationChosenByUser", true).put("uri", uri.toString()));
+        } catch (Exception e) {
+            call.reject("Could not write the export to the destination selected by the user.", e);
+        }
+    }
+
+    @PluginMethod
     public void controlActiveMedia(PluginCall call) {
         String action = call.getString("action");
         if (action == null || !java.util.Arrays.asList("play_pause", "next", "previous").contains(action)) {
