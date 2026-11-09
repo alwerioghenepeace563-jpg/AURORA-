@@ -22,7 +22,8 @@ function createAuroraCapabilityRuntime(options = {}) {
     "android.accessibility": async () => (await auroraNative.isAccessibilityEnabled()).enabled === true,
     "android.notification_access": async () => (await auroraNative.hasNotificationAccess()).granted === true,
     "android.camera": async () => (await AuroraNativePermission.requestCameraPermission()).granted === true,
-    "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true
+    "android.microphone": async () => (await auroraNative.requestMicrophonePermission()).granted === true,
+    "android.notifications": async () => (await auroraNative.requestNotificationPermission()).granted === true
   };
   const authorize = async ({ capability, proposal }) => {
     for (const permission of capability.permissionRequirements || []) {
@@ -280,8 +281,77 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
 
-  // Stage 5: expose the already-implemented native voice and Pulse services
-  // through the same Action Engine used by chat, overlay, and future surfaces.
+  // Stage 5: expose verified native voice and assistant services through the shared Action Engine.
+  engine.registerCapability({
+    id: "voice.start_listening",
+    label: "Start voice input",
+    category: "voice",
+    description: "Start Android speech recognition and deliver transcript results through the shared speechResult event.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.microphone"],
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Native speech recognition requires the Android app and an installed speech recognition service." }),
+    execute: async () => {
+      const result = await auroraNative.startSpeechRecognition();
+      if (!result?.started) throw new Error("Android speech recognition did not start.");
+      return { started: true, transcriptEvent: "speechResult", errorEvent: "speechError" };
+    }
+  });
+
+  engine.registerCapability({
+    id: "voice.stop_listening",
+    label: "Stop voice input",
+    category: "voice",
+    description: "Stop the current Android speech recognition session.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Native speech recognition requires the Android app." }),
+    execute: async () => {
+      const result = await auroraNative.stopSpeechRecognition();
+      if (!result?.stopped) throw new Error("Android speech recognition did not stop.");
+      return { stopped: true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "notifications.request_permission",
+    label: "Request notification permission",
+    category: "notifications",
+    description: "Ask Android for notification permission where required by the installed Android version.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Android notification permission is available only in the native app." }),
+    execute: async () => {
+      const result = await auroraNative.requestNotificationPermission();
+      return { granted: result?.granted === true };
+    }
+  });
+
+  engine.registerCapability({
+    id: "assistant.get_status",
+    label: "Get assistant service status",
+    category: "voice",
+    description: "Read whether the native bridge, wake-word listener foundation, and live voice mode are available or active.",
+    risk: AURORA_ACTION_RISK.LOW,
+    approvalRequired: false,
+    validate: () => true,
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Assistant service status requires the Android app." }),
+    execute: async () => {
+      const state = await auroraNative.status();
+      return {
+        platform: state.platform,
+        nativeBridge: state.nativeBridge === true,
+        backgroundServiceFoundation: state.backgroundServiceFoundation === true,
+        wakeWordEnabled: state.wakeWordEnabled === true,
+        wakeWordListening: state.wakeWordListening === true,
+        liveRealtimeVoiceEnabled: state.liveRealtimeVoiceEnabled === true
+      };
+    }
+  });
+
   engine.registerCapability({
     id: "voice.speak_text",
     label: "Speak a response",
