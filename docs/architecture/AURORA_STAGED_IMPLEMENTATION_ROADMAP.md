@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 6 — Surface integration and validation  
+**Current checkpoint:** Stage 7 — Native assistant activation and contextual intelligence  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -197,3 +197,31 @@ Then mark it final, preserve it in the completed-layer register, and continue re
 - Added a focused regression test for offline/online changes, low-memory adaptation, unsupported API fallbacks, metadata-only events, and listener cleanup; included it in the core test chain.
 - The monitor is observational/advisory: it does not disable user actions, replay interrupted tasks, or silently change permissions. Existing review-only recovery and fresh-confirmation rules remain authoritative.
 - Still pending: confirm real Battery API support on target Android builds, validate memory pressure/network transitions on low-memory devices, and run physical TalkBack/voice/Pulse lifecycle checks. APK builds, signing, and keystore work remain deferred.
+
+
+### Stage 6 COMPLETE — Surface integration and device validation (code-and-CI checkpoint)
+
+**Stage 6 is closed at the code-integration and automated-CI level across all 12 capability families.** Main Chat, Pulse, and voice share the surface gateway and approval lifecycle; Android foreground/background lifecycle is connected to review-only recovery; microphone and spoken-output sessions are interrupted safely; Pulse has keyboard, focus, screen-reader, and reduced-motion safeguards; and the shared runtime exposes adaptive offline/network/data-saver/memory/battery conditions.
+
+The machine-readable layer registry records explicit Stage 6 evidence for all 12 families. GitHub Actions run **42603081673** passed dependency installation, the blocking dependency audit, the complete core/architecture test chain, and the web production build on commit **5216c175f2e36389946db721d6dbb5dd7d9485e8**.
+
+**Deferred device-certification gate (not a blocker for Stage 7 implementation):**
+- [ ] Verify native voice service and microphone interruption/resume on supported Android devices.
+- [ ] Verify Pulse overlay, TalkBack, keyboard focus, and reduced-motion behavior on device.
+- [ ] Verify offline/online, data-saver, supported battery API, and memory-pressure behavior on a low-memory Android device.
+- [ ] Verify listener cleanup after Pulse close, backgrounding, and component teardown.
+
+These checks remain unverified and mandatory before release sign-off. APK compilation, signing, keystore changes, and release work remain deferred by the project decision.
+
+### Stage 7 — Native assistant activation and contextual intelligence (active)
+
+**Whole-system objective:** Move AURORA from a capable shared chat/action runtime toward a genuinely usable Android assistant while improving every affected layer together. Stage 7 coordinates:
+- Voice and Android device: explicit opt-in wake-word/foreground listening architecture, visible listening state, clear stop controls, microphone permission handling, and battery-conscious lifecycle.
+- Screen and accessibility: user-invoked screen context and Q&A, accessibility-service state, strict foreground/session boundaries, and no covert screen capture.
+- Device and communication: safe installed-app launch and app handoff, with user confirmation for consequential communication.
+- Location and travel: current-location and map handoff integration with freshness disclosure; no always-on tracking.
+- Productivity and intelligence: contextual task planning, user-controlled reminders, and shared memory/context across Main, Pulse, and voice.
+- Files and media: user-selected file/media context with bounded processing and no silent uploads.
+- Safety and reliability: every new action continues through shared permission, consent, approval, cancellation, diagnostics, and review-only recovery; unsupported platform features fail closed with clear availability states.
+
+**Stage 7 acceptance rule:** implement coordinated capability changes across all 12 families, add focused and cross-layer regression tests, pass the full core/architecture CI and web build, and label native/device-dependent behavior as unverified until physical Android checks are actually performed. Do not build APKs, change signing material, or deploy during this stage unless the user explicitly asks.
