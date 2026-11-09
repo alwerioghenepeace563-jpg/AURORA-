@@ -657,3 +657,14 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .clw-quiz-feedback{border-top:1px solid var(--glass-border,rgba(255,255,255,.1));padding-top:6px}
 @media(max-width:520px){.clw-quiz-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .clw-caption-hit{border:1px solid var(--glass-border,rgba(255,255,255,.1));border-radius:11px;padding:10px}.clw-caption-hit p{white-space:pre-wrap;line-height:1.5;font-size:13px}.clw-caption-hit small{color:var(--text-secondary,#a8a9b8);font-size:11px}
+
+/* AURORA Stage 11 web media search fallback */
+.clw-media-search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}
+.clw-media-result{min-width:0;padding:10px;border:1px solid rgba(132,180,230,.16);border-radius:14px;background:rgba(8,16,30,.65);display:flex;flex-direction:column;gap:8px}
+.clw-media-result>a:first-child{display:flex;flex-direction:column;gap:8px;color:inherit;text-decoration:none;min-width:0}
+.clw-media-result img{width:100%;height:130px;object-fit:cover;border-radius:9px;background:rgba(120,150,180,.1)}
+.clw-media-result strong{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.clw-media-result small{color:var(--muted);font-size:10px}
+.clw-media-result .clw-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.clw-media-result .clw-actions a{font-size:11px;color:var(--cyan);text-decoration:none}
+@media(max-width:480px){.clw-media-search-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.clw-media-result{padding:7px}.clw-media-result img{height:105px}}
