@@ -63,7 +63,7 @@ type AuroraNativePlugin = {
   openNotification(options: { key: string }): Promise<{ opened: boolean; note: string }>;
   dismissNotification(options: { key: string }): Promise<{ dismissed: boolean; note: string }>;
   clearRecentNotifications(): Promise<{ cleared: boolean }>;
-  getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; batteryHealth?: number; platform: string; sdk: number; manufacturer: string; model: string }>;
+  getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; chargingSource?: "none" | "usb" | "ac" | "wireless" | "other"; batteryHealth?: number; batteryTemperatureC?: number; batteryVoltageMv?: number; batteryStatus?: number; memoryAvailableBytes?: number; memoryTotalBytes?: number; memoryLow?: boolean; memoryThresholdBytes?: number; thermalStatus?: number; readOnly: true; capturedAt: number; platform: string; sdk: number; manufacturer: string; model: string }>;
   getDeviceCapabilityInventory(): Promise<{ platform: string; device: { manufacturer: string; model: string; sdk: number }; hardware: Record<string, boolean>; permissions: Record<string, boolean>; specialAccess: Record<string, boolean>; readOnly: true; capturedAt: number }>;
   requestCameraPermission(): Promise<{ granted: boolean }>;
   setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>;
