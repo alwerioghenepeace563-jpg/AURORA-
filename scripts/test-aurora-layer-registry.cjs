@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -13,6 +13,10 @@ const assert = require("node:assert/strict");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
   assert.equal(summary.nextStage, 2);
+  assert.equal(summary.stageTwoStatus, "in_progress");
+  assert.equal(summary.stageTwoContractReady, 12);
+  assert.equal(STAGE_TWO_CHECKPOINT.status, "in_progress");
+  assert.ok(registry.stages.some((stage) => stage.id === 2));
   assert.equal(STAGE_ONE_CHECKPOINT.status, "complete");
   assert.match(STAGE_ONE_CHECKPOINT.scope, /Architecture mapping only/i);
 
@@ -22,6 +26,8 @@ const assert = require("node:assert/strict");
     assert.equal(layer.checkpoint, "stage-1-mapped");
     assert.equal(layer.implementationStatus, "requires-audit");
     assert.equal(layer.finalStatus, "active");
+    assert.equal(layer.stageTwoStatus, "shared-contracts-available");
+    assert.equal(layer.adapterContractAudit, "pending");
   }
   assert.equal(registry.get("unknown-layer"), null);
   assert.ok(Object.isFrozen(STAGE_ONE_CHECKPOINT));
