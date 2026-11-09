@@ -18,6 +18,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
   const listeners = new Set();
   const plans = new Map();
   const runs = new Map();
+  const inFlight = new Map();
   const capabilityMap = () => new Map(actionEngine.listCapabilities().map((item) => [item.id, item]));
 
   function emit(type, payload) {
@@ -92,9 +93,10 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
         steps: plan.steps.map(({ id, label, risk, approvalRequired }) => ({ id, label, risk, approvalRequired }))
       });
     }
+    if (inFlight.has(plan.id)) return inFlight.get(plan.id);
     if (runs.has(plan.id)) return runs.get(plan.id);
+    const operation = (async () => {
     const state = { taskId: plan.id, title: plan.title, status: "running", startedAt: new Date().toISOString(), steps: [] };
-    runs.set(plan.id, state);
     emit("task.started", { taskId: plan.id, title: plan.title, totalSteps: plan.steps.length });
 
     for (const step of plan.steps) {
@@ -143,6 +145,10 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     runs.set(plan.id, result);
     emit("task.finished", { result });
     return result;
+    })();
+    inFlight.set(plan.id, operation);
+    try { return await operation; }
+    finally { inFlight.delete(plan.id); }
   }
 
   return Object.freeze({
