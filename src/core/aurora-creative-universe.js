@@ -266,6 +266,34 @@ function createAuroraCreativeUniverse(options = {}) {
     return state.quizAttempts.filter(attempt => !subject || attempt.subject.toLowerCase() === subject)
       .slice(0, limit).map(attempt => ({ ...attempt, results: attempt.results.map(result => ({ ...result })) }));
   }
+  function learningInsights(filters = {}) {
+    const attempts = listQuizAttempts({ subject: filters.subject, limit: 100 });
+    const bySubject = new Map(), weakQuestions = new Map();
+    for (const attempt of attempts) {
+      const subject = attempt.subject || "General";
+      const stats = bySubject.get(subject) || { subject, attempts: 0, scoreTotal: 0, questions: 0, correct: 0 };
+      stats.attempts++; stats.scoreTotal += attempt.percentage; stats.questions += attempt.total; stats.correct += attempt.correct;
+      bySubject.set(subject, stats);
+      for (const result of attempt.results) {
+        const key = subject + "::" + String(result.prompt || "").toLowerCase().trim();
+        const item = weakQuestions.get(key) || { subject, prompt: result.prompt, seen: 0, missed: 0, lastSeenAt: attempt.createdAt };
+        item.seen++; if (!result.correct) item.missed++;
+        if (Date.parse(attempt.createdAt) > Date.parse(item.lastSeenAt)) item.lastSeenAt = attempt.createdAt;
+        weakQuestions.set(key, item);
+      }
+    }
+    const subjects = [...bySubject.values()].map(item => ({
+      ...item, averagePercentage: Math.round(item.scoreTotal / item.attempts),
+      accuracy: item.questions ? Math.round(item.correct / item.questions * 100) : 0,
+      recommendation: item.scoreTotal / item.attempts < 60 ? "Revisit the subject fundamentals and practise a short set of questions."
+        : item.scoreTotal / item.attempts < 80 ? "Review missed questions, then try another practice set."
+        : "Keep the subject fresh with spaced revision."
+    })).sort((a,b)=>a.averagePercentage-b.averagePercentage);
+    const reviewTargets = [...weakQuestions.values()].filter(item => item.missed > 0)
+      .sort((a,b)=>(b.missed/Math.max(1,b.seen))-(a.missed/Math.max(1,a.seen)) || b.missed-a.missed)
+      .slice(0,10).map(item=>({...item,missRate:Math.round(item.missed/item.seen*100)}));
+    return { attempts: attempts.length, subjects, reviewTargets, localOnly: true, generatedAt: now() };
+  }
   function quizPerformance(filters = {}) {
     const attempts = listQuizAttempts({ subject: filters.subject, limit: 100 });
     const scores = attempts.map(attempt => attempt.percentage);
@@ -317,7 +345,7 @@ function createAuroraCreativeUniverse(options = {}) {
     return items.filter(x=>(x.title+" "+(x.summary||"")+" "+(x.type||"")+" "+(x.subject||"")).toLowerCase().includes(needle)).slice(0,Math.max(1,Math.min(100,limit)));
   }
   function status() { const s=read(); return {storage:storage?"local":"unavailable",cloudSync:false,automaticCapture:false,projectCount:s.projects.length,assetCount:s.assets.length,draftCount:s.drafts.length,deckCount:s.decks.length,quizAttemptCount:s.quizAttempts.length,subtitleFormats:["srt","vtt"],limits:{projects:100,assets:1000,drafts:300,flashcardsPerDeck:200,subtitleCues:5000}}; }
-  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,searchSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,listDueFlashcards,flashcardReviewSummary,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,buildProjectContext,search,status});
+  return Object.freeze({createProject,listProjects,updateProject,deleteProject,addAsset,listAssets,saveDraft,listDrafts,restoreDraftRevision,deleteDraft,importSubtitles,searchSubtitles,exportSubtitles,createDeck,listDecks,recordCardReview,listDueFlashcards,flashcardReviewSummary,buildQuiz,gradeQuiz,saveQuizAttempt,listQuizAttempts,quizPerformance,learningInsights,buildProjectContext,search,status});
 }
 const auroraCreativeUniverse=createAuroraCreativeUniverse();
 export { createAuroraCreativeUniverse, auroraCreativeUniverse, STORAGE_KEY as AURORA_CREATIVE_UNIVERSE_STORAGE_KEY, parseSubtitles, renderSubtitles };
