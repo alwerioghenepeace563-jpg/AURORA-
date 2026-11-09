@@ -606,3 +606,5 @@ button:focus-visible,input:focus-visible{outline:2px solid #70ddff;outline-offse
 .knowledge-related button{display:flex;justify-content:space-between;gap:8px;text-align:left;padding:9px;border:1px solid rgba(133,175,219,.12);border-radius:9px;background:rgba(255,255,255,.025);color:#cde1f7}
 .knowledge-related button span{color:#8ba4bd;font-size:10px}
 @media(max-width:760px){.knowledge-browser{grid-template-columns:1fr}.knowledge-list-column{max-height:none}.knowledge-record-list{max-height:320px}.knowledge-detail-column{min-height:300px}.knowledge-workspace-head>.primary-action{width:100%;justify-content:center}}
+
+.knowledge-head-actions{display:flex;gap:8px;flex-wrap:wrap}.knowledge-import-meta{margin:0;color:#93abc4;font-size:11px;line-height:1.5}.knowledge-head-actions button:disabled{opacity:.6;cursor:wait}
