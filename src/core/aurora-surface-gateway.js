@@ -24,7 +24,7 @@ function createAuroraSurfaceGateway({ routeMessage, events } = {}) {
     const startedAt = Date.now();
     events.publish("surface.request.started", { surface, requestId, characterCount: message.length }, { source: "surface_gateway" });
     try {
-      const result = await routeMessage(message);
+      const result = await routeMessage(message, { surface, requestId });
       const safeResult = result && typeof result === "object" ? result : null;
       events.publish("surface.request.completed", {
         surface, requestId, durationMs: Math.max(0, Date.now() - startedAt),
