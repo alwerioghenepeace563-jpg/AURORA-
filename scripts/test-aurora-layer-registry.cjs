@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -12,12 +12,16 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageOneMapped, 12, "Stage one must map every layer before stage two begins.");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
-  assert.equal(summary.nextStage, 2);
-  assert.equal(summary.stageTwoStatus, "in_progress");
+  assert.equal(summary.nextStage, 3);
+  assert.equal(summary.stageTwoStatus, "complete");
+  assert.equal(summary.stageThreeStatus, "in_progress");
   assert.equal(summary.stageTwoContractReady, 12);
-  assert.equal(STAGE_TWO_CHECKPOINT.status, "in_progress");
+  assert.equal(STAGE_TWO_CHECKPOINT.status, "complete");
+  assert.equal(STAGE_THREE_CHECKPOINT.status, "in_progress");
+  assert.match(STAGE_THREE_CHECKPOINT.scope, /encrypted protected memory/i);
   assert.match(STAGE_TWO_CHECKPOINT.validationBoundary, /not.*device|device.*separate/i);
   assert.ok(registry.stages.some((stage) => stage.id === 2));
+  assert.ok(registry.stages.some((stage) => stage.id === 3));
   assert.equal(STAGE_ONE_CHECKPOINT.status, "complete");
   assert.match(STAGE_ONE_CHECKPOINT.scope, /Architecture mapping only/i);
 
