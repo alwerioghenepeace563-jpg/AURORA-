@@ -208,6 +208,7 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
     createPlan,
     getPlan,
     runPlan,
+    retryFailedStep,
     cancelPlan: (taskId) => { const id = String(taskId); const controller = controllers.get(id); if (!controller || controller.signal.aborted) return false; controller.abort(new Error("Task cancelled by the user.")); emit("task.cancel_requested", { taskId: id }); return true; },
     subscribe,
     listPlans: () => [...plans.values()],
