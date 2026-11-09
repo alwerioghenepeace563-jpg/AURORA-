@@ -270,7 +270,7 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 - Added a Stage 8 regression to core CI and registry evidence across all 12 capability families.
 - The task journal continues to persist metadata only; user-authored task titles, summaries, inputs, private file contents, and action result payloads are not stored in recovery history.
 
-Stage 8 will advance all 12 capability families together:
+Stage 8 advanced all 12 capability families together:
 - Voice and surfaces: carry intent and task state across Main Chat, Pulse, and voice without losing the user's chosen context.
 - Device and communication: sequence safe app handoffs while preserving explicit confirmation for calls, messages, sharing, and other consequential actions.
 - Screen, files, and media: let users attach selected context to a task, show what AURORA used, and keep content bounded and local unless the user explicitly approves sharing.
@@ -280,27 +280,27 @@ Stage 8 will advance all 12 capability families together:
 - Safety and privacy: no unattended consequential actions, hidden microphone/screen/location collection, or silent uploads.
 
 
-**Implementation wave 2 — Task history completeness and user data controls (code committed; CI pending):**
+**Implementation wave 2 — Task history completeness and user data controls (code committed; Stage 8 core CI and web build passed):**
 - Added a recent-task command that exposes only bounded metadata: task ID, status, last-updated time, event count, and whether review may be available.
 - Added an explicit forget/delete task command to remove one local task-journal record. It does not claim to undo any external action already completed.
 - Exposed bounded recent activity and explicit forget operations through the shared runtime so Main Chat, Pulse, and voice can use the same controls.
 - Extended the Stage 8 regression to cover these new commands and runtime exports.
 
-**Implementation wave 3 — Saved workflow inspection and preflight visibility (code committed; CI pending):**
+**Implementation wave 3 — Saved workflow inspection and preflight visibility (code committed; Stage 8 core CI and web build passed):**
 - Added a read-only “show workflow [exact title]” command.
 - It displays ordered steps, capability labels, dependency relationships, risk metadata where available, and whether each capability is currently registered.
 - Missing or ambiguous workflow titles return a clear result; unavailable capabilities are disclosed before preparation.
 - Inspection does not request permissions, access screen/location/files, or execute any step. Preparing still creates a fresh preview and requires confirmation.
 - Added focused regression coverage and updated Stage 8 evidence across all 12 capability families.
 
-**Implementation wave 3 — Read-only workflow inspection and preflight (code committed; CI pending):**
+**Implementation wave 3 — Read-only workflow inspection and preflight (code committed; Stage 8 core CI and web build passed):**
 - Users can say “inspect workflow [name]”, “review workflow [name]”, or “explain workflow [name]” to see ordered steps, dependencies, current capability availability, risk labels and approval requirements.
 - Inspection is read-only: it does not run steps, grant permissions, read screen contents, or expose stored step-input payloads.
 - If a capability is unavailable or the workflow name is ambiguous, AURORA reports that state and fails closed.
 - The shared runtime exposes the same inspection data for Main Chat, Pulse and voice.
 - Added a focused Stage 8 regression and 12-family architecture evidence.
 
-**Implementation wave 4 — Active task cancellation (code committed; CI pending):**
+**Implementation wave 4 — Active task cancellation (code committed; Stage 8 core CI and web build passed):**
 - “Cancel task [ID]” and “stop task [ID]” now reach the shared orchestrator's cancellation controller for an active run.
 - A pending, unexecuted plan can still be discarded without running actions.
 - AURORA reports a cancellation *request*, not a guaranteed rollback. It explains that already completed external actions are not undone.
@@ -315,7 +315,7 @@ Stage 8 will advance all 12 capability families together:
 - The metadata-only task journal preserves verification status without storing user content, file contents, raw action results or private error messages. Task status review exposes the verification summary.
 - Added orchestrator and journal regressions for verification status and stable idempotency keys.
 
-**Implementation wave 5 — Safe self-recovery retry preflight (code committed; CI pending):**
+**Implementation wave 5 — Safe self-recovery retry preflight (code committed; Stage 8 core CI and web build passed):**
 - Added a read-only retry inspection API for failed task steps.
 - AURORA checks that the task actually failed, the selected step is the failed step, dependencies completed, retry limits are not exceeded, and the capability adapter explicitly proves idempotency.
 - AURORA now offers a retry preview only when all checks pass. The user must issue a separate confirmation command before one retry is attempted.
