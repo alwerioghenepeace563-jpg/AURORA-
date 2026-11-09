@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const registry = fs.readFileSync("src/core/aurora-layer-registry.js", "utf8");
 const runtime = fs.readFileSync("src/core/aurora-capability-runtime.js", "utf8");
+const chatRuntime = fs.readFileSync("src/core/aurora-runtime.js", "utf8");
 const plugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
 const manifest = fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
 const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
@@ -19,6 +20,10 @@ assert.match(manifest, /ACCESS_COARSE_LOCATION/);
 assert.match(manifest, /ACCESS_FINE_LOCATION/);
 assert.match(bridge, /requestLocationPermission/);
 assert.match(bridge, /getCurrentLocation/);
+assert.match(chatRuntime, /prepare location access/);
+assert.match(chatRuntime, /confirm location access/);
+assert.match(chatRuntime, /location.get_current/);
+assert.match(chatRuntime, /auroraConsents.grant/);
 for (const id of ["android.open_app","android.read_screen","contacts.search","communication.prepare_sms","communication.share_text","communication.open_dialer","maps.search_place","maps.get_directions","calendar.prepare_event","calendar.search_events","media.search_play","files.pick_document","files.search_selected_text","notifications.read_recent","notifications.search_recent","voice.start_listening","voice.speak_text","device.get_status"]) {
   assert.ok(runtime.includes('id: "' + id + '"'), "Capability catalogue must retain " + id);
 }
