@@ -100,7 +100,7 @@ function createAuroraCapabilityRuntime(options = {}) {
     validate: (input) => {
       const valid = requiredString(input?.number, "Phone number");
       if (valid !== true) return valid;
-      if (!/^[+0-9()\\s.-]{5,25}$/.test(input.number.trim())) return "Enter a valid phone number.";
+      if (!/^[+0-9(). -]{5,25}$/.test(input.number.trim())) return "Enter a valid phone number.";
       if (input.body !== undefined && (typeof input.body !== "string" || input.body.length > 2000)) return "Message drafts must be 2000 characters or fewer.";
       return true;
     },
