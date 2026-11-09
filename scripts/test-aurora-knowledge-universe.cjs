@@ -16,7 +16,7 @@ const assert = require("node:assert/strict");
   assert.equal(duplicate.record.id, first.record.id);
   const doc = universe.add({ type: "document", title: "Architecture decision", content: "Keep one shared brain for every AURORA surface.", userApproved: true, projectId: "aurora", uri: "https://example.com/architecture" });
   assert.throws(() => universe.add({ type: "website", title: "Bad URL", content: "x", userApproved: true, uri: "javascript:alert(1)" }), /HTTP/i);
-  assert.equal(universe.search("shared intelligence").length, 1);
+  assert.equal(universe.search("memory connects").length, 1);
   assert.equal(universe.search("architecture", { projectId: "aurora" }).length, 2);
   assert.equal(universe.search("architecture", { types: ["document"] }).length, 1);
   assert.equal(universe.link({ from: first.record.id, to: doc.record.id, relation: "supports" }).duplicate, false);
