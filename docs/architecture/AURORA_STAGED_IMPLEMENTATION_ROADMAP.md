@@ -437,6 +437,12 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - Notification Access is required and the shared Action Engine marks the control high-risk and approval-gated.
 - The result reports the active media app and available session context. Android/OEM media-notification behavior still requires physical-device validation.
 
+**Implementation wave 14 — Save As document export (code committed; regression added):**
+- Added TXT, Markdown, CSV and JSON export through Android's system Create Document picker.
+- Export payloads are bounded to 1,000,000 characters and written as UTF-8 only after the user selects a destination.
+- The shared Action Engine requires explicit high-risk approval; cancellation is reported distinctly and no directory scanning or arbitrary file overwrite is introduced.
+- Added native bridge and regression coverage. Destination-provider behavior remains subject to Android/OEM device validation.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
