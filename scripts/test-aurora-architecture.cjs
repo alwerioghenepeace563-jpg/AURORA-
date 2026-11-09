@@ -118,6 +118,14 @@ const path = require("node:path");
   const sharedRuntimeSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-runtime.js"), "utf8");
   assert.ok(sharedRuntimeSource.includes('import { auroraLayerRegistry } from "./aurora-layer-registry";'), "The shared runtime must own the staged layer registry.");
   assert.ok(sharedRuntimeSource.includes("  layers: auroraLayerRegistry,"), "All surfaces must be able to inspect the same layer registry.");
+  assert.ok(sharedRuntimeSource.includes('import { createAuroraProtectedMemory } from "./aurora-protected-memory";'), "Protected memory must be available through the shared runtime.");
+  assert.ok(sharedRuntimeSource.includes("const protectedMemory = createAuroraProtectedMemory({ secureStore: secureStorage });"), "Protected memory must use the shared Keystore-backed secure store.");
+  assert.ok(sharedRuntimeSource.includes("  protectedMemory,"), "Main, Pulse, and voice must share protected memory.");
+  assert.ok(sharedRuntimeSource.includes("protected_memory: () =>"), "Protected memory must appear in the privacy inventory.");
+  const protectedMemorySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-protected-memory.js"), "utf8");
+  assert.ok(protectedMemorySource.includes("android-keystore-aes-gcm"), "Protected memory must fail closed without Android Keystore encryption.");
+  assert.ok(protectedMemorySource.includes("MAX_RECORDS = 100"), "Protected memory must enforce a bounded record count.");
+  assert.ok(protectedMemorySource.includes("MAX_CONTENT = 4000"), "Protected memory must enforce a content-size limit.");
   const layerRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-layer-registry.js"), "utf8");
   const stagedRoadmap = fs.readFileSync(path.join(__dirname, "../docs/architecture/AURORA_STAGED_IMPLEMENTATION_ROADMAP.md"), "utf8");
   for (const layerId of ["android_device", "voice_multimodal", "screen_accessibility", "communication_people", "location_travel", "calendar_productivity", "files_knowledge", "media_creative", "intelligence_personalisation", "extensions_interoperability", "safety_privacy_security", "reliability_operations"]) {
