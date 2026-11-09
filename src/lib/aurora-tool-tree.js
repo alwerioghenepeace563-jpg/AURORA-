@@ -180,13 +180,13 @@ const capabilityTools = [
   {
     id: "voicetext_job_status",
     description: "Checks a saved AURORA VoiceText transcription job and retrieves its progress or completed transcript using its job ID.",
-    matches: text => /\\b(?:voicetext|voice text|transcription job|transcript job)\\b/i.test(text) && /\\b(?:status|progress|resume|retrieve|result|transcript|job id)\\b/i.test(text),
+    matches: text => /\b(?:voicetext|voice text|transcription job|transcript job)\b/i.test(text) && /\b(?:status|progress|resume|retrieve|result|transcript|job id)\b/i.test(text),
     run: async text => {
-      const id = text.match(/\\b[0-9a-f]{8}-[0-9a-f-]{27,}\\b/i)?.[0];
+      const id = text.match(/\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/i)?.[0];
       if (!id) return { context: "Tool: voicetext_job_status. Ask the user for the transcription job ID before checking its saved status." };
       const job = await voiceTextJobs.get(id);
       return { context: "Tool: voicetext_job_status. Saved VoiceText job: " + JSON.stringify(job) +
-        "\\nExplain the exact status and progress. If incomplete, tell the user it can resume from section " + (Number(job.completedChunks || 0) + 1) + ". Do not claim it is processing in the background unless status says processing." };
+        "\nExplain the exact status and progress. If incomplete, tell the user it can resume from section " + (Number(job.completedChunks || 0) + 1) + ". Do not claim it is processing in the background unless status says processing." };
     }
   },
   {
