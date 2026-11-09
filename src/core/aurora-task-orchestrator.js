@@ -22,7 +22,6 @@ function createAuroraTaskOrchestrator(actionEngine, options = {}) {
   const controllers = new Map();
   const retryAttempts = new Map();
   const retryResults = new Map();
-  const retryResults = new Map();
   const capabilityMap = () => new Map(actionEngine.listCapabilities().map((item) => [item.id, item]));
 
   function emit(type, payload) {
