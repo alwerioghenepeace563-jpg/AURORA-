@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 3 — Secure state and context  
+**Current checkpoint:** Stage 4 — Reliability and recovery  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -90,11 +90,15 @@ Implemented code-level hardening: Android-only protected-memory vault; shared ru
 
 These checks remain **deferred and unverified** by the user’s direction to finish the app first. They are mandatory before release sign-off, but do not prevent Stage 4 from beginning after the Stage 3 CI pass. Preserve local-first behavior; do not perform automatic migration or bulk upload.
 
-### Stage 4 — Reliability and recovery (next)
+### Stage 4 — Reliability and recovery (in progress)
 
-<badge>Ready to begin — Stage 3 CI passed</badge>
+<badge>Foundational wave implemented — CI pending</badge>
 
-Stage 4 is now eligible to start. Unify lifecycle events, execution receipts, bounded journals, cancellation, safe retries, diagnostics, and fresh approval on recovery. Apply the same rules to every capability family. Keep the deferred Stage 3 physical-device checks on the final release checklist; do not mark them passed or let them block Stage 4.
+The first coordinated wave adds a shared reliability coordinator for app visibility, foreground/background, online/offline, pagehide and pageshow events; bounded metadata-only failure diagnostics; cooperative cancellation for multi-step tasks; and a review-only recovery queue. Cancellation stops active Action Engine work and prevents later steps. Existing authorization, consent, approval, timeout and idempotency gates remain authoritative.
+
+Recovery is **not automatic**. A recovered task is review-only and requires fresh explicit confirmation; every action passes normal permission, consent and approval checks. No unattended retries are introduced, particularly for consequential or potentially non-idempotent actions. Safe retry policy will be added only where adapter idempotency is explicitly proven.
+
+All 12 active families receive Stage 4 audit evidence. Physical Android lifecycle/interruption validation remains later device work; Stage 3 Keystore/backup/restore/migration checks remain deferred to final release hardening.
 
 ### Stage 5 — Capability adapter expansion
 
