@@ -18,6 +18,10 @@ import java.net.URL;
 import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.ActivityResult;
+import android.database.Cursor;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -265,6 +269,71 @@ public class AuroraAssistantPlugin extends Plugin {
             getContext().startActivity(intent);
             JSObject result = new JSObject(); result.put("opened", true); result.put("query", query.trim()); call.resolve(result);
         } catch (Exception e) { call.reject("No media application could handle this search.", e); }
+    }
+
+
+    @PluginMethod
+    public void pickDocument(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivityForResult(call, intent, "handleDocumentResult");
+    }
+
+    @com.getcapacitor.annotation.ActivityCallback
+    private void handleDocumentResult(PluginCall call, ActivityResult activityResult) {
+        if (call == null) return;
+        if (activityResult == null || activityResult.getResultCode() != android.app.Activity.RESULT_OK
+            || activityResult.getData() == null || activityResult.getData().getData() == null) {
+            JSObject cancelled = new JSObject();
+            cancelled.put("cancelled", true);
+            call.resolve(cancelled);
+            return;
+        }
+        Uri uri = activityResult.getData().getData();
+        try {
+            String mimeType = getContext().getContentResolver().getType(uri);
+            String displayName = "Selected file";
+            try (Cursor cursor = getContext().getContentResolver().query(uri,
+                new String[] { android.provider.OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (nameIndex >= 0 && cursor.getString(nameIndex) != null) displayName = cursor.getString(nameIndex);
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("cancelled", false);
+            result.put("name", displayName);
+            result.put("mimeType", mimeType == null ? "application/octet-stream" : mimeType);
+            result.put("contentUri", uri.toString());
+            boolean textLike = mimeType != null && (mimeType.startsWith("text/")
+                || mimeType.equals("application/json") || mimeType.equals("application/xml"));
+            if (textLike) {
+                try (InputStream input = getContext().getContentResolver().openInputStream(uri);
+                     ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                    if (input != null) {
+                        byte[] buffer = new byte[8192];
+                        int count;
+                        while ((count = input.read(buffer)) != -1) {
+                            if (output.size() + count > 1024 * 1024) {
+                                call.reject("Text file exceeds AURORA's 1 MB preview limit.");
+                                return;
+                            }
+                            output.write(buffer, 0, count);
+                        }
+                        result.put("text", new String(output.toByteArray(), StandardCharsets.UTF_8));
+                        result.put("textIncluded", true);
+                    }
+                }
+            } else {
+                result.put("textIncluded", false);
+                result.put("note", "Selected file type is not available as a plain-text preview.");
+            }
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("AURORA could not read the selected file.", e);
+        }
     }
 
     @PluginMethod
