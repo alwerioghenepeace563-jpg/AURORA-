@@ -537,6 +537,29 @@ async function routeMessage(text, options = {}) {
       : "I couldn't find a saved memory matching that request. I won't make one up." };
   }
 
+  const knowledgeSaveMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:add|save) (?:this )?(note|document|project|task|conversation|website|recording|image|event) to (?:my )?(?:knowledge universe|knowledge base):\s*(.{2,})$/i);
+  if (knowledgeSaveMatch?.[2]) {
+    const raw = knowledgeSaveMatch[2].trim();
+    const split = raw.split(/\s+[—–]\s+|\s+::\s+/);
+    const title = split.length > 1 ? split.shift().trim() : raw.slice(0, 120);
+    const content = split.length > 1 ? split.join(" — ").trim() : raw;
+    try {
+      const saved = auroraKnowledgeUniverse.add({ type: knowledgeSaveMatch[1].toLowerCase(), title, content, userApproved: true, sourceLabel: "User-saved from " + requestSurface, sourceMethod: "explicit_chat_command" });
+      return { tool: "aurora_knowledge_saved", record: { id: saved.record.id, title: saved.record.title, type: saved.record.type, duplicate: saved.duplicate }, context: saved.duplicate ? "That exact source is already in your local knowledge universe; I did not create a duplicate." : "Saved locally to your knowledge universe with source provenance. Nothing was uploaded." };
+    } catch (error) { return { error: error?.message || "I couldn't save that knowledge source." }; }
+  }
+
+  const knowledgeSearchMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?(?:find everything related to|search my knowledge for|find in my knowledge universe|what do i know about)\s+(.+?)\??$/i);
+  if (knowledgeSearchMatch?.[1]) {
+    const items = auroraKnowledgeUniverse.search(knowledgeSearchMatch[1].trim(), { limit: 12 });
+    return { tool: "aurora_knowledge_search", results: items.map(item => ({ id: item.id, title: item.title, type: item.type, source: item.source, projectId: item.projectId, summary: item.summary, score: item.score })), context: items.length ? "I found " + items.length + " approved source(s) in your local knowledge universe. Here are the matching records and their provenance." : "I couldn't find an approved source matching that request. I won't invent one." };
+  }
+
+  if (/^(?:hey aurora[, ]*)?(?:please\s+)?(?:show|open) (?:my )?(?:knowledge )?timeline\??$/i.test(message)) {
+    const items = auroraKnowledgeUniverse.timeline({ limit: 20 });
+    return { tool: "aurora_knowledge_timeline", items: items.map(item => ({ id: item.id, title: item.title, type: item.type, updatedAt: item.updatedAt, projectId: item.projectId })), context: items.length ? "Your recent approved knowledge sources, newest first." : "Your knowledge timeline is empty." };
+  }
+
   const forgetMatch = message.match(/^(?:hey aurora[, ]*)?(?:please\s+)?forget (?:the memory|what i said|that) (?:about\s+)?(.+?)\??$/i);
   if (forgetMatch?.[1]) {
     const search = await actionEngine.execute({ capabilityId: "memory.search", input: { query: forgetMatch[1].trim() } });
