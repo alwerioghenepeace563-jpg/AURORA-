@@ -176,3 +176,13 @@ A layer is dropped from the **active upgrade queue** only after its final accept
 - Documentation and diagnostics report the real state.
 
 Then mark it final, preserve it in the completed-layer register, and continue regression checks whenever shared foundations change. “Dropped” never means deleted or unsupported.
+
+
+**Wave 5 — Pulse lifecycle and accessibility integration (code committed; device validation pending):**
+- Closing Pulse, pressing Escape, hiding the document, or backgrounding the app stops Pulse speech recognition and removes native listeners.
+- Pulse dialog now receives initial focus, traps keyboard focus while open, and restores prior focus on close.
+- Added Escape-to-close and keyboard Tab handling.
+- Pulse conversation announces newly added content to assistive technology; the status orb has an accessible state label.
+- Added reduced-motion styling for users who request less motion.
+- Added Pulse lifecycle/accessibility regression source checks to the core test chain.
+- Physical TalkBack, keyboard, reduced-motion, and Android background/resume verification remain pending.
