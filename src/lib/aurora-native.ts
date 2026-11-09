@@ -50,6 +50,8 @@ type AuroraNativePlugin = {
   startMapDirections(options: { destination: string; mode: string }): Promise<{ opened: boolean; destination: string; mode: string }>;
   prepareCalendarEvent(options: { title: string; beginTime: number; endTime: number; description?: string; location?: string }): Promise<{ opened: boolean; requiresUserSave: boolean }>;
   searchMedia(options: { query: string }): Promise<{ opened: boolean; query: string }>;
+  readClipboardText(): Promise<{ available: boolean; text: string; truncated?: boolean; readOnly: true; notStored?: true; note?: string }>;
+  writeClipboardText(options: { text: string }): Promise<{ written: boolean; characters: number; systemClipboard: true }>;
   pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
   shareSelectedFile(options: { contentUri: string; mimeType: string }): Promise<{ opened: boolean; requiresUserDestination: boolean; fileSentByAurora: false }>;
@@ -197,6 +199,8 @@ export const auroraNative = {
   searchCalendarEvents: async (query = "") => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar search is available only in the Android app."); return AuroraNative.searchCalendarEvents({ query }); },
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
   searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
+  readClipboardText: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.readClipboardText(); },
+  writeClipboardText: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.writeClipboardText(options); },
   pickMedia: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media picker is available only in Android."); return AuroraNative.pickMedia(options); },
   capturePhoto: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Camera capture is available only in Android."); return AuroraNative.capturePhoto(); },
   shareSelectedFile: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
