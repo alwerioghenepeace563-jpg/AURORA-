@@ -213,7 +213,7 @@ The machine-readable layer registry records explicit Stage 6 evidence for all 12
 
 These checks remain unverified and mandatory before release sign-off. APK compilation, signing, keystore changes, and release work remain deferred by the project decision.
 
-### Stage 7 — Native assistant activation and contextual intelligence (active)
+### Stage 7 — Native assistant activation and contextual intelligence (code checkpoint complete; CI confirmation pending)
 
 **Whole-system objective:** Move AURORA from a capable shared chat/action runtime toward a genuinely usable Android assistant while improving every affected layer together. Stage 7 coordinates:
 - Voice and Android device: explicit opt-in wake-word/foreground listening architecture, visible listening state, clear stop controls, microphone permission handling, and battery-conscious lifecycle.
@@ -240,4 +240,36 @@ These checks remain unverified and mandatory before release sign-off. APK compil
 - Added a cross-layer regression for gateway surface propagation and selected-document context boundaries.
 - Still pending: verify document picker behavior and surface-specific assistant follow-through on physical Android devices; CI/build must pass before calling this wave validated.
 
+**Implementation wave 3 — Explicit wake-listener lifecycle and whole-system checkpoint (code committed; CI confirmation pending):**
+- Hardened the Android wake listener as an explicit user-started microphone foreground service. It now requires microphone permission and, on Android 13+, notification permission before it starts.
+- Added a persistent notification action that immediately stops listening, clears the active state, destroys the recognizer, and stops the foreground service.
+- Wake phrase detection now clears the listening state and stops the microphone service before opening AURORA, avoiding a stale "listening" indicator after activation.
+- Changed the service to non-sticky startup so Android process death cannot silently restart microphone listening. It is not automatically re-enabled on boot.
+- Native status now checks both the running Android service and its active-state flag rather than trusting a stale preference alone.
+- Added wake-listener lifecycle tests and a machine-readable Stage 7 audit/checkpoint covering all 12 capability families.
+
+**Stage 7 COMPLETE — code-and-CI checkpoint (2026-11-09; physical-device validation deferred):**
+- All 12 active capability families have Stage 7 evidence in `src/core/aurora-layer-registry.js`.
+- Screen and selected-document context remain explicit, bounded, one-shot, and scoped to the requesting surface.
+- Main Chat, Pulse, and voice continue to share the runtime, approvals, memory, task planning, location, and safe device handoffs.
+- Hey AURORA listening is explicitly enabled by the user, visibly foreground-notified, stoppable from the notification, and does not auto-restart after process death.
+- The full CI run must pass the dependency audit, all core/architecture tests, and web production build before the checkpoint is accepted.
+- Device-specific checks remain unverified and are recorded in `STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION`. This is not APK certification or release readiness.
+
 **Stage 7 acceptance rule:** implement coordinated capability changes across all 12 families, add focused and cross-layer regression tests, pass the full core/architecture CI and web build, and label native/device-dependent behavior as unverified until physical Android checks are actually performed. Do not build APKs, change signing material, or deploy during this stage unless the user explicitly asks.
+
+### Stage 8 — Proactive intelligence and coordinated workflows (next)
+
+**Whole-system objective:** Make AURORA consistently useful across Main Chat, Pulse, voice, and Android by turning the existing context, memory, task planner, specialist coordinator, workflow registry, reminders, and capability catalogue into coherent user-controlled end-to-end workflows.
+
+Stage 8 will advance all 12 capability families together:
+- Voice and surfaces: carry intent and task state across Main Chat, Pulse, and voice without losing the user's chosen context.
+- Device and communication: sequence safe app handoffs while preserving explicit confirmation for calls, messages, sharing, and other consequential actions.
+- Screen, files, and media: let users attach selected context to a task, show what AURORA used, and keep content bounded and local unless the user explicitly approves sharing.
+- Location and productivity: combine fresh location/map context, calendar, reminders, and task planning into reviewable plans.
+- Intelligence and memory: improve retrieval and personalization while keeping local-first memory and per-record cloud-sync consent.
+- Extensions and reliability: make workflows observable, cancellable, resumable only after fresh user confirmation, and diagnosable without exposing private content.
+- Safety and privacy: no unattended consequential actions, hidden microphone/screen/location collection, or silent uploads.
+
+**Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
+
