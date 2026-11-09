@@ -66,12 +66,24 @@ const STAGE_THREE_LAYER_AUDIT = Object.freeze({
   reliability_operations: Object.freeze(["six local stores fail closed on corruption", "extension and protected vault corruption tests", "sync revocation disables further uploads"])
 });
 
+const STAGE_THREE_DEFERRED_RELEASE_VALIDATION = Object.freeze({
+  status: "deferred",
+  reason: "The user has chosen to complete the full app before physical-device release validation. These checks do not block progression to Stage 4, but must pass before release sign-off.",
+  checks: Object.freeze([
+    "Verify Android Keystore AES-GCM key creation, availability, invalidation, and protected-memory read/write on supported physical Android devices.",
+    "Verify protected-memory files and key material are excluded from Android backup as intended.",
+    "Verify restore and app-upgrade behavior without silently resetting, exposing, or migrating protected records.",
+    "Verify device migration behavior and document the expected protected-memory portability boundary.",
+    "Run end-to-end privacy and recovery UX checks on supported Android versions and lower-memory devices."
+  ])
+});
+
 const STAGE_THREE_CHECKPOINT = Object.freeze({
   id: 3,
   name: "Secure state and context",
-  status: "in_progress",
-  scope: "Harden local persistence, encrypted protected memory, key availability reporting, data inventory accuracy, consent boundaries, and optional per-record sync. Shared fail-closed JSON/schema validation now protects memory, consent, knowledge graph, task journal, workflow, and routine stores from silent reset. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
-  validationBoundary: "Code-level persistence and sync audits plus automated tests are recorded for all 12 families. Real Android Keystore behavior, backup exclusion, device migration, app restore/upgrade behavior, and end-to-end privacy UX still require physical-device validation; Stage 3 must remain in progress until those checks are recorded.",
+  status: "complete",
+  scope: "Stage 3 code-level secure-state and context hardening is implemented and the full CI pipeline passed on commit 68b9b6df623503209276751fecd78872f82be3b0 (run 42583043179). Shared fail-closed JSON/schema validation protects memory, consent, knowledge graph, task journal, workflow, routine, and extension stores. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
+  validationBoundary: "All 12 family code audits and automated core/architecture tests passed, including dependency installation and web build. Physical Android Keystore behavior, backup exclusion, restore/upgrade, device migration, and end-to-end privacy UX are explicitly deferred release-validation gates, not blockers for Stage 4. They remain unverified and must pass before release sign-off.",
   deliverables: Object.freeze([
     "Add an Android-only protected-memory vault backed by the existing Keystore AES-GCM secure-store facade; refuse operation when unavailable and never fall back to browser storage.",
     "Bound protected records, validate identifiers and content, isolate record keys, and fail safely on corrupt indexes or records.",
@@ -83,8 +95,10 @@ const STAGE_THREE_CHECKPOINT = Object.freeze({
     "Re-check source-scoped cloud-sync consent before every selected-record upload and disable sync immediately when consent is revoked.",
     "Record Stage 3 code-level evidence for all 12 capability families while keeping Android device certification explicitly pending.",
     "Add regression tests proving corrupt JSON and invalid schemas do not overwrite existing local records.",
-    "Keep all 12 capability families active while remaining Stage 3 storage, consent, and context boundaries are audited."
-  ])
+    "Keep all 12 capability families active while remaining Stage 3 storage, consent, and context boundaries are audited.",
+    "Pass the full CI pipeline: dependency installation, AURORA core and architecture tests, and web build (run 42583043179)."
+  ]),
+  deferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION
 });
 
 const STAGE_ONE_CHECKPOINT = Object.freeze({
@@ -118,6 +132,7 @@ function createAuroraLayerRegistry() {
     stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
+    stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
       const item = families.find((family) => family.id === id);
@@ -128,7 +143,7 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 3,
+      nextStage: 4,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
       stageThreeStatus: STAGE_THREE_CHECKPOINT.status,
@@ -139,4 +154,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, createAuroraLayerRegistry, auroraLayerRegistry };
