@@ -81,9 +81,9 @@ const STAGE_FOUR_LAYER_AUDIT = Object.freeze({
  reliability_operations:Object.freeze(["unified lifecycle/connectivity","bounded failure diagnostics","metadata-only execution receipts","review-only recovery"])
 });
 const STAGE_FOUR_CHECKPOINT = Object.freeze({
- id:4,name:"Reliability and recovery",status:"in_progress",
- scope:"Coordinated reliability foundation: unified app lifecycle/connectivity events, bounded metadata-only diagnostics, cooperative task cancellation, review-only recovery, and privacy-safe persisted execution receipt metadata. Task inputs and action payloads are excluded from recovery records. No unattended retries or automatic replay.",
- validationBoundary:"Code-level implementation and automated tests across all 12 active families; physical Android lifecycle and interruption validation remains later release/device work.",
+ id:4,name:"Reliability and recovery",status:"complete",
+ scope:"Stage 4 reliability and recovery implementation and automated code-level verification are complete across all 12 active capability families. The latest feature-branch CI run 42591318770 passed dependency installation, blocking dependency audit, core/architecture tests, and web production build. APK compilation and physical-device validation remain deferred to release preparation; they are not Stage 4 blockers.",
+ validationBoundary:"Verified code-level implementation and automated CI on commit 5c646116d4341b4ff62c30a34183bc02dcbd717c (run 42591318770). Physical Android lifecycle/interruption checks and APK compilation remain deferred, unverified release-preparation gates.",
  deliverables:Object.freeze(["Unify visibility, foreground/background, online/offline, pagehide and pageshow events.","Capture bounded metadata-only failure diagnostics; never copy sensitive payloads.","Propagate task cancellation to active Action Engine work and stop later steps.","Persist bounded execution receipt metadata without task inputs, action outputs, or sensitive error details.", "Keep failed/interrupted tasks review-only; never replay automatically.","Require fresh confirmation and normal policy gates before resumed work.","Audit all 12 active capability families."])
 });
 
@@ -165,7 +165,7 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 4,
+      nextStage: 5,
       stageFourStatus: STAGE_FOUR_CHECKPOINT.status,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
