@@ -71,6 +71,24 @@ public class AuroraNotificationListenerService extends NotificationListenerServi
         } catch (Exception ignored) { }
     }
 
+
+    public static boolean dismissNotification(String key) {
+        if (key == null || key.trim().isEmpty() || key.length() > 512) return false;
+        AuroraNotificationListenerService service = activeInstance;
+        if (service == null) return false;
+        try {
+            StatusBarNotification[] active = service.getActiveNotifications();
+            if (active == null) return false;
+            for (StatusBarNotification item : active) {
+                if (item != null && key.equals(item.getKey())) {
+                    service.cancelNotification(key);
+                    return true;
+                }
+            }
+        } catch (Exception ignored) { }
+        return false;
+    }
+
     private static String limit(String value, int max) {
         if (value == null) return "";
         String clean = value.replaceAll("[\\r\\n\\t]+", " ").trim();
