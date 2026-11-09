@@ -11,7 +11,7 @@ for (const id of families) assert.match(registry, new RegExp("\\b" + id + "\\s*:
 assert.match(registry, /STAGE_FIVE_CHECKPOINT/);
 assert.ok(runtime.includes('id: "location.get_current"'));
 assert.ok(runtime.includes('permissionRequirements: ["android.location"]'));
-assert.ok(runtime.includes('consentRequirements: ["location.current.read"]'));
+assert.ok(runtime.includes('consentRequirements: ["location.current:android"]'));
 assert.match(plugin, /requestLocationPermission/);
 assert.match(plugin, /getCurrentLocation/);
 assert.match(plugin, /ageMs/);
