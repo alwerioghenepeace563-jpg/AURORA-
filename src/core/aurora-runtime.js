@@ -32,6 +32,7 @@ import { createAuroraEnvironmentMonitor } from "./aurora-environment-monitor";
 import { createAuroraSurfaceGateway } from "./aurora-surface-gateway";
 import { createAuroraInteractionInterruptionCoordinator } from "./aurora-interaction-interruption";
 import { connectAuroraApprovalEvents } from "./aurora-approval-event-bridge";
+import { createAuroraContextSessions } from "./aurora-context-sessions";
 
 const approvalBroker = createAuroraApprovalBroker();
 connectAuroraApprovalEvents(approvalBroker, auroraEvents);
@@ -110,6 +111,7 @@ const dataInventory = createAuroraDataInventory({
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
 const reliability = createAuroraReliabilityCoordinator({ events: auroraEvents, taskJournal: auroraTaskJournal });
 const environmentMonitor = createAuroraEnvironmentMonitor({ events: auroraEvents });
+const contextSessions = createAuroraContextSessions({ events: auroraEvents });
 const interactionInterruptions = createAuroraInteractionInterruptionCoordinator({ events: auroraEvents, initiallyBackground: reliability.getStatus().visibility === "background" });
 const surfaceGateway = createAuroraSurfaceGateway({ routeMessage, events: auroraEvents });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
@@ -532,6 +534,7 @@ const auroraRuntime = Object.freeze({
   taskJournal: auroraTaskJournal,
   reliability,
   environment: environmentMonitor,
+  context: contextSessions,
   diagnostics: () => reliability.getDiagnostics(),
   cancelTask: (taskId) => taskOrchestrator.cancelPlan(taskId),
   memorySync,
