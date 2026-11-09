@@ -47,3 +47,20 @@ assert.match(capabilityRuntime, /sentByAurora: false/);
 assert.match(capabilityRuntime, /Email subject must be text no longer than 200 characters/);
 assert.match(capabilityRuntime, /Email draft must be text no longer than 8000 characters/);
 console.log("AURORA Stage 10 email draft tests passed: recipient validation, approval-gated composer handoff and explicit user-controlled sending.");
+
+
+// Expanded Android utility coverage.
+for (const method of ["prepareContact", "prepareAlarm", "prepareTimer"]) {
+  assert.ok(nativeJava.includes("public void " + method + "(PluginCall call)"), method + " native implementation is required.");
+  assert.ok(nativeBridge.includes(method + "(options:"), method + " bridge declaration is required.");
+}
+for (const target of ["nfc", "sound", "battery", "app_details"]) {
+  assert.ok(nativeJava.includes('case "' + target + '"'), "Native settings must support " + target);
+  assert.ok(capabilityRuntime.includes('id: "device.open_' + target + '_settings"'), "Action Engine must expose " + target + " settings");
+}
+assert.ok(nativeJava.includes("AlarmClock.ACTION_SET_ALARM"));
+assert.ok(nativeJava.includes("AlarmClock.ACTION_SET_TIMER"));
+assert.ok(nativeJava.includes("ContactsContract.Intents.Insert.NAME"));
+assert.ok(nativeJava.includes("requiresUserSave"));
+assert.ok(nativeJava.includes("requiresUserConfirmation"));
+console.log("AURORA Stage 10 expanded utility tests passed: contact, alarm, timer and extra Android settings handoffs.");
