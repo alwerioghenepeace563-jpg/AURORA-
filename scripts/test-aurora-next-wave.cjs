@@ -37,5 +37,17 @@ const assert = require("node:assert/strict");
   assert.equal(intelligence.inspect().length, 1);
   const availability = await intelligence.availability("missing.capability");
   assert.equal(availability.available, false);
+
+  // The production capability runtime must never register duplicate IDs.
+  // Keep this source-level check independent of the Android bridge so it runs in Node CI.
+  const fs = require("node:fs");
+  const capabilitySource = fs.readFileSync(require("node:path").join(__dirname, "../src/core/aurora-capability-runtime.js"), "utf8");
+  const capabilityIds = [...capabilitySource.matchAll(/engine\\.registerCapability\\(\\{\\s*id:\\s*"([^"]+)"/g)].map(match => match[1]);
+  assert.ok(capabilityIds.length >= 25, "The built-in capability catalogue should remain comprehensive.");
+  assert.equal(new Set(capabilityIds).size, capabilityIds.length, "Every built-in capability ID must be unique.");
+  for (const requiredId of ["calendar.prepare_event", "files.pick_document", "files.search_selected_text", "media.search_play", "notifications.read_recent", "maps.get_directions", "voice.start_listening"]) {
+    assert.ok(capabilityIds.includes(requiredId), "Missing built-in capability: " + requiredId);
+  }
+
   console.log("AURORA next-wave tests passed: task recovery journal, explicit per-record memory sync, read-only capability discovery.");
 })().catch(error => { console.error(error); process.exitCode = 1; });
