@@ -45,6 +45,15 @@ async function chatHandler(req, res) {
       }
       parts.push({ inlineData: { mimeType, data } });
     }
+    if (m.role === "user" && m.media && typeof m.media === "object") {
+      const mimeType = typeof m.media.mimeType === "string" ? m.media.mimeType : "";
+      const data = typeof m.media.data === "string" ? m.media.data : "";
+      const supportedMedia = ["audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "audio/ogg", "video/mp4"];
+      if (!supportedMedia.includes(mimeType) || !data || data.length > 3600000 || !/^[A-Za-z0-9+/=]+$/.test(data)) {
+        return res.status(400).json({ error: "Audio/video must be a supported MP3, MP4, WAV, WebM or OGG file under the 2.5 MB upload limit." });
+      }
+      parts.push({ inlineData: { mimeType, data } });
+    }
     contents.push({ role: m.role === "assistant" ? "model" : "user", parts });
   }
 
@@ -127,9 +136,10 @@ async function chatHandler(req, res) {
   const groqKey = process.env.GROQ_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-  const hasAttachments = body.messages.some((m) => m && (m.document || m.image));
+  const hasAttachments = body.messages.some((m) => m && (m.document || m.image || m.media));
   const hasImages = body.messages.some((m) => m && m.image);
   const hasPdfs = body.messages.some((m) => m && m.document);
+  const hasMedia = body.messages.some((m) => m && m.media);
   const configuredProviders = [
     groqKey ? "groq" : null,
     openRouterKey ? "openrouter" : null,
@@ -143,9 +153,11 @@ async function chatHandler(req, res) {
       : storedProvider;
     const orderedProviders = providerOrder(requestedProvider, configuredProviders);
     // Images can use any configured vision-capable provider. PDFs use OpenRouter file input or Gemini native PDF input.
-    const availableProviders = hasPdfs
-      ? orderedProviders.filter((provider) => provider === "openrouter" || provider === "gemini")
-      : orderedProviders;
+    const availableProviders = hasMedia
+      ? orderedProviders.filter((provider) => provider === "gemini")
+      : hasPdfs
+        ? orderedProviders.filter((provider) => provider === "openrouter" || provider === "gemini")
+        : orderedProviders;
     const failures = [];
 
     for (const provider of availableProviders) {
