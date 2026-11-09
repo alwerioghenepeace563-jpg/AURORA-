@@ -93,12 +93,32 @@ function createAuroraKnowledgeUniverse(options = {}) {
     const edge = { id: clean(input.id || createId(), 100), from, to, relation, createdAt: now() };
     data.links.push(edge); write(data); return { ...edge, duplicate: false };
   }
-  function related(id) {
+  function related(id, options = {}) {
     const data = read(), record = data.records.find(item => item.id === String(id));
     if (!record) return null;
-    const links = data.links.filter(edge => edge.from === record.id || edge.to === record.id);
-    const ids = new Set(links.flatMap(edge => [edge.from, edge.to]));
-    return { record: { ...record }, links, related: data.records.filter(item => ids.has(item.id) && item.id !== record.id) };
+    const maxDepth = Math.max(1, Math.min(5, Number(options.maxDepth) || 3));
+    const limit = Math.max(1, Math.min(100, Number(options.limit) || 50));
+    const visited = new Set([record.id]), relatedIds = new Set(), matchedLinks = [];
+    let frontier = new Set([record.id]);
+    for (let depth = 0; depth < maxDepth && frontier.size && relatedIds.size < limit; depth++) {
+      const next = new Set();
+      for (const edge of data.links) {
+        if (!frontier.has(edge.from) && !frontier.has(edge.to)) continue;
+        matchedLinks.push(edge);
+        const neighbour = frontier.has(edge.from) ? edge.to : edge.from;
+        if (!visited.has(neighbour)) {
+          visited.add(neighbour); relatedIds.add(neighbour); next.add(neighbour);
+          if (relatedIds.size >= limit) break;
+        }
+      }
+      frontier = next;
+    }
+    return {
+      record: { ...record },
+      links: matchedLinks,
+      related: data.records.filter(item => relatedIds.has(item.id)).slice(0, limit),
+      depth: maxDepth
+    };
   }
   function timeline(filters = {}) {
     return read().records.filter(item =>
@@ -116,12 +136,16 @@ function createAuroraKnowledgeUniverse(options = {}) {
     const title = patch.title == null ? item.title : clean(patch.title, 160);
     const content = patch.content == null ? item.content : clean(patch.content, MAX_CONTENT);
     if (!title || !content) throw new Error("Corrected title and content cannot be empty.");
+    const nextFingerprint = fingerprint({ type: item.type, title, content });
+    const duplicate = data.records.find(record => record.id !== item.id && record.fingerprint === nextFingerprint &&
+      normalise(record.type) === normalise(item.type) && normalise(record.title) === normalise(title) && normalise(record.content) === normalise(content));
+    if (duplicate) throw new Error("That correction would create a duplicate of another saved source.");
     item.revisions = [...(item.revisions || []), { title: item.title, content: item.content, savedAt: now() }].slice(-MAX_REVISIONS);
     item.title = title; item.content = content;
     item.summary = clean(patch.summary == null ? content : patch.summary, 500);
     if (Array.isArray(patch.tags)) item.tags = [...new Set(patch.tags.map(tag => clean(tag, 40).toLowerCase()).filter(Boolean))].slice(0, 20);
     if (patch.projectId !== undefined) item.projectId = clean(patch.projectId, 100);
-    item.fingerprint = fingerprint({ type: item.type, title, content });
+    item.fingerprint = nextFingerprint;
     item.updatedAt = now(); write(data); return { ...item };
   }
   function remove(id, options = {}) {
