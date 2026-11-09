@@ -293,6 +293,13 @@ Stage 8 will advance all 12 capability families together:
 - Inspection does not request permissions, access screen/location/files, or execute any step. Preparing still creates a fresh preview and requires confirmation.
 - Added focused regression coverage and updated Stage 8 evidence across all 12 capability families.
 
+**Implementation wave 3 — Read-only workflow inspection and preflight (code committed; CI pending):**
+- Users can say “inspect workflow [name]”, “review workflow [name]”, or “explain workflow [name]” to see ordered steps, dependencies, current capability availability, risk labels and approval requirements.
+- Inspection is read-only: it does not run steps, grant permissions, read screen contents, or expose stored step-input payloads.
+- If a capability is unavailable or the workflow name is ambiguous, AURORA reports that state and fails closed.
+- The shared runtime exposes the same inspection data for Main Chat, Pulse and voice.
+- Added a focused Stage 8 regression and 12-family architecture evidence.
+
 **Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
 
 ## Complete vision roadmap and remaining stages
