@@ -408,7 +408,13 @@ public class AuroraAssistantPlugin extends Plugin {
     @PluginMethod public void consumePulseOpenRequest(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean requested=p.getBoolean("pulse_open_requested",false);if(requested)p.edit().putBoolean("pulse_open_requested",false).apply();JSObject r=new JSObject();r.put("requested",requested);call.resolve(r); }
     @PluginMethod
     public void startAssistantService(PluginCall call) {
-        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) { call.reject("Grant microphone permission first to enable Hey AURORA."); return; }
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Grant microphone permission first to enable Hey AURORA."); return;
+        }
+        if (Build.VERSION.SDK_INT >= 33
+            && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Allow notifications first so Android can show the active microphone listener and its Stop control."); return;
+        }
         Intent intent = new Intent(getContext(), AuroraAssistantService.class);
         intent.setAction(AuroraAssistantService.ACTION_START);
         androidx.core.content.ContextCompat.startForegroundService(getContext(), intent);
@@ -962,7 +968,21 @@ public class AuroraAssistantPlugin extends Plugin {
         result.put("notificationsPermissionGranted", notificationsAllowed);
         result.put("notificationsPermissionRequired", Build.VERSION.SDK_INT >= 33 && !notificationsAllowed);
         result.put("wakeWordEnabled", true);
-        result.put("wakeWordListening", getContext().getSharedPreferences("aurora_assistant", 0).getBoolean("wake_word_listening", false));
+        boolean serviceRunning = false;
+        android.app.ActivityManager activityManager =
+            (android.app.ActivityManager) getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            for (android.app.ActivityManager.RunningServiceInfo running : activityManager.getRunningServices(Integer.MAX_VALUE)) {
+                if (running.service != null
+                    && AuroraAssistantService.class.getName().equals(running.service.getClassName())) {
+                    serviceRunning = true;
+                    break;
+                }
+            }
+        }
+        boolean listeningFlag = getContext().getSharedPreferences("aurora_assistant", 0)
+            .getBoolean("wake_word_listening", false);
+        result.put("wakeWordListening", serviceRunning && listeningFlag);
         result.put("liveRealtimeVoiceEnabled", false);
         call.resolve(result);
     }
