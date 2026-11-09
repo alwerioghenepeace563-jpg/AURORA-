@@ -50,6 +50,8 @@ type AuroraNativePlugin = {
   startMapDirections(options: { destination: string; mode: string }): Promise<{ opened: boolean; destination: string; mode: string }>;
   prepareCalendarEvent(options: { title: string; beginTime: number; endTime: number; description?: string; location?: string }): Promise<{ opened: boolean; requiresUserSave: boolean }>;
   searchMedia(options: { query: string }): Promise<{ opened: boolean; query: string }>;
+  pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
+  shareSelectedFile(options: { contentUri: string; mimeType: string }): Promise<{ opened: boolean; requiresUserDestination: boolean; fileSentByAurora: false }>;
   pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string }>;
   openNotificationAccessSettings(): Promise<{ opened: boolean }>;
   hasNotificationAccess(): Promise<{ granted: boolean }>;
@@ -194,6 +196,8 @@ export const auroraNative = {
   searchCalendarEvents: async (query = "") => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar search is available only in the Android app."); return AuroraNative.searchCalendarEvents({ query }); },
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
   searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
+  pickMedia: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media picker is available only in Android."); return AuroraNative.pickMedia(options); },
+  shareSelectedFile: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
   openNotificationAccessSettings: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification access settings are available only in Android."); return AuroraNative.openNotificationAccessSettings(); },
   hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },
