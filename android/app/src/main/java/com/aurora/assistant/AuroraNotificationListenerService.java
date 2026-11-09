@@ -16,6 +16,28 @@ import org.json.JSONObject;
 
 public class AuroraNotificationListenerService extends NotificationListenerService {
     private static final int MAX_ITEMS = 20;
+    private static volatile AuroraNotificationListenerService activeInstance;
+
+    @Override public void onListenerConnected() { super.onListenerConnected(); activeInstance = this; }
+    @Override public void onListenerDisconnected() { if (activeInstance == this) activeInstance = null; super.onListenerDisconnected(); }
+
+    public static boolean openNotification(String key) {
+        if (key == null || key.trim().isEmpty() || key.length() > 512) return false;
+        AuroraNotificationListenerService service = activeInstance;
+        if (service == null) return false;
+        try {
+            StatusBarNotification[] active = service.getActiveNotifications();
+            if (active == null) return false;
+            for (StatusBarNotification item : active) {
+                if (item == null || !key.equals(item.getKey())) continue;
+                Notification notification = item.getNotification();
+                if (notification == null || notification.contentIntent == null) return false;
+                notification.contentIntent.send();
+                return true;
+            }
+        } catch (Exception ignored) { }
+        return false;
+    }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
