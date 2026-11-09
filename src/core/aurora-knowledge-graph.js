@@ -1,3 +1,4 @@
+import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * Local-first personal knowledge graph. Only explicitly supplied records
  * are indexed; this module never scans notifications, contacts or screens.
@@ -10,8 +11,11 @@ function createAuroraKnowledgeGraph(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const id = options.createId || (() => globalThis.crypto?.randomUUID?.() || "kg-" + Date.now().toString(36) + Math.random().toString(36).slice(2));
   function read() {
-    try { const x = JSON.parse(storage?.getItem(KEY) || "{}"); return { nodes: Array.isArray(x.nodes) ? x.nodes : [], edges: Array.isArray(x.edges) ? x.edges : [] }; }
-    catch { return { nodes: [], edges: [] }; }
+    return readStoredJson(storage, KEY, { nodes: [], edges: [] }, value =>
+      isRecord(value) && Array.isArray(value.nodes) && Array.isArray(value.edges) &&
+      value.nodes.every(node => isRecord(node) && typeof node.id === "string" && typeof node.label === "string" && typeof node.type === "string") &&
+      value.edges.every(edge => isRecord(edge) && typeof edge.id === "string" && typeof edge.from === "string" && typeof edge.to === "string" && typeof edge.relation === "string"),
+      "AURORA knowledge graph");
   }
   function write(data) { if (!storage?.setItem) throw new Error("Knowledge graph storage unavailable."); storage.setItem(KEY, JSON.stringify({ nodes: data.nodes.slice(-MAX_NODES), edges: data.edges.slice(-MAX_EDGES) })); }
   function addNode(input = {}) {
