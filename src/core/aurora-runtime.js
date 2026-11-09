@@ -7,11 +7,13 @@ import { createAuroraApprovalBroker } from "./aurora-approval-broker";
 import { createAuroraCapabilityRuntime } from "./aurora-capability-runtime";
 import { runAuroraToolTree } from "../lib/aurora-tool-tree";
 import { parseCalendarIntent } from "./aurora-intent-parser";
+import { createAuroraTaskOrchestrator } from "./aurora-task-orchestrator";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
   approve: (proposal) => approvalBroker.request(proposal)
 });
+const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
 
 actionEngine.registerCapability({
   id: "assistant.route_request",
@@ -134,6 +136,9 @@ async function routeMessage(text) {
 const auroraRuntime = Object.freeze({
   actions: actionEngine,
   approvals: approvalBroker,
+  tasks: taskOrchestrator,
+  createTaskPlan: (plan) => taskOrchestrator.createPlan(plan),
+  runTaskPlan: (planOrId, options) => taskOrchestrator.runPlan(planOrId, options),
   capabilities: () => actionEngine.listCapabilities(),
   availability: (capabilityId) => actionEngine.getAvailability(capabilityId),
   execute: (request) => actionEngine.execute(request),
