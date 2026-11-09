@@ -20,6 +20,9 @@ import { createAuroraCapabilityIntelligence } from "./aurora-capability-intellig
 import { auroraConsents } from "./aurora-consent-registry";
 import { createAuroraUniversalSearch } from "./aurora-universal-search";
 import { createAuroraExtensionRegistry } from "./aurora-extension-registry";
+import { createAuroraSupabaseMemoryAdapter } from "./aurora-supabase-memory-adapter";
+import { auroraSecureStorage as nativeSecureStorage, auroraReminder } from "../lib/aurora-secure-storage";
+import { createAuroraSecureStore } from "./aurora-secure-store";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
@@ -27,6 +30,22 @@ const actionEngine = createAuroraCapabilityRuntime({
 });
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
 const memorySync = createAuroraMemorySync(auroraMemory);
+const appEnv = import.meta.env || {};
+const supabaseMemoryAdapter = createAuroraSupabaseMemoryAdapter({
+  url: appEnv.VITE_SUPABASE_URL || appEnv.VITE_SUPABASE_API || "",
+  anonKey: appEnv.VITE_SUPABASE_ANON_KEY || "",
+  getAccessToken: () => {
+    try {
+      const session = JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null");
+      return session?.access_token || null;
+    } catch { return null; }
+  }
+});
+const secureStorage = createAuroraSecureStore({
+  available: nativeSecureStorage.isAvailable(),
+  adapter: nativeSecureStorage
+});
+let pendingReminder = null;
 const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities() });
@@ -88,6 +107,62 @@ actionEngine.registerCapability({
 
 async function routeMessage(text) {
   const message = String(text || "").trim();
+
+  const reminderMatch = message.match(/^remind me to (.{2,180}) in (\\d{1,5})\\s*(minutes?|mins?|hours?|hrs?|days?)$/i);
+  if (reminderMatch) {
+    const amount = Number(reminderMatch[2]);
+    const unit = reminderMatch[3].toLowerCase();
+    const multiplier = /^m/.test(unit) ? 60000 : /^h/.test(unit) ? 3600000 : 86400000;
+    const at = Date.now() + amount * multiplier;
+    if (!Number.isSafeInteger(amount) || amount < 1 || at > Date.now() + 31536000000) return { tool: "aurora_reminder", context: "Choose a reminder between 1 minute and 365 days from now." };
+    pendingReminder = { id: "reminder-" + (globalThis.crypto?.randomUUID?.() || Date.now().toString(36)), title: reminderMatch[1].trim(), message: "AURORA reminder", at };
+    return { tool: "aurora_reminder_preview", reminder: pendingReminder, context: "Reminder preview: “" + pendingReminder.title + "” at " + new Date(at).toLocaleString() + ". Nothing is scheduled yet. Say confirm reminder " + pendingReminder.id + " to schedule it, or cancel reminder " + pendingReminder.id + "." };
+  }
+  const confirmReminder = message.match(/^confirm reminder ([a-zA-Z0-9_.-]{4,100})$/i);
+  if (confirmReminder) {
+    if (!pendingReminder || confirmReminder[1] !== pendingReminder.id) return { tool: "aurora_reminder", context: "That is not the current pending reminder. Prepare it again so you can review it." };
+    try {
+      const scheduled = await auroraReminder.schedule(pendingReminder);
+      pendingReminder = null;
+      return { tool: "aurora_reminder_scheduled", reminder: scheduled, context: "Reminder scheduled by Android. Android may deliver it a little later than the requested time because this uses a battery-friendly, inexact alarm." };
+    } catch (error) { return { tool: "aurora_reminder", context: error?.message || "Android could not schedule the reminder." }; }
+  }
+  const cancelReminder = message.match(/^cancel reminder ([a-zA-Z0-9_.-]{4,100})$/i);
+  if (cancelReminder) {
+    if (!pendingReminder || cancelReminder[1] !== pendingReminder.id) return { tool: "aurora_reminder", context: "That is not the current pending reminder." };
+    pendingReminder = null;
+    return { tool: "aurora_reminder_cancelled", context: "Pending reminder discarded. Nothing was scheduled." };
+  }
+
+  if (/^prepare memory sync\\??$/i.test(message)) {
+    if (!supabaseMemoryAdapter.isConfigured()) return { tool: "aurora_memory_sync", context: "Supabase memory sync is not configured in this build." };
+    const token = supabaseMemoryAdapter.isConfigured() ? (() => { try { return JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null")?.access_token; } catch { return null; } })() : null;
+    if (!token) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
+    return { tool: "aurora_memory_sync_preview", context: "Memory sync will use your signed-in Supabase account, protected by per-user database policies. Only individual memories you explicitly choose to sync will be uploaded; there is no bulk upload. Say “confirm enable memory sync” to turn on the per-record sync controls." };
+  }
+  if (/^confirm enable memory sync$/i.test(message)) {
+    if (!supabaseMemoryAdapter.isConfigured()) return { tool: "aurora_memory_sync", context: "Supabase memory sync is not configured in this build." };
+    try {
+      const token = JSON.parse(globalThis.localStorage?.getItem("aurora-auth-session") || "null")?.access_token;
+      if (!token) return { tool: "aurora_memory_sync", context: "Sign in to AURORA first. No memory data has been uploaded." };
+      auroraConsents.grant({ scope: "memory.cloud_sync", source: "supabase", purpose: "Allow individually selected AURORA memories to sync to this signed-in account." });
+      const status = memorySync.configure({ enabled: true, adapter: supabaseMemoryAdapter, consent: true });
+      return { tool: "aurora_memory_sync_enabled", status, context: "Memory sync is enabled. Existing memories were not uploaded. To sync one, say “sync memory” followed by its memory ID." };
+    } catch (error) { return { tool: "aurora_memory_sync", context: error?.message || "Memory sync could not be enabled." }; }
+  }
+  if (/^disable memory sync$/i.test(message)) {
+    memorySync.disable();
+    auroraConsents.revoke("memory.cloud_sync", "supabase");
+    return { tool: "aurora_memory_sync_disabled", context: "Memory sync is disabled. Local memories remain on this device." };
+  }
+  const syncMemoryMatch = message.match(/^sync memory ([a-zA-Z0-9_.-]{4,100})$/i);
+  if (syncMemoryMatch) {
+    try {
+      auroraConsents.requireGrant("memory.cloud_sync", "supabase");
+      const result = await memorySync.syncOne(syncMemoryMatch[1], { conflict: "keep_local" });
+      return { tool: "aurora_memory_sync_result", result, context: result.synced ? "That selected memory was synced to your account." : (result.reason || "The memory was not synced.") };
+    } catch (error) { return { tool: "aurora_memory_sync", context: error?.message || "The memory was not synced." }; }
+  }
 
   const universalMatch = message.match(/^(?:search everything|search all|universal search) for (.+)$/i);
   if (universalMatch) {
@@ -333,6 +408,8 @@ const auroraRuntime = Object.freeze({
   consents: auroraConsents,
   universalSearch,
   extensions: extensionRegistry,
+  secureStorage,
+  reminders: auroraReminder,
   memory: auroraMemory,
   knowledge: auroraKnowledge,
   events: auroraEvents,
