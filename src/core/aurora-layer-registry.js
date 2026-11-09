@@ -274,14 +274,55 @@ const STAGE_TEN_SCOPE = Object.freeze({
   reliability_operations: Object.freeze(["verify native handoff outcomes and report unverified results honestly", "add regression coverage for unavailable hardware, denied permissions and cancelled handoffs", "preserve cancellation, idempotency and recovery guarantees"])
 });
 
+const STAGE_TEN_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["read-only hardware/permission inventory and battery, memory, network and storage diagnostics", "launcher app discovery, flashlight, volume, settings handoffs and supported device controls", "approval-gated native media-session controls with truthful unsupported outcomes"]),
+  voice_multimodal: Object.freeze(["shared Main/Pulse/voice capability runtime retained", "Android speech recognition and text-to-speech bridge remains user initiated", "voice actions route through shared permission and approval enforcement"]),
+  screen_accessibility: Object.freeze(["screen reading remains accessibility-gated and explicit", "notification summaries/search remain local and permission-gated", "selected notification open/dismiss and media session access require approval"]),
+  communication_people: Object.freeze(["contact lookup and user-reviewed contact creation", "SMS/email/share/dialler handoffs preserve user-controlled final actions", "communication actions share the common Action Engine approval contract"]),
+  location_travel: Object.freeze(["one-shot location and freshness metadata retained", "map search and directions remain user-invoked handoffs", "no background location tracking added"]),
+  calendar_productivity: Object.freeze(["calendar search and review-before-save event creation", "alarm and timer preparation remain user-confirmed", "follow-up/task workflows remain within the shared productivity runtime"]),
+  files_knowledge: Object.freeze(["user-selected document and media picker with bounded previews", "selected-file sharing uses Android destination chooser", "TXT/Markdown/CSV/JSON export uses bounded Save As and user-selected destination"]),
+  media_creative: Object.freeze(["media search handoff retained", "active media play/pause/next/previous controls check advertised session actions", "unsupported sessions return explicit unsuccessful outcomes"]),
+  intelligence_personalisation: Object.freeze(["device and communication requests route through shared intent/context/capability runtime", "approved knowledge/context boundaries remain in force", "unavailable capability and permission requirements are surfaced"]),
+  extensions_interoperability: Object.freeze(["device and communication actions remain allow-listed capabilities", "native adapters route through the shared Action Engine", "extensions cannot bypass Android permission and approval checks"]),
+  safety_privacy_security: Object.freeze(["runtime permissions, source consent and action approval remain separate gates", "sending/calling/sharing/consequential changes retain user confirmation", "notification, file and diagnostic data remain bounded and scoped"]),
+  reliability_operations: Object.freeze(["Stage 10 regression suite covers native bridge and Action Engine contracts", "core/architecture CI and web production build pass", "cancellation, unsupported outcomes and verification boundaries are documented"])
+});
+
+const STAGE_ELEVEN_SCOPE = Object.freeze({
+  android_device: Object.freeze(["connect media import/export to the creative workspace", "support on-device preview and share handoffs without broad storage access", "keep media processing bounded for low-memory Android devices"]),
+  voice_multimodal: Object.freeze(["voice-driven study, dictation and creative drafting", "spoken explanations with interruptible playback", "transcription review and correction before saving"]),
+  screen_accessibility: Object.freeze(["accessible media controls and readable study layouts", "caption and transcript navigation", "explicit screen-context import for learning tasks"]),
+  communication_people: Object.freeze(["turn approved conversations into study notes or project drafts", "prepare shareable learning summaries for user review", "keep recipient and send confirmation"]),
+  location_travel: Object.freeze(["support optional location-aware learning only when requested", "allow user-provided place context for field observations", "avoid background tracking"]),
+  calendar_productivity: Object.freeze(["build study plans and revision schedules", "connect milestones to user-approved reminders and calendar events", "summarise progress without inventing completion"]),
+  files_knowledge: Object.freeze(["join selected documents, transcripts and media descriptions to Knowledge Universe", "support source-aware summaries and exports", "preserve provenance and content rights"]),
+  media_creative: Object.freeze(["unify import, transcription, subtitles and summarisation workflows", "support writing, image/video project briefs and reusable assets", "preserve source attribution and user review"]),
+  intelligence_personalisation: Object.freeze(["adapt explanations to learner-selected level and goals", "track user-approved learning progress and weak topics", "use one shared learning/creative planner across Main and Pulse"]),
+  extensions_interoperability: Object.freeze(["expose creative and learning tools through the shared capability registry", "validate provider and model availability before use", "keep optional integrations least-privilege"]),
+  safety_privacy_security: Object.freeze(["respect copyright and source attribution", "require consent before saving recordings, documents or generated assets", "keep student data private and avoid unsupported claims"]),
+  reliability_operations: Object.freeze(["add regression tests for imports, cancellations, exports and transcription review", "provide graceful offline/provider fallback", "measure bounded processing and preserve recovery receipts"])
+});
+
+const STAGE_ELEVEN_CHECKPOINT = Object.freeze({
+  id: 11,
+  name: "Creative and Learning Universe",
+  status: "in_progress",
+  startedAt: "2026-11-09",
+  scope: "Stage 11 unifies creative media workflows and learner-controlled study capabilities through the shared AURORA runtime and Knowledge Universe.",
+  validationBoundary: "Stage 10 code/CI checkpoint is complete. Stage 11 has opened with a coordinated 12-family scope; creative/learning implementation and its tests are not yet complete. Physical Android validation and release certification remain separate gates.",
+  deliverables: Object.freeze(["Connect user-selected media, transcription, subtitle search and summaries through one creative workspace.", "Add user-controlled study plans, explanations, practice and progress summaries.", "Integrate creative and learning artefacts with Knowledge Universe provenance and explicit save approval.", "Preserve copyright, attribution, bounded media processing and graceful offline/provider fallback.", "Add automated tests and evidence across all 12 capability families."])
+});
+
 const STAGE_TEN_CHECKPOINT = Object.freeze({
   id: 10,
   name: "Universal Android and Communication Mastery",
-  status: "in_progress",
+  status: "complete",
   startedAt: "2026-11-09",
-  scope: "Stage 10 coordinates Android device controls and communication workflows across all 12 capability families, using supported platform APIs, explicit permissions, user confirmation and verified outcomes.",
-  validationBoundary: "Wave 1 code checkpoint: read-only Android hardware, runtime-permission and special-access inventory is implemented and covered by the Stage 10 regression. Stage 10 remains in progress; device controls, communication adapters, full cross-family evidence and physical Android validation are still outstanding. Stage 9's remaining knowledge UI and picker-boundary checks remain tracked.",
-  deliverables: Object.freeze(["Expose a read-only Android hardware, runtime-permission and special-access inventory through the shared capability engine.", "Complete the supported device-control catalogue and hardware capability detection.", "Complete user-reviewed communication workflows for notifications, messages, email, attachments, contacts, calls, dictation, follow-ups and meeting notes.", "Keep consequential sends, calls, sharing and settings changes behind fresh user confirmation.", "Distinguish supported APIs, unavailable features, permission denial and OEM restrictions.", "Add capability-specific automated tests and all-12-family audit evidence.", "Retain Stage 9 knowledge browsing and picker validation as explicit carried backlog."])
+  completedAt: "2026-11-09",
+  scope: "Stage 10 coordinates supported Android device controls and user-reviewed communication workflows across all 12 capability families through the shared Action Engine.",
+  validationBoundary: "Stage 10 code/CI checkpoint complete on commit e711cee0774cc5d26da9f1d26860958940d6a57e (GitHub Actions run 42642861145): dependency installation, blocking dependency audit, full core/architecture regression chain and web production build passed. All 12 capability families have Stage 10 evidence. Physical Android behavior, native Java compilation/device execution, OEM-specific media sessions and release certification remain explicitly deferred; no APK or release readiness is claimed.",
+  deliverables: Object.freeze(["Expose a read-only Android hardware, runtime-permission and special-access inventory through the shared capability engine.", "Implement supported app discovery, device health/connectivity/storage diagnostics, flashlight and volume controls, settings handoffs and active media-session controls.", "Provide user-reviewed SMS/email/contact/call/calendar workflows, local notification review/actions and selected-file sharing.", "Export bounded TXT, Markdown, CSV and JSON content through Android's user-selected Save As destination.", "Keep consequential sends, calls, sharing and settings changes behind fresh user confirmation.", "Distinguish supported APIs, unavailable features, permission denial and OEM restrictions.", "Add capability-specific automated tests and all-12-family audit evidence."])
 });
 
 const STAGE_NINE_CHECKPOINT = Object.freeze({
@@ -355,11 +396,13 @@ function createAuroraLayerRegistry() {
     stageEightEvidence: [...(STAGE_EIGHT_LAYER_AUDIT[item.id] || [])],
     stageNineEvidence: [...(STAGE_NINE_LAYER_AUDIT[item.id] || [])],
     stageTenScope: [...(STAGE_TEN_SCOPE[item.id] || [])],
+    stageTenEvidence: [...(STAGE_TEN_LAYER_AUDIT[item.id] || [])],
+    stageElevenScope: [...(STAGE_ELEVEN_SCOPE[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT, STAGE_TEN_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
@@ -373,7 +416,10 @@ function createAuroraLayerRegistry() {
     stageNineAudit: STAGE_NINE_LAYER_AUDIT,
     stageNineCheckpoint: STAGE_NINE_CHECKPOINT,
     stageTenScope: STAGE_TEN_SCOPE,
+    stageTenAudit: STAGE_TEN_LAYER_AUDIT,
     stageTenCheckpoint: STAGE_TEN_CHECKPOINT,
+    stageElevenScope: STAGE_ELEVEN_SCOPE,
+    stageElevenCheckpoint: STAGE_ELEVEN_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -385,10 +431,14 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 10,
-      activeStage: 10,
+      nextStage: 11,
+      activeStage: 11,
       stageTenStatus: STAGE_TEN_CHECKPOINT.status,
+      stageTenCodeComplete: STAGE_TEN_CHECKPOINT.status === "complete",
       stageTenScopedLayers: families.filter(item => (STAGE_TEN_SCOPE[item.id] || []).length >= 3).length,
+      stageTenAuditedLayers: families.filter(item => (STAGE_TEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
+      stageElevenStatus: STAGE_ELEVEN_CHECKPOINT.status,
+      stageElevenScopedLayers: families.filter(item => (STAGE_ELEVEN_SCOPE[item.id] || []).length >= 3).length,
       stageNineStatus: STAGE_NINE_CHECKPOINT.status,
       stageNineCodeComplete: STAGE_NINE_CHECKPOINT.status === "complete",
       stageNineAuditedLayers: families.filter(item => (STAGE_NINE_LAYER_AUDIT[item.id] || []).length >= 3).length,
@@ -415,4 +465,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
