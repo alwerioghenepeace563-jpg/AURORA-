@@ -719,3 +719,31 @@ The architecture is successfully established when:
 7. Expand capability-by-capability, preserving regression tests at every step.
 
 **Implementation rule:** Do not perform a mass rewrite of `src/App.jsx`, replace the current native plugin wholesale, change application ID, regenerate signing keys, remove existing provider configuration, or deploy directly to production as part of the architecture migration. Work on the existing feature branch, commit in small units, and use GitHub Actions to validate APK builds.
+
+
+## 18. Implemented capability adapters (current branch)
+
+The first native capability wave is registered in `src/core/aurora-capability-runtime.js` and exposed through `src/core/aurora-runtime.js`. These are internal services, not new pages.
+
+| Capability ID | Purpose | Android handoff / policy |
+|---|---|---|
+| `android.open_app` | Launch an installed app | PackageManager launch intent |
+| `android.read_screen` | Read visible screen text | Explicit Accessibility opt-in; approval required |
+| `contacts.search` | Search saved contacts | Runtime Contacts permission |
+| `communication.open_dialer` | Prepare a call | Opens dialler; user presses Call |
+| `maps.search_place` | Find a place | Opens installed map app |
+| `maps.get_directions` | Request directions | Opens map app with destination and travel mode |
+| `calendar.prepare_event` | Prepare a calendar event | Opens Android calendar editor; user reviews and saves |
+| `media.search_play` | Find/play media | Hands search to installed media app; no silent playback bypass |
+
+Main chat and Pulse route through the shared runtime. Explicit map/directions and media-search phrases are routed to their native capability adapters; all other requests continue through the existing AURORA tool tree and provider path. The native bridge methods are added to the existing `AuroraAssistantPlugin` and TypeScript facade without replacing either.
+
+### Adding the next tool
+
+A new tool should normally require only:
+1. A typed native or service adapter with honest availability checks.
+2. A capability registration with stable ID, input validation, risk and approval policy.
+3. A deterministic intent/tool schema so the assistant can invoke it with structured arguments.
+4. A regression test for success, unavailable state, rejection and permission denial.
+
+Do not create a page by default. Add UI only when the user needs to configure a service, review permissions/approvals, or interact with a result. Never let model-generated text directly invoke arbitrary Android intents or JavaScript; it must resolve to a registered capability.
