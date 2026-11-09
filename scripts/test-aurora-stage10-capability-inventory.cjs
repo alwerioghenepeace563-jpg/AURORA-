@@ -91,3 +91,19 @@ assert.ok(capabilityRuntime.includes('id: "apps.list_launchable"'));
 assert.ok(capabilityRuntime.includes('id: "device.get_network_status"'));
 assert.ok(nativeJava.includes("result.put(\"ssidRead\", false)"));
 console.log("AURORA Stage 10 discovery and connectivity tests passed: launcher-only app listing and privacy-safe network diagnostics.");
+
+
+// Stage 10 Wave 6: user-selected media and reviewed file sharing.
+assert.ok(nativeJava.includes("public void pickMedia(PluginCall call)"));
+assert.ok(nativeJava.includes("handleMediaResult(PluginCall call"));
+assert.ok(nativeJava.includes("public void shareSelectedFile(PluginCall call)"));
+assert.ok(nativeJava.includes("Intent.ACTION_OPEN_DOCUMENT"));
+assert.ok(nativeJava.includes("Intent.EXTRA_STREAM"));
+assert.ok(nativeJava.includes("FLAG_GRANT_READ_URI_PERMISSION"));
+assert.ok(nativeJava.includes("fileSentByAurora"));
+assert.ok(nativeBridge.includes("pickMedia(options:"));
+assert.ok(nativeBridge.includes("shareSelectedFile(options:"));
+assert.ok(capabilityRuntime.includes('id: "files.pick_media"'));
+assert.ok(capabilityRuntime.includes('id: "files.share_selected_file"'));
+assert.ok(capabilityRuntime.includes("contentLoaded: false"));
+console.log("AURORA Stage 10 media picker and explicit file-sharing tests passed.");
