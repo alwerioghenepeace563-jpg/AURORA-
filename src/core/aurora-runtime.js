@@ -29,7 +29,17 @@ import { createAuroraSecureStore } from "./aurora-secure-store";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
-  approve: (proposal) => approvalBroker.request(proposal)
+  approve: (proposal) => approvalBroker.request(proposal),
+  authorize: async ({ capability }) => {
+    for (const requirement of capability.consentRequirements || []) {
+      const separator = requirement.lastIndexOf(":");
+      if (separator < 1) return { authorized: false, code: "INVALID_CONSENT_CONTRACT", reason: "Consent requirements must use scope:source identifiers." };
+      const scope = requirement.slice(0, separator);
+      const source = requirement.slice(separator + 1);
+      if (!auroraConsents.isGranted(scope, source)) return { authorized: false, code: "CONSENT_REQUIRED", reason: "Explicit consent is required for " + scope + " from " + source + "." };
+    }
+    return { authorized: true };
+  }
 });
 const taskOrchestrator = createAuroraTaskOrchestrator(actionEngine);
 const memorySync = createAuroraMemorySync(auroraMemory);
