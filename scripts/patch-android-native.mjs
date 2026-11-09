@@ -233,6 +233,10 @@ public class AuroraAssistantPlugin extends Plugin {
 
     @PluginMethod
     public void readScreen(PluginCall call) {
+        if (getActivity() == null || getActivity().isFinishing()) {
+            call.reject("Screen context can only be captured while AURORA is open and in the foreground.");
+            return;
+        }
         String text = AuroraAccessibilityService.readVisibleText();
         if (text == null) {
             call.reject("Enable AURORA Screen Assistant in Android Accessibility settings first.");
