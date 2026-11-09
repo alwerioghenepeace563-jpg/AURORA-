@@ -24,6 +24,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use GET or POST." });
   }
 
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  const authHeader = typeof req.headers.authorization === "string" ? req.headers.authorization : "";
+  const accessToken = authHeader.replace(/^Bearer\s+/i, "");
+  if (!supabaseUrl || !supabaseAnonKey || !accessToken) return res.status(401).json({ error: "Sign in to AURORA before using persistent VoiceText jobs." });
+  let owner;
+  try {
+    const identity = await fetch(supabaseUrl + "/auth/v1/user", { headers: { apikey: supabaseAnonKey, Authorization: "Bearer " + accessToken }, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (!identity.ok) return res.status(401).json({ error: "Your AURORA session is invalid or expired. Sign in again." });
+    owner = await identity.json();
+  } catch {
+    return res.status(503).json({ error: "AURORA could not verify your sign-in session." });
+  }
+  const ownerId = typeof owner?.id === "string" ? owner.id : "";
+  if (!/^[0-9a-f-]{36}$/i.test(ownerId)) return res.status(401).json({ error: "A verified AURORA account is required." });
+
   const baseUrl = (process.env.VOICETEXT_API_URL || "https://aurora-voicetext-qk8s.vercel.app").replace(/\/+$/, "");
   const token = process.env.VOICETEXT_PLUGIN_TOKEN || "";
   if (!token) return res.status(503).json({ error: "The VoiceText integration is not configured on the AURORA server." });
@@ -37,7 +53,7 @@ export default async function handler(req, res) {
 
   if (action === "status") {
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) return res.status(400).json({ error: "A valid transcription requestId is required." });
-    upstreamUrl += "?requestId=" + encodeURIComponent(requestId);
+    upstreamUrl += "?requestId=" + encodeURIComponent(requestId) + "&ownerId=" + encodeURIComponent(ownerId);
     upstreamMethod = "GET";
   } else if (action === "create") {
     const totalChunks = Number(body.totalChunks);
