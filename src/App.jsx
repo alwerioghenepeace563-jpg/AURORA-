@@ -1408,6 +1408,7 @@ export default function App() {
         setListening(true);
         setNotice("Listeningâ€¦ speak now.");
       } catch (error) {
+        if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; }
         nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
         nativeSpeechListenersRef.current = [];
         setListening(false);
@@ -1446,6 +1447,7 @@ export default function App() {
       setListening(true);
       setNotice("");
     } catch {
+      if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; }
       setListening(false);
       setNotice("Speech recognition could not start. Close other microphone apps and try again.");
     }
