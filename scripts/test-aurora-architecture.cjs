@@ -92,6 +92,13 @@ const path = require("node:path");
   assert.ok(pluginSource.includes("ContactsContract.CommonDataKinds.Phone.CONTENT_URI"), "Contact search must use Android contacts provider.");
   assert.ok(pluginSource.includes("count < 20"), "Contact search results must be bounded.");
   assert.ok(pluginSource.includes("Intent.ACTION_DIAL"), "Phone calls must open the dialler and never place a call silently.");
+
+  for (const nativeMethod of ["hasOverlayPermission", "requestOverlayPermission"]) {
+    assert.ok(nativeSource.includes(nativeMethod), "Missing typed overlay permission bridge method: " + nativeMethod);
+    assert.ok(pluginSource.includes("void " + nativeMethod + "(PluginCall call)"), "Missing Android overlay permission method: " + nativeMethod);
+  }
+  assert.ok(pluginSource.includes("Settings.canDrawOverlays"), "Overlay availability must reflect Android's actual permission state.");
+  assert.ok(pluginSource.includes("Settings.ACTION_MANAGE_OVERLAY_PERMISSION"), "Overlay permission must be granted through Android Settings.");
   assert.ok(pluginSource.includes("Intent.ACTION_INSERT"), "Calendar event must use Android's review-before-save editor.");
   assert.ok(pluginSource.includes("MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH"), "Media search must use Android media handoff.");
   assert.ok(pluginSource.includes("Intent.ACTION_OPEN_DOCUMENT"), "File access must use Android's user-selected document picker.");
