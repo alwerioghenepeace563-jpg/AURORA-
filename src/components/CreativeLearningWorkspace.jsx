@@ -25,6 +25,7 @@ function CreativeLearningWorkspace(){
  const [analysisFile,setAnalysisFile]=useState(null),[analysisOutput,setAnalysisOutput]=useState(""),[analysisBusy,setAnalysisBusy]=useState(false);
  const [mediaFile,setMediaFile]=useState(null),[mediaTranscript,setMediaTranscript]=useState(""),[mediaBusy,setMediaBusy]=useState(false);
  const [mediaSearchQuery,setMediaSearchQuery]=useState(""),[mediaSearchResults,setMediaSearchResults]=useState([]),[mediaSearchBusy,setMediaSearchBusy]=useState(false),[mediaSearchSource,setMediaSearchSource]=useState(""),[mediaSearchKind,setMediaSearchKind]=useState("image"),[mediaDownloading,setMediaDownloading]=useState("");
+ const [imagePrompt,setImagePrompt]=useState(""),[imageAspect,setImageAspect]=useState("1:1"),[imageBusy,setImageBusy]=useState(false),[generatedImage,setGeneratedImage]=useState(null);
  const [notice,setNotice]=useState("");
  const refresh=()=>{
   const ps=auroraRuntime.listCreativeProjects();setProjects(ps);setSelected(current=>ps.some(p=>p.id===current)?current:(ps[0]?.id||""));
@@ -86,6 +87,25 @@ function CreativeLearningWorkspace(){
  };
  const saveGeneratedLesson=()=>{const plan=plans.find(item=>item.id===lessonPlanId)||plans[0];const topic=plan?.topics.find(item=>item.id===lessonTopic)||plan?.topics.find(item=>item.status!=="completed")||plan?.topics[0];if(!selected){setNotice("Select a creative project in the Projects tab before saving this lesson as a draft.");return;}if(!lessonOutput.trim()){setNotice("Generate or enter lesson content first.");return;}run(()=>auroraRuntime.saveCreativeDraft({projectId:selected,title:(plan?.subject||"Study")+" — "+(topic?.name||"Lesson"),content:lessonOutput,userApproved:true}),"Lesson saved as a draft in your selected creative project.");};
 
+ const generateCreativeImage=async()=>{
+  const prompt=imagePrompt.trim();
+  if(prompt.length<8){setNotice("Describe the image in at least 8 characters.");return;}
+  setImageBusy(true);setGeneratedImage(null);setNotice("AURORA is generating your image. This may take a little while…");
+  try{
+   const response=await fetch(auroraApiUrl("/api/media-generate"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,aspectRatio:imageAspect})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||"Image generation is unavailable.");
+   if(!data.image?.data||!["image/png","image/jpeg","image/webp"].includes(data.image.mimeType))throw new Error("The image service returned an unsupported image.");
+   setGeneratedImage({data:data.image.data,mimeType:data.image.mimeType,model:data.model||"Gemini image model"});
+   setNotice("Image generated. Preview it, then download it if you want to keep it.");
+  }catch(error){setNotice(error?.message||"Image generation failed. Check provider configuration and try again.");}
+  finally{setImageBusy(false);}
+ };
+ const downloadGeneratedImage=()=>{
+  if(!generatedImage?.data)return;
+  try{const link=document.createElement("a");link.href="data:"+generatedImage.mimeType+";base64,"+generatedImage.data;link.download="aurora-generated-image."+(generatedImage.mimeType==="image/jpeg"?"jpg":generatedImage.mimeType==="image/webp"?"webp":"png");document.body.appendChild(link);link.click();link.remove();setNotice("Download requested. Check your browser or Android Downloads.");}
+  catch(error){setNotice(error?.message||"Could not start the image download.");}
+ };
  const searchMediaFallback=async()=>{
   const query=mediaSearchQuery.trim();
   if(query.length<2){setNotice("Describe the image or visual you need first.");return;}
@@ -213,6 +233,14 @@ function CreativeLearningWorkspace(){
    <div className="clw-panel clw-wide"><h3>Draft studio</h3>{!activeProject?<p className="clw-empty">Create or select a project to save drafts.</p>:<><p className="clw-context">Project: <strong>{activeProject.title}</strong></p><label>Draft title<input value={draftTitle} onChange={e=>setDraftTitle(e.target.value)}/></label><label>Your writing<textarea rows={6} value={draftText} onChange={e=>setDraftText(e.target.value)} placeholder="Paste a script, outline, notes or a draft here..."/></label><button className="clw-primary" onClick={saveDraft} disabled={!draftText.trim()}><Save size={15}/> Save draft</button><div className="clw-list">{projectDrafts.map(d=><article key={d.id}><strong>{d.title}</strong><p>{d.content.slice(0,180)}</p><small>{d.revisions.length} previous version(s)</small>{d.revisions.length>0&&<button onClick={()=>{if(window.confirm("Restore the most recently saved version of this draft? The current version will be kept in history."))run(()=>auroraRuntime.restoreCreativeDraftRevision(d.id,0,{confirmed:true}),"Previous draft version restored.");}}>Restore previous version</button>}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"draft",id:d.id,userApproved:true}),"Draft added to Knowledge Universe.")}>Save to Knowledge Universe</button></article>)}</div><h3>Source-aware project context</h3><p className="clw-help">Assemble only this project’s saved drafts and selected references into a bounded, source-labelled context pack. No AI analysis or media extraction is claimed.</p><div className="clw-actions"><button onClick={buildContext}>Build project context</button>{contextPreview&&<button onClick={copyContext}>Copy context</button>}</div>{contextPreview&&<textarea className="clw-context-preview" rows={8} readOnly value={contextPreview}/>}<h3>Project references</h3>{projectAssets.map(a=><div className="clw-reference" key={a.id}>{a.title} <small>· {a.type}</small>{a.uri&&a.mimeType&&<button onClick={()=>shareAsset(a)}>Share…</button>}<button onClick={()=>run(()=>auroraRuntime.saveCreativeItemToKnowledge({kind:"asset",id:a.id,userApproved:true}),"Reference added to Knowledge Universe.")}>Save to Knowledge Universe</button></div>)}</>}</div>
   </div>}
     <div className="clw-panel clw-wide">
+   <div className="clw-panel clw-wide">
+    <h3>AI Image Creator</h3>
+    <p className="clw-help">Generate an original image from your description using the configured Gemini image service. Your prompt is sent only when you press Generate. The result is previewed here and downloaded only when you choose.</p>
+    <label>Describe the image<textarea rows={4} maxLength={1800} value={imagePrompt} onChange={e=>setImagePrompt(e.target.value)} placeholder="A detailed educational illustration of a plant cell, with clear organelles and a clean textbook diagram style…"/></label>
+    <label>Image shape<select value={imageAspect} onChange={e=>setImageAspect(e.target.value)}><option value="1:1">Square</option><option value="16:9">Landscape</option><option value="9:16">Portrait</option><option value="4:3">Classic landscape</option><option value="3:4">Classic portrait</option></select></label>
+    <div className="clw-actions"><button className="clw-primary" onClick={generateCreativeImage} disabled={imageBusy||imagePrompt.trim().length<8}>{imageBusy?"Generating image…":"Generate image"}</button><button onClick={downloadGeneratedImage} disabled={!generatedImage}>Download image</button></div>
+    {generatedImage&&<div className="clw-generated-image"><img src={"data:"+generatedImage.mimeType+";base64,"+generatedImage.data} alt="AURORA-generated creative image"/><small>Generated with {generatedImage.model}. Review the result before publishing.</small></div>}
+   </div>
    <h3>AURORA Media Browser & Download Centre</h3>
    <p className="clw-help">Search public media libraries, preview matching images and videos, then download direct files into Android Downloads. Other providers open their official pages so you can use their own download controls.</p>
    <label>Describe the media<input value={mediaSearchQuery} onChange={e=>setMediaSearchQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")searchMediaFallback();}} placeholder="e.g. plant cell animation, rainforest video, microscope image"/></label>
