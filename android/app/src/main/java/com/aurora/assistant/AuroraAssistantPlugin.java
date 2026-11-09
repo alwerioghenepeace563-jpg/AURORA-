@@ -74,6 +74,28 @@ public class AuroraAssistantPlugin extends Plugin {
 
 
     @PluginMethod
+    public void hasOverlayPermission(PluginCall call) {
+        boolean granted = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(getContext());
+        call.resolve(new JSObject().put("granted", granted));
+    }
+
+    @PluginMethod
+    public void requestOverlayPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(getContext())) {
+            call.resolve(new JSObject().put("opened", false).put("granted", true)); return;
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("opened", true).put("granted", false));
+        } catch (Exception e) {
+            call.reject("Could not open Android overlay permission settings.", e);
+        }
+    }
+
+    @PluginMethod
     public void requestContactsPermission(PluginCall call) {
         if (getPermissionState("contacts") == PermissionState.GRANTED) {
             call.resolve(new JSObject().put("granted", true)); return;
