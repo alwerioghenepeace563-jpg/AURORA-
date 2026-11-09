@@ -254,7 +254,11 @@ function createAuroraCapabilityRuntime(options = {}) {
     approvalRequired: false,
     validate: (input) => typeof input?.enabled === "boolean" || "Choose on or off.",
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Flashlight control is available only in Android." }),
-    execute: async ({ enabled }) => auroraNative.setFlashlight(enabled)
+    execute: async ({ enabled }) => {
+      const permission = await AuroraNativePermission.requestCameraPermission();
+      if (!permission.granted) throw Object.assign(new Error("Camera permission was not granted."), { code: "PERMISSION_REQUIRED" });
+      return auroraNative.setFlashlight(enabled);
+    }
   });
 
   return engine;
