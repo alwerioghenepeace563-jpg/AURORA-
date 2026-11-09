@@ -36,8 +36,8 @@ const STAGE_TWO_LAYER_AUDIT = Object.freeze({
 const STAGE_TWO_CHECKPOINT = Object.freeze({
   id: 2,
   name: "Shared contracts and enforcement",
-  status: "in_progress",
-  scope: "The shared execution, authorization, approval, consent, timeout, cancellation, idempotency, and verification contracts are implemented and all 12 code-level adapter audits are recorded. Automated CI verification is still pending; this is not a claim of physical-device certification or final product readiness.",
+  status: "complete",
+  scope: "The shared execution, authorization, approval, consent, timeout, cancellation, idempotency, and verification contracts are implemented; all 12 code-level adapter audits are recorded; the full core/architecture CI run passed on commit cfefd036e3d05e2bdd78ac74e354f47a7af6a8fc. This is not physical-device certification or final product readiness.",
   validationBoundary: "Automated code and contract tests; Android device behavior, platform-specific permissions, and end-to-end surface QA remain separate validation work.",
   deliverables: Object.freeze([
     "Capability descriptors expose validated permission, consent, timeout, idempotency, and verification contracts.",
@@ -48,6 +48,22 @@ const STAGE_TWO_CHECKPOINT = Object.freeze({
     "Repeated request IDs reuse the in-flight operation or completed receipt instead of executing twice.",
     "The shared runtime delegates consent checks to the default-deny, revocable consent registry.",
     "All 12 capability families have explicit Stage 2 contract-audit evidence and remain active for later stages."
+  ])
+});
+
+const STAGE_THREE_CHECKPOINT = Object.freeze({
+  id: 3,
+  name: "Secure state and context",
+  status: "in_progress",
+  scope: "Harden local persistence, encrypted protected memory, key availability reporting, data inventory accuracy, consent boundaries, and optional per-record sync. Browser localStorage remains explicitly unencrypted; no automatic migration or bulk upload is permitted.",
+  validationBoundary: "Automated tests cover the new Android-only protected-memory vault with a test adapter. Real Android Keystore behavior, backup exclusion, device migration, and end-to-end privacy UX still require device validation.",
+  deliverables: Object.freeze([
+    "Add an Android-only protected-memory vault backed by the existing Keystore AES-GCM secure-store facade; refuse operation when unavailable and never fall back to browser storage.",
+    "Bound protected records, validate identifiers and content, isolate record keys, and fail safely on corrupt indexes or records.",
+    "Expose protected memory through the shared AURORA runtime so Main, Pulse, and voice can use the same service.",
+    "Report protected-memory storage location and encryption availability in the privacy inventory without exposing record contents.",
+    "Keep ordinary local-first memory separate from protected memory; do not silently migrate existing records or enable cloud sync.",
+    "Keep all 12 capability families active while remaining Stage 3 storage, consent, and context boundaries are audited."
   ])
 });
 
@@ -78,7 +94,7 @@ function createAuroraLayerRegistry() {
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -90,9 +106,10 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 2,
+      nextStage: 3,
       stageOneStatus: STAGE_ONE_CHECKPOINT.status,
       stageTwoStatus: STAGE_TWO_CHECKPOINT.status,
+      stageThreeStatus: STAGE_THREE_CHECKPOINT.status,
       stageTwoContractReady: families.filter((item) => item.adapterContractAudit === "passed").length
     })
   });
@@ -100,4 +117,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
