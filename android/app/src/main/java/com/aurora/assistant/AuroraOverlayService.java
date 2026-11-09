@@ -36,6 +36,7 @@ public class AuroraOverlayService extends Service {
     private WebView panelView;
     private boolean attached = false;
     private boolean panelAttached = false;
+    private boolean orbAttached = false;
 
     private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
     private int overlayType() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE; }
@@ -82,11 +83,20 @@ public class AuroraOverlayService extends Service {
         status.setPackage(getPackageName());
         status.putExtra("shown", shown);
         status.putExtra("note", note);
+        getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
+            .putBoolean("pulse_overlay_shown", shown)
+            .putString("pulse_overlay_note", note == null ? "" : note)
+            .apply();
         sendBroadcast(status);
     }
 
     private void showOverlay() {
-        if (attached) { reportOverlayStatus(true, "AURORA Pulse is already running."); return; }
+        if (attached && orbAttached && panelAttached && orbView != null && panelView != null) {
+            reportOverlayStatus(true, "AURORA Pulse is already running.");
+            return;
+        }
+        // Remove a partial/stale attachment before rebuilding both overlay windows.
+        removeOverlay();
         try {
             windowManager = (WindowManager)getSystemService(WINDOW_SERVICE);
             orbView = createOverlayWebView("aurora_pulse_orb.html");
@@ -97,6 +107,7 @@ public class AuroraOverlayService extends Service {
             orb.y = dp(8);
             orb.setTitle("AURORA Pulse Dynamic Island orb");
             windowManager.addView(orbView, orb);
+            orbAttached = true;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 orbView.post(() -> {
                     try {
@@ -122,8 +133,8 @@ public class AuroraOverlayService extends Service {
             panel.y = dp(20);
             panel.setTitle("AURORA Pulse glass chat and tools");
             windowManager.addView(panelView, panel);
-            panelView.setVisibility(View.GONE);
             panelAttached = true;
+            panelView.setVisibility(View.GONE);
             attached = true;
             reportOverlayStatus(true, "AURORA Pulse orb attached; glass chat and tools open on demand.");
         } catch (Exception error) {
@@ -135,12 +146,19 @@ public class AuroraOverlayService extends Service {
 
     private void removeOverlay() {
         if (windowManager != null) {
-            if (panelView != null && panelAttached) { try { windowManager.removeView(panelView); } catch (Exception ignored) {} }
-            if (orbView != null && attached) { try { windowManager.removeView(orbView); } catch (Exception ignored) {} }
+            if (panelView != null && panelAttached) {
+                try { windowManager.removeView(panelView); } catch (Exception ignored) {}
+            }
+            if (orbView != null && orbAttached) {
+                try { windowManager.removeView(orbView); } catch (Exception ignored) {}
+            }
         }
-        attached = false; panelAttached = false;
-        if (panelView != null) { try { panelView.destroy(); } catch (Exception ignored) {} panelView = null; }
-        if (orbView != null) { try { orbView.destroy(); } catch (Exception ignored) {} orbView = null; }
+        attached = false;
+        panelAttached = false;
+        orbAttached = false;
+        if (panelView != null) { try { panelView.stopLoading(); panelView.destroy(); } catch (Exception ignored) {} panelView = null; }
+        if (orbView != null) { try { orbView.stopLoading(); orbView.destroy(); } catch (Exception ignored) {} orbView = null; }
+        windowManager = null;
     }
 
     public class OverlayBridge {
