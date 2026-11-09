@@ -13,6 +13,7 @@ import { auroraMemory } from "./aurora-memory";
 import { planAuroraActions } from "./aurora-task-planner";
 import { auroraEvents } from "./aurora-event-bus";
 import { auroraKnowledge } from "./aurora-knowledge-graph";
+import { auroraKnowledgeUniverse } from "./aurora-knowledge-universe";
 import { createAuroraSpecialistCoordinator } from "./aurora-specialist-coordinator";
 import { auroraWorkflows } from "./aurora-workflow-registry";
 import { auroraTaskJournal } from "./aurora-task-journal";
@@ -92,13 +93,15 @@ const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request) });
 universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
-universalSearch.register("knowledge", (query, limit) => auroraKnowledge.search(query, limit).map(item => ({ ...item, type: "knowledge", summary: item.description })), "Knowledge graph");
+universalSearch.register("knowledge", (query, limit) => auroraKnowledgeUniverse.search(query, { limit }).map(item => ({ ...item, type: item.type, summary: item.summary, score: item.score })), "Personal knowledge universe");
+universalSearch.register("knowledge_graph", (query, limit) => auroraKnowledge.search(query, limit).map(item => ({ ...item, type: "knowledge_graph", summary: item.description })), "Knowledge relationships");
 universalSearch.register("capabilities", (query, limit) => capabilityIntelligence.find(query, limit).map(item => ({ ...item, type: "capability", summary: item.description })), "Available tools");
 universalSearch.register("workflows", (query) => auroraWorkflows.list().filter(item => (item.title + " " + (item.summary || "")).toLowerCase().includes(query.toLowerCase())).map(item => ({ ...item, type: "workflow" })), "Saved workflows");
 universalSearch.register("tasks", (query) => auroraTaskJournal.list().filter(item => (item.plan?.title || "").toLowerCase().includes(query.toLowerCase())).map(item => ({ id: item.taskId, title: item.plan?.title || "Task", summary: item.status, type: "task" })), "Task history");
 const dataInventory = createAuroraDataInventory({
   memories: () => ({ label: "Saved memories", location: "Local browser storage", count: auroraMemory.list().length, encrypted: false, note: "Local-first notes; individual cloud sync is opt-in." }),
   knowledge: () => ({ label: "Knowledge graph", location: "Local browser storage", count: auroraKnowledge.status().nodeCount, encrypted: false }),
+  knowledge_universe: () => ({ label: "Personal knowledge universe", location: "Local browser storage", count: auroraKnowledgeUniverse.status().recordCount, encrypted: false, note: "Only explicitly approved sources; no automatic capture or cloud sync." }),
   workflows: () => ({ label: "Saved workflows", location: "Local browser storage", count: auroraWorkflows.list().length, encrypted: false }),
   task_history: () => ({ label: "Task recovery journal", location: "Local browser storage", count: auroraTaskJournal.list().length, encrypted: false, note: "Bounded task summaries and execution states." }),
   permissions: () => ({ label: "Data-sharing permissions", location: "Local browser storage", count: auroraConsents.list().length, encrypted: false }),
@@ -690,6 +693,14 @@ const auroraRuntime = Object.freeze({
   routines: routineScheduler,
   memory: auroraMemory,
   knowledge: auroraKnowledge,
+  knowledgeUniverse: auroraKnowledgeUniverse,
+  addKnowledgeSource: (input) => auroraKnowledgeUniverse.add(input),
+  searchKnowledge: (query, filters) => auroraKnowledgeUniverse.search(query, filters),
+  relateKnowledge: (input) => auroraKnowledgeUniverse.link(input),
+  relatedKnowledge: (id) => auroraKnowledgeUniverse.related(id),
+  knowledgeTimeline: (filters) => auroraKnowledgeUniverse.timeline(filters),
+  correctKnowledge: (id, patch, options) => auroraKnowledgeUniverse.correct(id, patch, options),
+  forgetKnowledge: (id, options) => auroraKnowledgeUniverse.remove(id, options),
   events: auroraEvents,
   specialists,
   specialistHealth: (id) => id ? specialists.getHealth(id) : specialists.health(),
