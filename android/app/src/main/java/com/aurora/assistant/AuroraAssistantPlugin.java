@@ -512,6 +512,36 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void prepareContact(PluginCall call) {
+        String name = call.getString("name"); String phone = call.getString("phone", ""); String email = call.getString("email", "");
+        if (name == null || name.trim().isEmpty() || name.length() > 120) { call.reject("A contact name (up to 120 characters) is required."); return; }
+        if (phone.length() > 40 || (!phone.isEmpty() && !phone.matches("[+0-9() .-]{5,40}"))) { call.reject("Check the contact phone number."); return; }
+        if (email.length() > 254 || (!email.isEmpty() && !email.matches("(?i)[A-Z0-9.!#$%&*+/=?^_{}|~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+"))) { call.reject("Check the contact email address."); return; }
+        if (phone.isEmpty() && email.isEmpty()) { call.reject("Provide a phone number or email address."); return; }
+        try { Intent intent = new Intent(Intent.ACTION_INSERT); intent.setType(android.provider.ContactsContract.Contacts.CONTENT_TYPE); intent.putExtra(android.provider.ContactsContract.Intents.Insert.NAME, name.trim());
+            if (!phone.isEmpty()) { intent.putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, phone.trim()); intent.putExtra(android.provider.ContactsContract.Intents.Insert.PHONE_TYPE, android.provider.ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE); }
+            if (!email.isEmpty()) { intent.putExtra(android.provider.ContactsContract.Intents.Insert.EMAIL, email.trim()); intent.putExtra(android.provider.ContactsContract.Intents.Insert.EMAIL_TYPE, android.provider.ContactsContract.CommonDataKinds.Email.TYPE_HOME); }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); getContext().startActivity(intent); JSObject result = new JSObject(); result.put("opened", true); result.put("requiresUserSave", true); result.put("savedByAurora", false); call.resolve(result);
+        } catch (Exception e) { call.reject("No contacts application could open the new-contact form. No contact was saved.", e); }
+    }
+
+    @PluginMethod
+    public void prepareAlarm(PluginCall call) {
+        Integer hour = call.getInt("hour"); Integer minute = call.getInt("minute"); String message = call.getString("message", "AURORA alarm");
+        if (hour == null || hour < 0 || hour > 23 || minute == null || minute < 0 || minute > 59 || message.length() > 100) { call.reject("Provide a valid 24-hour alarm time and a message up to 100 characters."); return; }
+        try { Intent intent = new Intent(android.provider.AlarmClock.ACTION_SET_ALARM); intent.putExtra(android.provider.AlarmClock.EXTRA_HOUR, hour); intent.putExtra(android.provider.AlarmClock.EXTRA_MINUTES, minute); intent.putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, message); intent.putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false); intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); getContext().startActivity(intent); JSObject result = new JSObject(); result.put("opened", true); result.put("requiresUserConfirmation", true); result.put("alarmCreatedByAurora", false); call.resolve(result); }
+        catch (Exception e) { call.reject("No clock application could open the alarm form. No alarm was created.", e); }
+    }
+
+    @PluginMethod
+    public void prepareTimer(PluginCall call) {
+        Integer seconds = call.getInt("seconds"); String message = call.getString("message", "AURORA timer");
+        if (seconds == null || seconds < 1 || seconds > 86400 || message.length() > 100) { call.reject("Timer duration must be between 1 and 86400 seconds; message up to 100 characters."); return; }
+        try { Intent intent = new Intent(android.provider.AlarmClock.ACTION_SET_TIMER); intent.putExtra(android.provider.AlarmClock.EXTRA_LENGTH, seconds); intent.putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, message); intent.putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false); intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); getContext().startActivity(intent); JSObject result = new JSObject(); result.put("opened", true); result.put("requiresUserConfirmation", true); result.put("timerCreatedByAurora", false); call.resolve(result); }
+        catch (Exception e) { call.reject("No clock application could open the timer form. No timer was created.", e); }
+    }
+
+    @PluginMethod
     public void shareText(PluginCall call) {
         String text = call.getString("text");
         if (text == null || text.trim().isEmpty() || text.length() > 8000) {
@@ -933,6 +963,10 @@ public class AuroraAssistantPlugin extends Plugin {
             case "bluetooth": intent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS); break;
             case "display": intent = new Intent(Settings.ACTION_DISPLAY_SETTINGS); break;
             case "hotspot": intent = new Intent("android.settings.TETHER_SETTINGS"); break;
+            case "nfc": intent = new Intent(Settings.ACTION_NFC_SETTINGS); break;
+            case "sound": intent = new Intent(Settings.ACTION_SOUND_SETTINGS); break;
+            case "battery": intent = new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS); break;
+            case "app_details": intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName())); break;
             default: call.reject("Unsupported device settings page."); return;
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
