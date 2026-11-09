@@ -652,3 +652,9 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Added syllabus-based practice generation that requests question/answer pairs grounded only in the supplied source, validates returned pairs, and creates a reviewable quiz in the existing local quiz workflow. Quiz results are saved only when the learner chooses.
 - Added regression assertions for source-size bounds, explicit submission, grounding instructions and quiz construction. Factual alignment still requires learner review and is not a guarantee of exam coverage.
 
+
+### Stage 11 wave 15 — media browser control wiring
+- Fixed the media browser's media-type selector to use the same React state consumed by the search request, and added the missing download-in-progress state used by result cards.
+- This prevents runtime reference errors when selecting image/video/all filters or starting a download. The existing media endpoint continues to return public-library results and direct-download URLs only where exposed by the source.
+- Added regression checks for the selector/state/request/download wiring.
+
