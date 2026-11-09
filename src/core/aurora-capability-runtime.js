@@ -583,6 +583,34 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "notifications.dismiss_item",
+    label: "Dismiss a selected notification",
+    category: "notifications",
+    description: "Dismiss one active notification selected from AURORA's recent local cache. Requires explicit high-risk approval and Notification Access. It does not clear other notifications or send a reply.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.notification_access"],
+    validate: (input) => {
+      const valid = requiredString(input?.key, "Notification key");
+      if (valid !== true) return valid;
+      return input.key.length <= 512 || "Notification key is too long.";
+    },
+    availability: async () => {
+      if (!auroraNative.isAndroid()) return { available: false, reason: "Dismissing a notification requires Android." };
+      const state = await auroraNative.hasNotificationAccess();
+      return { available: state.granted, reason: state.granted ? null : "Enable AURORA Notification Access in Android Settings first." };
+    },
+    execute: async ({ key }) => {
+      const cached = await auroraNative.readRecentNotifications();
+      let items = [];
+      try { items = JSON.parse(cached.items || "[]"); } catch { items = []; }
+      if (!items.some((item) => item?.key === key)) throw new Error("Select a notification from AURORA's recent notification list first.");
+      const result = await auroraNative.dismissNotification(key);
+      return { dismissed: result?.dismissed === true, otherNotificationsAffected: false, messageSent: false, note: result?.note || null };
+    }
+  });
+
+  engine.registerCapability({
     id: "notifications.search_recent",
     label: "Search recent notifications",
     category: "notifications",
