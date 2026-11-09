@@ -122,6 +122,12 @@ const path = require("node:path");
   assert.ok(sharedRuntimeSource.includes("const protectedMemory = createAuroraProtectedMemory({ secureStore: secureStorage });"), "Protected memory must use the shared Keystore-backed secure store.");
   assert.ok(sharedRuntimeSource.includes("  protectedMemory,"), "Main, Pulse, and voice must share protected memory.");
   assert.ok(sharedRuntimeSource.includes("protected_memory: () =>"), "Protected memory must appear in the privacy inventory.");
+  const storageGuardSource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-storage-guard.js"), "utf8");
+  assert.ok(storageGuardSource.includes("no data was changed"), "Malformed local data must fail closed rather than reset.");
+  for (const file of ["aurora-memory.js", "aurora-consent-registry.js", "aurora-knowledge-graph.js", "aurora-task-journal.js", "aurora-workflow-registry.js", "aurora-routine-scheduler.js"]) {
+    const source = fs.readFileSync(path.join(__dirname, "../src/core", file), "utf8");
+    assert.ok(source.includes("readStoredJson"), file + " must use the shared fail-closed persistence reader.");
+  }
   const protectedMemorySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-protected-memory.js"), "utf8");
   assert.ok(protectedMemorySource.includes("android-keystore-aes-gcm"), "Protected memory must fail closed without Android Keystore encryption.");
   assert.ok(protectedMemorySource.includes("MAX_RECORDS = 100"), "Protected memory must enforce a bounded record count.");
