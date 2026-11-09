@@ -886,6 +886,51 @@ public class AuroraAssistantPlugin extends Plugin {
         } catch (Exception e) { call.reject("Could not change the flashlight state.", e); }
     }
 
+
+    @PluginMethod
+    public void openDeviceSettings(PluginCall call) {
+        String target = call.getString("target");
+        if (target == null) { call.reject("Choose a supported device settings page."); return; }
+        Intent intent;
+        switch (target) {
+            case "wifi": intent = new Intent(Settings.ACTION_WIFI_SETTINGS); break;
+            case "bluetooth": intent = new Intent(Settings.ACTION_BLUETOOTH_SETTINGS); break;
+            case "display": intent = new Intent(Settings.ACTION_DISPLAY_SETTINGS); break;
+            case "hotspot": intent = new Intent("android.settings.TETHER_SETTINGS"); break;
+            default: call.reject("Unsupported device settings page."); return;
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+            JSObject result = new JSObject();
+            result.put("opened", true);
+            result.put("target", target);
+            result.put("settingsOnly", true);
+            result.put("userMustApplyChanges", true);
+            call.resolve(result);
+        } catch (Exception firstError) {
+            if ("hotspot".equals(target)) {
+                try {
+                    Intent fallback = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
+                    fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(fallback);
+                    JSObject result = new JSObject();
+                    result.put("opened", true);
+                    result.put("target", target);
+                    result.put("fallback", true);
+                    result.put("settingsOnly", true);
+                    result.put("userMustApplyChanges", true);
+                    call.resolve(result);
+                    return;
+                } catch (Exception fallbackError) {
+                    call.reject("Android could not open hotspot or wireless settings.", fallbackError);
+                    return;
+                }
+            }
+            call.reject("Android could not open the requested device settings page.", firstError);
+        }
+    }
+
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
