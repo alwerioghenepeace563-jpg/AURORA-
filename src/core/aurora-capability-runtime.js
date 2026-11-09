@@ -252,6 +252,41 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
 
+
+  engine.registerCapability({
+    id: "files.search_selected_text",
+    label: "Search selected document text",
+    category: "files",
+    description: "Find matching passages in text explicitly selected and supplied by the user. Searches in memory only and does not save document text.",
+    risk: AURORA_ACTION_RISK.MEDIUM,
+    approvalRequired: true,
+    validate: (input) => {
+      const valid = requiredString(input?.text, "Selected document text");
+      if (valid !== true) return valid;
+      if (input.text.length > 1000000) return "Selected document text must be 1 MB or smaller.";
+      const queryValid = requiredString(input?.query, "Document search query");
+      if (queryValid !== true) return queryValid;
+      return input.query.length <= 120 || "Document search query must be 120 characters or fewer.";
+    },
+    availability: async () => ({ available: true }),
+    execute: async ({ text, query }) => {
+      const source = text;
+      const needle = query.trim().toLocaleLowerCase();
+      const lower = source.toLocaleLowerCase();
+      const matches = [];
+      let from = 0;
+      while (matches.length < 20) {
+        const index = lower.indexOf(needle, from);
+        if (index < 0) break;
+        const start = Math.max(0, index - 90);
+        const end = Math.min(source.length, index + needle.length + 90);
+        matches.push({ position: index, excerpt: source.slice(start, end).replace(/[\\r\\n\\t]+/g, " ").trim() });
+        from = index + Math.max(needle.length, 1);
+      }
+      return { matches, count: matches.length, truncated: matches.length === 20, sourceLength: source.length, notStored: true };
+    }
+  });
+
   engine.registerCapability({
     id: "notifications.open_access_settings",
     label: "Configure notification access",
@@ -283,6 +318,37 @@ function createAuroraCapabilityRuntime(options = {}) {
       let items = [];
       try { items = JSON.parse(result.items || "[]"); } catch { items = []; }
       return { items, localOnly: true, excludedFromBackup: true, limit: result.limit || 20 };
+    }
+  });
+
+
+  engine.registerCapability({
+    id: "notifications.search_recent",
+    label: "Search recent notifications",
+    category: "notifications",
+    description: "Search the locally cached recent notification previews by app, title, or text. Requires Notification Access and fresh approval; results remain local to this action.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.notification_access"],
+    validate: (input) => {
+      const valid = requiredString(input?.query, "Notification search query");
+      if (valid !== true) return valid;
+      return input.query.trim().length >= 2 && input.query.length <= 120 || "Use a search query between 2 and 120 characters.";
+    },
+    availability: async () => {
+      if (!auroraNative.isAndroid()) return { available: false, reason: "Notification search requires Android." };
+      const state = await auroraNative.hasNotificationAccess();
+      return { available: state.granted, reason: state.granted ? null : "Enable AURORA Notification Access in Android Settings first." };
+    },
+    execute: async ({ query }) => {
+      const result = await auroraNative.readRecentNotifications();
+      let items = [];
+      try { items = JSON.parse(result.items || "[]"); } catch { items = []; }
+      const needle = query.trim().toLocaleLowerCase();
+      const matches = items.filter((item) => [item?.packageName, item?.title, item?.text]
+        .some((value) => String(value || "").toLocaleLowerCase().includes(needle)))
+        .slice(0, 20);
+      return { matches, count: matches.length, localOnly: true, excludedFromBackup: true };
     }
   });
 
