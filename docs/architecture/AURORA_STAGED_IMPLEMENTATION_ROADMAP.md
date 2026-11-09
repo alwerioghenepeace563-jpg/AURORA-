@@ -431,6 +431,12 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 - The shared Action Engine verifies that the result is marked read-only and timestamped. The operation requests no new permissions and changes no device settings.
 - Added bridge typing and regression checks. Sensor availability and OEM reporting differences remain device-validation items.
 
+**Implementation wave 13 — Active Android media-session controls (code committed; regression added):**
+- Added play/pause, next and previous controls for a currently active media session exposed by an Android media notification.
+- The adapter checks the session's advertised playback actions before issuing a transport command; it does not start arbitrary apps or claim success when no compatible session is active.
+- Notification Access is required and the shared Action Engine marks the control high-risk and approval-gated.
+- The result reports the active media app and available session context. Android/OEM media-notification behavior still requires physical-device validation.
+
 **Non-negotiable boundaries:** no silent calls, messages, email sends, attachment sharing or consequential settings changes; no hidden screen/notification collection; no simulated success; no assumption that every Android OEM exposes the same controls.
 
 - Complete the supported device-control catalogue: app search/launch, media, flashlight, volume, brightness, supported settings handoffs, battery/storage/connectivity dashboard and hardware capability detection.
