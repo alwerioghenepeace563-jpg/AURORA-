@@ -115,5 +115,13 @@ const path = require("node:path");
   assert.ok(foundationMap.includes("One brain, many surfaces"), "Main, Pulse, and voice must share one architecture.");
   assert.ok(foundationMap.includes("not a claim that every listed capability is already implemented"), "The foundation map must distinguish architecture from shipped functionality.");
   assert.ok(foundationMap.includes("Do not regenerate or replace the Android signing key"), "Signing identity must remain protected.");
+  const layerRegistrySource = fs.readFileSync(path.join(__dirname, "../src/core/aurora-layer-registry.js"), "utf8");
+  const stagedRoadmap = fs.readFileSync(path.join(__dirname, "../docs/architecture/AURORA_STAGED_IMPLEMENTATION_ROADMAP.md"), "utf8");
+  for (const layerId of ["android_device", "voice_multimodal", "screen_accessibility", "communication_people", "location_travel", "calendar_productivity", "files_knowledge", "media_creative", "intelligence_personalisation", "extensions_interoperability", "safety_privacy_security", "reliability_operations"]) {
+    assert.ok(layerRegistrySource.includes('id: "' + layerId + '"'), `Missing staged layer registry entry: ${layerId}`);
+  }
+  assert.ok(stagedRoadmap.includes("Every stage advances every active layer"), "Every stage must upgrade the whole active system.");
+  assert.ok(stagedRoadmap.includes("removed from the active upgrade queue"), "Final layers must leave the active queue only after acceptance.");
+  assert.ok(stagedRoadmap.includes("Stage 1 — Whole-system baseline"), "Stage one checkpoint must be documented.");
   console.log("AURORA architecture tests passed: registry, shared events, approval gate, idempotency, and rejection safety.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
