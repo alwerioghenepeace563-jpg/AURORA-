@@ -361,6 +361,14 @@ The original AURORA vision has **7 broad phases**. Those are the long-term produ
 
 **Stage opening (2026-11-09):** Stage 10 is now the active coordinated implementation stage. The Stage 9 core knowledge service, source selection contracts and shared runtime passed the latest core/web CI checkpoint, but Stage 9 is not being falsely marked complete. Its remaining work—broader knowledge browsing/editing UI, Android picker cancellation/provenance boundary tests, and final cross-surface acceptance review—remains an explicit carried backlog and must still be closed.
 
+**Implementation wave 1 — Read-only Android capability inventory (code committed; automated regression added):**
+- Added native `getDeviceCapabilityInventory` to inspect camera, flash, microphone, telephony, Bluetooth, Wi-Fi, GPS and NFC hardware feature declarations.
+- Reports camera, microphone, contacts, calendar, location and notification runtime-permission state without requesting any permission.
+- Reports AURORA overlay, notification-listener and accessibility special-access state without opening settings or changing configuration.
+- Exposes manufacturer/model/Android SDK metadata and a capture timestamp through the Capacitor bridge.
+- Registers the shared `android.inspect_capabilities` action. It is read-only, requires no approval, does not prompt for permissions and does not change settings.
+- Added `test:aurora-stage10` to the full core test chain. Hardware feature presence is reported separately from permission and special-access grants; this inventory does not claim that every control works on every OEM.
+
 **Stage 10 opening scope audit:** the machine-readable registry now records targets across all 12 capability families. This is a scope map, not evidence that every listed capability is implemented. Device and communication features must be checked against the actual Android adapter, permission contract, approval behavior and device support before being marked available.
 
 **Implementation waves:**
