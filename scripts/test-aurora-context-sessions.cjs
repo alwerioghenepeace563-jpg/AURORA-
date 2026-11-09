@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 (async () => {
  let now=1000; const events=[];
  const sessions=(await import("../src/core/aurora-context-sessions.js")).createAuroraContextSessions({now:()=>now,maxText:12,events:{publish:(...args)=>events.push(args)}});
@@ -15,5 +16,11 @@ const assert = require("node:assert/strict");
  const revoke=sessions.begin({source:"location",surface:"voice",userInitiated:true});
  assert.equal(sessions.revoke(revoke.id),true); assert.equal(sessions.revoke(revoke.id),false);
  const log=JSON.stringify(events); assert.equal(log.includes("private screen text"),false); assert.equal(log.includes("secret"),false);
- console.log("AURORA context-session tests passed.");
+ const accessibility = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAccessibilityService.java", "utf8");
+ const nativePatch = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
+ assert.match(accessibility, /onAccessibilityEvent\\(AccessibilityEvent event\\)\\s*\\{\\s*\\/\\* No background screen inspection or caching\\. \\*\\//);
+ assert.doesNotMatch(accessibility, /lastExternalScreenText|lastScreenText/);
+ assert.match(accessibility, /getRootInActiveWindow\\(\\)/);
+ assert.match(nativePatch, /Screen context can only be captured while AURORA is open and in the foreground/);
+ console.log("AURORA context-session tests passed: explicit opt-in, bounded one-shot capture, expiry, revocation, metadata-only events and non-caching native screen capture.");
 })().catch(e=>{console.error(e);process.exitCode=1;});
