@@ -39,7 +39,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "AuroraNative"${reducedPermissionTest ? "" : ", permissions = { @Permission(alias = \"microphone\", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = \\"notifications\\", strings = { Manifest.permission.POST_NOTIFICATIONS }) }"})
+@CapacitorPlugin(name = "AuroraNative"${reducedPermissionTest ? "" : ', permissions = { @Permission(alias = "microphone", strings = { Manifest.permission.RECORD_AUDIO }), @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) }'})
 public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private boolean isTrustedUpdateUrl(URL url) {
