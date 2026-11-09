@@ -10,7 +10,8 @@ AURORA VoiceText is the transcription service. The main AURORA Assistant sends a
 2. AURORA plays the local file through a browser media pipeline and captures independent 20-second audio sections.
 3. Each section is sent sequentially as bounded base64 JSON to `/api/voicetext-transcribe`; the entire recording is never encoded into one serverless request.
 4. The AURORA server forwards each section to VoiceText `/api/aurora-transcribe` using a server-only bearer token.
-5. The main AURORA server verifies the signed-in user against Supabase Auth and forwards only the verified account ID to VoiceText. VoiceText scopes job reads and updates to that account ID.\n6. VoiceText calls its existing `transcribeWithFallback` provider chain, stores each accepted audio section in a private Supabase Storage bucket, and checkpoints cumulative transcript/progress in `voicetext_recordings`.
+5. The main AURORA server verifies the signed-in user against Supabase Auth and forwards only the verified account ID to VoiceText. VoiceText scopes job reads and updates to that account ID.
+6. VoiceText calls its existing `transcribeWithFallback` provider chain, stores each accepted audio section in a private Supabase Storage bucket, and checkpoints cumulative transcript/progress in `voicetext_recordings`.
 7. AURORA offsets timestamps to the original recording timeline, displays the saved cumulative transcript, and preserves the job ID locally so the user can reselect the same source file and resume after an app restart. Saving to a project remains a separate explicit action.
 
 ## Required server environment
