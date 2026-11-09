@@ -26,7 +26,7 @@
     "test:aurora-wake-listener": "node scripts/test-aurora-wake-listener.cjs",
     "test:aurora-stage7": "node scripts/test-aurora-stage7-checkpoint.cjs",
     "test:aurora-stage8": "node scripts/test-aurora-stage8-workflow-observability.cjs",
-    "test:aurora-stage9": "node scripts/test-aurora-knowledge-universe.cjs",
+    "test:aurora-stage9": "node scripts/test-aurora-knowledge-universe.cjs && node scripts/test-aurora-stage9-import-boundary.cjs",
     "test:aurora-stage10": "node scripts/test-aurora-stage10-capability-inventory.cjs"
   },
   "dependencies": {
