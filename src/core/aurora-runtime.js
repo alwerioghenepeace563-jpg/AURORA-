@@ -354,6 +354,48 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_capability_discovery", capabilities: matches, context: matches.length ? "Registered AURORA capabilities (read-only discovery):\n" + matches.map(item => "- " + item.label + " [" + item.id + ", " + item.risk + (item.approvalRequired ? ", approval required" : "") + "]").join("\n") : "I couldn't find a registered capability matching that request. I cannot invent tools or bypass their approval requirements." };
   }
 
+  const taskStatusMatch = message.match(/^(?:show|check|review) task status ([a-zA-Z0-9_.:-]{4,120})$/i);
+  if (taskStatusMatch) {
+    const item = auroraTaskJournal.get(taskStatusMatch[1]);
+    if (!item) return { tool: "aurora_task_status", status: "not_found", context: "I couldn't find that task in this device's local task journal." };
+    return {
+      tool: "aurora_task_status",
+      taskId: item.taskId,
+      status: item.status,
+      updatedAt: item.updatedAt,
+      events: item.events,
+      context: "Task status: " + item.status + ". Last updated " + (item.updatedAt || "unknown") + ". Recorded activity: " + (item.events || []).slice(-8).map(event => event.type + (event.status ? " (" + event.status + ")" : "")).join("; ") + ". This is a local metadata-only history; it does not resume or repeat any action."
+    };
+  }
+
+  const reviewTaskMatch = message.match(/^review task ([a-zA-Z0-9_.:-]{4,120})$/i);
+  if (reviewTaskMatch) {
+    const recovery = auroraTaskJournal.inspectRecovery(reviewTaskMatch[1]);
+    return recovery
+      ? { tool: "aurora_task_review", recovery, context: recovery.reason + " Completed steps are not re-run automatically. Any new plan needs fresh confirmation." }
+      : { tool: "aurora_task_review", status: "not_found", context: "I couldn't find a recoverable plan for that task in the local journal." };
+  }
+
+  if (/^(?:show|list) (?:my )?(?:saved )?workflows\\??$/i.test(message)) {
+    const items = auroraWorkflows.list();
+    return {
+      tool: "aurora_workflows",
+      workflows: items.map(item => ({ id: item.id, title: item.title, summary: item.summary, stepCount: item.steps.length, updatedAt: item.updatedAt })),
+      context: items.length
+        ? "Saved workflows on this device: " + items.map(item => item.title + " (" + item.steps.length + " steps)").join("; ") + ". Preparing a workflow only creates a preview; every run requires fresh confirmation."
+        : "There are no saved workflows on this device."
+    };
+  }
+
+  const deleteWorkflowMatch = message.match(/^(?:delete|remove) workflow (.+)$/i);
+  if (deleteWorkflowMatch) {
+    const query = deleteWorkflowMatch[1].trim().toLowerCase();
+    const matches = auroraWorkflows.list().filter(item => item.title.toLowerCase() === query);
+    if (matches.length !== 1) return { tool: "aurora_workflow", status: matches.length ? "ambiguous" : "not_found", context: matches.length ? "More than one saved workflow matches. Use its exact full title." : "I couldn't find a saved workflow with that exact title." };
+    auroraWorkflows.remove(matches[0].id);
+    return { tool: "aurora_workflow_removed", workflowId: matches[0].id, context: "Deleted the saved workflow “" + matches[0].title + "”. No task actions were run." };
+  }
+
   const recoveryMatch = message.match(/^(?:show|list|review) (?:my )?(?:interrupted|recoverable|recent) tasks\??$/i);
   if (recoveryMatch) {
     const items = auroraTaskJournal.recoverable();
@@ -574,6 +616,8 @@ const auroraRuntime = Object.freeze({
   inspectCapabilities: () => capabilityIntelligence.inspect(),
   findCapabilities: (query, limit) => capabilityIntelligence.find(query, limit),
   recoverableTasks: () => auroraTaskJournal.recoverable(),
+  taskActivity: (taskId) => auroraTaskJournal.get(taskId),
+  reviewTaskRecovery: (taskId) => auroraTaskJournal.inspectRecovery(taskId),
   inspectRecoveryTask: (taskId) => reliability.inspectRecoveryTask(taskId),
   dismissRecoveryTask: (taskId) => reliability.dismissRecoveryTask(taskId),
   execute: (request) => actionEngine.execute(request),
