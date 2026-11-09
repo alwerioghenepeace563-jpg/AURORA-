@@ -415,6 +415,7 @@ export default function App() {
   const [pulseListening, setPulseListening] = useState(false);
   const pulseRecognitionRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
+  const pulseInterruptionReleaseRef = useRef(null);
   const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
   const [pulseWeather, setPulseWeather] = useState({ temperature: "â€”", condition: "Tap to load current weather", city: "Lagos" });
   const [pulseWeatherBusy, setPulseWeatherBusy] = useState(false);
@@ -702,6 +703,7 @@ export default function App() {
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const nativeSpeechListenersRef = useRef([]);
+  const mainInterruptionReleaseRef = useRef(null);
   const audioRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
@@ -1299,7 +1301,8 @@ export default function App() {
   }
 
   function cleanupPulseSpeech() {
-    try { pulseRecognitionRef.current?.stop?.(); } catch {}
+    if (pulseInterruptionReleaseRef.current) { pulseInterruptionReleaseRef.current(); pulseInterruptionReleaseRef.current = null; }
+    try { if (auroraNative.isAndroid()) void auroraNative.stopSpeechRecognition(); else pulseRecognitionRef.current?.stop?.(); } catch {}
     pulseRecognitionRef.current = null;
     pulseNativeSpeechListenersRef.current.forEach(handle => handle?.remove?.());
     pulseNativeSpeechListenersRef.current = [];
@@ -1319,7 +1322,8 @@ export default function App() {
         if (!permission?.granted) { setPulseMessages(items => [...items, { role: "assistant", content: "Please allow microphone permission in Android Settings, then try again." }]); return; }
         pulseNativeSpeechListenersRef.current.forEach(handle => handle?.remove?.());
         pulseNativeSpeechListenersRef.current = [];
-        const cleanup = () => { pulseNativeSpeechListenersRef.current.forEach(handle => handle?.remove?.()); pulseNativeSpeechListenersRef.current = []; setPulseListening(false); };
+        const cleanup = () => cleanupPulseSpeech();
+        pulseInterruptionReleaseRef.current = auroraRuntime.interactions.register("pulse", cleanupPulseSpeech);
         pulseNativeSpeechListenersRef.current.push(await auroraNative.addSpeechResultListener(event => {
           const spoken = event?.transcript?.trim() || ""; cleanup();
           if (spoken) void sendPulseMessage(spoken);
@@ -1341,7 +1345,8 @@ export default function App() {
     recognition.lang = "en-GB"; recognition.interimResults = false; recognition.maxAlternatives = 1;
     recognition.onresult = event => { const spoken = event.results?.[0]?.[0]?.transcript?.trim() || ""; cleanupPulseSpeech(); if (spoken) void sendPulseMessage(spoken); };
     recognition.onerror = event => { cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed (" + (event?.error || "unknown error") + ")." }]); };
-    recognition.onend = () => { pulseRecognitionRef.current = null; setPulseListening(false); };
+    pulseInterruptionReleaseRef.current = auroraRuntime.interactions.register("pulse", cleanupPulseSpeech);
+    recognition.onend = () => { pulseRecognitionRef.current = null; if (pulseInterruptionReleaseRef.current) { pulseInterruptionReleaseRef.current(); pulseInterruptionReleaseRef.current = null; } setPulseListening(false); };
     pulseRecognitionRef.current = recognition;
     try { recognition.start(); setPulseListening(true); } catch (error) { cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start microphone." }]); }
   }
@@ -1370,11 +1375,15 @@ export default function App() {
         }
         nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
         nativeSpeechListenersRef.current = [];
+        let releaseInterruption = () => {};
         const cleanup = () => {
+          releaseInterruption(); releaseInterruption = () => {};
+          try { void auroraNative.stopSpeechRecognition(); } catch {}
           nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
           nativeSpeechListenersRef.current = [];
           setListening(false);
         };
+        releaseInterruption = auroraRuntime.interactions.register("main_chat", cleanup);
         nativeSpeechListenersRef.current.push(await auroraNative.addSpeechResultListener((event) => {
           const spokenText = event?.transcript?.trim() || "";
           cleanup();
@@ -1414,18 +1423,21 @@ export default function App() {
     recognition.lang = "en-GB";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    mainInterruptionReleaseRef.current = auroraRuntime.interactions.register("main_chat", () => { try { recognition.stop(); } catch {} setListening(false); });
     recognition.onresult = (event) => {
       const spokenText = event.results?.[0]?.[0]?.transcript || "";
+      if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; }
       setDraft(spokenText);
       setListening(false);
       if (spokenText.trim()) sendMessage(spokenText);
     };
     recognition.onerror = (event) => {
+      if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; }
       setListening(false);
       const reason = event?.error ? String(event.error) : "unknown error";
       setNotice("Speech recognition failed (" + reason + "). Check microphone permission and speech services.");
     };
-    recognition.onend = () => setListening(false);
+    recognition.onend = () => { if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; } setListening(false); };
     recognitionRef.current = recognition;
     try {
       recognition.start();
