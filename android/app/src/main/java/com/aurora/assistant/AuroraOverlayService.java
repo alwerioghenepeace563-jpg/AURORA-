@@ -219,6 +219,38 @@ public class AuroraOverlayService extends Service {
         }
 
         @JavascriptInterface
+        public String openCalendar() {
+            try {
+                Intent calendar = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("content://com.android.calendar/time"));
+                calendar.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (calendar.resolveActivity(getPackageManager()) == null) {
+                    calendar = getPackageManager().getLaunchIntentForPackage("com.google.android.calendar");
+                    if (calendar == null) return result(false, "No calendar app is available on this phone.", "");
+                    calendar.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                }
+                startActivity(calendar);
+                return result(true, "Opening your calendar. Review events and confirm any changes there.", "Calendar");
+            } catch (Exception error) {
+                android.util.Log.e("AURORAOverlay", "Could not open calendar.", error);
+                return result(false, "Android could not open your calendar.", "");
+            }
+        }
+
+        @JavascriptInterface
+        public String composeEmail() {
+            try {
+                Intent email = new Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"));
+                email.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (email.resolveActivity(getPackageManager()) == null) return result(false, "No email app is configured on this phone.", "");
+                startActivity(email);
+                return result(true, "Opening your email app. Review and send messages yourself.", "Email");
+            } catch (Exception error) {
+                android.util.Log.e("AURORAOverlay", "Could not open email app.", error);
+                return result(false, "Android could not open your email app.", "");
+            }
+        }
+
+        @JavascriptInterface
         public String searchContacts(String query) {
             JSONArray contacts = new JSONArray();
 
