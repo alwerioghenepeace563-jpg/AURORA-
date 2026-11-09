@@ -2,9 +2,8 @@ name: Build AURORA Android APK
 # Use the new persistent local Android debug signing identity and Lively Updates publisher.
 
 on:
+  # APK compilation and publishing are reserved for release preparation.
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
