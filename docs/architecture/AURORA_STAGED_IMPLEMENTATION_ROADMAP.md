@@ -692,3 +692,11 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Updated Creative Studio copy to explain the recovery workflow and removed an unsupported claim that a dedicated Android foreground transcription service already exists.
 - This wave provides durable resume after interruption, not autonomous background processing after AURORA closes. A true queue worker and Android foreground-service integration remain separate work.
 - Setup dependencies: apply the VoiceText persistent-jobs migration and configure its server-side Supabase URL/service-role key, plus Main AURORA server-side Supabase URL/anon key. CI and live provider/device checks remain pending.
+
+
+### Stage 11 wave 19 — durable private transcription jobs and cross-session recovery
+- VoiceText now creates durable transcription job records in the existing Supabase project and stores each accepted 20-second audio section in a private Storage bucket. Completed section count, cumulative transcript, job status and timestamps are checkpointed in `voicetext_recordings`.
+- The main AURORA server verifies the signed-in Supabase access token before forwarding the request. VoiceText independently verifies that token and derives the account owner ID from Supabase Auth; it does not trust caller-supplied owner IDs. Every job read and update is scoped to the verified owner.
+- The app persists only the job ID and source-file fingerprint locally. After closing/reopening, the user reselects the same original recording; AURORA retrieves the saved transcript and completed-section count, then resumes at the next unprocessed section without repeating completed work.
+- Added backend setup documentation for the private table, Storage bucket, server-only service-role key and optional anon key. Existing integration credentials remain server-only.
+- This is durable resumability, not unattended background execution: audio capture and section submission still require the app to remain active. A server-side worker/queue, true background continuation, live provider round-trip and physical-device validation remain separate work. Supabase migration application and VoiceText server environment configuration are required before runtime use.
