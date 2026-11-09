@@ -93,7 +93,7 @@ public class AuroraReminderPlugin extends Plugin {
         Intent intent = new Intent(getContext(), AuroraReminderReceiver.class);
         intent.setAction("com.aurora.assistant.REMINDER");
         PendingIntent pending = PendingIntent.getBroadcast(getContext(), requestCode(id), intent, PendingIntent.FLAG_NO_CREATE | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
-        boolean cancelled = pending == null;
+        boolean cancelled = false;
         if (pending != null) {
             AlarmManager alarms = (AlarmManager) getContext().getSystemService(android.content.Context.ALARM_SERVICE);
             if (alarms != null) alarms.cancel(pending);
