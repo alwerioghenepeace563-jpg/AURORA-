@@ -168,7 +168,7 @@ function CreativeLearningWorkspace(){
  const transcribeImportedMedia=async()=>{
   if(!mediaFile){setNotice("Choose an audio file first.");return;}
   const supported=["audio/mpeg","audio/mp4","audio/wav","audio/x-wav","audio/webm","audio/ogg","audio/aac"];
-  if(!supported.includes(mediaFile.type)||mediaFile.size>1200000){setNotice("Choose MP3, M4A, WAV, WebM, OGG or AAC audio up to 1.2 MB for this first VoiceText connection.");return;}
+  if(!supported.includes(mediaFile.type)||mediaFile.size>3000000){setNotice("Choose MP3, M4A, WAV, WebM, OGG or AAC audio up to approximately 3 MB. Larger recordings need resumable cloud upload support.");return;}
   setMediaBusy(true);setNotice("Sending your selected recording to AURORA VoiceText. Its transcription engine is processing it…");
   try{
    const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||"").split(",")[1]||"");reader.onerror=()=>reject(new Error("The selected audio file could not be read."));reader.readAsDataURL(mediaFile);});
