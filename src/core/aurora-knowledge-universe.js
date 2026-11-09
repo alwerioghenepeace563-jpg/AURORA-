@@ -98,13 +98,13 @@ function createAuroraKnowledgeUniverse(options = {}) {
     if (!record) return null;
     const maxDepth = Math.max(1, Math.min(5, Number(options.maxDepth) || 3));
     const limit = Math.max(1, Math.min(100, Number(options.limit) || 50));
-    const visited = new Set([record.id]), relatedIds = new Set(), matchedLinks = [];
+    const visited = new Set([record.id]), relatedIds = new Set(), matchedLinks = [], matchedLinkIds = new Set();
     let frontier = new Set([record.id]);
     for (let depth = 0; depth < maxDepth && frontier.size && relatedIds.size < limit; depth++) {
       const next = new Set();
       for (const edge of data.links) {
         if (!frontier.has(edge.from) && !frontier.has(edge.to)) continue;
-        matchedLinks.push(edge);
+        if (!matchedLinkIds.has(edge.id)) { matchedLinkIds.add(edge.id); matchedLinks.push(edge); }
         const neighbour = frontier.has(edge.from) ? edge.to : edge.from;
         if (!visited.has(neighbour)) {
           visited.add(neighbour); relatedIds.add(neighbour); next.add(neighbour);
