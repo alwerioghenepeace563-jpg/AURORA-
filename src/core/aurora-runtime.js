@@ -344,6 +344,26 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_workflow_saved", workflowId: saved.id, context: "Saved workflow “" + saved.title + "”. It will still ask for confirmation every time you run it." };
   }
 
+  const retryTaskMatch = message.match(/^retry task ([a-zA-Z0-9_.:-]{4,120}) step ([a-zA-Z0-9_.:-]{1,80})$/i);
+  if (retryTaskMatch) {
+    const inspection = taskOrchestrator.inspectRetry(retryTaskMatch[1], retryTaskMatch[2]);
+    return inspection.status === "retry_available"
+      ? { tool: "aurora_retry_preview", inspection, context: "AURORA checked the failed step. A retry is eligible only because the adapter declares an idempotent retry contract: " + inspection.evidence + " No action has been retried. Review this and say confirm retry task " + inspection.taskId + " step " + inspection.stepId + " to authorize one retry." }
+      : { tool: "aurora_retry_review", inspection, context: "This step cannot currently be retried safely (" + inspection.reason + "). No action was taken. AURORA will not guess whether repeating an external action is safe." };
+  }
+
+  const confirmRetryMatch = message.match(/^confirm retry task ([a-zA-Z0-9_.:-]{4,120}) step ([a-zA-Z0-9_.:-]{1,80})$/i);
+  if (confirmRetryMatch) {
+    const result = await taskOrchestrator.retryFailedStep(confirmRetryMatch[1], confirmRetryMatch[2], { confirmed: true });
+    return {
+      tool: "aurora_retry_result",
+      result,
+      context: result.status === "completed"
+        ? "The approved retry returned a completed receipt. Further actions still require fresh confirmation."
+        : "The retry did not complete successfully (" + (result.reason || result.status) + "). AURORA has not retried again and will not claim the task is complete."
+    };
+  }
+
   const inspectWorkflowMatch = message.match(/^(?:inspect|review|explain) workflow (.+)$/i);
   if (inspectWorkflowMatch) {
     const query = inspectWorkflowMatch[1].trim().toLowerCase();
@@ -687,6 +707,8 @@ const auroraRuntime = Object.freeze({
   recentTaskActivity: (limit = 12) => auroraTaskJournal.list().slice(0, Math.max(1, Math.min(50, Number(limit) || 12))),
   forgetTaskActivity: (taskId) => auroraTaskJournal.forget(taskId),
   reviewTaskRecovery: (taskId) => auroraTaskJournal.inspectRecovery(taskId),
+  inspectTaskRetry: (taskId, stepId) => taskOrchestrator.inspectRetry(taskId, stepId),
+  retryTaskStep: (taskId, stepId, options) => taskOrchestrator.retryFailedStep(taskId, stepId, options),
   inspectRecoveryTask: (taskId) => reliability.inspectRecoveryTask(taskId),
   dismissRecoveryTask: (taskId) => reliability.dismissRecoveryTask(taskId),
   execute: (request) => actionEngine.execute(request),
