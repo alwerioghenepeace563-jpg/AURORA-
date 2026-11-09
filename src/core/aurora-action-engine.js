@@ -21,6 +21,7 @@ function defaultId() {
 function createAuroraActionEngine(options = {}) {
   const capabilities = new Map();
   const receipts = new Map();
+  const inFlight = new Map();
   const listeners = new Set();
   const approve = typeof options.approve === "function" ? options.approve : async () => ({ approved: false });
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
@@ -94,7 +95,9 @@ function createAuroraActionEngine(options = {}) {
     if (!capability) throw makeError("CAPABILITY_NOT_FOUND", "AURORA does not know this capability.", { id: request.capabilityId });
     const requestId = String(request.requestId || createId());
     if (receipts.has(requestId)) return receipts.get(requestId);
+    if (inFlight.has(requestId)) return inFlight.get(requestId);
 
+    const operation = (async () => {
     const availability = await getAvailability(capability.id);
     if (!availability.available) {
       const receipt = Object.freeze({ requestId, capabilityId: capability.id, status: "unavailable", error: { code: "CAPABILITY_UNAVAILABLE", message: availability.reason || "Capability is unavailable." }, at: now() });
@@ -146,6 +149,10 @@ function createAuroraActionEngine(options = {}) {
       emit("action.failed", { receipt });
       return receipt;
     }
+    })();
+    inFlight.set(requestId, operation);
+    try { return await operation; }
+    finally { inFlight.delete(requestId); }
   }
 
   return Object.freeze({
