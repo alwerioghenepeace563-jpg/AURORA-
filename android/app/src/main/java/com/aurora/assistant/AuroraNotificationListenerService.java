@@ -39,6 +39,55 @@ public class AuroraNotificationListenerService extends NotificationListenerServi
         return false;
     }
 
+    public static JSObject controlActiveMedia(String requestedAction) {
+        JSObject result = new JSObject();
+        if (requestedAction == null || !java.util.Arrays.asList("play_pause", "next", "previous").contains(requestedAction)) {
+            return result.put("controlled", false).put("reason", "unsupported_action");
+        }
+        AuroraNotificationListenerService service = activeInstance;
+        if (service == null) return result.put("controlled", false).put("reason", "notification_access_unavailable");
+        try {
+            StatusBarNotification[] active = service.getActiveNotifications();
+            if (active == null) return result.put("controlled", false).put("reason", "no_active_media_session");
+            for (StatusBarNotification item : active) {
+                if (item == null || item.getNotification() == null || item.getNotification().extras == null) continue;
+                Bundle extras = item.getNotification().extras;
+                Object rawToken = extras.get(Notification.EXTRA_MEDIA_SESSION);
+                if (!(rawToken instanceof android.media.session.MediaSession.Token)) continue;
+                android.media.session.MediaController controller =
+                    new android.media.session.MediaController(service, (android.media.session.MediaSession.Token) rawToken);
+                android.media.session.PlaybackState state = controller.getPlaybackState();
+                if (state == null) continue;
+                long actions = state.getActions();
+                android.media.session.MediaController.TransportControls controls = controller.getTransportControls();
+                if ("play_pause".equals(requestedAction)) {
+                    if (state.getState() == android.media.session.PlaybackState.STATE_PLAYING
+                        || state.getState() == android.media.session.PlaybackState.STATE_BUFFERING) {
+                        if ((actions & android.media.session.PlaybackState.ACTION_PAUSE) == 0) continue;
+                        controls.pause();
+                    } else {
+                        if ((actions & android.media.session.PlaybackState.ACTION_PLAY) == 0) continue;
+                        controls.play();
+                    }
+                } else if ("next".equals(requestedAction)) {
+                    if ((actions & android.media.session.PlaybackState.ACTION_SKIP_TO_NEXT) == 0) continue;
+                    controls.skipToNext();
+                } else {
+                    if ((actions & android.media.session.PlaybackState.ACTION_SKIP_TO_PREVIOUS) == 0) continue;
+                    controls.skipToPrevious();
+                }
+                android.media.MediaMetadata metadata = controller.getMetadata();
+                result.put("controlled", true).put("action", requestedAction)
+                    .put("packageName", item.getPackageName())
+                    .put("title", metadata == null ? "" : String.valueOf(metadata.getDescription().getTitle()))
+                    .put("playbackState", state.getState())
+                    .put("supportedActions", actions);
+                return result;
+            }
+        } catch (Exception ignored) { }
+        return result.put("controlled", false).put("reason", "no_compatible_active_session");
+    }
+
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         if (sbn == null || sbn.getPackageName() == null || sbn.getPackageName().equals(getPackageName())) return;
