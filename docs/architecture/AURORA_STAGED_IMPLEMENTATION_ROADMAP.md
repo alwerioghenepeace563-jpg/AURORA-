@@ -307,6 +307,14 @@ Stage 8 will advance all 12 capability families together:
 - If the task is not active, AURORA reports that no cancellation action was taken.
 - Added Stage 8 regression coverage and architecture evidence across all 12 capability families.
 
+**Implementation wave 5 — Safe self-recovery retry preflight (code committed; CI pending):**
+- Added a read-only retry inspection API for failed task steps.
+- AURORA checks that the task actually failed, the selected step is the failed step, dependencies completed, retry limits are not exceeded, and the capability adapter explicitly proves idempotency.
+- AURORA now offers a retry preview only when all checks pass. The user must issue a separate confirmation command before one retry is attempted.
+- Unknown or non-idempotent actions fail closed; AURORA does not guess that repeating a message, payment, setting change, or other external action is safe.
+- Retry results are reported from the action receipt, and any further action requires fresh confirmation.
+- Added orchestrator tests and shared-runtime command regression coverage; Stage 8 evidence updated across all 12 capability families.
+
 **Stage 8 acceptance rule:** all 12 layers receive coordinated implementation and regression evidence; end-to-end workflows pass core CI and web build; user confirmation, permission, consent, cancellation, and review-only recovery remain enforced. Device certification stays a separate release gate.
 
 ## Complete vision roadmap and remaining stages
