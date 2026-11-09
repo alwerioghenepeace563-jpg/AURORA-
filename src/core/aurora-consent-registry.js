@@ -1,3 +1,4 @@
+import { readStoredJson, isRecord } from "./aurora-storage-guard.js";
 /**
  * AURORA privacy and context consent registry.
  * Default-deny, source-scoped, revocable grants. No data is collected here.
@@ -8,8 +9,12 @@ function createAuroraConsentRegistry(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const now = options.now || (() => Date.now());
   function read() {
-    try { const value = JSON.parse(storage?.getItem(KEY) || "[]"); return Array.isArray(value) ? value.filter(x => x && SAFE.test(x.scope) && SAFE.test(x.source)) : []; }
-    catch { return []; }
+    return readStoredJson(storage, KEY, [], value =>
+      Array.isArray(value) && value.every(item => isRecord(item) &&
+        typeof item.scope === "string" && SAFE.test(item.scope) &&
+        typeof item.source === "string" && SAFE.test(item.source) &&
+        (item.expiresAt == null || Number.isFinite(item.expiresAt))),
+      "AURORA consent registry");
   }
   function write(items) {
     if (!storage?.setItem) throw new Error("Consent storage is unavailable.");
