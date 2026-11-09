@@ -90,9 +90,9 @@ Implemented code-level hardening: Android-only protected-memory vault; shared ru
 
 These checks remain **deferred and unverified** by the user’s direction to finish the app first. They are mandatory before release sign-off, but do not prevent Stage 4 from beginning after the Stage 3 CI pass. Preserve local-first behavior; do not perform automatic migration or bulk upload.
 
-### Stage 4 — Reliability and recovery (implementation complete; verification pending)
+### Stage 4 — Reliability and recovery (implementation complete; verification in progress)
 
-<badge>Code implementation checkpoint — tests intentionally deferred</badge>
+**Code implementation checkpoint recorded. Automated verification is now being run on the active feature branch.**
 
 The coordinated reliability foundation adds a shared lifecycle coordinator for visibility, foreground/background, online/offline, pagehide and pageshow events; bounded metadata-only failure diagnostics; cooperative cancellation for multi-step tasks; and a review-only recovery queue. The task journal now stores bounded execution receipt metadata only: it excludes task inputs, action result payloads, error messages and sensitive document/screen/media contents. Cancellation stops active Action Engine work and prevents later steps. Existing authorization, consent, approval, timeout and idempotency gates remain authoritative. A regression test verifies that private action payloads are not persisted in recovery records.
 
@@ -106,7 +106,7 @@ The final implementation pass extends reliability into persistent and scheduled 
 - Routine scheduling validates stored records and bounds, compensates if persistence fails after an Android alarm is created, and makes cancellation transactional: the saved record is restored if Android cannot cancel the reminder. Routines remain reminders only and never execute workflow steps in the background.
 - Existing extension execution remains metadata-only and routes every requested capability through the shared Action Engine; no downloaded code or autonomous extension execution is introduced.
 
-**Stage 4 implementation result:** The planned code changes now cover task execution, task journaling, specialist isolation, lifecycle diagnostics, recovery review, storage-backed workflows, memory sync, extension execution boundaries and scheduled background reminders. No Stage 5 work has started. The user requested that tests be left for later, so Stage 4 is **not formally complete**: automated regression/CI verification and the deferred physical-device checks remain outstanding. Do not advance the stage or claim reliability certification until the verification gate is completed.
+**Stage 4 implementation result:** The planned code changes now cover task execution, task journaling, specialist isolation, lifecycle diagnostics, recovery review, storage-backed workflows, memory sync, extension execution boundaries and scheduled background reminders. No Stage 5 work has started. The user previously asked to defer testing, but has now authorized completion work. The latest recovery verification recorded 21 core/architecture test scripts passing, the web production build passing, and the dependency audit reporting zero vulnerabilities. A dedicated feature-branch CI gate has now been added to rerun core tests, the production build, and a blocking dependency audit on every push. Android debug compilation is still in progress; APK archive validation and artifact upload have not yet passed. Stage 4 remains **verification pending** until that Android run and the fresh feature-branch CI gate complete successfully. Physical-device lifecycle/interruption checks remain release-validation work and are explicitly unverified; do not describe them as passed.
 
 ### Stage 5 — Capability adapter expansion
 
