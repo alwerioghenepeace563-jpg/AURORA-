@@ -47,6 +47,7 @@ export default async function handler(req, res) {
   const body = parseBody(req.body);
   const action = req.method === "GET" ? "status" : (body.action || "transcribe");
   const requestId = safeText(req.query?.requestId || body.requestId, 80);
+  const userToken = typeof req.headers.authorization === "string" ? req.headers.authorization.replace(/^Bearer\\s+/i, "") : "";
   let upstreamUrl = baseUrl + "/api/aurora-transcribe";
   let upstreamMethod = "POST";
   let upstreamBody = null;
@@ -101,10 +102,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Unknown action. Use create, process, or status." });
   }
 
+  if (action !== "transcribe" && !userToken) return res.status(401).json({ error: "Sign in to AURORA to create or resume a private cloud transcription job." });
+
   try {
     const upstream = await fetch(upstreamUrl, {
       method: upstreamMethod,
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(userToken ? { "X-AURORA-USER-TOKEN": userToken } : {}) },
       ...(upstreamBody ? { body: JSON.stringify(upstreamBody) } : {}),
       signal: AbortSignal.timeout(55000),
     });
