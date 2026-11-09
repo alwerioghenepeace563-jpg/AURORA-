@@ -310,7 +310,7 @@ const STAGE_ELEVEN_CHECKPOINT = Object.freeze({
   status: "in_progress",
   startedAt: "2026-11-09",
   scope: "Stage 11 unifies creative media workflows and learner-controlled study capabilities through the shared AURORA runtime and Knowledge Universe.",
-  validationBoundary: "Stage 10 code/CI checkpoint is complete. Stage 11 has opened with a coordinated 12-family scope; creative/learning implementation and its tests are not yet complete. Physical Android validation and release certification remain separate gates.",
+  validationBoundary: "Stage 11 waves 1–2 are implemented in the shared runtime with local-first study plans, creative project/draft management, user-selected SRT/VTT caption import/export, flashcards, quiz grading and a dedicated Tools workspace. CI is pending for the latest commits. Automated speech recognition, AI-generated media, full document/image/audio extraction, provider-backed lesson generation, calendar/reminder scheduling integration and full 12-family acceptance evidence remain outstanding. Physical Android validation and release certification are separate gates.",
   deliverables: Object.freeze(["Connect user-selected media, transcription, subtitle search and summaries through one creative workspace.", "Add user-controlled study plans, explanations, practice and progress summaries.", "Integrate creative and learning artefacts with Knowledge Universe provenance and explicit save approval.", "Preserve copyright, attribution, bounded media processing and graceful offline/provider fallback.", "Add automated tests and evidence across all 12 capability families."])
 });
 
