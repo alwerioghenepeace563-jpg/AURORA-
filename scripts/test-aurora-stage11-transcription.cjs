@@ -9,7 +9,7 @@ assert.match(workspace, /Speech-to-text capture/);
 assert.match(workspace, /VoiceText transcription/);
 assert.match(workspace, /Transcribe with VoiceText/);
 assert.match(workspace, /Save transcript to project/);
-assert.ok(workspace.includes("mediaFile.size>1200000"));
+assert.match(workspace, /new MediaRecorder\(capture\.stream/);\nassert.match(workspace, /setTimeout\(finish,20000\)/);\nassert.match(workspace, /mediaResumeOffset/);\nassert.match(workspace, /Resume transcription/);\nassert.match(workspace, /Completed sections are preserved/);
 assert.ok(workspace.includes("/api/voicetext-transcribe"));
 assert.ok(workspace.includes("AURORA VoiceText"));
 assert.ok(workspace.includes("Nigerian English and Nigerian Pidgin"));
