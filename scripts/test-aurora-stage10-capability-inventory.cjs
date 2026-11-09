@@ -29,3 +29,21 @@ assert.match(nativeJava, /result\.put\("readOnly", true\)/);
 assert.match(registry, /STAGE_TEN_CHECKPOINT/);
 assert.match(registry, /status: "in_progress"/);
 console.log("AURORA Stage 10 capability inventory tests passed: hardware, runtime permissions and special access are exposed read-only.");
+
+
+// Stage 10 Wave 3: email is a reviewed native composer handoff, never a silent send.
+assert.equal((nativeJava.match(/public void prepareEmail\\(PluginCall call\\)/g) || []).length, 1, "Email composer must have one native implementation.");
+assert.match(nativeJava, /Intent\\.ACTION_SENDTO/);
+assert.match(nativeJava, /mailto:/);
+assert.match(nativeJava, /Intent\\.EXTRA_SUBJECT/);
+assert.match(nativeJava, /Intent\\.EXTRA_TEXT/);
+assert.match(nativeJava, /requiresUserReview/);
+assert.match(nativeJava, /requiresUserSend/);
+assert.match(nativeBridge, /prepareEmail\\(options: \\{ to: string; subject\\?: string; body\\?: string \\}\\)/);
+assert.match(nativeBridge, /prepareEmail: async \\(to: string, subject = "", body = ""\\)/);
+assert.match(capabilityRuntime, /id: "communication\\.prepare_email"/);
+assert.match(capabilityRuntime, /approvalRequired: true/);
+assert.match(capabilityRuntime, /sentByAurora: false/);
+assert.match(capabilityRuntime, /Email subject must be text no longer than 200 characters/);
+assert.match(capabilityRuntime, /Email draft must be text no longer than 8000 characters/);
+console.log("AURORA Stage 10 email draft tests passed: recipient validation, approval-gated composer handoff and explicit user-controlled sending.");
