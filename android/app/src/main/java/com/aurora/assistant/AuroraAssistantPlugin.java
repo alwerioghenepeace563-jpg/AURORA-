@@ -761,6 +761,52 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
 
+
+    @PluginMethod
+    public void capturePhoto(PluginCall call) {
+        try {
+            Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+            if (intent.resolveActivity(getContext().getPackageManager()) == null) {
+                call.reject("No camera app is available to capture a photo.");
+                return;
+            }
+            startActivityForResult(call, intent, "handleCapturedPhoto");
+        } catch (Exception e) {
+            call.reject("Could not open the Android camera.", e);
+        }
+    }
+
+    @com.getcapacitor.annotation.ActivityCallback
+    private void handleCapturedPhoto(PluginCall call, ActivityResult activityResult) {
+        if (call == null) return;
+        if (activityResult == null || activityResult.getResultCode() != android.app.Activity.RESULT_OK
+            || activityResult.getData() == null) {
+            call.resolve(new JSObject().put("cancelled", true));
+            return;
+        }
+        try {
+            android.os.Bundle extras = activityResult.getData().getExtras();
+            Object captured = extras == null ? null : extras.get("data");
+            if (!(captured instanceof android.graphics.Bitmap)) {
+                call.reject("The camera did not return a preview image. Try the system media picker instead.");
+                return;
+            }
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+            ((android.graphics.Bitmap) captured).compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, output);
+            byte[] bytes = output.toByteArray();
+            if (bytes.length == 0 || bytes.length > 2 * 1024 * 1024) {
+                call.reject("The camera preview is empty or exceeds AURORA's 2 MB preview limit.");
+                return;
+            }
+            String encoded = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
+            call.resolve(new JSObject().put("cancelled", false).put("mimeType", "image/jpeg")
+                .put("thumbnailBase64", encoded).put("thumbnailOnly", true)
+                .put("fullResolutionSaved", false).put("requiresUserCapture", true));
+        } catch (Exception e) {
+            call.reject("Could not process the camera preview.", e);
+        }
+    }
+
     @PluginMethod
     public void pickMedia(PluginCall call) {
         String mediaType = call.getString("mediaType", "image");
