@@ -9,38 +9,6 @@ export type AuroraNativeStatus = {
   liveRealtimeVoiceEnabled: boolean;
 };
 
-export type AuroraDeviceCapabilityInventory = {
-  platform: string;
-  sdk: number;
-  manufacturer: string;
-  model: string;
-  hardware: {
-    camera: boolean;
-    flashlight: boolean;
-    microphone: boolean;
-    telephony: boolean;
-    wifi: boolean;
-    bluetooth: boolean;
-    nfc: boolean;
-    gps: boolean;
-    networkLocation: boolean;
-  };
-  permissions: {
-    camera: boolean;
-    microphone: boolean;
-    contacts: boolean;
-    calendarRead: boolean;
-    locationCoarse: boolean;
-    locationFine: boolean;
-    notifications: boolean;
-    notificationAccess: boolean;
-    accessibility: boolean;
-    overlay: boolean;
-  };
-  readOnly: true;
-  checkedAt: number;
-};
-
 type AuroraNativePlugin = {
   startSpeechRecognition(): Promise<{ started: boolean }>;
   stopSpeechRecognition(): Promise<{ stopped: boolean }>;
@@ -80,7 +48,6 @@ type AuroraNativePlugin = {
   readRecentNotifications(): Promise<{ items: string; localOnly: boolean; limit: number }>;
   clearRecentNotifications(): Promise<{ cleared: boolean }>;
   getDeviceStatus(): Promise<{ batteryPercent?: number; charging?: boolean; batteryHealth?: number; platform: string; sdk: number; manufacturer: string; model: string }>;
-  getDeviceCapabilityInventory(): Promise<AuroraDeviceCapabilityInventory>;
   getDeviceCapabilityInventory(): Promise<{ platform: string; device: { manufacturer: string; model: string; sdk: number }; hardware: Record<string, boolean>; permissions: Record<string, boolean>; specialAccess: Record<string, boolean>; readOnly: true; capturedAt: number }>;
   requestCameraPermission(): Promise<{ granted: boolean }>;
   setFlashlight(options: { enabled: boolean }): Promise<{ enabled: boolean }>; 
@@ -212,7 +179,6 @@ export const auroraNative = {
   hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },
   readRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification intelligence is available only in Android."); return AuroraNative.readRecentNotifications(); },
   clearRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification cache is available only in Android."); return AuroraNative.clearRecentNotifications(); },
-  getDeviceCapabilityInventory: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device capability inventory is available only in Android."); return AuroraNative.getDeviceCapabilityInventory(); },
   getDeviceStatus: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device status is available only in Android."); return AuroraNative.getDeviceStatus(); },
   getDeviceCapabilityInventory: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device capability inventory is available only in the Android app."); return AuroraNative.getDeviceCapabilityInventory(); },
   requestCameraPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestCameraPermission(); },
