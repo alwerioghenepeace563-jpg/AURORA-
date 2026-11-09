@@ -51,6 +51,7 @@ type AuroraNativePlugin = {
   prepareCalendarEvent(options: { title: string; beginTime: number; endTime: number; description?: string; location?: string }): Promise<{ opened: boolean; requiresUserSave: boolean }>;
   searchMedia(options: { query: string }): Promise<{ opened: boolean; query: string }>;
   controlActiveMedia(options: { action: "play_pause" | "next" | "previous" }): Promise<{ controlled: boolean; action?: string; packageName?: string; title?: string; playbackState?: number; reason?: string }>;
+  exportTextDocument(options: { content: string; filename: string; mimeType: "text/plain" | "text/markdown" | "text/csv" | "application/json" }): Promise<{ saved: boolean; cancelled: boolean; bytesWritten?: number; characters?: number; destinationChosenByUser?: boolean; uri?: string; reason?: string }>;
   readClipboardText(): Promise<{ available: boolean; text: string; truncated?: boolean; readOnly: true; notStored?: true; note?: string }>;
   writeClipboardText(options: { text: string }): Promise<{ written: boolean; characters: number; systemClipboard: true }>;
   pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
@@ -202,6 +203,7 @@ export const auroraNative = {
   getCurrentLocation: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device location is available only in the Android app."); return AuroraNative.getCurrentLocation(); },
   searchCalendarEvents: async (query = "") => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar search is available only in the Android app."); return AuroraNative.searchCalendarEvents({ query }); },
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
+  exportTextDocument: async (options: { content: string; filename: string; mimeType: "text/plain" | "text/markdown" | "text/csv" | "application/json" }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Document export requires Android."); return AuroraNative.exportTextDocument(options); },
   controlActiveMedia: async (action: "play_pause" | "next" | "previous") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media session controls require Android."); return AuroraNative.controlActiveMedia({ action }); },
   searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
   readClipboardText: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.readClipboardText(); },
