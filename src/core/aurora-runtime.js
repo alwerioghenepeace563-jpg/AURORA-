@@ -27,6 +27,7 @@ import { createAuroraSupabaseMemoryAdapter } from "./aurora-supabase-memory-adap
 import { auroraSecureStorage as nativeSecureStorage, auroraReminder } from "../lib/aurora-secure-storage";
 import { createAuroraSecureStore } from "./aurora-secure-store";
 import { createAuroraProtectedMemory } from "./aurora-protected-memory";
+import { createAuroraReliabilityCoordinator } from "./aurora-reliability-coordinator";
 
 const approvalBroker = createAuroraApprovalBroker();
 const actionEngine = createAuroraCapabilityRuntime({
@@ -102,6 +103,7 @@ const dataInventory = createAuroraDataInventory({
   auth_session: () => ({ label: "Android sign-in session", location: nativeSecureStorage.isAvailable() ? "Android Keystore-backed encrypted storage" : "Browser session storage", count: null, encrypted: nativeSecureStorage.isAvailable(), note: "This inventory never reads or displays session contents." })
 });
 const specialists = createAuroraSpecialistCoordinator({ maxParallel: 3 });
+const reliability = createAuroraReliabilityCoordinator({ events: auroraEvents, taskJournal: auroraTaskJournal });
 specialists.register({ id: "context_intelligence", label: "Context and research", description: "Uses AURORA existing context, journey, weather and research tools.", matches: (text) => /weather|forecast|journey|trip|travel|traffic|road|news|research|where am i|my location|have i been|did i visit/i.test(text), run: async (text) => runAuroraToolTree(text) });
 actionEngine.subscribe((event) => auroraEvents.publish("action." + event.type.replace(/^action\./, ""), event, { source: "action_engine" }));
 taskOrchestrator.subscribe((event) => { auroraTaskJournal.record(event); auroraEvents.publish(event.type, event, { source: "task_orchestrator" }); });
@@ -500,6 +502,9 @@ const auroraRuntime = Object.freeze({
   approvals: approvalBroker,
   tasks: taskOrchestrator,
   taskJournal: auroraTaskJournal,
+  reliability,
+  diagnostics: () => reliability.getDiagnostics(),
+  cancelTask: (taskId) => taskOrchestrator.cancelPlan(taskId),
   memorySync,
   capabilityIntelligence,
   consents: auroraConsents,
