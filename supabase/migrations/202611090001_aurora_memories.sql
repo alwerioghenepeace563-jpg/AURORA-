@@ -8,6 +8,10 @@ create table if not exists public.aurora_memories (
   primary key (user_id, id)
 );
 
+-- Upgrade an earlier single-column primary key safely; memory IDs are scoped per account.
+alter table public.aurora_memories drop constraint if exists aurora_memories_pkey;
+alter table public.aurora_memories add constraint aurora_memories_pkey primary key (user_id, id);
+
 alter table public.aurora_memories enable row level security;
 
 drop policy if exists "Users can read their own AURORA memories" on public.aurora_memories;
