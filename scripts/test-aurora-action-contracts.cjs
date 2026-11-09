@@ -57,6 +57,11 @@ const assert = require("node:assert/strict");
   assert.deepEqual(listed.permissionRequirements, ["android.contacts"]);
   assert.equal(listed.timeoutMs, 15000);
   assert.equal(listed.idempotency, "request-id");
+  assert.deepEqual(allowed.getRetryEligibility("test.authorized"), { eligible: false, reason: "adapter_idempotency_not_proven", capabilityId: "test.authorized" });
+  assert.throws(() => allowed.registerCapability({ id: "test.retry_without_evidence", retryPolicy: { mode: "idempotent" }, execute: async () => ({}) }), /documented adapter evidence/i);
+  allowed.registerCapability({ id: "test.retry_proven", retryPolicy: { mode: "idempotent", evidence: "PUT by stable resource ID with conditional version check." }, execute: async () => ({ ok: true }) });
+  assert.equal(allowed.getRetryEligibility("test.retry_proven").eligible, true);
+  assert.equal(allowed.getRetryEligibility("test.retry_proven").automaticRetry, false);
   assert.throws(() => allowed.registerCapability({ id: "test.invalid_timeout", timeoutMs: 99, execute: async () => ({}) }), /timeoutMs/i);
 
   const cancellable = createAuroraActionEngine();
