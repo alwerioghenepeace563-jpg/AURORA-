@@ -354,6 +354,31 @@ async function routeMessage(text, options = {}) {
     return { tool: "aurora_capability_discovery", capabilities: matches, context: matches.length ? "Registered AURORA capabilities (read-only discovery):\n" + matches.map(item => "- " + item.label + " [" + item.id + ", " + item.risk + (item.approvalRequired ? ", approval required" : "") + "]").join("\n") : "I couldn't find a registered capability matching that request. I cannot invent tools or bypass their approval requirements." };
   }
 
+  if (/^(?:show|list) (?:my )?(?:recent )?tasks\\??$/i.test(message)) {
+    const items = auroraTaskJournal.list().slice(0, 12);
+    return {
+      tool: "aurora_recent_tasks",
+      tasks: items.map(item => ({
+        taskId: item.taskId,
+        status: item.status || "unknown",
+        updatedAt: item.updatedAt || null,
+        eventCount: (item.events || []).length,
+        recoverable: Boolean(item.plan && ["prepared", "running", "awaiting_user", "failed", "blocked"].includes(item.status))
+      })),
+      context: items.length
+        ? "Recent local task history: " + items.map(item => item.taskId + " (" + (item.status || "unknown") + ", updated " + (item.updatedAt || "unknown") + ")").join("; ") + ". This is metadata only. Say review task followed by an ID to inspect recovery; no task resumes automatically."
+        : "There are no recorded tasks in this device's local task journal."
+    };
+  }
+
+  const forgetTaskMatch = message.match(/^(?:forget|delete|remove) task ([a-zA-Z0-9_.:-]{4,120})$/i);
+  if (forgetTaskMatch) {
+    const removed = auroraTaskJournal.forget(forgetTaskMatch[1]);
+    return removed
+      ? { tool: "aurora_task_forgotten", taskId: forgetTaskMatch[1], context: "Removed the local task-history record. This does not undo any external action already completed." }
+      : { tool: "aurora_task_forget", status: "not_found", taskId: forgetTaskMatch[1], context: "I couldn't find that task-history record on this device." };
+  }
+
   const taskStatusMatch = message.match(/^(?:show|check|review) task status ([a-zA-Z0-9_.:-]{4,120})$/i);
   if (taskStatusMatch) {
     const item = auroraTaskJournal.get(taskStatusMatch[1]);
@@ -617,6 +642,8 @@ const auroraRuntime = Object.freeze({
   findCapabilities: (query, limit) => capabilityIntelligence.find(query, limit),
   recoverableTasks: () => auroraTaskJournal.recoverable(),
   taskActivity: (taskId) => auroraTaskJournal.get(taskId),
+  recentTaskActivity: (limit = 12) => auroraTaskJournal.list().slice(0, Math.max(1, Math.min(50, Number(limit) || 12))),
+  forgetTaskActivity: (taskId) => auroraTaskJournal.forget(taskId),
   reviewTaskRecovery: (taskId) => auroraTaskJournal.inspectRecovery(taskId),
   inspectRecoveryTask: (taskId) => reliability.inspectRecoveryTask(taskId),
   dismissRecoveryTask: (taskId) => reliability.dismissRecoveryTask(taskId),
