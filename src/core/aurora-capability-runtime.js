@@ -671,12 +671,12 @@ function createAuroraCapabilityRuntime(options = {}) {
     id: "device.get_status",
     label: "Get device status",
     category: "device",
-    description: "Read basic device model, Android version, battery percentage and charging state.",
+    description: "Read a privacy-safe device health snapshot: battery level, charging source, battery temperature and voltage when reported, system memory pressure and Android thermal status when supported. No settings are changed and no app memory contents are read.",
     risk: AURORA_ACTION_RISK.LOW,
     approvalRequired: false,
     validate: () => true,
     availability: async () => ({ available: auroraNative.isAndroid(), reason: "Device status is available only in Android." }),
-    execute: async () => auroraNative.getDeviceStatus()
+    execute: async () => { const result = await auroraNative.getDeviceStatus(); if (result?.readOnly !== true || !Number.isFinite(result?.capturedAt)) throw new Error("Android did not return a verified read-only device health snapshot."); return { ...result, readOnly: true }; }
   });
 
   engine.registerCapability({
