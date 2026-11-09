@@ -554,6 +554,35 @@ function createAuroraCapabilityRuntime(options = {}) {
 
 
   engine.registerCapability({
+    id: "notifications.open_item",
+    label: "Open a selected notification",
+    category: "notifications",
+    description: "Open the originating app screen for a notification that AURORA has recently cached, using its Android content action. This does not reply, dismiss, send or modify the notification.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.notification_access"],
+    validate: (input) => {
+      const valid = requiredString(input?.key, "Notification key");
+      if (valid !== true) return valid;
+      return input.key.length <= 512 || "Notification key is too long.";
+    },
+    availability: async () => {
+      if (!auroraNative.isAndroid()) return { available: false, reason: "Opening a notification requires Android." };
+      const state = await auroraNative.hasNotificationAccess();
+      return { available: state.granted, reason: state.granted ? null : "Enable AURORA Notification Access in Android Settings first." };
+    },
+    execute: async ({ key }) => {
+      const cached = await auroraNative.readRecentNotifications();
+      let items = [];
+      try { items = JSON.parse(cached.items || "[]"); } catch { items = []; }
+      if (!items.some((item) => item?.key === key)) throw new Error("Select a notification from AURORA's recent notification list first.");
+      const result = await auroraNative.openNotification(key);
+      if (result?.opened !== true) return { opened: false, note: result?.note || "The notification is no longer active or cannot be opened." };
+      return { opened: true, notificationModified: false, messageSent: false };
+    }
+  });
+
+  engine.registerCapability({
     id: "notifications.search_recent",
     label: "Search recent notifications",
     category: "notifications",
