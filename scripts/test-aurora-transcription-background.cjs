@@ -32,6 +32,8 @@ assert.match(worker, /MediaMuxer/);
 assert.match(worker, /audio\/mp4a-latm/);
 assert.match(worker, /SECTION_US/);
 assert.match(worker, /processSourceRecording/);
+assert.match(worker, /aurora_transcription_progress/);
+assert.match(worker, /lastCompleted \+ 1/);
 assert.match(worker, /setForegroundAsync/);
 assert.match(worker, /Authorization/);
 assert.match(worker, /Result\.retry\(\)/);
