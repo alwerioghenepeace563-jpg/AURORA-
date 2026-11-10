@@ -42,3 +42,6 @@ assert.match(component, /Pause suggestions/);
 assert.match(component, /aria-live="polite"/);
 
 assert.match(component, /Enable motion sensing/);
+
+assert.match(mainChat, /snooze latest predictive suggestion/);
+assert.match(mainChat, /dismiss latest predictive suggestion/);
