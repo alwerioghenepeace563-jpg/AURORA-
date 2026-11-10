@@ -163,6 +163,7 @@ public class AuroraTranscriptionPlugin extends Plugin {
   File folder=new File(getContext().getFilesDir(),"aurora-transcription-queue");
   File[] pending=folder.listFiles(new java.io.FilenameFilter(){ public boolean accept(File dir,String name){ return name.startsWith(requestId+"-")&&name.endsWith(".audio"); }});
   if(pending!=null) for(File file:pending) file.delete();
+  new File(folder,requestId+".source").delete();
   call.resolve(new JSObject().put("cancelled",true));
  }
  @PluginMethod public void getWorkStatus(PluginCall call) {
