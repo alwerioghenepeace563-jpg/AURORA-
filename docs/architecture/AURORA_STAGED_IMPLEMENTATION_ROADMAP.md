@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 12 — Predictive and Sensor Intelligence (active; Stage 11 code checkpoint complete; external activation and physical Android validation deferred)  
+**Current checkpoint:** Stage 13 — Connected Ecosystem (active; Stage 12 code checkpoint complete; physical-device validation and external connector activation remain separate release gates)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -741,3 +741,22 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Expanded VoiceText regression coverage for private storage, verified owner scoping, ordered section processing, checkpoint concurrency and database migration constraints.
 - Updated the Main AURORA stage registry with explicit acceptance evidence for all 12 capability families and closed the Stage 11 code checkpoint.
 - External Supabase migration/service-role configuration, live provider round-trip and physical Android validation remain explicit activation/release gates.
+
+
+## Stage 12 closure — Predictive and Sensor Intelligence
+
+**Code checkpoint complete — 2026-11-10.** Waves 1–6 are implemented: shared bounded predictive core, opt-in foreground-only Android motion adapter, user-facing dashboard, user-invoked routine and device-health insights, conversational/voice controls, and source inventory/revocation hardening. All 12 capability families have Stage 12 scope and audit evidence. GitHub Build Check run 42765186829 passed core/architecture tests, dependency audit, web production build, Capacitor Android sync and native Android compilation. Physical-device sensor behavior, live hardware sampling and release certification remain deferred. Predictive suggestions remain non-executing; no passive location, microphone, camera or screen collection is introduced.
+
+## Stage 13 — Connected Ecosystem (active)
+
+**Purpose:** Connect AURORA to approved services and devices through one shared interoperability layer, so Main, Pulse and voice surfaces share the same connector inventory, consent, routing and execution policy.
+
+### Wave 1 — shared consent-first connector foundation
+- Added `src/core/aurora-connected-ecosystem.js`, a shared declarative connector registry with bounded metadata storage, version/scope/capability validation, adapter registration, connection status, account labels, disconnect/revocation and metadata-only lifecycle events.
+- A connection requires both explicit approval and explicit consent for its declared scopes. Missing adapters fail closed.
+- Provider credentials and OAuth tokens are never stored by the registry. A platform connector adapter owns its authentication lifecycle.
+- Connector actions are allow-listed against the existing capability catalogue and delegated to the shared Action Engine, preserving its permission, consent, risk and approval checks.
+- Wired the service into the shared runtime for use by Main, Pulse and voice surfaces; added automated tests for approval, scope consent, adapter requirements, capability restrictions, shared Action Engine routing, disconnect and credential isolation.
+- Added scope and audit records for all 12 capability families.
+
+**Wave 1 boundary:** This is the common connection and policy layer, not a claim that Google, Microsoft, messaging, cloud-storage or smart-home accounts are already linked. Provider-specific OAuth/API adapters, account linking, external credentials, webhook subscriptions and live end-to-end service checks remain future waves and require explicit user setup. No downloaded connector code or autonomous external actions are enabled.
