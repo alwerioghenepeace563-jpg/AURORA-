@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_CHECKPOINT, STAGE_EIGHT_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_CHECKPOINT, STAGE_EIGHT_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_CHECKPOINT, STAGE_TWELVE_SCOPE, STAGE_TWELVE_LAYER_AUDIT, STAGE_TWELVE_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -26,6 +26,15 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageElevenStatus, "complete");
   assert.equal(summary.stageElevenCodeComplete, true);
   assert.equal(summary.stageElevenAuditedLayers, 12);
+  assert.equal(summary.stageTwelveStatus, "active");
+  assert.equal(summary.stageTwelveCodeComplete, false);
+  assert.equal(summary.stageTwelveScopedLayers, 12);
+  assert.equal(summary.stageTwelveAuditedLayers, 12);
+  assert.equal(STAGE_TWELVE_CHECKPOINT.status, "active");
+  assert.equal(Object.keys(STAGE_TWELVE_SCOPE).length, 12);
+  assert.equal(Object.keys(STAGE_TWELVE_LAYER_AUDIT).length, 12);
+  assert.ok(registry.stages.some(stage => stage.id === 12 && stage.status === "active"));
+  assert.ok(registry.list().every(layer => layer.stageTwelveScope.length >= 3 && layer.stageTwelveEvidence.length >= 3));
   assert.match(STAGE_ELEVEN_CHECKPOINT.scope, /media discovery.*AI-assisted creation.*syllabus-grounded study/i);
   assert.match(STAGE_ELEVEN_CHECKPOINT.validationBoundary, /Stage 11 code checkpoint is complete/i);
   assert.match(STAGE_ELEVEN_CHECKPOINT.validationBoundary, /Supabase migration/i);
