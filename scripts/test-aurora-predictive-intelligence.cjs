@@ -25,6 +25,8 @@ const assert = require("node:assert/strict");
  assert.throws(() => engine.recordSignal("motion", 1), /disabled or paused/i);
  engine.resume(true);
  assert.equal(engine.getStatus().enabled, true);
+ time += 2 * 60 * 60 * 1000 + 1;
+ assert.equal(engine.getStatus().sampleCount, 0, "samples expire at the configured retention boundary");
  engine.unregisterSource("motion");
  assert.equal(engine.getStatus().sourceCount, 0);
  engine.clear();
