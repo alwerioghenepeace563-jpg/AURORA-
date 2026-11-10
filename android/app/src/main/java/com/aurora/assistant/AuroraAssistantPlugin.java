@@ -1018,31 +1018,29 @@ public class AuroraAssistantPlugin extends Plugin {
             if (filename.length() > 120) filename = filename.substring(0, 120);
             if (filename.isEmpty() || filename.equals(".") || filename.equals("..")) filename = "AURORA-media";
             if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#    @PluginMethod
-    public void shareSelectedFile(PluginCall call) {^_.+-]+/[A-Za-z0-9!#    @PluginMethod
-    public void shareSelectedFile(PluginCall call) {^_.+-]+")) mimeType = "application/octet-stream";
-            DownloadManager manager = (DownloadManager) getContext().getSystemService(android.content.Context.DOWNLOAD_SERVICE);
-            if (manager == null) { call.reject("Android download service is unavailable."); return; }
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(parsed.toString()));
-            request.setTitle(filename);
-            request.setDescription("Downloading with AURORA");
-            request.setMimeType(mimeType);
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
-            request.setAllowedOverRoaming(false);
-            request.setAllowedOverMetered(true);
-            long id = manager.enqueue(request);
-            call.resolve(new JSObject().put("queued", true).put("downloadId", id).put("filename", filename).put("destination", "Downloads").put("managedByAndroid", true).put("notificationVisible", true));
-        } catch (Exception e) { call.reject("Android could not start this direct media download.", e); }
-    }
-
-    @PluginMethod
     public void shareSelectedFile(PluginCall call) {
         String rawUri = call.getString("contentUri");
         String mimeType = call.getString("mimeType", "application/octet-stream");
         if (rawUri == null || !rawUri.startsWith("content://") || rawUri.length() > 2048) {
             call.reject("Share only a content URI returned by AURORA's system picker."); return;
         }
-        if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#    @PluginMethod
+        if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+")) {
+            mimeType = "application/octet-stream";
+        }
+        try {
+            Uri uri = Uri.parse(rawUri);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(mimeType);
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(send, "Share selected file");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(chooser);
+            call.resolve(new JSObject().put("opened", true).put("requiresUserDestination", true).put("fileSentByAurora", false));
+        } catch (Exception e) { call.reject("Android could not open the file share sheet.", e); }
+    }
+
+    @PluginMethod
     public void openMediaSource(PluginCall call) {
         String rawUrl = call.getString("url");
         if (rawUrl == null || rawUrl.length() > 2048) { call.reject("Provide a valid media source URL."); return; }
@@ -1085,24 +1083,6 @@ public class AuroraAssistantPlugin extends Plugin {
             long id = manager.enqueue(request);
             call.resolve(new JSObject().put("queued", true).put("downloadId", id).put("filename", filename).put("destination", "Downloads/AURORA"));
         } catch (Exception e) { call.reject("AURORA could not start this download.", e); }
-    }
-    @PluginMethod
-    public void pickDocument(PluginCall call) {^_.+-]+/[A-Za-z0-9!#    @PluginMethod
-    public void pickDocument(PluginCall call) {^_.+-]+")) {
-            call.reject("Provide a valid media type."); return;
-        }
-        try {
-            Uri uri = Uri.parse(rawUri);
-            Intent send = new Intent(Intent.ACTION_SEND);
-            send.setType(mimeType);
-            send.putExtra(Intent.EXTRA_STREAM, uri);
-            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            Intent chooser = Intent.createChooser(send, "Share selected file");
-            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            getContext().startActivity(chooser);
-            call.resolve(new JSObject().put("opened", true).put("requiresUserDestination", true)
-                .put("fileSentByAurora", false));
-        } catch (Exception e) { call.reject("Android could not open the file share sheet.", e); }
     }
 
     @PluginMethod
