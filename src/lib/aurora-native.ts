@@ -14,6 +14,9 @@ type AuroraTranscriptionPlugin = {
   update(options: { title: string; message: string; percent: number }): Promise<{ updated: boolean }>;
   stop(): Promise<{ stopped: boolean }>;
   enqueueChunk(options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; chunkNumber: number }>;
+  stageSourcePart(options: { requestId: string; partBase64: string; offset: number }): Promise<{ staged: boolean; bytesWritten: number; offset: number }>;
+  queueSourceRecording(options: { requestId: string; endpoint: string; accessToken: string; mimeType: string; sizeBytes: number; durationSeconds: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; requestId: string }>;
+  getSourceWorkStatus(options: { requestId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean; completedChunks: number; reason?: string }>;
   cancelJob(options: { requestId: string }): Promise<{ cancelled: boolean }>;
   getWorkStatus(options: { workId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean }>;
   clearSession(): Promise<{ cleared: boolean }>;
