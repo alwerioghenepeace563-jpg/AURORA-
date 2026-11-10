@@ -35,7 +35,7 @@ assert.match(worker, /processSourceRecording/);
 assert.match(worker, /setForegroundAsync/);
 assert.match(worker, /Authorization/);
 assert.match(worker, /Result\.retry\(\)/);
-assert.match(worker, /NetworkType|CONNECTED/);
+assert.match(plugin, /NetworkType\.CONNECTED/);
 assert.match(worker, /setReadTimeout\(55000\)/);
 assert.match(worker, /chunkFile\.delete\(\)/);
 assert.match(tokenStore, /AndroidKeyStore/);
