@@ -59,6 +59,21 @@ public class AuroraTranscriptionPlugin extends Plugin {
   WorkManager.getInstance(getContext()).cancelAllWorkByTag("aurora-transcription-"+requestId);
   call.resolve(new JSObject().put("cancelled",true));
  }
+ @PluginMethod public void getWorkStatus(PluginCall call) {
+  String workId=call.getData().optString("workId","");
+  try {
+   UUID id=UUID.fromString(workId);
+   WorkManager.getInstance(getContext()).getWorkInfoById(id).addListener(() -> {
+    try {
+     androidx.work.WorkInfo info=WorkManager.getInstance(getContext()).getWorkInfoById(id).get();
+     if(info==null){call.resolve(new JSObject().put("state","MISSING").put("finished",true));return;}
+     call.resolve(new JSObject().put("state",info.getState().name()).put("finished",info.getState().isFinished())
+      .put("successful",info.getState()==androidx.work.WorkInfo.State.SUCCEEDED)
+      .put("failed",info.getState()==androidx.work.WorkInfo.State.FAILED||info.getState()==androidx.work.WorkInfo.State.CANCELLED));
+    } catch(Exception error){call.reject("Could not read background transcription status.",error);}
+   }, Runnable::run);
+  } catch(Exception error){call.reject("A valid background work ID is required.",error);}
+ }
  @PluginMethod public void clearSession(PluginCall call) {
   AuroraTranscriptionTokenStore.clear(getContext());call.resolve(new JSObject().put("cleared",true));
  }
