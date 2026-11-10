@@ -37,3 +37,6 @@ assert.match(mainChat, /clear predictive history/);
 assert.match(mainChat, /show connected predictive sources/);
 assert.match(mainChat, /review my device health/);
 console.log("AURORA predictive voice and device-health command checks passed.");
+
+assert.match(component, /Pause suggestions/);
+assert.match(component, /aria-live="polite"/);
