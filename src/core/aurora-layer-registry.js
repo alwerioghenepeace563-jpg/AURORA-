@@ -392,6 +392,41 @@ const STAGE_FIVE_CHECKPOINT = Object.freeze({
   ])
 });
 
+const STAGE_TWELVE_SCOPE = Object.freeze({
+  android_device: Object.freeze(["permission-aware coarse motion and device-state adapters","sampling pause and device-availability status","user-initiated sensor activation"]),
+  voice_multimodal: Object.freeze(["accessible spoken suggestion explanations","voice pause snooze dismiss and review","no passive microphone activation"]),
+  screen_accessibility: Object.freeze(["accessible explain-why and source review","cross-surface opt-out state","no screen-content sensing"]),
+  communication_people: Object.freeze(["suggest follow-up preparation only from approved task context","predictions never send messages or initiate calls","normal recipient review and approval retained"]),
+  location_travel: Object.freeze(["no continuous location tracking by default","one-shot location remains separately consent-gated","no inferred route tracking"]),
+  calendar_productivity: Object.freeze(["user-approved routine and task pattern inputs","snooze dismiss and disable controls","no background workflow execution"]),
+  files_knowledge: Object.freeze(["no automatic sensor-to-knowledge persistence","bounded source and retention review","local-first sample handling"]),
+  media_creative: Object.freeze(["context-aware creative suggestions only","no passive recording or playback","media actions remain user initiated"]),
+  intelligence_personalisation: Object.freeze(["bounded explainable predictive suggestion engine","coarse allow-listed consented signals only","short retention and clear-data controls"]),
+  extensions_interoperability: Object.freeze(["declared signal and sampling contracts","reject unsupported or unregistered sources","data-only adapters without execution path"]),
+  safety_privacy_security: Object.freeze(["explicit consent separate from Android permission","pause disable revoke and clear controls","no autonomous consequential actions"]),
+  reliability_operations: Object.freeze(["bounded buffers and sampling throttles","metadata-only events and unsupported API fallback","consent retention and pause regression coverage"]),
+});
+const STAGE_TWELVE_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["permission-aware source registration","coarse device signals only","user-controlled pause and disable"]),
+  voice_multimodal: Object.freeze(["voice-readable suggestions","voice pause and dismissal controls","no passive microphone activation"]),
+  screen_accessibility: Object.freeze(["accessible explain-why contract","cross-surface opt-out","no screen-content sensing"]),
+  communication_people: Object.freeze(["suggestions never send","approved context only","normal approvals retained"]),
+  location_travel: Object.freeze(["no continuous location source","one-shot location separately gated","no inferred route tracking"]),
+  calendar_productivity: Object.freeze(["routine-aware input boundary","snooze and dismiss support","no background workflow execution"]),
+  files_knowledge: Object.freeze(["no automatic sensor persistence","bounded source review","local-first sample handling"]),
+  media_creative: Object.freeze(["no passive recording","suggestion-only creative prompts","user-initiated media actions"]),
+  intelligence_personalisation: Object.freeze(["bounded sample and suggestion stores","source consent and retention controls","explainable suggestion reasons"]),
+  extensions_interoperability: Object.freeze(["allow-listed sensor signals","permission and consent checked","data-only adapter contract"]),
+  safety_privacy_security: Object.freeze(["default-deny consent","pause revoke and clear controls","no autonomous consequential actions"]),
+  reliability_operations: Object.freeze(["sampling throttle and bounded buffers","metadata-only events","automated predictive regression suite"]),
+});
+const STAGE_TWELVE_CHECKPOINT = Object.freeze({
+  id: 12, name: "Predictive and Sensor Intelligence", status: "active", startedAt: "2026-11-10",
+  scope: "Opt-in, explainable, suggestion-only predictive intelligence using approved routines and coarse device signals.",
+  validationBoundary: "Wave 1 adds a bounded predictive core, consent-gated source registration, sampling throttles, short retention, pause/revoke/clear controls, explainable suggestions, and shared runtime access. Native sensor adapters, user-facing suggestion UI, device tests, and full 12-family acceptance remain in progress. No background collection or autonomous consequential actions are enabled.",
+  deliverables: Object.freeze(["Use approved routine and task patterns only when explicitly selected.", "Accept coarse sensor readings only from permission- and consent-checked adapters.", "Expose explain-why, snooze, dismiss, pause, disable, source removal and clear-data controls.", "Keep suggestions non-executing: no silent messages, calls, purchases, tracking or device actions.", "Bound sampling cadence, sample count, suggestion count and retention.", "Audit all 12 capability families and validate on supported Android devices."])
+});
+
 const STAGE_ONE_CHECKPOINT = Object.freeze({
   id: 1,
   name: "Whole-system baseline",
@@ -425,11 +460,13 @@ function createAuroraLayerRegistry() {
     stageTenEvidence: [...(STAGE_TEN_LAYER_AUDIT[item.id] || [])],
     stageElevenScope: [...(STAGE_ELEVEN_SCOPE[item.id] || [])],
     stageElevenEvidence: [...(STAGE_ELEVEN_LAYER_AUDIT[item.id] || [])],
+    stageTwelveScope: [...(STAGE_TWELVE_SCOPE[item.id] || [])],
+    stageTwelveEvidence: [...(STAGE_TWELVE_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
   return Object.freeze({
-    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_CHECKPOINT]),
+    stages: Object.freeze([STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_CHECKPOINT, STAGE_SEVEN_CHECKPOINT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_CHECKPOINT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_CHECKPOINT, STAGE_TWELVE_CHECKPOINT]),
     stageTwoAudit: STAGE_TWO_LAYER_AUDIT,
     stageThreeAudit: STAGE_THREE_LAYER_AUDIT,
     stageFourAudit: STAGE_FOUR_LAYER_AUDIT,
@@ -448,6 +485,9 @@ function createAuroraLayerRegistry() {
     stageElevenAudit: STAGE_ELEVEN_LAYER_AUDIT,
     stageElevenScope: STAGE_ELEVEN_SCOPE,
     stageElevenCheckpoint: STAGE_ELEVEN_CHECKPOINT,
+    stageTwelveScope: STAGE_TWELVE_SCOPE,
+    stageTwelveAudit: STAGE_TWELVE_LAYER_AUDIT,
+    stageTwelveCheckpoint: STAGE_TWELVE_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
     list: () => families.map((item) => ({ ...item, dependsOn: [...item.dependsOn] })),
     get: (id) => {
@@ -469,6 +509,10 @@ function createAuroraLayerRegistry() {
       stageElevenCodeComplete: STAGE_ELEVEN_CHECKPOINT.status === "complete",
       stageElevenScopedLayers: families.filter(item => (STAGE_ELEVEN_SCOPE[item.id] || []).length >= 3).length,
       stageElevenAuditedLayers: families.filter(item => (STAGE_ELEVEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
+      stageTwelveStatus: STAGE_TWELVE_CHECKPOINT.status,
+      stageTwelveCodeComplete: STAGE_TWELVE_CHECKPOINT.status === "complete",
+      stageTwelveScopedLayers: families.filter(item => (STAGE_TWELVE_SCOPE[item.id] || []).length >= 3).length,
+      stageTwelveAuditedLayers: families.filter(item => (STAGE_TWELVE_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageNineStatus: STAGE_NINE_CHECKPOINT.status,
       stageNineCodeComplete: STAGE_NINE_CHECKPOINT.status === "complete",
       stageNineAuditedLayers: families.filter(item => (STAGE_NINE_LAYER_AUDIT[item.id] || []).length >= 3).length,
@@ -495,4 +539,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_LAYER_AUDIT, STAGE_ELEVEN_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_LAYER_AUDIT, STAGE_ELEVEN_CHECKPOINT, STAGE_TWELVE_SCOPE, STAGE_TWELVE_LAYER_AUDIT, STAGE_TWELVE_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
