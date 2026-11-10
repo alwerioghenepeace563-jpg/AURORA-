@@ -17,6 +17,9 @@ type AuroraTranscriptionPlugin = {
   stageSourcePart(options: { requestId: string; partBase64: string; offset: number }): Promise<{ staged: boolean; bytesWritten: number; offset: number }>;
   queueSourceRecording(options: { requestId: string; endpoint: string; accessToken: string; mimeType: string; sizeBytes: number; durationSeconds: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; requestId: string }>;
   getSourceWorkStatus(options: { requestId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean; completedChunks: number; reason?: string }>;
+  stageSourcePart(options: { requestId: string; partBase64: string; offset: number }): Promise<{ staged: boolean; bytesWritten: number; offset: number }>;
+  queueSourceRecording(options: { requestId: string; endpoint: string; accessToken: string; mimeType: string; sizeBytes: number; durationSeconds: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; requestId: string }>;
+  getSourceWorkStatus(options: { requestId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean; completedChunks: number; reason?: string }>;
   cancelJob(options: { requestId: string }): Promise<{ cancelled: boolean }>;
   getWorkStatus(options: { workId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean }>;
   clearSession(): Promise<{ cleared: boolean }>;
@@ -129,6 +132,9 @@ export const auroraNative = {
   updateTranscriptionService: async (title: string, message: string, percent: number) => { if (Capacitor.getPlatform() !== "android") return { updated: false }; return AuroraTranscription.update({ title, message, percent }); },
   stopTranscriptionService: async () => { if (Capacitor.getPlatform() !== "android") return { stopped: true }; return AuroraTranscription.stop(); },
   enqueueTranscriptionChunk: async (options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }) => { if (Capacitor.getPlatform() !== "android") throw new Error("Background transcription queue requires Android."); return AuroraTranscription.enqueueChunk(options); },
+  stageNativeRecordingPart: async (options: { requestId: string; partBase64: string; offset: number }) => { if (Capacitor.getPlatform() !== "android") throw new Error("Native recording staging requires Android."); return AuroraTranscription.stageSourcePart(options); },
+  queueNativeRecording: async (options: { requestId: string; endpoint: string; accessToken: string; mimeType: string; sizeBytes: number; durationSeconds: number; totalChunks: number }) => { if (Capacitor.getPlatform() !== "android") throw new Error("Native recording processing requires Android."); return AuroraTranscription.queueSourceRecording(options); },
+  getNativeRecordingStatus: async (requestId: string) => { if (Capacitor.getPlatform() !== "android") return { state: "UNAVAILABLE", finished: true, successful: false, failed: true, completedChunks: 0 }; return AuroraTranscription.getSourceWorkStatus({ requestId }); },
   cancelTranscriptionJob: async (requestId: string) => { if (Capacitor.getPlatform() !== "android") return { cancelled: false }; return AuroraTranscription.cancelJob({ requestId }); },
   getTranscriptionWorkStatus: async (workId: string) => { if (Capacitor.getPlatform() !== "android") return { state: "UNAVAILABLE", finished: true, successful: false, failed: true }; return AuroraTranscription.getWorkStatus({ workId }); },
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
