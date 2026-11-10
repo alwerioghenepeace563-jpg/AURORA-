@@ -110,6 +110,6 @@ function createAuroraPredictiveIntelligence(options = {}) {
     prune();
     return Object.freeze({ enabled, paused, sourceCount: sources.size, sampleCount: samples.length, suggestionCount: suggestions.length, retentionHours: retentionMs / 3600000, supportedSignals: [...ALLOWED_SIGNALS] });
   }
-  return Object.freeze({ configure, registerSource, unregisterSource, recordSignal, suggest, listSuggestions, snooze, dismiss, getStatus, pause: () => configure({ enabled, paused: true, retentionHours: retentionMs / 3600000 }), resume: (consent) => configure({ enabled, paused: false, consent, retentionHours: retentionMs / 3600000 }), clear: () => { samples.splice(0); suggestions.splice(0); snoozed.clear(); publish("data_cleared"); return true; } });
+  return Object.freeze({ configure, registerSource, unregisterSource, recordSignal, suggest, listSuggestions, snooze, dismiss, getStatus, pause: () => { paused = true; publish("settings_changed", { enabled, paused, retentionHours: retentionMs / 3600000 }); return getStatus(); }, resume: (consent) => configure({ enabled, paused: false, consent, retentionHours: retentionMs / 3600000 }), clear: () => { samples.splice(0); suggestions.splice(0); snoozed.clear(); publish("data_cleared"); return true; } });
 }
 export { createAuroraPredictiveIntelligence };
