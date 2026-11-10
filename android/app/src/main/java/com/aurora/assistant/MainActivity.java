@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraTranscriptionPlugin.class);
         registerPlugin(AuroraSecureStoragePlugin.class);
         registerPlugin(AuroraReminderPlugin.class);
+        registerPlugin(AuroraPredictivePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
