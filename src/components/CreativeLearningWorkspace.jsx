@@ -220,11 +220,52 @@ function CreativeLearningWorkspace({ authSession }){
    try { const saved=JSON.parse(localStorage.getItem(jobKey)||"null"); if(saved?.requestId) job=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(saved.requestId),{cache:"no-store"}); } catch { job=null; }
    if(job?.status==="completed"){localStorage.removeItem(jobKey);job=null;}
    if(!job?.requestId) {
-    job=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",filename:mediaFile.name,mimeType:recorderMime.split(";")[0],sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks})});
+    job=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",filename:mediaFile.name,mimeType:(auroraNative.isAndroid()&&["audio/mp4","video/mp4"].includes(mediaFile.type))?"audio/mp4":recorderMime.split(";")[0],sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks})});
     localStorage.setItem(jobKey,JSON.stringify({requestId:job.requestId}));
    }
    if(job.totalChunks!==totalChunks) throw new Error("Saved transcription job does not match this recording.");
    if(typeof job.transcript==="string") setMediaTranscript(job.transcript);
+   const nativeMp4Source=auroraNative.isAndroid()&&["audio/mp4","video/mp4"].includes(mediaFile.type);
+   if(nativeMp4Source&&job.status!=="completed"){
+    let nativeSaved=JSON.parse(localStorage.getItem(jobKey)||"null");
+    let nativeStatus=null;
+    if(nativeSaved?.nativeBackground){
+     nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
+    }else{
+     setMediaProgress("Copying the original recording into private Android storage…");
+     const partBytes=512*1024;
+     for(let offset=0;offset<mediaFile.size;offset+=partBytes){
+      const encoded=await readBase64(mediaFile.slice(offset,Math.min(mediaFile.size,offset+partBytes)));
+      if(!encoded)throw new Error("A recording section could not be staged. No source file was uploaded.");
+      await auroraNative.stageNativeRecordingPart({requestId:job.requestId,partBase64:encoded,offset});
+      setMediaProgress("Securing recording locally · "+Math.min(100,Math.round((Math.min(mediaFile.size,offset+partBytes)/mediaFile.size)*100))+"%");
+     }
+     const queued=await auroraNative.queueNativeRecording({requestId:job.requestId,endpoint:auroraApiUrl("/api/voicetext-transcribe"),accessToken:authSession.access_token,mimeType:mediaFile.type,sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks});
+     nativeSaved={requestId:job.requestId,nativeBackground:true,workId:queued.workId};
+     localStorage.setItem(jobKey,JSON.stringify(nativeSaved));
+     nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
+    }
+    const nativeDeadline=Date.now()+10*60*1000;
+    while(Date.now()<nativeDeadline){
+     if(nativeStatus?.failed)throw new Error(nativeStatus.reason||"Android could not process this MP4 recording in the background. Reopen it to use the compatible foreground converter.");
+     if(nativeStatus?.successful)break;
+     setMediaProgress("Android is extracting and uploading audio · "+(nativeStatus?.completedChunks||0)+" of "+totalChunks+" sections");
+     await new Promise(resolve=>setTimeout(resolve,2500));
+     nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
+    }
+    const nativeJob=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(job.requestId),{cache:"no-store"});
+    if(typeof nativeJob.transcript==="string")setMediaTranscript(nativeJob.transcript);
+    if(!nativeStatus?.successful){
+     setMediaProgress("Background processing queued · "+(nativeStatus?.completedChunks||0)+" of "+totalChunks+" sections");
+     setNotice("Android has the original MP4 recording stored privately and will continue processing it in the background. Reopen AURORA to refresh progress.");
+     return;
+    }
+    localStorage.removeItem(jobKey);
+    setMediaResumeOffset(duration);setMediaProgress("Completed · "+nativeJob.completedChunks+" background sections · "+formatTime(duration));
+    try{await auroraNative.clearTranscriptionSession();}catch{}
+    setNotice("AURORA finished processing the MP4 recording in Android's background worker. Review the combined VoiceText transcript.");
+    return;
+   }
    if(job.status==="completed") { setMediaResumeOffset(duration); setMediaProgress("Completed · "+job.completedChunks+" sections saved"); setNotice("This recording is already complete. Its cloud transcript has been restored."); return; }
    let offset=Math.min(duration,(Number(job.completedChunks)||0)*20);
    if(offset>=duration-0.5){offset=0;setMediaResumeOffset(0);setMediaTranscript("");}
