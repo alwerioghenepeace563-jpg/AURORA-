@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
 import { auroraNative } from "../lib/aurora-native";
 import { buildAuroraRoutineInsights } from "../core/aurora-routine-insights";
+import { buildAuroraDeviceInsights } from "../core/aurora-device-insights";
 import { Activity, Pause, Play, ShieldCheck, Trash2, X, Clock3, Sparkles } from "lucide-react";
 
 const engine = auroraRuntime.predictive;
@@ -11,6 +12,7 @@ function formatTime(value) {
 export default function PredictiveDashboard({ tasks = [], reminders = [], events = [] }) {
   const [status, setStatus] = useState(() => engine.getStatus());
   const [suggestions, setSuggestions] = useState(() => engine.listSuggestions());
+  const [sources, setSources] = useState(() => engine.listSources());
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
   const [sensorActive, setSensorActive] = useState(false);
@@ -19,7 +21,7 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
   const motionListenerRef = useRef(null);
   const [latestMotion, setLatestMotion] = useState("Not connected");
   const [retentionHours, setRetentionHours] = useState("24");
-  const refresh = () => { setStatus(engine.getStatus()); setSuggestions(engine.listSuggestions()); };
+  const refresh = () => { setStatus(engine.getStatus()); setSuggestions(engine.listSuggestions()); setSources(engine.listSources()); };
   useEffect(() => { refresh(); }, []);
   useEffect(() => () => { motionListenerRef.current?.remove?.(); auroraNative.stopPredictiveMotion().catch(() => {}); }, []);
   useEffect(() => {
@@ -82,6 +84,28 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     refresh();
     setMessage("Predictive sensing is off and its stored samples and suggestions were cleared.");
   }
+  async function reviewDeviceHealth() {
+    try {
+      if (!auroraNative.isAndroid()) { setMessage("One-shot device health insights are currently available through the Android bridge only."); return; }
+      const snapshot = await auroraNative.getDeviceStatus();
+      const insights = buildAuroraDeviceInsights(snapshot || {});
+      if (!insights.length) { setMessage("No device-health warning was detected in this one-time read. Raw device metrics were not saved."); return; }
+      if (!engine.getStatus().enabled) engine.configure({ enabled: true, consent: true, retentionHours: Number(retentionHours) || 24 });
+      insights.forEach(item => engine.suggest(item));
+      refresh();
+      setMessage("Reviewed a one-time, read-only Android health snapshot. Only the explainable suggestions were retained; raw battery, thermal and memory metrics were not saved.");
+    } catch (error) { setMessage(error.message || "Could not read device health."); }
+  }
+  function removeSource(id) {
+    engine.unregisterSource(id);
+    if (id === "device-motion") {
+      setSensorActive(false); setNativeMotion(false);
+      auroraNative.stopPredictiveMotion().catch(() => {});
+      motionListenerRef.current?.remove?.(); motionListenerRef.current = null;
+    }
+    refresh();
+    setMessage("That predictive data source has been disconnected and its retained samples removed.");
+  }
   function addRoutineSuggestion() {
     try {
       if (!engine.getStatus().enabled) engine.configure({ enabled: true, consent: true, retentionHours: Number(retentionHours) || 24 });
@@ -111,9 +135,9 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     <label className="predictive-field"><span>Sample retention</span><select value={retentionHours} onChange={e=>setRetentionHours(e.target.value)}><option value="1">1 hour</option><option value="6">6 hours</option><option value="24">24 hours</option><option value="72">3 days</option><option value="168">7 days</option></select></label>
     {status.paused ? <div className="predictive-controls"><button type="button" className="primary-action" onClick={resume}><Play size={15}/> Resume</button><button type="button" className="outline-action" onClick={disable}><X size={15}/> Turn off & clear</button></div> : sensorActive ? <div className="predictive-controls"><button type="button" className="outline-action" onClick={pause}><Pause size={15}/> Pause</button><button type="button" className="outline-action" onClick={disable}><X size={15}/> Turn off & clear</button></div> : <div className="predictive-consent"><label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> I agree to optional, coarse motion sensing while this screen is active.</label><button type="button" className="primary-action" onClick={enable}><Play size={15}/> Enable predictive sensing</button></div>}
     <div className="predictive-sensor-row"><span><Activity size={16}/> Motion sensor</span><strong>{sensorActive ? latestMotion : motionSupported ? "Available, not listening" : "Not supported in this browser"}</strong></div>
-    <div className="predictive-suggestion-head"><div><h3><Sparkles size={17}/> Suggestions</h3><p>Review each idea; nothing runs automatically.</p></div><button type="button" className="outline-action" onClick={addRoutineSuggestion}>Review my saved routine</button></div>
+    <div className="predictive-suggestion-head"><div><h3><Sparkles size={17}/> Suggestions</h3><p>Review each idea; nothing runs automatically.</p></div><div className="predictive-controls"><button type="button" className="outline-action" onClick={addRoutineSuggestion}>Review my saved routine</button><button type="button" className="outline-action" onClick={reviewDeviceHealth}>Review device health</button></div></div>
     {suggestions.length ? suggestions.map(item=><article className="predictive-suggestion" key={item.id}><div><strong>{item.title}</strong><p>{item.reason}</p><small>{formatTime(item.createdAt)}</small></div><div className="predictive-suggestion-actions"><button type="button" className="outline-action" onClick={()=>{engine.snooze(item.id);refresh();}}><Clock3 size={14}/> Snooze</button><button type="button" className="record-delete" onClick={()=>{engine.dismiss(item.id);refresh();}} aria-label="Dismiss suggestion"><Trash2 size={15}/></button></div></article>) : <p className="activity-muted">No suggestions yet. You can ask AURORA to create one from your saved tasks.</p>}
-    <div className="predictive-footer"><span>{status.sourceCount} connected source(s) · {status.retentionHours}h retention</span><button type="button" className="outline-action" onClick={()=>{engine.clear();refresh();setMessage("Predictive history cleared.");}}>Clear history</button></div>
+    <div className="predictive-footer"><span>{status.sourceCount} connected source(s) · {status.retentionHours}h retention</span><button type="button" className="outline-action" onClick={()=>{engine.clear();refresh();setMessage("Predictive history cleared.");}}>Clear history</button></div>{sources.length>0&&<div className="predictive-source-review"><strong>Connected data sources</strong>{sources.map(source=><div className="predictive-sensor-row" key={source.id}><span>{source.label} · {source.signal}</span><button type="button" className="record-delete" onClick={()=>removeSource(source.id)} aria-label={"Disconnect "+source.label}><X size={15}/></button></div>)}</div>}
     {message && <p className="predictive-message" role="status">{message}</p>}
   </section>;
 }
