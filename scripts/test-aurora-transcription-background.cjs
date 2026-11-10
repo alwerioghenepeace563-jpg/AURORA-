@@ -15,7 +15,7 @@ assert.match(manifest, /androidx\.work\.impl\.foreground\.SystemForegroundServic
 assert.match(activity, /registerPlugin\(AuroraTranscriptionPlugin\.class\)/);
 assert.match(gradle, /androidx\.work:work-runtime/);
 assert.match(plugin, /enqueueUniqueWork/);
-assert.match(plugin, /stageSourcePart/);
+assert.match(plugin, /stageSourcePart/);\nassert.match(plugin, /getSourceStagingStatus/);
 assert.match(plugin, /queueSourceRecording/);
 assert.match(plugin, /getSourceWorkStatus/);
 assert.match(plugin, /sizeBytes/);
@@ -43,7 +43,7 @@ assert.match(worker, /chunkFile\.delete\(\)/);
 assert.match(tokenStore, /AndroidKeyStore/);
 assert.match(tokenStore, /AES\/GCM\/NoPadding/);
 assert.match(bridge, /enqueueTranscriptionChunk/);
-assert.match(bridge, /stageNativeRecordingPart/);
+assert.match(bridge, /stageNativeRecordingPart/);\nassert.match(bridge, /getNativeRecordingStagingStatus/);
 assert.match(bridge, /queueNativeRecording/);
 assert.match(bridge, /getNativeRecordingStatus/);
 assert.match(bridge, /clearTranscriptionSession/);
