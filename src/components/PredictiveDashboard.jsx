@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
 import { auroraNative } from "../lib/aurora-native";
+import { buildAuroraRoutineInsights } from "../core/aurora-routine-insights";
 import { Activity, Pause, Play, ShieldCheck, Trash2, X, Clock3, Sparkles } from "lucide-react";
 
 const engine = auroraRuntime.predictive;
@@ -83,11 +84,17 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     setMessage("Predictive sensing is off and its stored samples and suggestions were cleared.");
   }
   function addRoutineSuggestion() {
-    if (!engine.getStatus().enabled) engine.configure({ enabled: true, consent: true, retentionHours: Number(retentionHours) || 24 });
-    const open = approvedTasks.length;
-    const upcoming = nextEvent ? " Your next saved calendar event is " + String(nextEvent.title || "an upcoming event") + "." : "";
-    engine.suggest({ id: "routine-focus-" + new Date().toISOString().slice(0,10), title: open ? "Choose one task to focus on" : "Plan a small next step", reason: open ? "You have " + open + " unfinished task" + (open === 1 ? "" : "s") + " saved. Picking one keeps your plan manageable." + upcoming : "Your saved task list has no unfinished items. Add one small priority when you are ready." + upcoming });
-    refresh();
+    try {
+      if (!engine.getStatus().enabled) engine.configure({ enabled: true, consent: true, retentionHours: Number(retentionHours) || 24 });
+      const insights = buildAuroraRoutineInsights({ tasks, reminders, events });
+      if (!insights.length) {
+        setMessage("No upcoming routine insights yet. Add a task, reminder or event, then review again.");
+        return;
+      }
+      insights.forEach(item => engine.suggest(item));
+      refresh();
+      setMessage("Reviewed only the tasks, reminders and events already saved in AURORA. No actions were scheduled or performed.");
+    } catch (error) { setMessage(error.message || "Could not review saved routine context."); }
   }
   function pause() { setSensorActive(false); auroraNative.stopPredictiveMotion().catch(() => {}); engine.pause(); refresh(); setMessage("Predictive intelligence is paused. No new readings will be collected."); }
   function resume() {
@@ -105,7 +112,7 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     <label className="predictive-field"><span>Sample retention</span><select value={retentionHours} onChange={e=>setRetentionHours(e.target.value)}><option value="1">1 hour</option><option value="6">6 hours</option><option value="24">24 hours</option><option value="72">3 days</option><option value="168">7 days</option></select></label>
     {status.paused ? <div className="predictive-controls"><button type="button" className="primary-action" onClick={resume}><Play size={15}/> Resume</button><button type="button" className="outline-action" onClick={disable}><X size={15}/> Turn off & clear</button></div> : sensorActive ? <div className="predictive-controls"><button type="button" className="outline-action" onClick={pause}><Pause size={15}/> Pause</button><button type="button" className="outline-action" onClick={disable}><X size={15}/> Turn off & clear</button></div> : <div className="predictive-consent"><label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> I agree to optional, coarse motion sensing while this screen is active.</label><button type="button" className="primary-action" onClick={enable}><Play size={15}/> Enable predictive sensing</button></div>}
     <div className="predictive-sensor-row"><span><Activity size={16}/> Motion sensor</span><strong>{sensorActive ? latestMotion : motionSupported ? "Available, not listening" : "Not supported in this browser"}</strong></div>
-    <div className="predictive-suggestion-head"><div><h3><Sparkles size={17}/> Suggestions</h3><p>Review each idea; nothing runs automatically.</p></div><button type="button" className="outline-action" onClick={addRoutineSuggestion}>Suggest from my tasks</button></div>
+    <div className="predictive-suggestion-head"><div><h3><Sparkles size={17}/> Suggestions</h3><p>Review each idea; nothing runs automatically.</p></div><button type="button" className="outline-action" onClick={addRoutineSuggestion}>Review my saved routine</button></div>
     {suggestions.length ? suggestions.map(item=><article className="predictive-suggestion" key={item.id}><div><strong>{item.title}</strong><p>{item.reason}</p><small>{formatTime(item.createdAt)}</small></div><div className="predictive-suggestion-actions"><button type="button" className="outline-action" onClick={()=>{engine.snooze(item.id);refresh();}}><Clock3 size={14}/> Snooze</button><button type="button" className="record-delete" onClick={()=>{engine.dismiss(item.id);refresh();}} aria-label="Dismiss suggestion"><Trash2 size={15}/></button></div></article>) : <p className="activity-muted">No suggestions yet. You can ask AURORA to create one from your saved tasks.</p>}
     <div className="predictive-footer"><span>{status.sourceCount} connected source(s) · {status.retentionHours}h retention</span><button type="button" className="outline-action" onClick={()=>{engine.clear();refresh();setMessage("Predictive history cleared.");}}>Clear history</button></div>
     {message && <p className="predictive-message" role="status">{message}</p>}
