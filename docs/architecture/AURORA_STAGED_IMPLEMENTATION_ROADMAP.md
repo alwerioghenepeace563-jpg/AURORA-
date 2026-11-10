@@ -569,7 +569,9 @@ Stage 10's device-specific validation remains a release backlog rather than a re
 
 **Implementation wave 1 — shared predictive core:** Added `src/core/aurora-predictive-intelligence.js` and exposed the service through the shared AURORA runtime for Main, Pulse and voice. The core requires explicit opt-in consent, requires both adapter permission and source consent, allow-lists coarse motion/stillness/ambient-light/device-idle/battery-saver signals, throttles sampling, bounds sample and suggestion buffers, applies configurable 1–168 hour retention, and supports pause/resume, source removal, snooze, dismiss and clear-data. Suggestions require a human-readable explanation and remain non-executing. Automated regression coverage is included. This is a shared service foundation, not yet native sensor acquisition or a finished user-facing predictive dashboard.
 
-- Add optional routine-aware suggestions using approved calendar/task patterns and explicitly enabled device signals.
+**Implementation wave 2 — predictive dashboard and native Android motion adapter:** Added `src/components/PredictiveDashboard.jsx` to the Activities workspace with live status, task/reminder context, optional motion consent, retention controls, explainable suggestions, snooze/dismiss, pause/resume and clear/disable controls. Added `AuroraPredictivePlugin` and registered it with Capacitor on Android. The native adapter reads only the accelerometer, reduces readings to a coarse movement/stillness boolean, emits no faster than the configured 10-second interval, and exposes no raw axis values to JavaScript. Sampling requires explicit dashboard consent, is stopped when the app is backgrounded, and is not a background service. The browser DeviceMotion path remains a fallback. Regression checks cover the dashboard, native bridge registration, consent gate, sampling bounds and foreground lifecycle. Physical-device behavior and Android compilation remain unverified until the later test pass.
+
+- Expand optional routine-aware suggestions using approved calendar/task patterns and explicitly enabled device signals.
 - Build sensor adapters for supported motion, environment and device-state signals with clear permission, sampling, retention and pause controls.
 - Suggestions remain suggestions; no silent messaging, purchasing, calls, location tracking or consequential actions.
 - Provide explain-why, snooze, disable, data-source review and opt-out controls.
@@ -581,7 +583,7 @@ Stage 10's device-specific validation remains a release backlog rather than a re
 - The dashboard owns listener cleanup, pause/resume, source registration and revocation. Motion sensing remains off by default, foreground-only, and separate from the routine/task suggestion action.
 - No additional Android runtime permission is requested for the accelerometer. The UI's explicit consent is still mandatory; Android hardware availability and OEM behavior require physical-device verification.
 
-**Stage 12 boundary:** Wave 1 is active, not complete. Native sensor adapters, predictive UI, routine-pattern integration, full cross-family acceptance, CI and physical-device validation remain outstanding. No silent sensor collection or autonomous consequential actions are permitted.
+**Stage 12 boundary:** Waves 1 and 2 are implemented in code. Routine-pattern depth, additional sensor adapters, full cross-family acceptance, consolidated CI and physical-device validation remain outstanding. Android motion sensing is foreground-only and opt-in; no silent sensor collection or autonomous consequential actions are permitted.
 
 ### Stage 13 — Connected Ecosystem
 - Add user-approved continuity across the user's Android devices and selected services.
