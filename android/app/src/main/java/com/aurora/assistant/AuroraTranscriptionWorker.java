@@ -80,7 +80,9 @@ public class AuroraTranscriptionWorker extends Worker {
             String codec = audioFormat.getString(MediaFormat.KEY_MIME);
             if (!"audio/mp4a-latm".equals(codec)) throw new UnsupportedOperationException("This background processor currently supports AAC audio inside MP4/M4A files. Reopen AURORA to use the compatible foreground converter for this format.");
             extractor.selectTrack(audioTrack);
-            for (int chunk = 1; chunk <= totalChunks; chunk++) {
+            android.content.SharedPreferences checkpoints = getApplicationContext().getSharedPreferences("aurora_transcription_progress", Context.MODE_PRIVATE);
+            int lastCompleted = checkpoints.getInt(requestId, 0);
+            for (int chunk = lastCompleted + 1; chunk <= totalChunks; chunk++) {
                 if (isStopped()) return Result.failure();
                 long startUs = (chunk - 1L) * SECTION_US;
                 long endUs = Math.min(durationUs, startUs + SECTION_US);
@@ -89,12 +91,15 @@ public class AuroraTranscriptionWorker extends Worker {
                 extractAacSection(extractor, audioTrack, audioFormat, startUs, endUs, output);
                 uploadSection(output, endpoint, requestId, "audio/mp4", chunk, totalChunks);
                 output.delete();
+                checkpoints.edit().putInt(requestId, chunk).commit();
                 setProgressAsync(new Data.Builder().putInt("completed_chunks", chunk).putInt("total_chunks", totalChunks).build());
             }
             source.delete();
+            checkpoints.edit().remove(requestId).commit();
             return Result.success(new Data.Builder().putString("request_id", requestId).putInt("completed_chunks", totalChunks).build());
-        } catch (UnsupportedOperationException error) {
+        } catch (UnsupportedOperationException | IllegalStateException error) {
             android.util.Log.w("AuroraTranscriptionWorker", error.getMessage());
+            source.delete();
             return Result.failure(new Data.Builder().putString("reason", error.getMessage()).build());
         } catch (RetryableUploadException error) {
             return Result.retry();
