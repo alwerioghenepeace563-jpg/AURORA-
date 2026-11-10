@@ -38,7 +38,6 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     return () => window.removeEventListener("devicemotion", onMotion);
   }, [sensorActive, nativeMotion]);
   const approvedTasks = useMemo(() => tasks.filter(item => !item.done), [tasks]);
-  const nextEvent = useMemo(() => events.filter(item => item && item.date && new Date(item.date).getTime() >= Date.now()).sort((a,b)=>new Date(a.date)-new Date(b.date))[0], [events]);
   async function enable() {
     setMessage("");
     if (!consent) { setMessage("Please confirm that you understand and agree to optional motion sensing."); return; }
