@@ -54,6 +54,14 @@ public class AuroraPredictivePlugin extends Plugin implements SensorEventListene
         notifyListeners("motionSignal",new JSObject().put("moved",moved).put("timestamp",now).put("signal","motion").put("coarseOnly",true));
     }
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy) { }
-    @Override protected void handleOnPause() { stopListening(); super.handleOnPause(); }
-    @Override protected void handleOnDestroy() { stopListening(); super.handleOnDestroy(); }
+    private boolean resumeAfterForeground = false;
+    @Override public void handleOnPause() { resumeAfterForeground = listening; stopListening(); super.handleOnPause(); }
+    @Override public void handleOnResume() {
+        super.handleOnResume();
+        if (resumeAfterForeground && manager != null && accelerometer != null) {
+            listening = manager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        resumeAfterForeground = false;
+    }
+    @Override public void handleOnDestroy() { stopListening(); super.handleOnDestroy(); }
 }
