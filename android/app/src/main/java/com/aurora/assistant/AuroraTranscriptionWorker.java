@@ -67,7 +67,8 @@ public class AuroraTranscriptionWorker extends Worker {
         if (!source.isFile() || source.length() == 0 || endpoint == null || requestId == null || totalChunks < 1 || durationUs <= 0) return Result.failure();
         File folder = new File(getApplicationContext().getFilesDir(), "aurora-transcription-queue");
         if (!folder.exists() && !folder.mkdirs()) return Result.failure();
-        try (MediaExtractor extractor = new MediaExtractor()) {
+        MediaExtractor extractor = new MediaExtractor();
+        try {
             extractor.setDataSource(source.getAbsolutePath());
             int audioTrack = -1;
             MediaFormat audioFormat = null;
@@ -106,6 +107,10 @@ public class AuroraTranscriptionWorker extends Worker {
         } catch (Exception error) {
             android.util.Log.w("AuroraTranscriptionWorker", "Native source processing failed", error);
             return Result.retry();
+        } finally {
+            try { extractor.release(); } catch (Exception releaseError) {
+                android.util.Log.w("AuroraTranscriptionWorker", "Could not release native media extractor", releaseError);
+            }
         }
     }
 
