@@ -23,3 +23,17 @@ assert.match(java, /backgroundSampling", false/);
 assert.match(java, /Math\.max\(10000L/);
 assert.match(java, /handleOnPause/);
 assert.match(activity, /registerPlugin\(AuroraPredictivePlugin\.class\)/);
+
+assert.match(component, /Review device health/);
+assert.match(component, /buildAuroraDeviceInsights/);
+assert.match(component, /Connected data sources/);
+assert.match(component, /unregisterSource/);
+assert.match(native, /getDeviceStatus/);
+const mainChat = fs.readFileSync("src/App.jsx", "utf8");
+assert.match(mainChat, /review my \\(?:saved \\)\?routine/);
+assert.match(mainChat, /pause predictive intelligence/);
+assert.match(mainChat, /resume predictive intelligence/);
+assert.match(mainChat, /clear predictive history/);
+assert.match(mainChat, /show connected predictive sources/);
+assert.match(mainChat, /review my device health/);
+console.log("AURORA predictive voice and device-health command checks passed.");
