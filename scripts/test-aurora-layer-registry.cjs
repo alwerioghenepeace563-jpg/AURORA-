@@ -12,8 +12,8 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageOneMapped, 12, "Stage one must map every layer before stage two begins.");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
-  assert.equal(summary.nextStage, 11);
-  assert.equal(summary.activeStage, 11);
+  assert.equal(summary.nextStage, 12);
+  assert.equal(summary.activeStage, 12);
   assert.equal(summary.stageTenStatus, "complete");
   assert.equal(summary.stageTenCodeComplete, true);
   assert.equal(summary.stageTenScopedLayers, 12);
@@ -23,11 +23,13 @@ const assert = require("node:assert/strict");
   assert.equal(Object.keys(STAGE_TEN_LAYER_AUDIT).length, 12);
   assert.ok(registry.stages.some(stage => stage.id === 10 && stage.status === "complete"));
   assert.ok(registry.list().every(layer => layer.stageTenScope.length >= 3 && layer.stageTenEvidence.length >= 3));
-  assert.equal(summary.stageElevenStatus, "in_progress");
+  assert.equal(summary.stageElevenStatus, "complete");
+  assert.equal(summary.stageElevenCodeComplete, true);
+  assert.equal(summary.stageElevenAuditedLayers, 12);
   assert.match(STAGE_ELEVEN_CHECKPOINT.scope, /media discovery.*AI-assisted creation.*syllabus-grounded study/i);
-  for (const expected of ["configured AI image/media generation", "longer-duration transcription", "syllabus/course-outline grounding", "accessible media/study refinements", "complete 12-family acceptance coverage"]) {
-    assert.ok(STAGE_ELEVEN_CHECKPOINT.validationBoundary.includes(expected), `Stage 11 remaining scope missing: ${expected}`);
-  }
+  assert.match(STAGE_ELEVEN_CHECKPOINT.validationBoundary, /Stage 11 code checkpoint is complete/i);
+  assert.match(STAGE_ELEVEN_CHECKPOINT.validationBoundary, /Supabase migration/i);
+  assert.match(STAGE_ELEVEN_CHECKPOINT.validationBoundary, /Physical Android compilation\/device validation.*deferred/i);
   for (const layerId of ["android_device","voice_multimodal","screen_accessibility","communication_people","location_travel","calendar_productivity","files_knowledge","media_creative","intelligence_personalisation","extensions_interoperability","safety_privacy_security","reliability_operations"]) {
     assert.ok(STAGE_ELEVEN_SCOPE[layerId].length >= 3, `Stage 11 scope incomplete for ${layerId}`);
   }
@@ -35,9 +37,13 @@ const assert = require("node:assert/strict");
   assert.ok(STAGE_ELEVEN_SCOPE.files_knowledge.some(item => /syllabus/.test(item)));
   assert.ok(STAGE_ELEVEN_SCOPE.screen_accessibility.some(item => /screen-reader/.test(item)));
   assert.equal(summary.stageElevenScopedLayers, 12);
-  assert.equal(STAGE_ELEVEN_CHECKPOINT.status, "in_progress");
+  assert.equal(STAGE_ELEVEN_CHECKPOINT.status, "complete");
   assert.equal(Object.keys(STAGE_ELEVEN_SCOPE).length, 12);
-  assert.ok(registry.stages.some(stage => stage.id === 11 && stage.status === "in_progress"));
+  const { STAGE_ELEVEN_LAYER_AUDIT } = await import("../src/core/aurora-layer-registry.js");
+  assert.equal(Object.keys(STAGE_ELEVEN_LAYER_AUDIT).length, 12);
+  for (const [layerId, evidence] of Object.entries(STAGE_ELEVEN_LAYER_AUDIT)) assert.ok(evidence.length >= 3, `Stage 11 acceptance evidence missing for ${layerId}`);
+  assert.equal(registry.summary().stageElevenAuditedLayers, 12);
+  assert.ok(registry.stages.some(stage => stage.id === 11 && stage.status === "complete"));
   assert.ok(registry.list().every(layer => layer.stageElevenScope.length >= 3));
   assert.equal(summary.stageNineStatus, "complete");
   assert.equal(summary.stageNineCodeComplete, true);
