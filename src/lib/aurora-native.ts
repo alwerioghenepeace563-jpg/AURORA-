@@ -15,6 +15,7 @@ type AuroraTranscriptionPlugin = {
   stop(): Promise<{ stopped: boolean }>;
   enqueueChunk(options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; chunkNumber: number }>;
   cancelJob(options: { requestId: string }): Promise<{ cancelled: boolean }>;
+  getWorkStatus(options: { workId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean }>;
   clearSession(): Promise<{ cleared: boolean }>;
 };
 
@@ -126,6 +127,7 @@ export const auroraNative = {
   stopTranscriptionService: async () => { if (Capacitor.getPlatform() !== "android") return { stopped: true }; return AuroraTranscription.stop(); },
   enqueueTranscriptionChunk: async (options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }) => { if (Capacitor.getPlatform() !== "android") throw new Error("Background transcription queue requires Android."); return AuroraTranscription.enqueueChunk(options); },
   cancelTranscriptionJob: async (requestId: string) => { if (Capacitor.getPlatform() !== "android") return { cancelled: false }; return AuroraTranscription.cancelJob({ requestId }); },
+  getTranscriptionWorkStatus: async (workId: string) => { if (Capacitor.getPlatform() !== "android") return { state: "UNAVAILABLE", finished: true, successful: false, failed: true }; return AuroraTranscription.getWorkStatus({ workId }); },
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
