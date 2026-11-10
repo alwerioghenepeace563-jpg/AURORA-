@@ -1017,7 +1017,23 @@ public class AuroraAssistantPlugin extends Plugin {
             String filename = rawName.replaceAll("[^A-Za-z0-9._ -]", "_").trim();
             if (filename.length() > 120) filename = filename.substring(0, 120);
             if (filename.isEmpty() || filename.equals(".") || filename.equals("..")) filename = "AURORA-media";
-            if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#    @PluginMethod
+            if (mimeType == null || mimeType.length() > 120 || !mimeType.matches("[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+")) mimeType = "application/octet-stream";
+            DownloadManager manager = (DownloadManager) getContext().getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+            if (manager == null) { call.reject("Android download service is unavailable."); return; }
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(parsed.toString()));
+            request.setTitle(filename);
+            request.setDescription("Downloading with AURORA");
+            request.setMimeType(mimeType);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
+            request.setAllowedOverRoaming(false);
+            request.setAllowedOverMetered(true);
+            long id = manager.enqueue(request);
+            call.resolve(new JSObject().put("queued", true).put("downloadId", id).put("filename", filename).put("destination", "Downloads").put("managedByAndroid", true).put("notificationVisible", true));
+        } catch (Exception e) { call.reject("Android could not start this direct media download.", e); }
+    }
+
+    @PluginMethod
     public void shareSelectedFile(PluginCall call) {
         String rawUri = call.getString("contentUri");
         String mimeType = call.getString("mimeType", "application/octet-stream");
