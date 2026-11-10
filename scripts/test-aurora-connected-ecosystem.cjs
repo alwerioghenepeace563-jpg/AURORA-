@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
   const service = createAuroraConnectedEcosystem({ storage, events, getCapabilities: () => [{ id: "memory.search" }], executeCapability: request => { engineCalls.push(request); return { ok: true }; }, now: () => "2026-11-10T00:00:00.000Z" });
   const manifest = { id: "google.calendar", name: "Google Calendar", version: "1", scopes: ["calendar.read"], capabilities: ["memory.search"] };
   assert.equal(service.preview(manifest).credentialsStored, false);
-  assert.throws(() => service.connect(manifest, { approved: true, consent: false }), /approval and scope consent/i);
+  await assert.rejects(() => service.connect(manifest, { approved: true, consent: false }), /approval and scope consent/i);
   await assert.rejects(() => service.connect(manifest, { approved: true, consent: true }), /No supported connector adapter/);
   let connectedScopes = null, disconnected = false;
   service.registerAdapter("google.calendar", { connect: async ({ scopes }) => { connectedScopes = scopes; return { connected: true, accountLabel: "primary" }; }, disconnect: async () => { disconnected = true; } });
