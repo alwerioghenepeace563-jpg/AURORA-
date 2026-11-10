@@ -15,6 +15,9 @@ assert.match(manifest, /androidx\.work\.impl\.foreground\.SystemForegroundServic
 assert.match(activity, /registerPlugin\(AuroraTranscriptionPlugin\.class\)/);
 assert.match(gradle, /androidx\.work:work-runtime/);
 assert.match(plugin, /enqueueUniqueWork/);
+assert.match(plugin, /getWorkInfosForUniqueWork/);
+assert.match(plugin, /alreadyQueued/);
+assert.match(plugin, /name.startsWith\(requestId\+"-"\)/);
 assert.match(plugin, /getWorkInfoById/);
 assert.match(plugin, /NetworkType\.CONNECTED/);
 assert.match(plugin, /aurora-transcription-queue/);
