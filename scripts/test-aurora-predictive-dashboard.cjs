@@ -1,0 +1,12 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const component = fs.readFileSync("src/components/PredictiveDashboard.jsx", "utf8");
+assert.match(app, /PredictiveDashboard/);
+assert.match(app, /activityTab==="predictive"/);
+assert.match(component, /DeviceMotionEvent/);
+assert.match(component, /requestPermission/);
+assert.match(component, /Turn off & clear/);
+assert.match(component, /Suggestions never perform actions/);
+assert.match(component, /engine\.recordSignal/);
+console.log("AURORA predictive dashboard integration checks passed.");
