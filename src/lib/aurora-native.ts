@@ -13,6 +13,9 @@ type AuroraTranscriptionPlugin = {
   start(options: { title: string }): Promise<{ started: boolean }>;
   update(options: { title: string; message: string; percent: number }): Promise<{ updated: boolean }>;
   stop(): Promise<{ stopped: boolean }>;
+  enqueueChunk(options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; chunkNumber: number }>;
+  cancelJob(options: { requestId: string }): Promise<{ cancelled: boolean }>;
+  clearSession(): Promise<{ cleared: boolean }>;
 };
 
 const AuroraTranscription = registerPlugin<AuroraTranscriptionPlugin>("AuroraTranscription");
@@ -121,6 +124,9 @@ export const auroraNative = {
   startTranscriptionService: async (title: string) => { if (Capacitor.getPlatform() !== "android") return { started: false }; return AuroraTranscription.start({ title }); },
   updateTranscriptionService: async (title: string, message: string, percent: number) => { if (Capacitor.getPlatform() !== "android") return { updated: false }; return AuroraTranscription.update({ title, message, percent }); },
   stopTranscriptionService: async () => { if (Capacitor.getPlatform() !== "android") return { stopped: true }; return AuroraTranscription.stop(); },
+  enqueueTranscriptionChunk: async (options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }) => { if (Capacitor.getPlatform() !== "android") throw new Error("Background transcription queue requires Android."); return AuroraTranscription.enqueueChunk(options); },
+  cancelTranscriptionJob: async (requestId: string) => { if (Capacitor.getPlatform() !== "android") return { cancelled: false }; return AuroraTranscription.cancelJob({ requestId }); },
+  clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
   hasOverlayPermission: async () => {
