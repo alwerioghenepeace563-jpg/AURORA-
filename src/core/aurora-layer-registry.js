@@ -1,10 +1,11 @@
 const STAGE_ELEVEN_CHECKPOINT = Object.freeze({
   id: 11,
   name: "Creative and Learning Universe",
-  status: "in_progress",
+  status: "complete",
   startedAt: "2026-11-09",
+  completedAt: "2026-11-10",
   scope: "Stage 11 delivers a unified, user-controlled creative production and learning environment across all 12 capability families: media discovery and lawful downloads, AI-assisted creation, source-aware documents and writing, voice and multimodal workflows, syllabus-grounded study, adaptive practice, accessible surfaces and Knowledge Universe integration.",
-  validationBoundary: "Implemented code waves include local-first study plans and session history; creative projects, drafts and revision restore; user-selected media references and share handoff; SRT/VTT import/export and cue search; flashcards with spaced repetition; deterministic quizzes with persistent history; descriptive learning insights; live speech-to-text; provider-backed lesson generation; bounded image/PDF analysis; user-selected audio/video transcription; image/video discovery; source/licence-aware media results; Android browser handoff; and confirmed direct public-file downloads through Download Manager. Latest AURORA Build Check runs 42655699250 and 42655687313 passed on commit 211d1cb5a01ccf630d156741db69a65d12308f1b. Remaining Stage 11 implementation includes configured AI image/media generation, robust larger-file and longer-duration transcription, deeper source-grounded document extraction and writing, learner-supplied syllabus/course-outline grounding and richer practice, accessible media/study refinements, and complete 12-family acceptance coverage. Physical Android compilation and device validation, provider availability/quality and release certification remain separate gates; no APK or release readiness is claimed.",
+  validationBoundary: "Stage 11 code checkpoint is complete: the Creative + Learning Studio, study plans and session history, revisioned projects/drafts, caption import/export/search, flashcards and spaced repetition, quiz history and learning insights, live speech capture, provider-backed lessons and syllabus-grounded practice, bounded image/PDF analysis, AI image generation workflow, media search/download handoff, VoiceText-owned audio transcription, local video audio extraction, long-recording sectioning, account-scoped Supabase checkpoints, and Android WorkManager retryable section delivery are implemented. All 12 capability families have explicit Stage 11 scope and acceptance evidence. Automated checks are committed and CI must pass on this final checkpoint before the code gate is considered verified. External activation still requires applying the VoiceText Supabase migration and configuring its server-only service-role key; provider credentials/quota and live media round-trips are not verified here. Browser decoding and section capture require AURORA to remain open; Android can retry already queued section uploads when the OS schedules WorkManager. Physical Android compilation/device validation and release certification remain deferred; no APK or release readiness is claimed.",
   deliverables: Object.freeze([
     "Deliver one Creative Studio for user-selected image, video, audio, caption, transcript, document and project workflows.",
     "Provide image/video discovery with source pages, attribution/licence metadata, browser handoff and supported direct public-file downloads; never bypass platform protections.",
@@ -324,6 +325,21 @@ const STAGE_ELEVEN_SCOPE = Object.freeze({
   reliability_operations: Object.freeze(["add regression and acceptance tests for imports, cancellations, exports, browser handoff, downloads and transcription review", "provide graceful offline/provider fallback and clear user-facing failure reasons", "measure bounded processing, chunk integrity and preserve recovery receipts without storing sensitive media", "collect all-12-family code evidence and maintain a separate Android/device validation checklist"])
 });
 
+const STAGE_ELEVEN_LAYER_AUDIT = Object.freeze({
+  android_device: Object.freeze(["user-selected Android media/document picker and confirmed download handoff", "native WorkManager queue stores bounded audio sections privately and retries connected uploads", "Android transcription token is held in the encrypted Keystore-backed token store"]),
+  voice_multimodal: Object.freeze(["native speech recognition and reviewed transcript capture", "VoiceText server-to-server bridge with Nigerian English/Pidgin language hint", "segmented audio and locally extracted video audio use the same resumable transcription job"]),
+  screen_accessibility: Object.freeze(["captions, transcript and subtitle cues are rendered as reviewable text", "transcription progress, pause/retry and provider errors are exposed in the workspace", "user-controlled speech capture starts and stops through explicit controls"]),
+  communication_people: Object.freeze(["selected project assets can be shared through the Android Sharesheet", "generated lessons and transcripts remain reviewable before external sharing", "share/download actions are user initiated rather than background sends"]),
+  location_travel: Object.freeze(["field-learning context can use the existing one-shot location capability only when requested", "project context keeps source labels and does not attach location automatically", "no background location tracking is added by creative or learning workflows"]),
+  calendar_productivity: Object.freeze(["learner-owned study plans and recorded sessions provide explicit progress state", "study milestones can use existing user-approved reminder/calendar handoffs", "session history is bounded and never infers unrecorded study time"]),
+  files_knowledge: Object.freeze(["user-selected PDF/image analysis is bounded and source-grounded", "learner-supplied syllabus/course outline drives lesson and practice generation", "project context and saved drafts retain provenance and explicit save boundaries"]),
+  media_creative: Object.freeze(["AI image generation returns previewable output with explicit download", "media search preserves source-page and usage-rights review before download", "VoiceText handles audio transcription while AURORA locally extracts video audio and sends bounded sections"]),
+  intelligence_personalisation: Object.freeze(["learning insights derive from explicitly saved quiz attempts", "flashcard review schedules follow the learner's explicit rating", "lesson and syllabus practice prompts use learner-selected subject, topic and supplied source"]),
+  extensions_interoperability: Object.freeze(["VoiceText is connected through a private server-to-server integration contract", "provider secrets remain server-side and provider availability is surfaced as a runtime dependency", "Main, Pulse and voice surfaces continue to share the same runtime and capability registry"]),
+  safety_privacy_security: Object.freeze(["media and document uploads require user selection and explicit action", "private cloud jobs are scoped to the verified Supabase user and private storage bucket", "MIME, payload, chunk-order and section-count validation reject unsupported or malformed media"]),
+  reliability_operations: Object.freeze(["persistent cloud checkpoints support same-recording resume after app reload", "Android WorkManager retries already queued uploads on connected networks", "regression suites cover learning, media, bridge, checkpoint and native queue contracts"])
+});
+
 const STAGE_TEN_CHECKPOINT = Object.freeze({
   id: 10,
   name: "Universal Android and Communication Mastery",
@@ -408,6 +424,7 @@ function createAuroraLayerRegistry() {
     stageTenScope: [...(STAGE_TEN_SCOPE[item.id] || [])],
     stageTenEvidence: [...(STAGE_TEN_LAYER_AUDIT[item.id] || [])],
     stageElevenScope: [...(STAGE_ELEVEN_SCOPE[item.id] || [])],
+    stageElevenEvidence: [...(STAGE_ELEVEN_LAYER_AUDIT[item.id] || [])],
     implementationStatus: "contract-audited",
     finalStatus: "active"
   }));
@@ -428,6 +445,7 @@ function createAuroraLayerRegistry() {
     stageTenScope: STAGE_TEN_SCOPE,
     stageTenAudit: STAGE_TEN_LAYER_AUDIT,
     stageTenCheckpoint: STAGE_TEN_CHECKPOINT,
+    stageElevenAudit: STAGE_ELEVEN_LAYER_AUDIT,
     stageElevenScope: STAGE_ELEVEN_SCOPE,
     stageElevenCheckpoint: STAGE_ELEVEN_CHECKPOINT,
     stageThreeDeferredReleaseValidation: STAGE_THREE_DEFERRED_RELEASE_VALIDATION,
@@ -441,14 +459,16 @@ function createAuroraLayerRegistry() {
       stageOneMapped: families.filter((item) => item.checkpoint === "stage-1-mapped").length,
       finalLayers: families.filter((item) => item.finalStatus === "complete").length,
       activeLayers: families.filter((item) => item.finalStatus !== "complete").length,
-      nextStage: 11,
-      activeStage: 11,
+      nextStage: 12,
+      activeStage: 12,
       stageTenStatus: STAGE_TEN_CHECKPOINT.status,
       stageTenCodeComplete: STAGE_TEN_CHECKPOINT.status === "complete",
       stageTenScopedLayers: families.filter(item => (STAGE_TEN_SCOPE[item.id] || []).length >= 3).length,
       stageTenAuditedLayers: families.filter(item => (STAGE_TEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageElevenStatus: STAGE_ELEVEN_CHECKPOINT.status,
+      stageElevenCodeComplete: STAGE_ELEVEN_CHECKPOINT.status === "complete",
       stageElevenScopedLayers: families.filter(item => (STAGE_ELEVEN_SCOPE[item.id] || []).length >= 3).length,
+      stageElevenAuditedLayers: families.filter(item => (STAGE_ELEVEN_LAYER_AUDIT[item.id] || []).length >= 3).length,
       stageNineStatus: STAGE_NINE_CHECKPOINT.status,
       stageNineCodeComplete: STAGE_NINE_CHECKPOINT.status === "complete",
       stageNineAuditedLayers: families.filter(item => (STAGE_NINE_LAYER_AUDIT[item.id] || []).length >= 3).length,
@@ -475,4 +495,4 @@ function createAuroraLayerRegistry() {
 
 const auroraLayerRegistry = createAuroraLayerRegistry();
 
-export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
+export { FAMILIES as AURORA_LAYER_FAMILIES, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_LAYER_AUDIT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_LAYER_AUDIT, STAGE_FOUR_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_LAYER_AUDIT, STAGE_EIGHT_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_LAYER_AUDIT, STAGE_ELEVEN_CHECKPOINT, createAuroraLayerRegistry, auroraLayerRegistry };
