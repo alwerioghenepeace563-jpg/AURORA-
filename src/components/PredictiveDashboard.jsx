@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
 import { auroraNative } from "../lib/aurora-native";
 import { Activity, Pause, Play, ShieldCheck, Trash2, X, Clock3, Sparkles } from "lucide-react";
@@ -15,12 +15,12 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
   const [sensorActive, setSensorActive] = useState(false);
   const [motionSupported, setMotionSupported] = useState(typeof window !== "undefined" && ("DeviceMotionEvent" in window));
   const [nativeMotion, setNativeMotion] = useState(false);
-  const [motionListener, setMotionListener] = useState(null);
+  const motionListenerRef = useRef(null);
   const [latestMotion, setLatestMotion] = useState("Not connected");
   const [retentionHours, setRetentionHours] = useState("24");
   const refresh = () => { setStatus(engine.getStatus()); setSuggestions(engine.listSuggestions()); };
   useEffect(() => { refresh(); }, []);
-  useEffect(() => () => { motionListener?.remove?.(); auroraNative.stopPredictiveMotion().catch(() => {}); }, [motionListener]);
+  useEffect(() => () => { motionListenerRef.current?.remove?.(); auroraNative.stopPredictiveMotion().catch(() => {}); }, []);
   useEffect(() => {
     if (!sensorActive || nativeMotion) return undefined;
     const onMotion = (event) => {
@@ -62,9 +62,9 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
             if (result.accepted) { setLatestMotion(event.moved ? "Movement detected" : "Mostly still"); refresh(); }
           } catch (error) { setMessage(error.message || "Native motion reading unavailable."); }
         });
-        setMotionListener(listener);
+        motionListenerRef.current = listener;
         const started = await auroraNative.startPredictiveMotion(true, 10000);
-        if (!started.started) { await listener.remove(); setMotionListener(null); throw new Error("Android could not start the accelerometer."); }
+        if (!started.started) { await listener.remove(); motionListenerRef.current = null; throw new Error("Android could not start the accelerometer."); }
       }
       setNativeMotion(isAndroid);
       setSensorActive(true);
@@ -76,7 +76,7 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
   function disable() {
     setSensorActive(false);
     auroraNative.stopPredictiveMotion().catch(() => {});
-    motionListener?.remove?.(); setMotionListener(null); setNativeMotion(false);
+    motionListenerRef.current?.remove?.(); motionListenerRef.current = null; setNativeMotion(false);
     engine.unregisterSource("device-motion");
     engine.configure({ enabled: false, consent: false, retentionHours: Number(retentionHours) || 24 });
     refresh();
@@ -89,11 +89,12 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     engine.suggest({ id: "routine-focus-" + new Date().toISOString().slice(0,10), title: open ? "Choose one task to focus on" : "Plan a small next step", reason: open ? "You have " + open + " unfinished task" + (open === 1 ? "" : "s") + " saved. Picking one keeps your plan manageable." + upcoming : "Your saved task list has no unfinished items. Add one small priority when you are ready." + upcoming });
     refresh();
   }
-  function pause() { setSensorActive(false); auroraNative.stopPredictiveMotion().catch(() => {}); motionListener?.remove?.(); setMotionListener(null); engine.pause(); refresh(); setMessage("Predictive intelligence is paused. No new readings will be collected."); }
+  function pause() { setSensorActive(false); auroraNative.stopPredictiveMotion().catch(() => {}); engine.pause(); refresh(); setMessage("Predictive intelligence is paused. No new readings will be collected."); }
   function resume() {
     try {
       engine.resume(true);
-      if ((motionSupported || nativeMotion) && status.sourceCount > 0) setSensorActive(true);
+      if (nativeMotion && status.sourceCount > 0) auroraNative.startPredictiveMotion(true, 10000).then(result => { if (result.started) setSensorActive(true); else setMessage("Motion sensor is unavailable; routine suggestions remain available."); }).catch(error => setMessage(error.message));
+      else if (motionSupported && status.sourceCount > 0) setSensorActive(true);
       refresh(); setMessage("Predictive intelligence resumed.");
     } catch (error) { setMessage(error.message); }
   }
