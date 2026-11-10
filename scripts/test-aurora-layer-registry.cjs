@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 
 (async () => {
-  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_CHECKPOINT, STAGE_EIGHT_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_CHECKPOINT, STAGE_TWELVE_SCOPE, STAGE_TWELVE_LAYER_AUDIT, STAGE_TWELVE_CHECKPOINT, STAGE_THIRTEEN_SCOPE, STAGE_THIRTEEN_LAYER_AUDIT, STAGE_THIRTEEN_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
+  const { createAuroraLayerRegistry, STAGE_ONE_CHECKPOINT, STAGE_TWO_CHECKPOINT, STAGE_THREE_CHECKPOINT, STAGE_THREE_DEFERRED_RELEASE_VALIDATION, STAGE_FOUR_CHECKPOINT, STAGE_FOUR_LAYER_AUDIT, STAGE_FIVE_CHECKPOINT, STAGE_FIVE_LAYER_AUDIT, STAGE_SIX_CHECKPOINT, STAGE_SIX_LAYER_AUDIT, STAGE_SIX_DEFERRED_DEVICE_VALIDATION, STAGE_SEVEN_CHECKPOINT, STAGE_SEVEN_LAYER_AUDIT, STAGE_SEVEN_DEFERRED_DEVICE_VALIDATION, STAGE_EIGHT_CHECKPOINT, STAGE_EIGHT_LAYER_AUDIT, STAGE_NINE_CHECKPOINT, STAGE_NINE_LAYER_AUDIT, STAGE_TEN_CHECKPOINT, STAGE_TEN_SCOPE, STAGE_TEN_LAYER_AUDIT, STAGE_ELEVEN_SCOPE, STAGE_ELEVEN_CHECKPOINT, STAGE_TWELVE_SCOPE, STAGE_TWELVE_LAYER_AUDIT, STAGE_TWELVE_CHECKPOINT, STAGE_THIRTEEN_SCOPE, STAGE_THIRTEEN_LAYER_AUDIT, STAGE_THIRTEEN_CHECKPOINT, STAGE_FOURTEEN_SCOPE, STAGE_FOURTEEN_LAYER_AUDIT, STAGE_FOURTEEN_CHECKPOINT } = await import("../src/core/aurora-layer-registry.js");
   const registry = createAuroraLayerRegistry();
   const layers = registry.list();
   const summary = registry.summary();
@@ -12,8 +12,8 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageOneMapped, 12, "Stage one must map every layer before stage two begins.");
   assert.equal(summary.activeLayers, 12, "Mapped layers remain active until their final acceptance criteria pass.");
   assert.equal(summary.finalLayers, 0, "An architecture map must never be mistaken for final implementation.");
-  assert.equal(summary.nextStage, 13);
-  assert.equal(summary.activeStage, 13);
+  assert.equal(summary.nextStage, 14);
+  assert.equal(summary.activeStage, 14);
   assert.equal(summary.stageTenStatus, "complete");
   assert.equal(summary.stageTenCodeComplete, true);
   assert.equal(summary.stageTenScopedLayers, 12);
@@ -43,6 +43,16 @@ const assert = require("node:assert/strict");
   assert.equal(Object.keys(STAGE_THIRTEEN_LAYER_AUDIT).length, 12);
   assert.ok(registry.stages.some(stage => stage.id === 13 && stage.status === "active"));
   assert.ok(registry.list().every(layer => layer.stageThirteenScope.length >= 3 && layer.stageThirteenEvidence.length >= 3));
+  assert.equal(summary.stageFourteenStatus, "active");
+  assert.equal(summary.stageFourteenCodeComplete, false);
+  assert.equal(summary.stageFourteenScopedLayers, 12);
+  assert.equal(summary.stageFourteenAuditedLayers, 12);
+  assert.equal(STAGE_FOURTEEN_CHECKPOINT.status, "active");
+  assert.equal(Object.keys(STAGE_FOURTEEN_SCOPE).length, 12);
+  assert.equal(Object.keys(STAGE_FOURTEEN_LAYER_AUDIT).length, 12);
+  assert.ok(registry.stages.some(stage => stage.id === 14 && stage.status === "active"));
+  assert.ok(registry.list().every(layer => layer.stageFourteenScope.length >= 3 && layer.stageFourteenEvidence.length >= 3));
+  assert.match(STAGE_FOURTEEN_CHECKPOINT.validationBoundary, /does not.*certify the product/i);
   assert.ok(registry.list().every(layer => layer.stageTwelveScope.length >= 3 && layer.stageTwelveEvidence.length >= 3));
   assert.match(STAGE_TWELVE_CHECKPOINT.validationBoundary, /Android native compilation/i);
   assert.match(STAGE_THIRTEEN_CHECKPOINT.validationBoundary, /shared Action Engine/i);
