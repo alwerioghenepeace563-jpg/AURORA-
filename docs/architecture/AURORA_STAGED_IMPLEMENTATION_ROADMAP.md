@@ -760,3 +760,27 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Added scope and audit records for all 12 capability families.
 
 **Wave 1 boundary:** This is the common connection and policy layer, not a claim that Google, Microsoft, messaging, cloud-storage or smart-home accounts are already linked. Provider-specific OAuth/API adapters, account linking, external credentials, webhook subscriptions and live end-to-end service checks remain future waves and require explicit user setup. No downloaded connector code or autonomous external actions are enabled.
+
+
+## Stage 14 — Experimental Intelligence and Final Certification (active)
+
+**Purpose:** Give AURORA a safe laboratory for testing new intelligence ideas, then certify the release only from verifiable evidence across all 12 capability families. Experimental work must never silently modify the production assistant or bypass its safety controls.
+
+### Wave 1 — bounded experimental intelligence sandbox
+- Added `src/core/aurora-experimental-intelligence.js` with declarative records for hypotheses, workflow simulations, capability prototypes and evaluations.
+- Experiments require explicit approval and consent, plus a simulation-only declaration before running.
+- Only registered simulation adapters can run experiments. The sandbox never evaluates downloaded code, uses `eval`, dynamically imports extension code, or dispatches device/service actions.
+- Findings are bounded in count and length. High-risk and critical experiments are blocked from sandbox execution and require separate safety review.
+- Pausing or rejecting an experiment revokes its consent. Completion emits metadata-only lifecycle events.
+- Wired the sandbox into the shared AURORA runtime and added automated regression checks for consent, simulation boundaries, high-risk blocks, side-effect rejection and honest certification state.
+- Added Stage 14 scope and audit contracts for all 12 capability families.
+
+### Final certification gates (not yet passed)
+1. All core, architecture, security and regression suites pass on the final candidate commit.
+2. Web production build, Capacitor sync and Android native compilation pass.
+3. Physical-device validation covers supported Android devices, permissions, lifecycle, voice, accessibility, sensors, storage and recovery.
+4. Stage 13 provider-specific connectors are configured with explicit scopes and successful live read/write round-trips where applicable.
+5. Privacy, data-retention, security and permission reviews are signed off.
+6. Release artifact integrity, signing, rollback and recovery procedures are verified.
+
+**Wave 1 boundary:** The sandbox and checklist are implemented as code; Stage 14 remains active. A checklist is not certification. No production model self-modification, arbitrary code execution, autonomous external actions or final release approval is claimed. Stage 13 connector activation and the physical-device checks remain deferred until configured and tested.
