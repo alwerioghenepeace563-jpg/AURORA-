@@ -37,6 +37,7 @@ import { createAuroraInteractionInterruptionCoordinator } from "./aurora-interac
 import { connectAuroraApprovalEvents } from "./aurora-approval-event-bridge";
 import { createAuroraContextSessions } from "./aurora-context-sessions";
 import { createAuroraPredictiveIntelligence } from "./aurora-predictive-intelligence";
+import { createAuroraConnectedEcosystem } from "./aurora-connected-ecosystem";
 
 const approvalBroker = createAuroraApprovalBroker();
 connectAuroraApprovalEvents(approvalBroker, auroraEvents);
@@ -95,6 +96,7 @@ async function hasSignedInSupabaseSession() {
 const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request) });
+const connectedEcosystem = createAuroraConnectedEcosystem({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request), events: auroraEvents });
 universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
 universalSearch.register("knowledge", (query, limit) => auroraKnowledgeUniverse.search(query, { limit }).map(item => ({ ...item, type: item.type, summary: item.summary, score: item.score })), "Personal knowledge universe");
 universalSearch.register("learning", (query, limit) => auroraLearningUniverse.listPlans().filter(plan => (plan.title + " " + plan.subject + " " + plan.topics.map(topic => topic.name).join(" ")).toLowerCase().includes(String(query || "").toLowerCase())).slice(0, limit).map(plan => ({ ...plan, type: "study_plan", summary: plan.goal || plan.title, score: 1 })), "Study plans and learning progress");
@@ -777,6 +779,7 @@ const auroraRuntime = Object.freeze({
   reliability,
   environment: environmentMonitor,
   predictive,
+  connectedEcosystem,
   context: contextSessions,
   diagnostics: () => reliability.getDiagnostics(),
   cancelTask: (taskId) => taskOrchestrator.cancelPlan(taskId),
@@ -785,6 +788,7 @@ const auroraRuntime = Object.freeze({
   consents: auroraConsents,
   universalSearch,
   extensions: extensionRegistry,
+  connected: connectedEcosystem,
   dataInventory,
   executeExtension: (extensionId, capabilityId, input) => extensionRegistry.execute(extensionId, capabilityId, input),
   secureStorage,
