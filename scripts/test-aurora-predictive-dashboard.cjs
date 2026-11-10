@@ -10,3 +10,16 @@ assert.match(component, /Turn off & clear/);
 assert.match(component, /Suggestions never perform actions/);
 assert.match(component, /engine\.recordSignal/);
 console.log("AURORA predictive dashboard integration checks passed.");
+
+const native = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const java = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraPredictivePlugin.java", "utf8");
+const activity = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8");
+assert.match(component, /startPredictiveMotion/);
+assert.match(component, /addPredictiveMotionListener/);
+assert.match(component, /stopPredictiveMotion/);
+assert.match(native, /registerPlugin<AuroraPredictivePlugin>\("AuroraPredictive"\)/);
+assert.match(java, /getBoolean\("consent", false\)/);
+assert.match(java, /backgroundSampling", false/);
+assert.match(java, /Math\.max\(10000L/);
+assert.match(java, /handleOnPause/);
+assert.match(activity, /registerPlugin\(AuroraPredictivePlugin\.class\)/);
