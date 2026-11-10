@@ -585,6 +585,8 @@ Stage 10's device-specific validation remains a release backlog rather than a re
 
 **Stage 12 boundary:** Waves 1 and 2 are implemented in code. Routine-pattern depth, additional sensor adapters, full cross-family acceptance, consolidated CI and physical-device validation remain outstanding. Android motion sensing is foreground-only and opt-in; no silent sensor collection or autonomous consequential actions are permitted.
 
+**Implementation wave 3 — on-demand routine intelligence:** Added `src/core/aurora-routine-insights.js` to generate up to three bounded, explainable suggestions from the task, reminder and event arrays explicitly supplied by the Activities dashboard. It identifies manageable next steps, events within 24 hours and reminders within 24 hours. Analysis occurs only after the user presses **Review my saved routine**; the helper is pure and does not scan local storage, continuously profile behavior, schedule reminders or execute actions. The dashboard stores only the resulting suggestion summaries in the predictive engine. Added focused regression coverage and included it in core CI. This is an opt-in review aid, not an automatic routine learner.
+
 ### Stage 13 — Connected Ecosystem
 - Add user-approved continuity across the user's Android devices and selected services.
 - Introduce secure device pairing, per-device trust, revocation, encrypted transport and least-privilege extension permissions.
