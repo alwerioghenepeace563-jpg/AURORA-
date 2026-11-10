@@ -25,6 +25,14 @@ type AuroraTranscriptionPlugin = {
 
 const AuroraTranscription = registerPlugin<AuroraTranscriptionPlugin>("AuroraTranscription");
 
+type AuroraPredictivePlugin = {
+  getMotionSensorStatus(): Promise<{ available: boolean; active: boolean; backgroundSampling: false }>;
+  startMotionSensing(options: { consent: boolean; samplingIntervalMs: number }): Promise<{ started: boolean; available: boolean; samplingIntervalMs?: number; backgroundSampling: false }>;
+  stopMotionSensing(): Promise<{ stopped: boolean }>;
+  addListener(eventName: "motionSignal", listenerFunc: (event: { moved: boolean; timestamp: number; signal: "motion"; coarseOnly: true }) => void): Promise<{ remove: () => Promise<void> }>;
+};
+const AuroraPredictive = registerPlugin<AuroraPredictivePlugin>("AuroraPredictive");
+
 type AuroraNativePlugin = {
   startSpeechRecognition(): Promise<{ started: boolean }>;
   stopSpeechRecognition(): Promise<{ stopped: boolean }>;
@@ -125,6 +133,10 @@ export async function openAuroraDialer(number: string): Promise<{ opened: boolea
 }
 
 export const auroraNative = {
+  getPredictiveMotionStatus: async () => Capacitor.getPlatform() === "android" ? AuroraPredictive.getMotionSensorStatus() : { available: false, active: false, backgroundSampling: false as const },
+  startPredictiveMotion: async (consent: boolean, samplingIntervalMs = 10000) => { if (Capacitor.getPlatform() !== "android") throw new Error("Native motion sensing is available only in Android."); return AuroraPredictive.startMotionSensing({ consent, samplingIntervalMs }); },
+  stopPredictiveMotion: async () => Capacitor.getPlatform() === "android" ? AuroraPredictive.stopMotionSensing() : { stopped: true },
+  addPredictiveMotionListener: async (listener: (event: { moved: boolean; timestamp: number; signal: "motion"; coarseOnly: true }) => void) => AuroraPredictive.addListener("motionSignal", listener),
   isAndroid: () => Capacitor.getPlatform() === "android",
   startTranscriptionService: async (title: string) => { if (Capacitor.getPlatform() !== "android") return { started: false }; return AuroraTranscription.start({ title }); },
   updateTranscriptionService: async (title: string, message: string, percent: number) => { if (Capacitor.getPlatform() !== "android") return { updated: false }; return AuroraTranscription.update({ title, message, percent }); },
