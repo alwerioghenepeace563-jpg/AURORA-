@@ -31,7 +31,7 @@ function createAuroraPredictiveIntelligence(options = {}) {
     enabled = input.enabled === true;
     paused = input.paused === true;
     if (Number.isFinite(input.retentionHours)) retentionMs = Math.max(1, Math.min(168, input.retentionHours)) * 60 * 60 * 1000;
-    if (!enabled) { samples.splice(0); suggestions.splice(0); snoozed.clear(); }
+    if (!enabled) { samples.splice(0); suggestions.splice(0); snoozed.clear(); sources.clear(); lastSampleAt.clear(); }
     publish("settings_changed", { enabled, paused, retentionHours: retentionMs / 3600000 });
     return getStatus();
   }
@@ -106,10 +106,13 @@ function createAuroraPredictiveIntelligence(options = {}) {
     if (suggestions.length !== before) publish("suggestion_dismissed", { id: key });
     return suggestions.length !== before;
   }
+  function listSources() {
+    return [...sources.values()].map(source => Object.freeze({ ...source }));
+  }
   function getStatus() {
     prune();
     return Object.freeze({ enabled, paused, sourceCount: sources.size, sampleCount: samples.length, suggestionCount: suggestions.length, retentionHours: retentionMs / 3600000, supportedSignals: [...ALLOWED_SIGNALS] });
   }
-  return Object.freeze({ configure, registerSource, unregisterSource, recordSignal, suggest, listSuggestions, snooze, dismiss, getStatus, pause: () => { paused = true; publish("settings_changed", { enabled, paused, retentionHours: retentionMs / 3600000 }); return getStatus(); }, resume: (consent) => configure({ enabled, paused: false, consent, retentionHours: retentionMs / 3600000 }), clear: () => { samples.splice(0); suggestions.splice(0); snoozed.clear(); publish("data_cleared"); return true; } });
+  return Object.freeze({ configure, registerSource, unregisterSource, listSources, recordSignal, suggest, listSuggestions, snooze, dismiss, getStatus, pause: () => { paused = true; publish("settings_changed", { enabled, paused, retentionHours: retentionMs / 3600000 }); return getStatus(); }, resume: (consent) => configure({ enabled, paused: false, consent, retentionHours: retentionMs / 3600000 }), clear: () => { samples.splice(0); suggestions.splice(0); snoozed.clear(); publish("data_cleared"); return true; } });
 }
 export { createAuroraPredictiveIntelligence };
