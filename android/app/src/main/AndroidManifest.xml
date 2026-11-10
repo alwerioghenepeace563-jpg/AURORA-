@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
@@ -58,7 +58,8 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
-            <service android:name=".AuroraTranscriptionService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="dataSync" />
+            <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync" tools:node="merge" />
+        <service android:name=".AuroraTranscriptionService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="dataSync" />
         <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />
         <receiver android:name=".AuroraReminderReceiver" android:enabled="true" android:exported="false">
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
