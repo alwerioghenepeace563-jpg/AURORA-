@@ -1,5 +1,6 @@
-import assert from "node:assert/strict";
-import { buildAuroraRoutineInsights } from "../src/core/aurora-routine-insights.js";
+const assert = require("node:assert/strict");
+(async () => {
+ const { buildAuroraRoutineInsights } = await import("../src/core/aurora-routine-insights.js");
 const now = Date.parse("2026-11-10T09:00:00.000Z");
 const insights = buildAuroraRoutineInsights({
   now,
@@ -20,3 +21,4 @@ assert.equal(buildAuroraRoutineInsights({ now, tasks: [{title:"A",done:false}], 
 const bounded = buildAuroraRoutineInsights({ now, tasks: [{title:"A".repeat(1000),done:false}], events:[] });
 assert.ok(bounded[0].reason.length <= 240);
 console.log("AURORA routine insight tests passed.");
+})().catch(error => { console.error(error); process.exitCode = 1; });
