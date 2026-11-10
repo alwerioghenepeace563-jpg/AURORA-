@@ -14,9 +14,7 @@ type AuroraTranscriptionPlugin = {
   update(options: { title: string; message: string; percent: number }): Promise<{ updated: boolean }>;
   stop(): Promise<{ stopped: boolean }>;
   enqueueChunk(options: { audioBase64: string; requestId: string; endpoint: string; mimeType: string; accessToken: string; chunkNumber: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; chunkNumber: number }>;
-  stageSourcePart(options: { requestId: string; partBase64: string; offset: number }): Promise<{ staged: boolean; bytesWritten: number; offset: number }>;\n  getSourceStagingStatus(options: { requestId: string }): Promise<{ stagedBytes: number; exists: boolean }>;
-  queueSourceRecording(options: { requestId: string; endpoint: string; accessToken: string; mimeType: string; sizeBytes: number; durationSeconds: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; requestId: string }>;
-  getSourceWorkStatus(options: { requestId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean; completedChunks: number; reason?: string }>;
+  stageSourcePart(options: { requestId: string; partBase64: string; offset: number }): Promise<{ staged: boolean; bytesWritten: number; offset: number }>;
   getSourceStagingStatus(options: { requestId: string }): Promise<{ stagedBytes: number; exists: boolean }>;
   queueSourceRecording(options: { requestId: string; endpoint: string; accessToken: string; mimeType: string; sizeBytes: number; durationSeconds: number; totalChunks: number }): Promise<{ queued: boolean; workId: string; requestId: string }>;
   getSourceWorkStatus(options: { requestId: string }): Promise<{ state: string; finished: boolean; successful: boolean; failed: boolean; completedChunks: number; reason?: string }>;
