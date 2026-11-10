@@ -63,4 +63,4 @@ jobs:
       - name: Sync Capacitor Android project
         run: npm run android:sync
       - name: Compile Android native code
-        run: cd android && ./gradlew :app:compileDebugJavaWithJavac --no-daemon
+        run: cd android && bash ./gradlew :app:compileDebugJavaWithJavac --no-daemon
