@@ -11,6 +11,7 @@ const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 const workspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx", "utf8");
 
 assert.match(manifest, /FOREGROUND_SERVICE_DATA_SYNC/);
+assert.match(manifest, /androidx\\.work\\.impl\\.foreground\\.SystemForegroundService/);
 assert.match(activity, /registerPlugin\(AuroraTranscriptionPlugin\.class\)/);
 assert.match(gradle, /androidx\.work:work-runtime/);
 assert.match(plugin, /enqueueUniqueWork/);
