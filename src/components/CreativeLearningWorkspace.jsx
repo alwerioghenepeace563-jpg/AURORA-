@@ -182,7 +182,7 @@ function CreativeLearningWorkspace({ authSession }){
    if(!data||data.length>4000000)throw new Error("Audio section "+index+" exceeded the safe upload size. The previous sections are saved in the transcript; resume to continue.");
    const mimeType=(blob.type||"audio/webm").split(";")[0].toLowerCase();
    if(auroraNative.isAndroid()){
-    await auroraNative.enqueueTranscriptionChunk({audioBase64:data,requestId:job.requestId,chunkNumber:index,totalChunks,mimeType,endpoint:auroraApiUrl("/api/voicetext-transcribe"),accessToken:authSession.access_token});
+    const queued=await auroraNative.enqueueTranscriptionChunk({audioBase64:data,requestId:job.requestId,chunkNumber:index,totalChunks,mimeType,endpoint:auroraApiUrl("/api/voicetext-transcribe"),accessToken:authSession.access_token});
     setMediaProgress("Section "+index+" saved to Android background queue · waiting for VoiceText");
     const deadline=Date.now()+10*60*1000;
     while(Date.now()<deadline){
@@ -191,7 +191,8 @@ function CreativeLearningWorkspace({ authSession }){
       if(typeof status.transcript==="string")setMediaTranscript(status.transcript);
       if(Number(status.completedChunks)>=index)return;
       if(status.status==="failed"||status.status==="error")throw new Error(status.error||"Background transcription could not process this section.");
-     }catch(error){if(error?.message&&/could not process this section/.test(error.message))throw error;}
+      if(queued?.workId){const nativeStatus=await auroraNative.getTranscriptionWorkStatus(queued.workId);if(nativeStatus.failed)throw new Error("Android could not upload this section. Check your sign-in and connection, then resume transcription.");}
+     }catch(error){if(error?.message&&(/could not process this section|could not upload this section/.test(error.message)))throw error;}
      await new Promise(resolve=>setTimeout(resolve,2500));
     }
     throw new Error("This section is safely queued on Android and will retry in the background. Reopen AURORA and resume to refresh its transcript.");
