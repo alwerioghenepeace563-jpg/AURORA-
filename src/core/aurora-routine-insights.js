@@ -3,7 +3,7 @@
  * Pure, on-demand analysis of task/reminder/event summaries supplied by the UI.
  * It does not read storage, schedule work, profile behavior, or execute actions.
  */
-const clean = (value, limit = 100) => String(value || "").replace(/[\\u0000-\\u001f]/g, " ").trim().slice(0, limit);
+const clean = (value, limit = 100) => String(value || "").replace(/[\x00-\x1F]/g, " ").trim().slice(0, limit);
 const validTime = value => {
   const time = typeof value === "number" ? value : Date.parse(value);
   return Number.isFinite(time) && time > 0 ? time : null;
