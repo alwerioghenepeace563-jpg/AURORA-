@@ -30,7 +30,7 @@ assert.match(component, /Connected data sources/);
 assert.match(component, /unregisterSource/);
 assert.match(native, /getDeviceStatus/);
 const mainChat = fs.readFileSync("src/App.jsx", "utf8");
-assert.match(mainChat, /review my \\(?:saved \\)\?routine/);
+assert.ok(mainChat.includes("review my (?:saved )?routine"));
 assert.match(mainChat, /pause predictive intelligence/);
 assert.match(mainChat, /resume predictive intelligence/);
 assert.match(mainChat, /clear predictive history/);
