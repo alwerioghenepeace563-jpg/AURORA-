@@ -1184,10 +1184,16 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
-      if (!attachmentOverride && /^(?:aurora[, ]*)?(?:review my (?:saved )?routine|review my predictive suggestions|what should i focus on|show predictive suggestions|pause predictive intelligence|resume predictive intelligence|clear predictive history|review my device health|check my device health|show connected predictive sources)$/i.test(text)) {
+      if (!attachmentOverride && /^(?:aurora[, ]*)?(?:review my (?:saved )?routine|review my predictive suggestions|what should i focus on|show predictive suggestions|pause predictive intelligence|resume predictive intelligence|clear predictive history|review my device health|check my device health|show connected predictive sources|snooze latest predictive suggestion|dismiss latest predictive suggestion)$/i.test(text)) {
         const predictive = auroraRuntime.predictive;
         let predictiveReply = "";
-        if (/pause predictive/i.test(text)) {
+        if (/snooze latest predictive/i.test(text)) {
+          const latest = predictive.listSuggestions()[0];
+          predictiveReply = latest && predictive.snooze(latest.id) ? "The latest suggestion has been snoozed for one hour." : "There is no current suggestion to snooze.";
+        } else if (/dismiss latest predictive/i.test(text)) {
+          const latest = predictive.listSuggestions()[0];
+          predictiveReply = latest && predictive.dismiss(latest.id) ? "The latest suggestion has been dismissed." : "There is no current suggestion to dismiss.";
+        } else if (/pause predictive/i.test(text)) {
           predictive.pause();
           predictiveReply = "Predictive intelligence is paused. No new sensor readings will be accepted.";
         } else if (/resume predictive/i.test(text)) {
