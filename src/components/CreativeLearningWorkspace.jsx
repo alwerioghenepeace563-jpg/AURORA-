@@ -233,12 +233,16 @@ function CreativeLearningWorkspace({ authSession }){
      nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
     }else{
      setMediaProgress("Copying the original recording into private Android storage…");
+     const staging=await auroraNative.getNativeRecordingStagingStatus(job.requestId);
+     let stagedBytes=Math.max(0,Number(staging?.stagedBytes)||0);
+     if(stagedBytes>mediaFile.size)throw new Error("A previous partial transfer is larger than this recording. Cancel that transcription and start a fresh job.");
      const partBytes=512*1024;
-     for(let offset=0;offset<mediaFile.size;offset+=partBytes){
+     for(let offset=stagedBytes;offset<mediaFile.size;offset+=partBytes){
       const encoded=await readBase64(mediaFile.slice(offset,Math.min(mediaFile.size,offset+partBytes)));
       if(!encoded)throw new Error("A recording section could not be staged. No source file was uploaded.");
-      await auroraNative.stageNativeRecordingPart({requestId:job.requestId,partBase64:encoded,offset});
-      setMediaProgress("Securing recording locally · "+Math.min(100,Math.round((Math.min(mediaFile.size,offset+partBytes)/mediaFile.size)*100))+"%");
+      const staged=await auroraNative.stageNativeRecordingPart({requestId:job.requestId,partBase64:encoded,offset});
+      stagedBytes=offset+staged.bytesWritten;
+      setMediaProgress("Securing recording locally · "+Math.min(100,Math.round((stagedBytes/mediaFile.size)*100))+"% · resumable");
      }
      const queued=await auroraNative.queueNativeRecording({requestId:job.requestId,endpoint:auroraApiUrl("/api/voicetext-transcribe"),accessToken:authSession.access_token,mimeType:mediaFile.type,sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks});
      nativeSaved={requestId:job.requestId,nativeBackground:true,workId:queued.workId};
