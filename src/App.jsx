@@ -10,6 +10,8 @@ import MapsWorkspace from "./MapsWorkspace";
 import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace";
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
+import { buildAuroraRoutineInsights } from "./core/aurora-routine-insights";
+import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
@@ -1182,6 +1184,49 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
+      if (!attachmentOverride && /^(?:aurora[, ]*)?(?:review my (?:saved )?routine|review my predictive suggestions|what should i focus on|show predictive suggestions|pause predictive intelligence|resume predictive intelligence|clear predictive history|review my device health|check my device health|show connected predictive sources)$/i.test(text)) {
+        const predictive = auroraRuntime.predictive;
+        let predictiveReply = "";
+        if (/pause predictive/i.test(text)) {
+          predictive.pause();
+          predictiveReply = "Predictive intelligence is paused. No new sensor readings will be accepted.";
+        } else if (/resume predictive/i.test(text)) {
+          predictive.resume(true);
+          predictiveReply = "Predictive intelligence is resumed. Motion sensing itself still requires its separate opt-in control in the Predictive dashboard.";
+        } else if (/clear predictive/i.test(text)) {
+          predictive.clear();
+          predictiveReply = "Predictive history and saved suggestions have been cleared.";
+        } else if (/connected predictive sources/i.test(text)) {
+          const sources = predictive.listSources();
+          predictiveReply = sources.length ? "Connected predictive sources:\n" + sources.map(source => "- " + source.label + " (" + source.signal + ")").join("\n") : "There are no connected predictive sensor sources.";
+        } else if (/device health/i.test(text)) {
+          if (!AuroraNative.isAndroid()) predictiveReply = "One-shot device health review is currently available through the Android bridge only.";
+          else {
+            const snapshot = await AuroraNative.getDeviceStatus();
+            const insights = buildAuroraDeviceInsights(snapshot || {});
+            if (!insights.length) predictiveReply = "The one-time device health check found no warning. Raw battery, thermal and memory metrics were not saved.";
+            else {
+              if (!predictive.getStatus().enabled) predictive.configure({ enabled: true, consent: true });
+              insights.forEach(item => predictive.suggest(item));
+              predictiveReply = "Device health review:\n" + insights.map(item => "- " + item.title + ": " + item.reason).join("\n") + "\nOnly the explanations were retained; raw device metrics were not saved.";
+            }
+          }
+        } else if (/show predictive suggestions/i.test(text)) {
+          const items = predictive.listSuggestions();
+          predictiveReply = items.length ? "Your current suggestions:\n" + items.map(item => "- " + item.title + ": " + item.reason).join("\n") : "There are no predictive suggestions yet. Say “review my routine” to analyse your saved tasks, reminders and events.";
+        } else {
+          const insights = buildAuroraRoutineInsights({ tasks, reminders, events });
+          if (!insights.length) predictiveReply = "I couldn't find an upcoming routine insight. Add a task, reminder or event, then ask me to review your routine.";
+          else {
+            if (!predictive.getStatus().enabled) predictive.configure({ enabled: true, consent: true });
+            insights.forEach(item => predictive.suggest(item));
+            predictiveReply = "Here are your routine insights:\n" + insights.map(item => "- " + item.title + ": " + item.reason).join("\n") + "\nI only reviewed the saved items you asked me to check. Nothing was scheduled or executed.";
+          }
+        }
+        setMessages(current => [...current, { role: "assistant", content: predictiveReply }]);
+        if (soundOn) speak(predictiveReply);
+        return;
+      }
       if (!attachmentOverride && /^Search the web for\s+/i.test(text)) {
         const query = text.replace(/^Search the web for\s+/i, "").trim();
         const searchResponse = await fetch(auroraApiUrl("/api/search"), {
