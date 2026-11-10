@@ -58,7 +58,7 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
-            <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync" tools:node="merge" />
+            <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync" tools:node="merge" tools:replace="android:enabled" />
         <service android:name=".AuroraTranscriptionService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="dataSync" />
         <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />
         <receiver android:name=".AuroraReminderReceiver" android:enabled="true" android:exported="false">
