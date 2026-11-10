@@ -1,5 +1,6 @@
 package com.aurora.assistant;
 import android.util.Base64;
+import android.net.Uri;
 import androidx.work.*;
 import com.getcapacitor.*;
 import com.getcapacitor.annotation.*;
@@ -29,8 +30,9 @@ public class AuroraTranscriptionPlugin extends Plugin {
   String mimeType=call.getData().optString("mimeType","audio/webm");
   String token=call.getData().optString("accessToken","");
   int chunkNumber=call.getData().optInt("chunkNumber",0), totalChunks=call.getData().optInt("totalChunks",0);
+  Uri endpointUri=Uri.parse(endpoint);
   if(encoded.isEmpty()||encoded.length()>4000000||!requestId.matches("(?i)[0-9a-f-]{36}")||
-    !endpoint.startsWith("https://")||token.isEmpty()||chunkNumber<1||totalChunks<chunkNumber||
+    !"https".equalsIgnoreCase(endpointUri.getScheme())||!"aurora-ten-gold.vercel.app".equalsIgnoreCase(endpointUri.getHost())||!"/api/voicetext-transcribe".equals(endpointUri.getPath())||token.isEmpty()||chunkNumber<1||totalChunks<chunkNumber||
     !mimeType.matches("audio/[a-z0-9.+-]+")) { call.reject("A valid signed-in transcription section is required."); return; }
   File folder=new File(getContext().getFilesDir(),"aurora-transcription-queue");
   if(!folder.exists()&&!folder.mkdirs()){call.reject("Could not prepare the private transcription queue.");return;}
