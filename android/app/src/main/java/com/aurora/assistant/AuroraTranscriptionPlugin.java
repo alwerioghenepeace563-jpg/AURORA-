@@ -93,6 +93,14 @@ public class AuroraTranscriptionPlugin extends Plugin {
    call.resolve(new JSObject().put("staged",true).put("bytesWritten",bytes.length).put("offset",offset));
   } catch(Exception error){call.reject("Could not stage this recording section.",error);}
  }
+ @PluginMethod public void getSourceStagingStatus(PluginCall call) {
+  String requestId=call.getData().optString("requestId","");
+  if(!requestId.matches("(?i)[0-9a-f-]{36}")){call.reject("A valid recording ID is required.");return;}
+  File folder=new File(getContext().getFilesDir(),"aurora-transcription-queue");
+  File source=new File(folder,requestId+".source");
+  long bytes=source.isFile()?source.length():0L;
+  call.resolve(new JSObject().put("stagedBytes",bytes).put("exists",source.isFile()));
+ }
  @PluginMethod public void queueSourceRecording(PluginCall call) {
   String requestId=call.getData().optString("requestId","");
   String endpoint=call.getData().optString("endpoint","");
