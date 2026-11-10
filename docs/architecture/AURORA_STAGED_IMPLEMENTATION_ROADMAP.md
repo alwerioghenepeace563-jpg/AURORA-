@@ -574,6 +574,13 @@ Stage 10's device-specific validation remains a release backlog rather than a re
 - Suggestions remain suggestions; no silent messaging, purchasing, calls, location tracking or consequential actions.
 - Provide explain-why, snooze, disable, data-source review and opt-out controls.
 
+**Implementation wave 2 — native motion adapter and dashboard connection (code committed; device verification deferred):**
+- Added a dedicated Capacitor Android plugin, registered in MainActivity, that reads the accelerometer only after the dashboard's explicit consent action and emits a coarse movement/stillness boolean plus timestamp. Raw axis values are never sent to JavaScript or persisted.
+- Sampling emissions are throttled to a minimum 10-second interval. The adapter exposes availability and active-state metadata, and stops sampling when the Android activity is backgrounded or destroyed; it resumes only for the previously consented foreground session.
+- Added a typed Android bridge and connected the Predictive dashboard to the native accelerometer on Android, retaining the browser DeviceMotion fallback on supported web platforms.
+- The dashboard owns listener cleanup, pause/resume, source registration and revocation. Motion sensing remains off by default, foreground-only, and separate from the routine/task suggestion action.
+- No additional Android runtime permission is requested for the accelerometer. The UI's explicit consent is still mandatory; Android hardware availability and OEM behavior require physical-device verification.
+
 **Stage 12 boundary:** Wave 1 is active, not complete. Native sensor adapters, predictive UI, routine-pattern integration, full cross-family acceptance, CI and physical-device validation remain outstanding. No silent sensor collection or autonomous consequential actions are permitted.
 
 ### Stage 13 — Connected Ecosystem
