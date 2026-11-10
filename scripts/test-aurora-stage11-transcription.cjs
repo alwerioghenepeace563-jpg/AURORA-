@@ -68,5 +68,6 @@ assert.match(workspace, /Sent to AURORA only when you generate a lesson or sylla
 assert.match(workspace, /buildPracticeQuiz\(\{title:/);
 
 const backgroundTest = fs.readFileSync("scripts/test-aurora-transcription-background.cjs", "utf8");
-assert.match(backgroundTest, /startForeground/);
-assert.match(workspace, /startTranscriptionService/);
+assert.match(backgroundTest, /extends Worker/);
+assert.match(backgroundTest, /enqueueUniqueWork/);
+assert.match(workspace, /enqueueTranscriptionChunk/);
