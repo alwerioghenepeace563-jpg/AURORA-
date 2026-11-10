@@ -180,15 +180,27 @@ function CreativeLearningWorkspace({ authSession }){
   const sendSection=async(blob,offset,index)=>{
    const data=await readBase64(blob);
    if(!data||data.length>4000000)throw new Error("Audio section "+index+" exceeded the safe upload size. The previous sections are saved in the transcript; resume to continue.");
-   const result=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"process",requestId:job.requestId,chunkNumber:index,totalChunks,mimeType:(blob.type||"audio/webm").split(";")[0].toLowerCase(),languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",audioBase64:data})});
+   const mimeType=(blob.type||"audio/webm").split(";")[0].toLowerCase();
+   if(auroraNative.isAndroid()){
+    await auroraNative.enqueueTranscriptionChunk({audioBase64:data,requestId:job.requestId,chunkNumber:index,totalChunks,mimeType,endpoint:auroraApiUrl("/api/voicetext-transcribe"),accessToken:authSession.access_token});
+    setMediaProgress("Section "+index+" saved to Android background queue · waiting for VoiceText");
+    const deadline=Date.now()+10*60*1000;
+    while(Date.now()<deadline){
+     try{
+      const status=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(job.requestId),{cache:"no-store"});
+      if(typeof status.transcript==="string")setMediaTranscript(status.transcript);
+      if(Number(status.completedChunks)>=index)return;
+      if(status.status==="failed"||status.status==="error")throw new Error(status.error||"Background transcription could not process this section.");
+     }catch(error){if(error?.message&&/could not process this section/.test(error.message))throw error;}
+     await new Promise(resolve=>setTimeout(resolve,2500));
+    }
+    throw new Error("This section is safely queued on Android and will retry in the background. Reopen AURORA and resume to refresh its transcript.");
+   }
+   const result=await api("/api/voicetext-transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"process",requestId:job.requestId,chunkNumber:index,totalChunks,mimeType,languageHint:"Nigerian English and Nigerian Pidgin; preserve the language actually spoken",audioBase64:data})});
    if(typeof result.transcript==="string")setMediaTranscript(result.transcript);
   };
-  let nativeForeground=false;
   try{
-   if(auroraNative.isAndroid()){
-    try{await auroraNative.requestNotificationPermission();}catch{}
-    try{const foreground=await auroraNative.startTranscriptionService(mediaFile.name);nativeForeground=Boolean(foreground?.started);}catch{}
-   }
+   if(auroraNative.isAndroid()){try{await auroraNative.requestNotificationPermission();}catch{}}
    const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
    if(!AudioContextCtor||typeof MediaRecorder==="undefined")throw new Error("This browser does not support segmented audio capture. Use a supported Android Chrome browser for long recordings.");
    const mimeCandidates=["audio/webm;codecs=opus","audio/webm","audio/mp4"];
@@ -240,7 +252,7 @@ function CreativeLearningWorkspace({ authSession }){
     completedSections++;setMediaResumeOffset(sectionEnd);
     const progressMessage="Completed "+completedSections+" section"+(completedSections===1?"":"s")+" · "+formatTime(sectionEnd)+" of "+formatTime(duration);
     setMediaProgress(progressMessage);
-    if(nativeForeground){try{await auroraNative.updateTranscriptionService(mediaFile.name,progressMessage,Math.round((sectionEnd/duration)*100));}catch{}}
+
     sectionNumber++;
     if(sectionEnd>=duration-0.15||audio.ended)break;
     await audio.play();
@@ -248,12 +260,13 @@ function CreativeLearningWorkspace({ authSession }){
    const finalJob=await api("/api/voicetext-transcribe?requestId="+encodeURIComponent(job.requestId),{cache:"no-store"});
    if(typeof finalJob.transcript==="string")setMediaTranscript(finalJob.transcript);
    setMediaResumeOffset(duration);setMediaProgress("Completed · "+finalJob.completedChunks+" cloud-saved sections · "+formatTime(duration));
-   setNotice("VoiceText finished the segmented recording. Review the combined transcript before saving it.");
+   if(auroraNative.isAndroid()){try{await auroraNative.clearTranscriptionSession();}catch{}}
+   setNotice("VoiceText finished the segmented recording. Android background delivery is complete. Review the combined transcript before saving it.");
   }catch(error){
    setNotice((error?.message||"Segmented VoiceText transcription stopped.")+(completedSections?" Completed sections are preserved; tap Resume transcription to continue.":""));
    setMediaProgress(completedSections?"Paused after "+completedSections+" completed sections.":"Ready to retry.");
   }finally{
-   if(nativeForeground){try{await auroraNative.stopTranscriptionService();}catch{}}
+
    try{audio?.pause();if(audio)audio.removeAttribute("src");audio?.load();}catch{}
    try{await context?.close();}catch{}
    if(objectUrl)URL.revokeObjectURL(objectUrl);
