@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 11 — Creative and Learning Universe (active; Stage 10 code/CI checkpoint complete; physical Android validation deferred)  
+**Current checkpoint:** Stage 12 — Predictive and Sensor Intelligence (active; Stage 11 code checkpoint complete; external activation and physical Android validation deferred)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -565,11 +565,16 @@ Stage 10's device-specific validation remains a release backlog rather than a re
 - Add user-controlled study plans, explanations, practice, progress summaries and reusable learning projects.
 - Keep source attribution, content rights, user review and bounded media processing visible.
 
-### Stage 12 — Predictive and Sensor Intelligence
+### Stage 12 — Predictive and Sensor Intelligence (active)
+
+**Implementation wave 1 — shared predictive core:** Added `src/core/aurora-predictive-intelligence.js` and exposed the service through the shared AURORA runtime for Main, Pulse and voice. The core requires explicit opt-in consent, requires both adapter permission and source consent, allow-lists coarse motion/stillness/ambient-light/device-idle/battery-saver signals, throttles sampling, bounds sample and suggestion buffers, applies configurable 1–168 hour retention, and supports pause/resume, source removal, snooze, dismiss and clear-data. Suggestions require a human-readable explanation and remain non-executing. Automated regression coverage is included. This is a shared service foundation, not yet native sensor acquisition or a finished user-facing predictive dashboard.
+
 - Add optional routine-aware suggestions using approved calendar/task patterns and explicitly enabled device signals.
 - Build sensor adapters for supported motion, environment and device-state signals with clear permission, sampling, retention and pause controls.
 - Suggestions remain suggestions; no silent messaging, purchasing, calls, location tracking or consequential actions.
 - Provide explain-why, snooze, disable, data-source review and opt-out controls.
+
+**Stage 12 boundary:** Wave 1 is active, not complete. Native sensor adapters, predictive UI, routine-pattern integration, full cross-family acceptance, CI and physical-device validation remain outstanding. No silent sensor collection or autonomous consequential actions are permitted.
 
 ### Stage 13 — Connected Ecosystem
 - Add user-approved continuity across the user's Android devices and selected services.
