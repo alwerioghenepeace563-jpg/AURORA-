@@ -12,6 +12,22 @@ const assert = require("node:assert/strict");
  const done=await service.run(spec.id);
  assert.equal(done.status,"completed");
  assert.equal(done.findings.length,1);
+ await assert.rejects(()=>service.evaluate("not-created",{criteria:[{id:"valid.criterion",title:"A criterion",evidence:"Evidence",weight:1,passed:true}]}),/not found/i);
+ const evaluation=service.evaluate(spec.id,{evaluator:"test-reviewer",passScore:80,criteria:[
+  {id:"safe.behaviour",title:"No external side effects",evidence:"Adapter result declared no side effects",weight:5,passed:true,critical:true},
+  {id:"useful.output",title:"Useful finding produced",evidence:"One bounded finding was returned",weight:3,passed:true},
+  {id:"coverage.check",title:"All checks covered",evidence:"One optional check was not met",weight:2,passed:false}
+ ]});
+ assert.equal(evaluation.evaluation.score,80);
+ assert.equal(evaluation.evaluation.passed,true);
+ const failed=service.evaluate(spec.id,{passScore:80,criteria:[
+  {id:"critical.guard",title:"Critical guard",evidence:"Critical guard failed in this simulation",weight:1,passed:false,critical:true},
+  {id:"other.check",title:"Other check",evidence:"Other check passed",weight:9,passed:true}
+ ]});
+ assert.equal(failed.evaluation.score,90);
+ assert.equal(failed.evaluation.passed,false,"critical failures must fail evaluation even above threshold");
+ assert.throws(()=>service.evaluate(spec.id,{criteria:[]}),/1 to 20/i);
+ assert.throws(()=>service.evaluate(spec.id,{criteria:[{id:"bad",title:"Bad",evidence:"x",weight:11,passed:true}]}),/weight/i);
  assert.equal(service.certificationReadiness().finalCertification,false);
  assert.equal(service.certificationReadiness().highRiskBlocked,true);
  assert.equal(events.length,1);
