@@ -54,3 +54,7 @@ Every new commit pushed to the connected Git branch should trigger a new Vercel 
 ## Security note
 
 Origin checks are not authentication or rate limiting. Before sharing the app publicly, add user authentication, request limits, and abuse monitoring to protect API usage.
+
+## API keys and secret setup
+
+The complete stage-by-stage credential inventory, secure storage locations, VoiceText bridge configuration, optional integrations, and Android release secrets are documented in [AURORA API Keys and Secrets Setup](docs/integrations/AURORA_API_KEYS_AND_SECRETS_SETUP.md). Start from `.env.example`; it contains placeholders only. Never commit real keys or expose server secrets through `VITE_` variables.
