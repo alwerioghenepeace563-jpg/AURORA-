@@ -41,7 +41,7 @@ function createAuroraExperimentalIntelligence(options = {}) {
     const record = {
       id: String(spec.id), type: spec.type, title: title.slice(0,120), summary: summary.slice(0,MAX_TEXT),
       risk, status: "draft", createdAt: now(), updatedAt: now(), simulationOnly: true,
-      consentGranted: false, findings: [], evaluation: null, adapterId: null
+      consentGranted: false, findings: [], evaluation: null, evaluationHistory: [], promotionProposals: [], adapterId: null
     };
     write([...read().filter(item => item.id !== record.id), record]);
     return Object.freeze({ ...record });
@@ -140,6 +140,44 @@ function createAuroraExperimentalIntelligence(options = {}) {
     const regressed = Boolean(previous && (scoreDelta < 0 || newCriticalFailures.length));
     return Object.freeze({ experimentId: item.id, status: !previous ? "first_evaluation" : regressed ? "regression" : scoreDelta > 0 ? "improved" : scoreDelta < 0 ? "regression" : "unchanged", evaluationCount: history.length, latestScore: latest.score, previousScore: previous?.score ?? null, scoreDelta, newCriticalFailures: Object.freeze(newCriticalFailures) });
   }
+
+  function proposePromotion(id, proposal = {}) {
+    const items = read(), index = items.findIndex(item => item.id === String(id));
+    if (index < 0) throw new Error("Experiment was not found.");
+    const item = items[index];
+    if (item.status !== "completed" || !item.evaluation?.passed) throw new Error("Only a completed experiment with a passing evaluation can propose implementation review.");
+    const proposalId = String(proposal.id || "");
+    const summary = String(proposal.summary || "").trim();
+    const changeScope = String(proposal.changeScope || "").trim();
+    const testEvidence = String(proposal.testEvidence || "").trim();
+    if (!ID.test(proposalId) || !summary || summary.length > MAX_TEXT || !changeScope || changeScope.length > MAX_TEXT || !testEvidence || testEvidence.length > MAX_TEXT) {
+      throw new Error("A valid proposal ID, bounded summary, change scope and test evidence are required.");
+    }
+    const proposals = [...(item.promotionProposals || [])];
+    if (proposals.some(entry => entry.id === proposalId)) throw new Error("Promotion proposal ID already exists.");
+    const entry = { id: proposalId, summary, changeScope, testEvidence, status: "awaiting_review", proposedAt: now(), reviewer: null, reviewedAt: null };
+    items[index] = { ...item, promotionProposals: [...proposals, entry].slice(-5), updatedAt: now() };
+    write(items);
+    options.events?.publish?.("experimental.promotion_proposed", { experimentId: item.id, proposalId }, { source: "experimental_intelligence" });
+    return Object.freeze({ ...entry, productionChanged: false });
+  }
+  function reviewPromotion(id, proposalId, decision = {}) {
+    const items = read(), index = items.findIndex(item => item.id === String(id));
+    if (index < 0) throw new Error("Experiment was not found.");
+    const proposals = [...(items[index].promotionProposals || [])];
+    const proposalIndex = proposals.findIndex(entry => entry.id === String(proposalId));
+    if (proposalIndex < 0) throw new Error("Promotion proposal was not found.");
+    if (proposals[proposalIndex].status !== "awaiting_review") throw new Error("Promotion proposal has already been reviewed.");
+    const reviewer = String(decision.reviewer || "").trim();
+    if (!reviewer || reviewer.length > 120 || !["approved_for_implementation_review", "rejected"].includes(decision.outcome)) {
+      throw new Error("A reviewer and an approved_for_implementation_review or rejected outcome are required.");
+    }
+    proposals[proposalIndex] = { ...proposals[proposalIndex], status: decision.outcome, reviewer, reviewedAt: now() };
+    items[index] = { ...items[index], promotionProposals: proposals, updatedAt: now() };
+    write(items);
+    options.events?.publish?.("experimental.promotion_reviewed", { experimentId: items[index].id, proposalId: String(proposalId), outcome: decision.outcome }, { source: "experimental_intelligence" });
+    return Object.freeze({ ...proposals[proposalIndex], productionChanged: false, note: "Approval permits a separate implementation review only; it does not modify production code or activate a capability." });
+  }
   function pause(id) { return updateStatus(id, "paused"); }
   function reject(id) { return updateStatus(id, "rejected"); }
   function updateStatus(id, status) {
@@ -161,6 +199,6 @@ function createAuroraExperimentalIntelligence(options = {}) {
       releaseGates: Object.freeze(["all automated suites pass","native Android build passes","physical-device validation completed","external connector setup and live round-trips verified","privacy and permission review signed off","release artifact and rollback plan verified"])
     });
   }
-  return Object.freeze({ create, registerAdapter, prepare, run, evaluate, regressionReport, pause, reject, list, certificationReadiness });
+  return Object.freeze({ create, registerAdapter, prepare, run, evaluate, regressionReport, proposePromotion, reviewPromotion, pause, reject, list, certificationReadiness });
 }
 export { createAuroraExperimentalIntelligence };
