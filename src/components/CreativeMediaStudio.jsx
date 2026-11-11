@@ -145,7 +145,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved, authSessi
     if (!videoJob?.operationName || videoDownloadBusy) return;
     setVideoDownloadBusy(true); setVideoNotice("Loading the completed MP4 again…");
     try {
-      const response = await postJob({ action: "video:download", operationName: videoJob.operationName });
+      const response = await postJob({ action: "video:download", operationName: videoJob.operationName }, authSession?.access_token);
       const blob = await response.blob();
       if (!blob.size || !blob.type.includes("video")) throw new Error("The provider returned an invalid video file.");
       const url = URL.createObjectURL(blob);
