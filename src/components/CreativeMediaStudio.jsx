@@ -211,7 +211,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
           <label>Format<select value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="16:9">Landscape 16:9</option><option value="9:16">Portrait 9:16</option></select></label>
           <label>Length<select value={durationSeconds} onChange={event => setDurationSeconds(Number(event.target.value))}><option value={4}>4 seconds</option><option value={6}>6 seconds</option><option value={8}>8 seconds</option></select></label>
         </div>
-        <button className="clw-primary" onClick={() => startVideo()} disabled={videoBusy || videoPrompt.trim().length < 8}><Film size={15}/>{videoBusy ? "Starting video…" : "Generate video"}</button>
+        <button className="clw-primary" onClick={() => startVideo()} disabled={videoBusy || videoPrompt.trim().length < 8 || Boolean(videoJob && ["queued", "running", "submitting"].includes(videoJob.status))}><Film size={15}/>{videoBusy ? "Starting video…" : "Generate video"}</button>
         {videoJob && <div className="clw-job-status">
           <strong>Last video job · {videoJob.status}</strong>
           <p>{videoJob.error || (videoJob.status === "completed" ? "The generated MP4 is ready." : videoJob.status === "interrupted" ? "This request needs a retry." : "AURORA can resume checking this job after refresh.")}</p>
