@@ -16,6 +16,22 @@ export default async function handler(req, res) {
   if (typeof body === "string") {
     try { body = JSON.parse(body); } catch { body = null; }
   }
+  if (body?.mode === "voiceover") {
+    const token = String(req.headers?.authorization || "").match(/^Bearer\s+(.+)$/i)?.[1] || "";
+    const supabaseUrl = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+    if (!token || !supabaseUrl || !anonKey) return res.status(401).json({ error: "Sign in to AURORA before generating a voiceover." });
+    try {
+      const authResponse = await fetch(supabaseUrl + "/auth/v1/user", {
+        headers: { apikey: anonKey, Authorization: "Bearer " + token, Accept: "application/json" },
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!authResponse.ok) return res.status(401).json({ error: "Your AURORA session has expired. Sign in again and retry." });
+    } catch {
+      return res.status(503).json({ error: "AURORA could not verify your sign-in. Try again shortly." });
+    }
+  }
+
   const text = body?.text;
   if (typeof text !== "string" || !text.trim() || text.length > 2500) {
     return res.status(400).json({ error: "Text must be between 1 and 2500 characters.", code: "INVALID_TEXT" });
