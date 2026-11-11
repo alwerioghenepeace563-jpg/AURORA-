@@ -130,7 +130,7 @@ function createAuroraExperimentalIntelligence(options = {}) {
     items[index] = { ...items[index], status, consentGranted: false, updatedAt: now() };
     write(items); return true;
   }
-  function list() { return read().map(item => Object.freeze({ ...item, findings: [...item.findings] })); }
+  function list() { return read().map(item => Object.freeze({ ...item, findings: [...item.findings], evaluationHistory: [...(item.evaluationHistory || [])] })); }
   function certificationReadiness() {
     const items = read();
     return Object.freeze({
