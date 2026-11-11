@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
 import { auroraNative, auroraApiUrl } from "../lib/aurora-native";
 import { BookOpen, Captions, FolderKanban, Plus, Save, Trash2, Download, RefreshCw, Mic, Square, FileText } from "lucide-react";
+import CreativeMediaStudio from "./CreativeMediaStudio";
 
 const subjects=["biology","chemistry","physics","mathematics","english","computer_science","microbiology","other"];
 const projectTypes=["writing","video","audio","design","research","study","other"];
@@ -378,6 +379,7 @@ function CreativeLearningWorkspace({ authSession }){
     <div className="clw-actions"><button className="clw-primary" onClick={generateCreativeImage} disabled={imageBusy||imagePrompt.trim().length<8}>{imageBusy?"Generating image…":"Generate image"}</button><button onClick={downloadGeneratedImage} disabled={!generatedImage}>Download image</button></div>
     {generatedImage&&<div className="clw-generated-image"><img src={"data:"+generatedImage.mimeType+";base64,"+generatedImage.data} alt="AURORA-generated creative image"/><small>Generated with {generatedImage.model}. Review the result before publishing.</small></div>}
    </div>
+   <CreativeMediaStudio projectId={selected} onSaved={refresh} />
    <h3>AURORA Media Browser & Download Centre</h3>
    <p className="clw-help">Search public media libraries, preview matching images and videos, then download direct files into Android Downloads. Other providers open their official pages so you can use their own download controls.</p>
    <label>Describe the media<input value={mediaSearchQuery} onChange={e=>setMediaSearchQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")searchMediaFallback();}} placeholder="e.g. plant cell animation, rainforest video, microscope image"/></label>
