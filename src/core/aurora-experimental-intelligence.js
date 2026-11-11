@@ -103,10 +103,24 @@ function createAuroraExperimentalIntelligence(options = {}) {
       score, passScore: threshold, passed: score >= threshold && criticalFailures.length === 0,
       criticalFailures, criteria, evaluatedAt: now(), evaluator: String(rubric.evaluator || "local-review").slice(0,120)
     });
-    const updated = { ...item, evaluation, updatedAt: now() };
+    const evaluationHistory = [...(item.evaluationHistory || []), evaluation].slice(-10);
+    const updated = { ...item, evaluation, evaluationHistory, updatedAt: now() };
     items[index] = updated; write(items);
     options.events?.publish?.("experimental.evaluation_completed", { experimentId: item.id, score, passed: evaluation.passed }, { source: "experimental_intelligence" });
     return Object.freeze({ ...updated, evaluation });
+  }
+  function regressionReport(id) {
+    const item = read().find(entry => entry.id === String(id));
+    if (!item) throw new Error("Experiment was not found.");
+    const history = Array.isArray(item.evaluationHistory) ? item.evaluationHistory.slice(-10) : (item.evaluation ? [item.evaluation] : []);
+    if (!history.length) return Object.freeze({ experimentId: item.id, status: "not_evaluated", evaluationCount: 0, scoreDelta: null, newCriticalFailures: Object.freeze([]) });
+    const latest = history[history.length - 1];
+    const previous = history.length > 1 ? history[history.length - 2] : null;
+    const previousFailures = new Set(previous?.criticalFailures || []);
+    const newCriticalFailures = (latest.criticalFailures || []).filter(id => !previousFailures.has(id));
+    const scoreDelta = previous ? latest.score - previous.score : null;
+    const regressed = Boolean(previous && (scoreDelta < 0 || newCriticalFailures.length));
+    return Object.freeze({ experimentId: item.id, status: !previous ? "first_evaluation" : regressed ? "regression" : scoreDelta > 0 ? "improved" : scoreDelta < 0 ? "regression" : "unchanged", evaluationCount: history.length, latestScore: latest.score, previousScore: previous?.score ?? null, scoreDelta, newCriticalFailures: Object.freeze(newCriticalFailures) });
   }
   function pause(id) { return updateStatus(id, "paused"); }
   function reject(id) { return updateStatus(id, "rejected"); }
@@ -129,6 +143,6 @@ function createAuroraExperimentalIntelligence(options = {}) {
       releaseGates: Object.freeze(["all automated suites pass","native Android build passes","physical-device validation completed","external connector setup and live round-trips verified","privacy and permission review signed off","release artifact and rollback plan verified"])
     });
   }
-  return Object.freeze({ create, registerAdapter, prepare, run, evaluate, pause, reject, list, certificationReadiness });
+  return Object.freeze({ create, registerAdapter, prepare, run, evaluate, regressionReport, pause, reject, list, certificationReadiness });
 }
 export { createAuroraExperimentalIntelligence };
