@@ -17,7 +17,11 @@ for (const value of [
   "safeOperationName",
   "durationSeconds",
   "personGeneration: \"allow_adult\"",
-  "48000000"
+  "48000000",
+  "async function authenticate",
+  "auth/v1/user",
+  "recentVideoRequests",
+  "60000"
 ]) assert.ok(api.includes(value), "Video API safeguard missing: " + value);
 
 for (const value of [
@@ -36,6 +40,11 @@ for (const value of [
 
 assert.ok(!studio.includes("GEMINI_API_KEY"), "Provider secrets must never appear in client code.");
 assert.ok(!studio.includes("ELEVENLABS_API_KEY"), "Voice provider secrets must never appear in client code.");
+assert.ok(studio.includes("authSession?.access_token"), "Signed-in session is not passed to media generation.");
+assert.ok(studio.includes("mode: \"voiceover\""), "Voiceover request mode is missing.");
+const voiceApi = fs.readFileSync("api/voice.js", "utf8");
+assert.ok(voiceApi.includes('body?.mode === "voiceover"'), "Voiceover endpoint must verify authenticated requests.");
+assert.ok(voiceApi.includes("auth/v1/user"), "Voiceover endpoint auth verification is missing.");
 for (const value of ["aurora.creative.image-job.v1", "saveAuroraMediaBlob", "getAuroraMediaBlob", "Retry image", "URL.createObjectURL"]) assert.ok(imageWorkspace.includes(value), "Image job recovery wiring missing: " + value);
 for (const value of ["indexedDB.open", "generated-media", "saveAuroraMediaBlob", "getAuroraMediaBlob"]) assert.ok(mediaVault.includes(value), "Local media vault feature missing: " + value);
 assert.ok(workspace.includes('import CreativeMediaStudio from "./CreativeMediaStudio"'), "Media Studio is not imported into Creative Studio.");
