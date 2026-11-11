@@ -11,7 +11,7 @@ try {
         executed: false,
         sideEffects: false,
         findings: [
-          "Simulation completed locally for: " + input.title,
+          "Simulation completed locally for: " + input.summary,
           "No device, account, external service or production setting was changed.",
           "Review the supplied hypothesis and evidence before making any implementation decision."
         ]
