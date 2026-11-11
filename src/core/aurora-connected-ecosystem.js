@@ -6,6 +6,7 @@
 const ID = /^[a-z][a-z0-9_.-]{2,64}$/;
 const MAX_CONNECTORS = 50;
 const MAX_SCOPES = 20;
+const MAX_CAPABILITIES = 50;
 function createAuroraConnectedEcosystem(options = {}) {
   const storage = options.storage === undefined ? globalThis.localStorage : options.storage;
   const executeCapability = options.executeCapability;
@@ -20,7 +21,9 @@ function createAuroraConnectedEcosystem(options = {}) {
       if (!Array.isArray(parsed) || parsed.length > MAX_CONNECTORS || !parsed.every(item =>
         item && ID.test(String(item.id || "")) && typeof item.name === "string" &&
         typeof item.version === "string" && Array.isArray(item.scopes) &&
-        item.scopes.length <= MAX_SCOPES && item.scopes.every(x => typeof x === "string") &&
+        item.scopes.length <= MAX_SCOPES && item.scopes.every(x => typeof x === "string" && x.length <= 100) &&
+        Array.isArray(item.capabilities) && item.capabilities.length <= MAX_CAPABILITIES &&
+        item.capabilities.every(x => typeof x === "string" && ID.test(x)) &&
         ["connected", "disconnected", "error"].includes(item.status) &&
         typeof item.credentialsStored === "boolean" && item.credentialsStored === false
       )) return [];
@@ -39,6 +42,7 @@ function createAuroraConnectedEcosystem(options = {}) {
     const scopes = Array.isArray(manifest.scopes) ? [...new Set(manifest.scopes.map(x => String(x).trim()).filter(Boolean))] : [];
     if (!scopes.length || scopes.length > MAX_SCOPES || scopes.some(x => x.length > 100)) throw new Error("Connector scopes are invalid.");
     const capabilities = Array.isArray(manifest.capabilities) ? [...new Set(manifest.capabilities.map(String))] : [];
+    if (capabilities.length > MAX_CAPABILITIES || capabilities.some(id => !ID.test(id))) throw new Error("Connector capabilities are invalid.");
     const known = new Set((options.getCapabilities?.() || []).map(x => x.id));
     const unknown = capabilities.filter(id => !known.has(id));
     if (unknown.length) throw new Error("Connector requests unknown AURORA capabilities: " + unknown.join(", "));
@@ -69,7 +73,8 @@ function createAuroraConnectedEcosystem(options = {}) {
     const item = read().find(x => x.id === String(id));
     if (!item) return false;
     const adapter = adapters.get(item.id);
-    if (adapter) await adapter.disconnect();
+    if (!adapter) throw new Error("Cannot safely disconnect this service until its connector adapter is available.");
+    await adapter.disconnect();
     write(read().filter(x => x.id !== item.id));
     options.events?.publish?.("ecosystem.connector_disconnected", { connectorId: item.id }, { source: "connected_ecosystem" });
     return true;
