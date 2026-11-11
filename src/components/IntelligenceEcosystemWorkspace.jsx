@@ -52,6 +52,8 @@ export default function IntelligenceEcosystemWorkspace() {
   const [proposalScope, setProposalScope] = useState("");
   const [proposalEvidence, setProposalEvidence] = useState("");
   const [promotionReviewer, setPromotionReviewer] = useState("");
+  const [cloudConsent, setCloudConsent] = useState(false);
+  const [cloudConnecting, setCloudConnecting] = useState(false);
   const experiments = auroraRuntime.experimentalIntelligence;
   const connectors = auroraRuntime.connectedEcosystem;
   const ledger = auroraRuntime.certificationLedger;
@@ -97,6 +99,38 @@ export default function IntelligenceEcosystemWorkspace() {
       experiments.reviewPromotion(item.id, proposal.id, { reviewer: promotionReviewer, outcome });
       setNotice(outcome === "rejected" ? "Proposal rejected. Production remains unchanged." : "Approved for a separate implementation review only. Nothing has been merged or activated."); setRefresh(x => x + 1);
     } catch (error) { setNotice(error.message); }
+  }
+  async function connectAuroraCloud() {
+    if (!cloudConsent || cloudConnecting) return;
+    setCloudConnecting(true);
+    try {
+      auroraRuntime.consents.grant({
+        scope: "memory.cloud_sync",
+        source: "supabase",
+        purpose: "Allow only individually selected AURORA memories to sync to the signed-in AURORA cloud account."
+      });
+      await connectors.connect({
+        id: "aurora.supabase",
+        name: "AURORA Cloud Sync",
+        version: "1.0",
+        description: "Consent-gated, per-record memory sync",
+        scopes: ["memory.cloud_sync"],
+        capabilities: []
+      }, { approved: true, consent: true });
+      setCloudConsent(false);
+      setNotice("AURORA Cloud is connected. No memories were uploaded; you can sync individual records when you choose.");
+      setRefresh(x => x + 1);
+    } catch (error) {
+      auroraRuntime.consents.revoke("memory.cloud_sync", "supabase");
+      setNotice(error.message || "AURORA Cloud could not connect.");
+    } finally { setCloudConnecting(false); }
+  }
+  async function disconnectAuroraCloud() {
+    try {
+      await connectors.disconnect("aurora.supabase");
+      setNotice("AURORA Cloud disconnected. Memory cloud sync is disabled; local memories remain on this device.");
+      setRefresh(x => x + 1);
+    } catch (error) { setNotice(error.message || "AURORA Cloud could not disconnect."); }
   }
   function previewConnector(event) {
     event.preventDefault();
@@ -168,7 +202,14 @@ export default function IntelligenceEcosystemWorkspace() {
     </>}
     {tab === "connectors" && <>
       <div style={panelStyle}><strong>Connected services</strong><p>{connectorStatus.connected} connected · {connectorStatus.availableAdapters} live adapters available · credentials stored by AURORA: no.</p>
-        {connectorList.length ? connectorList.map(item => <div key={item.id} className="activity-record"><span>{item.name}</span><span className="knowledge-record-type">{item.status}</span></div>) : <p className="activity-muted">No external accounts are connected yet. Provider-specific OAuth/API adapters must be configured before a live connection can be made.</p>}
+        {connectorList.length ? connectorList.map(item => <div key={item.id} className="activity-record"><span>{item.name}</span><span className="knowledge-record-type">{item.status}</span></div>) : <p className="activity-muted">No accounts connected yet. AURORA Cloud Sync is ready to connect below.</p>}
+        {connectorList.some(item => item.id === "aurora.supabase" && item.status === "connected") ? <button type="button" className="outline-action" onClick={disconnectAuroraCloud}>Disconnect AURORA Cloud</button> : <div style={{ display: "grid", gap: 10 }}>
+          <strong>AURORA Cloud Sync</strong>
+          <p className="knowledge-import-meta">Uses the existing signed-in AURORA account. Only memories you individually choose to sync can be uploaded. Connecting does not bulk-upload anything. Your local memories remain available if disconnected.</p>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8 }}><input type="checkbox" checked={cloudConsent} onChange={e => setCloudConsent(e.target.checked)}/> I consent to enable per-record cloud sync for memories I explicitly select.</label>
+          <button type="button" className="primary-action" disabled={!cloudConsent || cloudConnecting} onClick={connectAuroraCloud}>{cloudConnecting ? "Connecting…" : "Connect AURORA Cloud"}</button>
+        </div>}
+        <p className="knowledge-import-meta">Google Calendar, Drive and other third-party accounts still need their own OAuth provider setup and sign-in approval; AURORA will not pretend those are connected.</p>
       </div>
       <form onSubmit={previewConnector} style={panelStyle}>
         <strong>Validate a connector manifest</strong>
