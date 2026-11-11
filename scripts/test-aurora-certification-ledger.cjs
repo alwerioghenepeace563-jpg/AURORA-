@@ -1,0 +1,23 @@
+const assert = require("node:assert/strict");
+(async () => {
+ const { createAuroraCertificationLedger, AURORA_CERTIFICATION_GATES } = await import("../src/core/aurora-certification-ledger.js");
+ const data = new Map();
+ const storage = { getItem:k=>data.get(k)||null, setItem:(k,v)=>data.set(k,v) };
+ let tick=0;
+ const ledger=createAuroraCertificationLedger({storage,now:()=>`2026-11-11T00:00:0${tick++}Z`});
+ assert.equal(AURORA_CERTIFICATION_GATES.length,6);
+ assert.equal(ledger.inspect().readyForFinalCertification,false);
+ assert.throws(()=>ledger.record("physical_device_validation",{id:"device-check",evidenceRef:"test",reviewer:"reviewer",verified:false}),/verified sign-off/);
+ assert.throws(()=>ledger.record("unknown",{id:"bad-gate",evidenceRef:"test",reviewer:"reviewer",verified:true}),/Unknown/);
+ for(const gate of AURORA_CERTIFICATION_GATES) ledger.record(gate,{id:`evidence-${gate}`,evidenceRef:`verified artifact for ${gate}`,reviewer:"authorised reviewer",verified:true});
+ assert.equal(ledger.inspect().readyForFinalCertification,true);
+ assert.equal(ledger.inspect().finalCertification,false);
+ assert.throws(()=>ledger.requestFinalApproval({approver:"Reviewer",releaseCandidate:"rc-1"}),/authorised release approver/);
+ const approval=ledger.requestFinalApproval({authorisedReleaseApproval:true,approver:"Release authority",releaseCandidate:"rc-1"});
+ assert.equal(approval.finalCertification,true);
+ assert.equal(ledger.revoke("live_connector_roundtrips","evidence-live_connector_roundtrips"),true);
+ assert.equal(ledger.inspect().readyForFinalCertification,false);
+ const reloaded=createAuroraCertificationLedger({storage});
+ assert.equal(reloaded.inspect().missing.includes("live_connector_roundtrips"),true);
+ console.log("AURORA certification ledger tests passed: six evidence gates, explicit reviewer sign-off, revocation, persistence and separate authorised release approval.");
+})().catch(error=>{console.error(error);process.exitCode=1;});
