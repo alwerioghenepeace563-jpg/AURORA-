@@ -814,3 +814,11 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Added regression tests for score deltas, newly introduced critical failures, missing experiments and lifecycle-event emission. The test suite also corrects the synchronous missing-record assertion so the core CI gate can reach later checks.
 
 **Wave 4 boundary:** Regression reports compare reviewer-supplied criteria and evidence; they do not independently validate truth or quality. Evaluation history is bounded to 10 records per experiment. Stage 14 remains active, and final certification gates remain open.
+
+
+### Wave 5 — bounded simulation runtime and cancellation
+- Added a configurable simulation deadline with a 30-second hard maximum and a 10-second default.
+- Simulation adapters receive an AbortSignal and are asked to stop when the deadline expires; timed-out runs reject with a stable timeout code and are never recorded as completed.
+- Added regression coverage proving timeout cancellation is delivered and a timed-out experiment remains uncompleted.
+
+**Wave 5 boundary:** Cancellation is cooperative: adapters that ignore AbortSignal may continue their own local computation, but the sandbox stops awaiting them and will not accept a late result as a completed run. Adapters remain simulation-only and cannot be treated as a security boundary against malicious code. Stage 14 remains active.
