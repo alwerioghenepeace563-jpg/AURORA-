@@ -122,6 +122,15 @@ The APK workflow is manual-only and release-oriented. Do not create a new signin
 
 VITE_AURORA_VERSION_CODE and VITE_AURORA_VERSION_NAME are generated automatically by the build workflow; they are not secrets.
 
+### Compatibility aliases and build-only variables
+The following names are supported only as backward-compatibility fallbacks or local build controls. Do not add duplicate credentials unless an older deployment still depends on them:
+- `ELEVENLAB_API_KEY`, `ELEVENLAB_VOICE_ID`, `ELEVENLAB_LUCIAN_VOICE_ID`: legacy ElevenLabs spellings; prefer the canonical `ELEVENLABS_*` names above.
+- `VITE_SUPABASE_API`: legacy public Supabase URL alias; prefer `VITE_SUPABASE_URL`.
+- `GITHUB_TOKEN`: legacy fallback for `AURORA_GITHUB_TOKEN`; prefer a repository-scoped token under the AURORA-specific name.
+- `KV_REST_API_URL` and `KV_REST_API_TOKEN`: Vercel KV compatibility fallbacks; prefer the explicit `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` pair.
+- `VITE_AURORA_VERSION_CODE` and `VITE_AURORA_VERSION_NAME`: public build metadata, not secrets.
+- `AURORA_REDUCED_PERMISSION_TEST`: local/CI-only Android permission-parity test switch; never enable it in a production build.
+
 ## 4. Stage-by-stage key requirements (1–14)
 
 | Stage | Capability area | Credential position today |
