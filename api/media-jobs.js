@@ -8,8 +8,8 @@ const json = (res, status, body) => res.status(status).json(body);
 const recentVideoRequests = new Map();
 
 async function authenticate(req) {
-  const token = String(req.headers?.authorization || "").match(/^Bearer\\s+(.+)$/i)?.[1] || "";
-  const supabaseUrl = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\\/+$/, "");
+  const token = String(req.headers?.authorization || "").match(/^Bearer\s+(.+)$/i)?.[1] || "";
+  const supabaseUrl = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
   if (!token || !supabaseUrl || !anonKey) return null;
   try {
