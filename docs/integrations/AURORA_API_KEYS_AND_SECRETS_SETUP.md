@@ -87,7 +87,26 @@ These values belong in the AURORA VoiceText project's Vercel environment setting
 | AURORA_PLUGIN_TOKEN | Required | Shared secret accepted from main AURORA's VOICETEXT_PLUGIN_TOKEN |
 | SUPABASE_RECORDINGS_BUCKET | Optional | Defaults to voicetext-recordings |
 
-VoiceText also needs its own transcription-provider configuration as documented in that repository. Configure only provider keys referenced by its current backend and selected fallback chain. Never copy its service-role key into main AURORA.
+VoiceText provider and feature configuration is separate from main AURORA:
+
+| Variable | Requirement | Purpose |
+|---|---|---|
+| ASSEMBLYAI_API_KEY | Optional provider | Online transcription, language detection and diarization |
+| GROQ_API_KEY | Optional provider | Online transcription fallback |
+| OPENAI_API_KEY | Optional provider | Online transcription fallback |
+| ELEVENLABS_API_KEY | Optional feature | Voice/speech features where enabled |
+| OPENSUBTITLES_API_KEY | Optional feature | Subtitle search/download integration |
+| OPENSUBTITLES_TOKEN | Optional feature | Authenticated OpenSubtitles account access where required |
+| GOOGLE_CLIENT_ID | Required for VoiceText Google-admin sign-in | Server-side OAuth audience validation |
+| VITE_GOOGLE_CLIENT_ID | Client build value; same OAuth Web Client ID | Google Identity Services in the browser |
+| BACKUP_BACKEND_URL | Optional | Independent backup Worker endpoint |
+| BACKUP_BACKEND_TOKEN | Optional; pair with URL | Server-to-server backup authentication |
+| BACKUP_API_TOKEN | Optional; Worker-side | Protects the backup Worker API |
+| BACKUP_PUBLIC_FALLBACK | Optional; defaults false | Explicitly enables origin-restricted public fallback when configured |
+
+VoiceText's public build settings may also include VITE_API_BASE_URL, VITE_BACKUP_API_BASE_URL and VITE_VOSK_MODEL_URL. These are endpoint/model URLs, not API secrets. The Vosk model URL must point to a compatible hosted model with browser CORS/worker access.
+
+Only configure provider keys for services that are enabled and referenced by the current VoiceText backend. Never copy its service-role key or private backup tokens into main AURORA.
 
 ## 3. GitHub Actions secrets for Android release workflow
 These are not Vercel variables. Add them only in the AURORA GitHub repository's Actions secrets:
