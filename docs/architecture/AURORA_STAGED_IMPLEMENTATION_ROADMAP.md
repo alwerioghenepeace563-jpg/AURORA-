@@ -1,7 +1,7 @@
 # AURORA Staged Whole-System Implementation Roadmap
 
 **Branch:** `feature/aurora-pulse-profile-overlay`  
-**Current checkpoint:** Stage 13 — Connected Ecosystem (active; Stage 12 code checkpoint complete; physical-device validation and external connector activation remain separate release gates)  
+**Current checkpoint:** Stage 14 — Experimental Intelligence and Final Certification (active; Stages 12 code checkpoint complete; Stage 13 provider activation and release certification gates remain open)  
 **Rule:** Every stage advances every active layer to the same stage standard. A stage is not closed while any layer is missing its required checkpoint evidence.
 
 ## How progression works
@@ -805,3 +805,12 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Added the certification-ledger test to the main core test chain so it cannot silently be skipped.
 
 **Wave 3 boundary:** Rubric results are only as trustworthy as their supplied evidence and reviewer. This is a controlled evaluation tool, not autonomous model training, production self-modification or final release certification. Stage 14 remains active.
+
+
+### Wave 4 — evaluation history and regression visibility
+- Added a bounded history of the last 10 evaluation results for each experiment, preserving prior scores rather than silently replacing the only review record.
+- Added a regression report that compares the latest evaluation with its predecessor, reports score movement and identifies newly introduced critical failures.
+- Reports distinguish first evaluation, improvement, unchanged results and regression; the report is diagnostic only and cannot alter production models, prompts, workflows or capabilities.
+- Added regression tests for score deltas, newly introduced critical failures, missing experiments and lifecycle-event emission. The test suite also corrects the synchronous missing-record assertion so the core CI gate can reach later checks.
+
+**Wave 4 boundary:** Regression reports compare reviewer-supplied criteria and evidence; they do not independently validate truth or quality. Evaluation history is bounded to 10 records per experiment. Stage 14 remains active, and final certification gates remain open.
