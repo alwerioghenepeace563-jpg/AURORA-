@@ -99,6 +99,21 @@ const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request) });
 const connectedEcosystem = createAuroraConnectedEcosystem({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request), events: auroraEvents });
+try {
+  connectedEcosystem.registerAdapter("aurora.supabase", {
+    async connect() {
+      if (!supabaseMemoryAdapter.isConfigured()) throw new Error("AURORA Cloud is not configured. Supabase URL and public anon key are required.");
+      if (!(await hasSignedInSupabaseSession())) throw new Error("Sign in to your AURORA account before connecting cloud sync.");
+      memorySync.configure({ enabled: true, adapter: supabaseMemoryAdapter, consent: true });
+      return { connected: true, accountLabel: "Signed-in AURORA account" };
+    },
+    async disconnect() {
+      memorySync.disable();
+      auroraConsents.revoke("memory.cloud_sync", "supabase");
+      return { disconnected: true };
+    }
+  });
+} catch { /* Keep local-first operation if a platform adapter cannot initialise. */ }
 const experimentalIntelligence = createAuroraExperimentalIntelligence({ events: auroraEvents });
 const certificationLedger = createAuroraCertificationLedger({ events: auroraEvents });
 universalSearch.register("memories", (query, limit) => auroraMemory.search(query, { limit }).map(item => ({ ...item, type: "memory", summary: item.content, score: item.score || 0 })), "Saved memories");
