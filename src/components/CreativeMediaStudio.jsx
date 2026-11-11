@@ -142,11 +142,17 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
   };
 
   const loadVideoAgain = async () => {
-    if (!videoJob?.operationName) return;
-    downloadAttempt.current = "";
-    setVideoUrl("");
-    setVideoJob({ ...videoJob, status: "completed" });
-    setVideoNotice("Loading the completed MP4 again…");
+    if (!videoJob?.operationName || videoDownloadBusy) return;
+    setVideoDownloadBusy(true); setVideoNotice("Loading the completed MP4 again…");
+    try {
+      const response = await postJob({ action: "video:download", operationName: videoJob.operationName });
+      const blob = await response.blob();
+      if (!blob.size || !blob.type.includes("video")) throw new Error("The provider returned an invalid video file.");
+      const url = URL.createObjectURL(blob);
+      setVideoUrl(current => { if (current) URL.revokeObjectURL(current); return url; });
+      setVideoNotice("MP4 ready. Preview or download it below.");
+    } catch (error) { setVideoNotice(error?.message || "Could not load the completed MP4."); }
+    finally { setVideoDownloadBusy(false); }
   };
   const downloadVideo = () => {
     if (!videoUrl) return;
