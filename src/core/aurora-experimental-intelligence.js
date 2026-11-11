@@ -9,6 +9,8 @@ const MAX_FINDINGS = 20;
 const MAX_TEXT = 500;
 const MAX_EVALUATION_CRITERIA = 20;
 const DEFAULT_PASS_SCORE = 80;
+const DEFAULT_SIMULATION_TIMEOUT_MS = 10000;
+const MAX_SIMULATION_TIMEOUT_MS = 30000;
 const ALLOWED_TYPES = new Set(["hypothesis", "workflow_simulation", "capability_prototype", "evaluation"]);
 const ALLOWED_STATUSES = new Set(["draft", "ready", "running", "paused", "completed", "rejected"]);
 const RISK_ORDER = { low: 1, medium: 2, high: 3, critical: 4 };
@@ -66,7 +68,23 @@ function createAuroraExperimentalIntelligence(options = {}) {
     if (RISK_ORDER[item.risk] >= RISK_ORDER.high) throw new Error("High-risk experiments require separate safety review and cannot run in this sandbox.");
     const adapter = item.adapterId ? adapters.get(item.adapterId) : [...adapters.values()][0];
     if (!adapter) throw new Error("No simulation adapter is available.");
-    const result = await adapter.simulate(Object.freeze({ id: item.id, type: item.type, summary: item.summary, simulationOnly: true }));
+    const requestedTimeout = Number(options.simulationTimeoutMs ?? DEFAULT_SIMULATION_TIMEOUT_MS);
+    const timeoutMs = Number.isFinite(requestedTimeout) ? Math.min(MAX_SIMULATION_TIMEOUT_MS, Math.max(100, requestedTimeout)) : DEFAULT_SIMULATION_TIMEOUT_MS;
+    const controller = new AbortController();
+    let timer;
+    let result;
+    try {
+      const simulation = Promise.resolve().then(() => adapter.simulate(Object.freeze({ id: item.id, type: item.type, summary: item.summary, simulationOnly: true, signal: controller.signal })));
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(Object.assign(new Error("Simulation timed out before its bounded deadline."), { code: "SIMULATION_TIMEOUT" }));
+          controller.abort();
+        }, timeoutMs);
+      });
+      result = await Promise.race([simulation, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
     if (!result || result.executed === true || result.sideEffects === true) throw new Error("Simulation adapter violated the no-side-effects contract.");
     const findings = Array.isArray(result.findings) ? result.findings.slice(0,MAX_FINDINGS).map(x => String(x).slice(0,MAX_TEXT)) : [];
     const updated = { ...item, status: "completed", findings, updatedAt: now() };
