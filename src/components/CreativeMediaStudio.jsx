@@ -17,9 +17,9 @@ function persistJob(value) {
     else localStorage.removeItem(JOB_KEY);
   } catch {}
 }
-async function postJob(payload) {
+async function postJob(payload, accessToken) {
   const response = await fetch(auroraApiUrl("/api/media-jobs"), {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    method: "POST", headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: "Bearer " + accessToken } : {}) }, body: JSON.stringify(payload)
   });
   if (payload.action === "video:download" && response.ok) return response;
   const data = await response.json().catch(() => ({}));
@@ -27,7 +27,7 @@ async function postJob(payload) {
   return data;
 }
 
-export default function CreativeMediaStudio({ projectId = "", onSaved }) {
+export default function CreativeMediaStudio({ projectId = "", onSaved, authSession }) {
   const [videoPrompt, setVideoPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [durationSeconds, setDurationSeconds] = useState(8);
@@ -77,7 +77,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
     let active = true;
     const poll = async () => {
       try {
-        const data = await postJob({ action: "video:status", operationName: videoJob.operationName });
+        const data = await postJob({ action: "video:status", operationName: videoJob.operationName }, authSession?.access_token);
         if (!active) return;
         if (data.status === "completed") {
           const next = { ...videoJob, status: "completed", completedAt: new Date().toISOString(), error: "" };
@@ -100,7 +100,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
     };
     poll();
     return () => { active = false; if (pollTimer.current) clearTimeout(pollTimer.current); };
-  }, [videoJob?.operationName, videoJob?.status]);
+  }, [videoJob?.operationName, videoJob?.status, authSession?.access_token]);
 
   useEffect(() => {
     if (videoJob?.status !== "completed" || !videoJob.operationName || videoUrl || downloadAttempt.current === videoJob.operationName) return;
@@ -109,7 +109,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
     (async () => {
       setVideoDownloadBusy(true);
       try {
-        const response = await postJob({ action: "video:download", operationName: videoJob.operationName });
+        const response = await postJob({ action: "video:download", operationName: videoJob.operationName }, authSession?.access_token);
         const blob = await response.blob();
         if (!blob.size || !blob.type.includes("video")) throw new Error("The provider returned an invalid video file.");
         const url = URL.createObjectURL(blob);
@@ -123,7 +123,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
       }
     })();
     return () => { active = false; };
-  }, [videoJob?.status, videoJob?.operationName, videoUrl]);
+  }, [videoJob?.status, videoJob?.operationName, videoUrl, authSession?.access_token]);
 
   const startVideo = async (promptOverride) => {
     const prompt = String(promptOverride ?? videoPrompt).trim();
@@ -132,7 +132,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
     persistJob(initial); setVideoJob(initial); setVideoPrompt(prompt); setVideoUrl(""); downloadAttempt.current = "";
     setVideoBusy(true); setVideoNotice("Submitting your video request. The job will remain listed if you refresh AURORA.");
     try {
-      const data = await postJob({ action: "video:create", prompt, aspectRatio, durationSeconds });
+      const data = await postJob({ action: "video:create", prompt, aspectRatio, durationSeconds }, authSession?.access_token);
       const next = { ...initial, operationName: data.operationName, status: "queued", model: data.model || initial.model };
       persistJob(next); setVideoJob(next); setVideoNotice("Video job accepted. AURORA will check its progress automatically.");
     } catch (error) {
@@ -202,7 +202,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
 
   return <section className="clw-panel clw-wide clw-media-studio">
     <h3>AI Video & Voiceover Studio</h3>
-    <p className="clw-help">Generate real video with Gemini Veo and narration with your connected ElevenLabs voice. Requests run only when you press Generate; provider usage or quota may apply.</p>
+    <p className="clw-help">Generate real video with Gemini Veo and narration with your connected ElevenLabs voice. Sign-in is required. Requests run only when you press Generate; provider usage or quota may apply.</p>
     <div className="clw-media-studio-grid">
       <article className="clw-media-card">
         <h4><Film size={17}/> Video generation</h4>
@@ -211,7 +211,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
           <label>Format<select value={aspectRatio} onChange={event => setAspectRatio(event.target.value)}><option value="16:9">Landscape 16:9</option><option value="9:16">Portrait 9:16</option></select></label>
           <label>Length<select value={durationSeconds} onChange={event => setDurationSeconds(Number(event.target.value))}><option value={4}>4 seconds</option><option value={6}>6 seconds</option><option value={8}>8 seconds</option></select></label>
         </div>
-        <button className="clw-primary" onClick={() => startVideo()} disabled={videoBusy || videoPrompt.trim().length < 8 || Boolean(videoJob && ["queued", "running", "submitting"].includes(videoJob.status))}><Film size={15}/>{videoBusy ? "Starting video…" : "Generate video"}</button>
+        <button className="clw-primary" onClick={() => startVideo()} disabled={!authSession?.access_token || videoBusy || videoPrompt.trim().length < 8 || Boolean(videoJob && ["queued", "running", "submitting"].includes(videoJob.status))}><Film size={15}/>{videoBusy ? "Starting video…" : "Generate video"}</button>
         {videoJob && <div className="clw-job-status">
           <strong>Last video job · {videoJob.status}</strong>
           <p>{videoJob.error || (videoJob.status === "completed" ? "The generated MP4 is ready." : videoJob.status === "interrupted" ? "This request needs a retry." : "AURORA can resume checking this job after refresh.")}</p>
@@ -227,7 +227,7 @@ export default function CreativeMediaStudio({ projectId = "", onSaved }) {
         <h4><Mic size={17}/> Voiceover generation</h4>
         <label>Voiceover script<textarea rows={6} maxLength={2500} value={voiceText} onChange={event => setVoiceText(event.target.value)} placeholder="Write the narration you want AURORA to speak…"/></label>
         <label>Voice<select value={voiceId} onChange={event => setVoiceId(event.target.value)}><option value="">Default configured AURORA voice</option>{voices.map(voice => <option value={voice.voice_id} key={voice.voice_id}>{voice.name}</option>)}</select></label>
-        <button className="clw-primary" onClick={generateVoiceover} disabled={voiceBusy || !voiceText.trim()}><Mic size={15}/>{voiceBusy ? "Generating voiceover…" : "Generate voiceover"}</button>
+        <button className="clw-primary" onClick={generateVoiceover} disabled={!authSession?.access_token || voiceBusy || !voiceText.trim()}><Mic size={15}/>{voiceBusy ? "Generating voiceover…" : "Generate voiceover"}</button>
         {voiceUrl && <div className="clw-generated-audio"><audio src={voiceUrl} controls/><button onClick={downloadVoiceover}><Download size={14}/> Download MP3</button></div>}
         <div className="clw-actions">
           <button onClick={saveVoiceScript} disabled={!projectId || !voiceText.trim() || voiceSaved}><Save size={14}/> Save script to project</button>
