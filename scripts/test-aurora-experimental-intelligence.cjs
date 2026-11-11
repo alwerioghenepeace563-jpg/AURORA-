@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
  const done=await service.run(spec.id);
  assert.equal(done.status,"completed");
  assert.equal(done.findings.length,1);
- await assert.rejects(()=>service.evaluate("not-created",{criteria:[{id:"valid.criterion",title:"A criterion",evidence:"Evidence",weight:1,passed:true}]}),/not found/i);
+ assert.throws(()=>service.evaluate("not-created",{criteria:[{id:"valid.criterion",title:"A criterion",evidence:"Evidence",weight:1,passed:true}]}),/not found/i);
  const evaluation=service.evaluate(spec.id,{evaluator:"test-reviewer",passScore:80,criteria:[
   {id:"safe.behaviour",title:"No external side effects",evidence:"Adapter result declared no side effects",weight:5,passed:true,critical:true},
   {id:"useful.output",title:"Useful finding produced",evidence:"One bounded finding was returned",weight:3,passed:true},
@@ -26,6 +26,11 @@ const assert = require("node:assert/strict");
  ]});
  assert.equal(failed.evaluation.score,90);
  assert.equal(failed.evaluation.passed,false,"critical failures must fail evaluation even above threshold");
+ assert.equal(failed.evaluationHistory.length,2);
+ const regression=service.regressionReport(spec.id);
+ assert.equal(regression.status,"regression","a new critical failure must be flagged as a regression");
+ assert.deepEqual(regression.newCriticalFailures,["critical.guard"]);
+ assert.equal(regression.scoreDelta,10);
  assert.throws(()=>service.evaluate(spec.id,{criteria:[]}),/1 to 20/i);
  assert.throws(()=>service.evaluate(spec.id,{criteria:[{id:"bad",title:"Bad",evidence:"x",weight:11,passed:true}]}),/weight/i);
  assert.equal(service.certificationReadiness().finalCertification,false);
