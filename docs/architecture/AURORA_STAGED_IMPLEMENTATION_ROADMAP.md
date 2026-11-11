@@ -794,3 +794,14 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 - Fixed a stray literal escape in the Stage 14 registry that caused the previous core test run to stop with a JavaScript syntax error before the registry test could execute.
 
 **Wave 2 boundary:** Evidence entries are review records, not independent proof that the underlying work happened. Human reviewers must verify the referenced artifacts. Physical device, live connector, privacy/security and release-integrity gates remain open until genuinely completed and reviewed. Stage 14 remains active.
+
+
+### Wave 3 — simulation evaluation and regression scoring
+- Extended the experimental sandbox with a deterministic weighted evaluation rubric for completed simulations.
+- Each criterion requires a stable ID, bounded title/evidence, explicit pass/fail result and weight. Critical criteria can fail the evaluation even when the numeric score exceeds the configured threshold.
+- Evaluation results are stored with the experiment and emit metadata-only lifecycle events. They do not change production models, prompts, capabilities or workflows.
+- Added tests for score calculation, critical-failure override, malformed rubrics and evaluation of missing experiments.
+- Corrected the legacy Stage 7 checkpoint test to expect the current 14 registered layers while retaining the historical 12-family Stage 7 audit scope.
+- Added the certification-ledger test to the main core test chain so it cannot silently be skipped.
+
+**Wave 3 boundary:** Rubric results are only as trustworthy as their supplied evidence and reviewer. This is a controlled evaluation tool, not autonomous model training, production self-modification or final release certification. Stage 14 remains active.
