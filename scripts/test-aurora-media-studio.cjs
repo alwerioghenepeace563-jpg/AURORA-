@@ -4,6 +4,8 @@ const api = fs.readFileSync("api/media-jobs.js", "utf8");
 const studio = fs.readFileSync("src/components/CreativeMediaStudio.jsx", "utf8");
 const workspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx", "utf8");
 const styles = fs.readFileSync("src/styles.css", "utf8");
+const imageWorkspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx", "utf8");
+const mediaVault = fs.readFileSync("src/lib/aurora-media-vault.js", "utf8");
 
 for (const value of [
   "GEMINI_API_KEY",
@@ -34,6 +36,8 @@ for (const value of [
 
 assert.ok(!studio.includes("GEMINI_API_KEY"), "Provider secrets must never appear in client code.");
 assert.ok(!studio.includes("ELEVENLABS_API_KEY"), "Voice provider secrets must never appear in client code.");
+for (const value of ["aurora.creative.image-job.v1", "saveAuroraMediaBlob", "getAuroraMediaBlob", "Retry image", "URL.createObjectURL"]) assert.ok(imageWorkspace.includes(value), "Image job recovery wiring missing: " + value);
+for (const value of ["indexedDB.open", "generated-media", "saveAuroraMediaBlob", "getAuroraMediaBlob"]) assert.ok(mediaVault.includes(value), "Local media vault feature missing: " + value);
 assert.ok(workspace.includes('import CreativeMediaStudio from "./CreativeMediaStudio"'), "Media Studio is not imported into Creative Studio.");
 assert.ok(workspace.includes("<CreativeMediaStudio projectId={selected} onSaved={refresh} />"), "Media Studio is not mounted in the project workspace.");
 for (const value of [".clw-media-studio-grid", ".clw-job-status", ".clw-generated-video", ".clw-generated-audio"]) {
