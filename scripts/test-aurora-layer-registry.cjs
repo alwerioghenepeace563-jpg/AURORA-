@@ -47,7 +47,7 @@ const assert = require("node:assert/strict");
   assert.equal(summary.stageFourteenCodeComplete, true);
   assert.equal(summary.stageFourteenScopedLayers, 12);
   assert.equal(summary.stageFourteenAuditedLayers, 12);
-  assert.equal(STAGE_FOURTEEN_CHECKPOINT.status, "active");
+  assert.equal(STAGE_FOURTEEN_CHECKPOINT.status, "complete");
   assert.equal(Object.keys(STAGE_FOURTEEN_SCOPE).length, 12);
   assert.equal(Object.keys(STAGE_FOURTEEN_LAYER_AUDIT).length, 12);
   assert.ok(registry.stages.some(stage => stage.id === 14 && stage.status === "complete"));
