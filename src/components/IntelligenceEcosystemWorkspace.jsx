@@ -47,6 +47,11 @@ export default function IntelligenceEcosystemWorkspace() {
   const [manifestName, setManifestName] = useState("");
   const [scopes, setScopes] = useState("profile.read");
   const [capabilities, setCapabilities] = useState("");
+  const [proposalFor, setProposalFor] = useState("");
+  const [proposalSummary, setProposalSummary] = useState("");
+  const [proposalScope, setProposalScope] = useState("");
+  const [proposalEvidence, setProposalEvidence] = useState("");
+  const [promotionReviewer, setPromotionReviewer] = useState("");
   const experiments = auroraRuntime.experimentalIntelligence;
   const connectors = auroraRuntime.connectedEcosystem;
   const ledger = auroraRuntime.certificationLedger;
@@ -77,6 +82,20 @@ export default function IntelligenceEcosystemWorkspace() {
     try {
       experiments.evaluate(item.id, { evaluator: "User review", criteria: [{ id: "evidence.review", title: "Findings reviewed", evidence: "Reviewed the local simulation findings in AURORA.", weight: 1, passed: true }] });
       setNotice("Evaluation saved. This is a self-review record, not independent verification."); setRefresh(x => x + 1);
+    } catch (error) { setNotice(error.message); }
+  }
+  function createPromotionProposal(event, item) {
+    event.preventDefault();
+    try {
+      experiments.proposePromotion(item.id, { id: "proposal." + Date.now().toString(36), summary: proposalSummary, changeScope: proposalScope, testEvidence: proposalEvidence });
+      setProposalSummary(""); setProposalScope(""); setProposalEvidence(""); setProposalFor("");
+      setNotice("Proposal submitted for human review. No production code, model or capability has changed."); setRefresh(x => x + 1);
+    } catch (error) { setNotice(error.message); }
+  }
+  function reviewPromotion(item, proposal, outcome) {
+    try {
+      experiments.reviewPromotion(item.id, proposal.id, { reviewer: promotionReviewer, outcome });
+      setNotice(outcome === "rejected" ? "Proposal rejected. Production remains unchanged." : "Approved for a separate implementation review only. Nothing has been merged or activated."); setRefresh(x => x + 1);
     } catch (error) { setNotice(error.message); }
   }
   function previewConnector(event) {
@@ -116,6 +135,27 @@ export default function IntelligenceEcosystemWorkspace() {
         <p>{item.summary}</p>
         {item.findings?.length > 0 && <ul>{item.findings.map((finding, i) => <li key={i}>{finding}</li>)}</ul>}
         {item.evaluation && <p>Evaluation: {item.evaluation.score}% · {item.evaluation.passed ? "Passed" : "Needs review"}</p>}
+        {item.evaluation?.passed && <div style={panelStyle}>
+          <strong>Implementation review proposals</strong>
+          <p className="knowledge-import-meta">A passing simulation can propose work for a separate review. Approval here never changes production.</p>
+          {(item.promotionProposals || []).map(proposal => <div key={proposal.id} className="activity-record" style={{ display: "grid", gap: 6 }}>
+            <strong>{proposal.summary}</strong>
+            <span className="knowledge-record-type">{proposal.status.replaceAll("_", " ")}</span>
+            <small>Scope: {proposal.changeScope}</small><small>Test evidence: {proposal.testEvidence}</small>
+            {proposal.status === "awaiting_review" && <div className="knowledge-detail-actions">
+              <button type="button" className="primary-action" disabled={!promotionReviewer.trim()} onClick={() => reviewPromotion(item, proposal, "approved_for_implementation_review")}>Approve review</button>
+              <button type="button" className="outline-action" disabled={!promotionReviewer.trim()} onClick={() => reviewPromotion(item, proposal, "rejected")}>Reject</button>
+            </div>}
+            {proposal.reviewer && <small>Reviewed by {proposal.reviewer} · {proposal.reviewedAt}</small>}
+          </div>)}
+          {(item.promotionProposals || []).some(proposal => proposal.status === "awaiting_review") && <input style={inputStyle} value={promotionReviewer} onChange={e => setPromotionReviewer(e.target.value)} placeholder="Reviewer name for proposal decisions" maxLength={120}/>}
+          {proposalFor === item.id ? <form onSubmit={event => createPromotionProposal(event, item)} style={{ display: "grid", gap: 8 }}>
+            <input style={inputStyle} value={proposalSummary} onChange={e => setProposalSummary(e.target.value)} placeholder="Proposal summary" maxLength={500} required/>
+            <textarea style={inputStyle} value={proposalScope} onChange={e => setProposalScope(e.target.value)} placeholder="Exact implementation scope" maxLength={500} rows={2} required/>
+            <input style={inputStyle} value={proposalEvidence} onChange={e => setProposalEvidence(e.target.value)} placeholder="Test/evidence reference" maxLength={500} required/>
+            <div className="knowledge-detail-actions"><button type="submit" className="primary-action">Submit for review</button><button type="button" className="outline-action" onClick={() => setProposalFor("")}>Cancel</button></div>
+          </form> : <button type="button" className="outline-action" onClick={() => setProposalFor(item.id)}>Propose implementation review</button>}
+        </div>}
         <div className="knowledge-detail-actions">
           {item.status === "draft" && <button className="outline-action" type="button" onClick={() => prepareExperiment(item.id)}><CheckCircle2 size={14}/> Approve simulation</button>}
           {item.status === "ready" && <button className="primary-action" type="button" onClick={() => runExperiment(item.id)}><Play size={14}/> Run local simulation</button>}
