@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
+import GoogleWorkspaceConnector from "./GoogleWorkspaceConnector";
 import { Activity, Plug, FlaskConical, ShieldCheck, Plus, CheckCircle2, Circle, Trash2, Play, PauseCircle } from "lucide-react";
 
 // This adapter is deliberately deterministic and side-effect free. It exercises
@@ -209,7 +210,7 @@ export default function IntelligenceEcosystemWorkspace() {
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8 }}><input type="checkbox" checked={cloudConsent} onChange={e => setCloudConsent(e.target.checked)}/> I consent to enable per-record cloud sync for memories I explicitly select.</label>
           <button type="button" className="primary-action" disabled={!cloudConsent || cloudConnecting} onClick={connectAuroraCloud}>{cloudConnecting ? "Connecting…" : "Connect AURORA Cloud"}</button>
         </div>}
-        <p className="knowledge-import-meta">Google Calendar, Drive and other third-party accounts still need their own OAuth provider setup and sign-in approval; AURORA will not pretend those are connected.</p>
+        <GoogleWorkspaceConnector />
       </div>
       <form onSubmit={previewConnector} style={panelStyle}>
         <strong>Validate a connector manifest</strong>
