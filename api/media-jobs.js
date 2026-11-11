@@ -5,6 +5,23 @@ const MODEL = "veo-3.1-generate-preview";
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 const safeOperationName = value => typeof value === "string" && /^operations\/[A-Za-z0-9._-]{8,180}$/.test(value);
 const json = (res, status, body) => res.status(status).json(body);
+const recentVideoRequests = new Map();
+
+async function authenticate(req) {
+  const token = String(req.headers?.authorization || "").match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+  const supabaseUrl = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\\/+$/, "");
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  if (!token || !supabaseUrl || !anonKey) return null;
+  try {
+    const response = await fetch(supabaseUrl + "/auth/v1/user", {
+      headers: { apikey: anonKey, Authorization: "Bearer " + token, Accept: "application/json" },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) return null;
+    const user = await response.json().catch(() => null);
+    return user && typeof user.id === "string" ? user : null;
+  } catch { return null; }
+}
 
 function readBody(req) {
   if (req.body && typeof req.body === "object") return req.body;
@@ -42,6 +59,8 @@ export default async function handler(req, res) {
     return json(res, 405, { error: "Use POST." });
   }
 
+  const user = await authenticate(req);
+  if (!user) return json(res, 401, { error: "Sign in to AURORA before using video generation." });
   const key = process.env.GEMINI_API_KEY;
   if (!key) return json(res, 503, { error: "Video generation is not configured. Add the server-side Gemini API key." });
   const body = readBody(req);
@@ -52,6 +71,9 @@ export default async function handler(req, res) {
     const aspectRatio = ["16:9", "9:16"].includes(body.aspectRatio) ? body.aspectRatio : "16:9";
     const durationSeconds = [4, 6, 8].includes(Number(body.durationSeconds)) ? Number(body.durationSeconds) : 8;
     if (prompt.length < 8 || prompt.length > 1800) return json(res, 400, { error: "Describe the video in 8 to 1800 characters." });
+    const lastRequest = recentVideoRequests.get(user.id) || 0;
+    if (Date.now() - lastRequest < 60000) return json(res, 429, { error: "Please wait a minute before starting another video generation job." });
+    recentVideoRequests.set(user.id, Date.now());
     try {
       const upstream = await fetch(BASE + "/models/" + MODEL + ":predictLongRunning", {
         method: "POST",
