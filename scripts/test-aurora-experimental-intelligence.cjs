@@ -20,6 +20,15 @@ const assert = require("node:assert/strict");
  ]});
  assert.equal(evaluation.evaluation.score,80);
  assert.equal(evaluation.evaluation.passed,true);
+ const proposal=service.proposePromotion(spec.id,{id:"proposal.safe-guard",summary:"Improve a bounded workflow guard",changeScope:"Separate implementation review of the simulation finding",testEvidence:"Passing simulation rubric and regression report"});
+ assert.equal(proposal.status,"awaiting_review");
+ assert.equal(proposal.productionChanged,false,"promotion proposal must not modify production");
+ assert.throws(()=>service.reviewPromotion(spec.id,proposal.id,{outcome:"approved_for_implementation_review"}),/reviewer/i);
+ const reviewed=service.reviewPromotion(spec.id,proposal.id,{reviewer:"human-reviewer",outcome:"approved_for_implementation_review"});
+ assert.equal(reviewed.status,"approved_for_implementation_review");
+ assert.equal(reviewed.productionChanged,false,"review approval must not activate production changes");
+ assert.throws(()=>service.reviewPromotion(spec.id,proposal.id,{reviewer:"another-reviewer",outcome:"rejected"}),/already been reviewed/i);
+
  const failed=service.evaluate(spec.id,{passScore:80,criteria:[
   {id:"critical.guard",title:"Critical guard",evidence:"Critical guard failed in this simulation",weight:1,passed:false,critical:true},
   {id:"other.check",title:"Other check",evidence:"Other check passed",weight:9,passed:true}
@@ -31,14 +40,6 @@ const assert = require("node:assert/strict");
  assert.equal(regression.status,"regression","a new critical failure must be flagged as a regression");
  assert.deepEqual(regression.newCriticalFailures,["critical.guard"]);
  assert.equal(regression.scoreDelta,10);
- const proposal=service.proposePromotion(spec.id,{id:"proposal.safe-guard",summary:"Improve a bounded workflow guard",changeScope:"Separate implementation review of the simulation finding",testEvidence:"Passing simulation rubric and regression report"});
- assert.equal(proposal.status,"awaiting_review");
- assert.equal(proposal.productionChanged,false,"promotion proposal must not modify production");
- assert.throws(()=>service.reviewPromotion(spec.id,proposal.id,{outcome:"approved_for_implementation_review"}),/reviewer/i);
- const reviewed=service.reviewPromotion(spec.id,proposal.id,{reviewer:"human-reviewer",outcome:"approved_for_implementation_review"});
- assert.equal(reviewed.status,"approved_for_implementation_review");
- assert.equal(reviewed.productionChanged,false,"review approval must not activate production changes");
- assert.throws(()=>service.reviewPromotion(spec.id,proposal.id,{reviewer:"another-reviewer",outcome:"rejected"}),/already been reviewed/i);
  assert.throws(()=>service.evaluate(spec.id,{criteria:[]}),/1 to 20/i);
  assert.throws(()=>service.evaluate(spec.id,{criteria:[{id:"bad",title:"Bad",evidence:"x",weight:11,passed:true}]}),/weight/i);
  assert.equal(service.certificationReadiness().finalCertification,false);
