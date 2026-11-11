@@ -171,8 +171,8 @@ export default function CreativeMediaStudio({ projectId = "", onSaved, authSessi
     setVoiceBusy(true); setVoiceSaved(false); setVoiceNotice("Generating your voiceover. Provider usage may apply.");
     try {
       const response = await fetch(auroraApiUrl("/api/voice"), {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, ...(voiceId ? { voiceId } : { voice: "jessica" }) })
+        method: "POST", headers: { "Content-Type": "application/json", ...(authSession?.access_token ? { Authorization: "Bearer " + authSession.access_token } : {}) },
+        body: JSON.stringify({ mode: "voiceover", text, ...(voiceId ? { voiceId } : { voice: "jessica" }) })
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
