@@ -44,7 +44,7 @@ const assert = require("node:assert/strict");
  assert.throws(()=>service.evaluate(spec.id,{criteria:[{id:"bad",title:"Bad",evidence:"x",weight:11,passed:true}]}),/weight/i);
  assert.equal(service.certificationReadiness().finalCertification,false);
  assert.equal(service.certificationReadiness().highRiskBlocked,true);
- assert.equal(events.length,3,"simulation and both evaluations should emit lifecycle events");
+ assert.equal(events.length,5,"simulation, both evaluations and both promotion lifecycle events should be emitted");
  service.create({...spec,id:"danger.prototype",type:"capability_prototype",risk:"high"});
  service.prepare("danger.prototype",{approved:true,consent:true,simulationOnly:true});
  await assert.rejects(()=>service.run("danger.prototype"),/High-risk/i);
