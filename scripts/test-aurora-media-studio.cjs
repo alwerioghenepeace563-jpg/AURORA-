@@ -39,7 +39,7 @@ assert.ok(!studio.includes("ELEVENLABS_API_KEY"), "Voice provider secrets must n
 for (const value of ["aurora.creative.image-job.v1", "saveAuroraMediaBlob", "getAuroraMediaBlob", "Retry image", "URL.createObjectURL"]) assert.ok(imageWorkspace.includes(value), "Image job recovery wiring missing: " + value);
 for (const value of ["indexedDB.open", "generated-media", "saveAuroraMediaBlob", "getAuroraMediaBlob"]) assert.ok(mediaVault.includes(value), "Local media vault feature missing: " + value);
 assert.ok(workspace.includes('import CreativeMediaStudio from "./CreativeMediaStudio"'), "Media Studio is not imported into Creative Studio.");
-assert.ok(workspace.includes("<CreativeMediaStudio projectId={selected} onSaved={refresh} />"), "Media Studio is not mounted in the project workspace.");
+assert.ok(workspace.includes("<CreativeMediaStudio projectId={selected} onSaved={refresh} authSession={authSession} />"), "Media Studio is not mounted in the project workspace.");
 for (const value of [".clw-media-studio-grid", ".clw-job-status", ".clw-generated-video", ".clw-generated-audio"]) {
   assert.ok(styles.includes(value), "Media Studio styling missing: " + value);
 }
