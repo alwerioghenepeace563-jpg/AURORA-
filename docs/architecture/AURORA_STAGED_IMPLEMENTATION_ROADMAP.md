@@ -784,3 +784,13 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 6. Release artifact integrity, signing, rollback and recovery procedures are verified.
 
 **Wave 1 boundary:** The sandbox and checklist are implemented as code; Stage 14 remains active. A checklist is not certification. No production model self-modification, arbitrary code execution, autonomous external actions or final release approval is claimed. Stage 13 connector activation and the physical-device checks remain deferred until configured and tested.
+
+
+### Wave 2 — evidence-based certification ledger
+- Added `src/core/aurora-certification-ledger.js` with six explicit release gates: automated suites, web/Android build, physical-device validation, live connector round-trips, privacy/security sign-off, and release integrity/rollback.
+- Each gate requires a bounded evidence reference, reviewer identity, unique evidence ID and explicit verified sign-off. Evidence is stored locally, bounded per gate, inspectable and revocable.
+- Evidence completeness is reported separately from final certification. Final approval requires a separate authorised release decision tied to a named release candidate; the ledger cannot infer certification from a checklist or CI alone.
+- Added automated tests for missing/invalid evidence, all six gates, persistence, revocation and the separate authorised release-approval boundary.
+- Fixed a stray literal escape in the Stage 14 registry that caused the previous core test run to stop with a JavaScript syntax error before the registry test could execute.
+
+**Wave 2 boundary:** Evidence entries are review records, not independent proof that the underlying work happened. Human reviewers must verify the referenced artifacts. Physical device, live connector, privacy/security and release-integrity gates remain open until genuinely completed and reviewed. Stage 14 remains active.
