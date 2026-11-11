@@ -23,6 +23,33 @@ const assert = require("node:assert/strict");
   await assert.rejects(() => service.execute("google.calendar", "device.call", {}), /did not request/);
   assert.equal(await service.disconnect("google.calendar"), true);
   assert.equal(disconnected, true);
+
+  const unsafeStore = new Map();
+  unsafeStore.set("aurora-connected-ecosystem-v1", JSON.stringify([{
+    id: "google.calendar", name: "Google Calendar", version: "1", description: "",
+    scopes: ["calendar.read"], capabilities: ["memory.search"], status: "connected",
+    credentialsStored: false, connectedAt: "2026-11-11T00:00:00.000Z"
+  }]));
+  const noAdapterService = createAuroraConnectedEcosystem({
+    storage: { getItem: key => unsafeStore.get(key) || null, setItem: (key, value) => unsafeStore.set(key, value) },
+    getCapabilities: () => [{ id: "memory.search" }],
+    executeCapability: async () => ({ ok: true })
+  });
+  await assert.rejects(() => noAdapterService.disconnect("google.calendar"), /adapter is available/i);
+  assert.equal(noAdapterService.list().length, 1, "a connector record must remain until its provider adapter can revoke the remote session");
+
+  const malformedStore = new Map();
+  malformedStore.set("aurora-connected-ecosystem-v1", JSON.stringify([{
+    id: "google.calendar", name: "Google Calendar", version: "1", description: "",
+    scopes: ["calendar.read"], capabilities: "not-an-array", status: "connected", credentialsStored: false
+  }]));
+  const malformedService = createAuroraConnectedEcosystem({
+    storage: { getItem: key => malformedStore.get(key) || null, setItem: (key, value) => malformedStore.set(key, value) },
+    getCapabilities: () => []
+  });
+  assert.equal(malformedService.list().length, 0, "malformed connector metadata must fail closed");
+
+  assert.throws(() => service.preview({ ...manifest, capabilities: Array.from({ length: 51 }, (_, index) => "capability." + index) }), /capabilities are invalid/i);
   assert.equal(service.status().connected, 0);
   assert.equal(service.list().length, 0);
   assert.equal(calls.filter(x => x[0] === "event").length, 2);
