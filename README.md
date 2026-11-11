@@ -58,3 +58,14 @@ Origin checks are not authentication or rate limiting. Before sharing the app pu
 ## API keys and secret setup
 
 The complete stage-by-stage credential inventory, secure storage locations, VoiceText bridge configuration, optional integrations, and Android release secrets are documented in [AURORA API Keys and Secrets Setup](docs/integrations/AURORA_API_KEYS_AND_SECRETS_SETUP.md). Start from `.env.example`; it contains placeholders only. Never commit real keys or expose server secrets through `VITE_` variables.
+
+## Creative media generation
+
+The Creative Studio can generate images, short MP4 video clips and voiceover audio:
+
+- Image generation uses the server-side Gemini image service. Completed images are cached in the device's IndexedDB media vault so a refresh does not discard a saved result.
+- Video generation uses the asynchronous Gemini Veo 3.1 API through `/api/media-jobs`. The job ID is stored locally and status polling resumes when AURORA is reopened. The generated MP4 is retrieved through the server; the Gemini key never reaches the client.
+- Voiceovers use the existing server-side ElevenLabs voice route. The script limit is 2,500 characters per generation; generated MP3 audio can be previewed and downloaded.
+- Video and voiceover generation require a signed-in AURORA session. Provider access and quota are checked only when the user starts a generation. Provider usage may be billable; review the connected provider's current limits before generating.
+
+The generated video and voiceover are separate outputs at this checkpoint. Combining a separate voiceover track into an existing MP4 with a dedicated muxer remains a separate export-engine task; AURORA does not claim that track replacement or full audio/video synchronisation is complete.
