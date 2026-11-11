@@ -7,6 +7,8 @@ const ID = /^[a-z][a-z0-9_.-]{2,64}$/;
 const MAX_EXPERIMENTS = 30;
 const MAX_FINDINGS = 20;
 const MAX_TEXT = 500;
+const MAX_EVALUATION_CRITERIA = 20;
+const DEFAULT_PASS_SCORE = 80;
 const ALLOWED_TYPES = new Set(["hypothesis", "workflow_simulation", "capability_prototype", "evaluation"]);
 const ALLOWED_STATUSES = new Set(["draft", "ready", "running", "paused", "completed", "rejected"]);
 const RISK_ORDER = { low: 1, medium: 2, high: 3, critical: 4 };
@@ -37,7 +39,7 @@ function createAuroraExperimentalIntelligence(options = {}) {
     const record = {
       id: String(spec.id), type: spec.type, title: title.slice(0,120), summary: summary.slice(0,MAX_TEXT),
       risk, status: "draft", createdAt: now(), updatedAt: now(), simulationOnly: true,
-      consentGranted: false, findings: [], adapterId: null
+      consentGranted: false, findings: [], evaluation: null, adapterId: null
     };
     write([...read().filter(item => item.id !== record.id), record]);
     return Object.freeze({ ...record });
@@ -72,6 +74,40 @@ function createAuroraExperimentalIntelligence(options = {}) {
     options.events?.publish?.("experimental.simulation_completed", { experimentId: item.id, findingCount: findings.length }, { source: "experimental_intelligence" });
     return Object.freeze({ ...updated, findings: [...findings] });
   }
+  function evaluate(id, rubric = {}) {
+    const items = read(), index = items.findIndex(item => item.id === String(id));
+    if (index < 0) throw new Error("Experiment was not found.");
+    const item = items[index];
+    if (item.status !== "completed") throw new Error("Only completed simulations can be evaluated.");
+    if (!Array.isArray(rubric.criteria) || rubric.criteria.length < 1 || rubric.criteria.length > MAX_EVALUATION_CRITERIA) {
+      throw new Error("Evaluation requires 1 to 20 bounded rubric criteria.");
+    }
+    const criteria = rubric.criteria.map((criterion) => {
+      const criterionId = String(criterion?.id || "");
+      const title = String(criterion?.title || "").trim();
+      const evidence = String(criterion?.evidence || "").trim();
+      const weight = Number(criterion?.weight ?? 1);
+      if (!ID.test(criterionId) || !title || title.length > 120 || !evidence || evidence.length > MAX_TEXT ||
+          !Number.isFinite(weight) || weight < 1 || weight > 10 || typeof criterion.passed !== "boolean") {
+        throw new Error("Each rubric criterion needs a valid ID, title, evidence, boolean result and weight from 1 to 10.");
+      }
+      return Object.freeze({ id: criterionId, title: title.slice(0,120), evidence: evidence.slice(0,MAX_TEXT), weight, passed: criterion.passed, critical: criterion.critical === true });
+    });
+    const totalWeight = criteria.reduce((sum, item) => sum + item.weight, 0);
+    const earnedWeight = criteria.reduce((sum, item) => sum + (item.passed ? item.weight : 0), 0);
+    const score = Math.round((earnedWeight / totalWeight) * 100);
+    const threshold = Number(rubric.passScore ?? DEFAULT_PASS_SCORE);
+    if (!Number.isFinite(threshold) || threshold < 1 || threshold > 100) throw new Error("Pass score must be between 1 and 100.");
+    const criticalFailures = criteria.filter(item => item.critical && !item.passed).map(item => item.id);
+    const evaluation = Object.freeze({
+      score, passScore: threshold, passed: score >= threshold && criticalFailures.length === 0,
+      criticalFailures, criteria, evaluatedAt: now(), evaluator: String(rubric.evaluator || "local-review").slice(0,120)
+    });
+    const updated = { ...item, evaluation, updatedAt: now() };
+    items[index] = updated; write(items);
+    options.events?.publish?.("experimental.evaluation_completed", { experimentId: item.id, score, passed: evaluation.passed }, { source: "experimental_intelligence" });
+    return Object.freeze({ ...updated, evaluation });
+  }
   function pause(id) { return updateStatus(id, "paused"); }
   function reject(id) { return updateStatus(id, "rejected"); }
   function updateStatus(id, status) {
@@ -93,6 +129,6 @@ function createAuroraExperimentalIntelligence(options = {}) {
       releaseGates: Object.freeze(["all automated suites pass","native Android build passes","physical-device validation completed","external connector setup and live round-trips verified","privacy and permission review signed off","release artifact and rollback plan verified"])
     });
   }
-  return Object.freeze({ create, registerAdapter, prepare, run, pause, reject, list, certificationReadiness });
+  return Object.freeze({ create, registerAdapter, prepare, run, evaluate, pause, reject, list, certificationReadiness });
 }
 export { createAuroraExperimentalIntelligence };
