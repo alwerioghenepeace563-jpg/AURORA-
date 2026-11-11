@@ -3,6 +3,7 @@ import { auroraRuntime } from "../core/aurora-runtime";
 import { auroraNative, auroraApiUrl } from "../lib/aurora-native";
 import { BookOpen, Captions, FolderKanban, Plus, Save, Trash2, Download, RefreshCw, Mic, Square, FileText } from "lucide-react";
 import CreativeMediaStudio from "./CreativeMediaStudio";
+import { saveAuroraMediaBlob, getAuroraMediaBlob } from "../lib/aurora-media-vault";
 
 const subjects=["biology","chemistry","physics","mathematics","english","computer_science","microbiology","other"];
 const projectTypes=["writing","video","audio","design","research","study","other"];
@@ -27,12 +28,41 @@ function CreativeLearningWorkspace({ authSession }){
  const [mediaFile,setMediaFile]=useState(null),[mediaTranscript,setMediaTranscript]=useState(""),[mediaBusy,setMediaBusy]=useState(false),[mediaResumeOffset,setMediaResumeOffset]=useState(0),[mediaProgress,setMediaProgress]=useState("");
  const [mediaSearchQuery,setMediaSearchQuery]=useState(""),[mediaSearchResults,setMediaSearchResults]=useState([]),[mediaSearchBusy,setMediaSearchBusy]=useState(false),[mediaSearchSource,setMediaSearchSource]=useState(""),[mediaSearchKind,setMediaSearchKind]=useState("image"),[mediaDownloading,setMediaDownloading]=useState("");
  const [imagePrompt,setImagePrompt]=useState(""),[imageAspect,setImageAspect]=useState("1:1"),[imageBusy,setImageBusy]=useState(false),[generatedImage,setGeneratedImage]=useState(null);
+ const [imageJob,setImageJob]=useState(null); const imageUrlRef=useRef("");
  const [notice,setNotice]=useState("");
  const refresh=()=>{
   const ps=auroraRuntime.listCreativeProjects();setProjects(ps);setSelected(current=>ps.some(p=>p.id===current)?current:(ps[0]?.id||""));
   setDrafts(auroraRuntime.listCreativeDrafts());setAssets(auroraRuntime.listCreativeAssets());setDecks(auroraRuntime.listFlashcardDecks());setPlans(auroraRuntime.listStudyPlans());setQuizHistory(auroraRuntime.listPracticeQuizAttempts({limit:20}));setQuizPerformance(auroraRuntime.practiceQuizPerformance());setDueCards(auroraRuntime.listDueFlashcards({limit:100}));setFlashSummary(auroraRuntime.flashcardReviewSummary());setLearningInsights(auroraRuntime.getLearningInsights());
  };
  useEffect(()=>{refresh();},[]);
+ useEffect(()=>{
+  let active=true;
+  (async()=>{
+   try{
+    const saved=JSON.parse(localStorage.getItem("aurora.creative.image-job.v1")||"null");
+    if(!saved||typeof saved!=="object")return;
+    if(saved.prompt)setImagePrompt(saved.prompt);
+    let current=saved;
+    if(saved.status==="running"){
+     current={...saved,status:"interrupted",error:"AURORA was refreshed while this image request was running. Retry to submit it again."};
+     localStorage.setItem("aurora.creative.image-job.v1",JSON.stringify(current));
+    }
+    if(active)setImageJob(current);
+    if(current.status==="completed"&&current.id){
+     const record=await getAuroraMediaBlob(current.id);
+     if(record?.blob){
+      const url=URL.createObjectURL(record.blob);
+      if(active){imageUrlRef.current=url;setGeneratedImage({url,mimeType:record.blob.type||current.mimeType||"image/png",model:current.model||"Gemini image model"});}
+      else URL.revokeObjectURL(url);
+     }else if(active){
+      const missing={...current,status:"interrupted",error:"The saved image file is unavailable on this device. Retry generation to restore it."};
+      setImageJob(missing);localStorage.setItem("aurora.creative.image-job.v1",JSON.stringify(missing));
+     }
+    }
+   }catch(error){if(active)setNotice(error?.message||"The last image job could not be restored.");}
+  })();
+  return()=>{active=false;if(imageUrlRef.current){URL.revokeObjectURL(imageUrlRef.current);imageUrlRef.current="";}};
+ },[]);
  useEffect(()=>()=>{try{browserRecognition.current?.stop();}catch{}if(auroraNative.isAndroid())auroraNative.stopSpeechRecognition().catch(()=>{});const handles=speechHandles.current.splice(0);handles.forEach(handle=>{try{handle.remove();}catch{}});},[]);
  const activeProject=projects.find(p=>p.id===selected);
  const projectDrafts=useMemo(()=>drafts.filter(d=>d.projectId===selected),[drafts,selected]);
@@ -91,20 +121,36 @@ function CreativeLearningWorkspace({ authSession }){
  const generateCreativeImage=async()=>{
   const prompt=imagePrompt.trim();
   if(prompt.length<8){setNotice("Describe the image in at least 8 characters.");return;}
-  setImageBusy(true);setGeneratedImage(null);setNotice("AURORA is generating your image. This may take a little while…");
+  const job={id:"image-"+Date.now()+"-"+Math.random().toString(36).slice(2,8),prompt,aspectRatio,status:"running",startedAt:new Date().toISOString()};
+  try{localStorage.setItem("aurora.creative.image-job.v1",JSON.stringify(job));}catch{}
+  setImageJob(job);setImageBusy(true);setGeneratedImage(null);setNotice("AURORA is generating your image. The job details are saved so you can retry after an interruption.");
   try{
    const response=await fetch(auroraApiUrl("/api/media-generate"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,aspectRatio:imageAspect})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||"Image generation is unavailable.");
    if(!data.image?.data||!["image/png","image/jpeg","image/webp"].includes(data.image.mimeType))throw new Error("The image service returned an unsupported image.");
-   setGeneratedImage({data:data.image.data,mimeType:data.image.mimeType,model:data.model||"Gemini image model"});
-   setNotice("Image generated. Preview it, then download it if you want to keep it.");
-  }catch(error){setNotice(error?.message||"Image generation failed. Check provider configuration and try again.");}
-  finally{setImageBusy(false);}
+   const binary=atob(data.image.data),bytes=new Uint8Array(binary.length);
+   for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+   const blob=new Blob([bytes],{type:data.image.mimeType});
+   let persisted=true;
+   try{await saveAuroraMediaBlob(job.id,blob,{prompt,aspectRatio,model:data.model||"Gemini image model"});}catch{persisted=false;}
+   const url=URL.createObjectURL(blob);
+   if(imageUrlRef.current)URL.revokeObjectURL(imageUrlRef.current);
+   imageUrlRef.current=url;
+   setGeneratedImage({url,mimeType:data.image.mimeType,model:data.model||"Gemini image model"});
+   const completed={...job,status:"completed",completedAt:new Date().toISOString(),mimeType:data.image.mimeType,model:data.model||"Gemini image model",persisted};
+   try{localStorage.setItem("aurora.creative.image-job.v1",JSON.stringify(completed));}catch{}
+   setImageJob(completed);
+   setNotice(persisted?"Image generated and saved on this device. Preview or download it whenever you are ready.":"Image generated, but local storage could not keep a recovery copy. Download it now.");
+  }catch(error){
+   const failed={...job,status:"failed",error:error?.message||"Image generation failed."};
+   try{localStorage.setItem("aurora.creative.image-job.v1",JSON.stringify(failed));}catch{}
+   setImageJob(failed);setNotice(failed.error);
+  }finally{setImageBusy(false);}
  };
  const downloadGeneratedImage=()=>{
-  if(!generatedImage?.data)return;
-  try{const link=document.createElement("a");link.href="data:"+generatedImage.mimeType+";base64,"+generatedImage.data;link.download="aurora-generated-image."+(generatedImage.mimeType==="image/jpeg"?"jpg":generatedImage.mimeType==="image/webp"?"webp":"png");document.body.appendChild(link);link.click();link.remove();setNotice("Download requested. Check your browser or Android Downloads.");}
+  if(!generatedImage?.url)return;
+  try{const link=document.createElement("a");link.href=generatedImage.url;link.download="aurora-generated-image."+(generatedImage.mimeType==="image/jpeg"?"jpg":generatedImage.mimeType==="image/webp"?"webp":"png");document.body.appendChild(link);link.click();link.remove();setNotice("Download requested. Check your browser or Android Downloads.");}
   catch(error){setNotice(error?.message||"Could not start the image download.");}
  };
  const searchMediaFallback=async()=>{
@@ -377,7 +423,7 @@ function CreativeLearningWorkspace({ authSession }){
     <label>Describe the image<textarea rows={4} maxLength={1800} value={imagePrompt} onChange={e=>setImagePrompt(e.target.value)} placeholder="A detailed educational illustration of a plant cell, with clear organelles and a clean textbook diagram style…"/></label>
     <label>Image shape<select value={imageAspect} onChange={e=>setImageAspect(e.target.value)}><option value="1:1">Square</option><option value="16:9">Landscape</option><option value="9:16">Portrait</option><option value="4:3">Classic landscape</option><option value="3:4">Classic portrait</option></select></label>
     <div className="clw-actions"><button className="clw-primary" onClick={generateCreativeImage} disabled={imageBusy||imagePrompt.trim().length<8}>{imageBusy?"Generating image…":"Generate image"}</button><button onClick={downloadGeneratedImage} disabled={!generatedImage}>Download image</button></div>
-    {generatedImage&&<div className="clw-generated-image"><img src={"data:"+generatedImage.mimeType+";base64,"+generatedImage.data} alt="AURORA-generated creative image"/><small>Generated with {generatedImage.model}. Review the result before publishing.</small></div>}
+    {imageJob&&<div className="clw-job-status"><strong>Last image job · {imageJob.status}</strong><p>{imageJob.error||(imageJob.status==="completed"?(imageJob.persisted?"Completed and saved locally.":"Completed; download a copy because local recovery storage was unavailable."):"The prompt is preserved. If the request was interrupted, retry it here.")}</p>{["failed","interrupted"].includes(imageJob.status)&&<button onClick={()=>generateCreativeImage()} disabled={imageBusy}><RefreshCw size={14}/> Retry image</button>}</div>}{generatedImage&&<div className="clw-generated-image"><img src={generatedImage.url} alt="AURORA-generated creative image"/><small>Generated with {generatedImage.model}. A local recovery copy is kept when device storage allows.</small></div>}
    </div>
    <CreativeMediaStudio projectId={selected} onSaved={refresh} />
    <h3>AURORA Media Browser & Download Centre</h3>
