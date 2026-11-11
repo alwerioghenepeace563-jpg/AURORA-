@@ -469,7 +469,8 @@ const STAGE_FOURTEEN_CHECKPOINT = Object.freeze({
   validationBoundary: "Wave 1 adds a consent-gated, simulation-only experiment registry with declarative adapters, bounded findings, high-risk execution blocks and an honest release-readiness checklist. It does not run downloaded code, change production prompts, execute device/service actions or certify the product. Final certification requires passing CI, native Android build, physical-device validation, live connector round-trips, privacy/security sign-off and verified release/rollback artifacts.",
   deliverables: Object.freeze(["Provide a controlled experiment registry for hypotheses, workflow simulations, capability prototypes and evaluations.", "Require explicit approval and consent before any simulation begins.", "Keep experiments simulation-only with bounded outputs and no external side effects.", "Block high-risk experiments from execution in the sandbox.", "Preserve explanations, findings and uncertainty without modifying the production intelligence core.", "Produce an evidence-based release checklist and never report certification before every gate is verified."])
 });
-\nconst STAGE_ONE_CHECKPOINT = Object.freeze({
+
+const STAGE_ONE_CHECKPOINT = Object.freeze({
   id: 1,
   name: "Whole-system baseline",
   status: "complete",
