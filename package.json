@@ -36,7 +36,8 @@
     "test:aurora-routine-insights": "node scripts/test-aurora-routine-insights.cjs",
     "test:aurora-device-insights": "node scripts/test-aurora-device-insights.cjs",
     "test:aurora-connected-ecosystem": "node scripts/test-aurora-connected-ecosystem.cjs",
-    "test:aurora-experimental-intelligence": "node scripts/test-aurora-experimental-intelligence.cjs"
+    "test:aurora-experimental-intelligence": "node scripts/test-aurora-experimental-intelligence.cjs",
+    "test:aurora-certification-ledger": "node scripts/test-aurora-certification-ledger.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
