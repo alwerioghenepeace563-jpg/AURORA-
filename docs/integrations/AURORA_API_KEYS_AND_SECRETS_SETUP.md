@@ -29,6 +29,7 @@ At least one provider key is required for cloud AI chat. For resilience, configu
 | Variable | Requirement | Purpose |
 |---|---|---|
 | VITE_SUPABASE_URL | Required for client sign-in | Supabase URL compiled into web/Android client |
+| VITE_SUPABASE_API | Legacy optional client alias | Same Supabase project URL; `VITE_SUPABASE_URL` takes priority |
 | VITE_SUPABASE_ANON_KEY | Required for client sign-in | Supabase anon/publishable key |
 | SUPABASE_URL | Required for authenticated server routes | Server-side Supabase URL |
 | SUPABASE_ANON_KEY | Required for authenticated server routes | Server-side copy of the same anon/publishable key |
@@ -55,6 +56,8 @@ Set these on the main AURORA Vercel project:
 |---|---|---|
 | VOICETEXT_API_URL | Optional; defaults to canonical VoiceText service | VoiceText service base URL |
 | VOICETEXT_PLUGIN_TOKEN | Required for VoiceText bridge | Shared server-to-server bearer secret |
+| AURORA_VOICETEXT_API_URL | Legacy server-only endpoint override | Direct VoiceText transcription endpoint used by the older bridge route |
+| AURORA_VOICETEXT_TOKEN | Legacy server-only shared token | Must match the VoiceText project's `AURORA_PLUGIN_TOKEN`; never expose to the client |
 
 The token must exactly match AURORA_PLUGIN_TOKEN on the VoiceText service. Generate it privately with a password manager or secure random generator. Never use a VITE_ prefix.
 
