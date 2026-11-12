@@ -1,0 +1,84 @@
+name: AURORA Android Compile Verification
+
+on:
+  # Run manually during the later APK/release-preparation phase.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-android-compile-${{ github.ref }}
+  # Never cancel an Android compile just because another commit is pushed.
+  cancel-in-progress: false
+
+jobs:
+  compile-debug-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out AURORA source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android SDK platform and build tools
+        run: |
+          test -n "$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME" -type f -name sdkmanager -print -quit)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Install JavaScript dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Verify Android feature integration
+        run: npm run android:check
+
+      - name: Apply native assistant integration
+        run: node scripts/patch-android-native.mjs
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Compile and assemble debug APK
+        run: gradle -p android assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK archive
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          echo "Debug APK archive is present and structurally valid."
+
+      - name: Upload debug APK for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: AURORA-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Confirm compile-only scope
+        if: success()
+        run: echo "Android debug APK compiled and uploaded as a temporary artifact. No release signing key was accessed and no update was published."

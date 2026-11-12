@@ -1,0 +1,25 @@
+const assert = require("node:assert/strict");
+(async () => {
+ const { createAuroraLearningUniverse } = await import("../src/core/aurora-learning-universe.js");
+ const values = new Map(), storage = { getItem:k=>values.get(k)??null, setItem:(k,v)=>values.set(k,v), removeItem:k=>values.delete(k) };
+ let id=0, tick=0;
+ const learning=createAuroraLearningUniverse({storage,createId:()=> "id-"+(++id),now:()=>new Date(1762646400000+tick++*1000).toISOString()});
+ assert.throws(()=>learning.createPlan({title:"Microbiology",subject:"microbiology",topics:["Cells"]}),/approval/i);
+ const plan=learning.createPlan({title:"SLT foundation",subject:"microbiology",level:"College beginner",goal:"Understand cell structure",topics:["Cell theory","Cell organelles","Microscopy"],userApproved:true});
+ assert.equal(plan.topics.length,3); assert.equal(learning.listPlans().length,1);
+ assert.throws(()=>learning.updateTopic(plan.id,plan.topics[0].id,"completed"),/confirmation/i);
+ learning.updateTopic(plan.id,plan.topics[0].id,"completed",{confirmed:true});
+ learning.updateTopic(plan.id,plan.topics[1].id,"needs_review",{confirmed:true});
+ assert.throws(()=>learning.logPractice({planId:plan.id,topic:"Cell theory",minutes:30}),/approval/i);
+ learning.logPractice({planId:plan.id,topic:"Cell theory",minutes:35,note:"Reviewed lecture notes",userApproved:true});
+ assert.deepEqual(learning.progress(plan.id),{planCount:1,topicCount:3,completedTopics:1,completionRate:33,studyMinutes:35,sessionCount:1,needsReview:1,localOnly:true});
+ assert.equal(learning.listSessions({planId:plan.id}).length,1);
+ assert.equal(learning.listSessions({planId:"missing"}).length,0);
+ assert.throws(()=>learning.logPractice({planId:plan.id,topic:"Cell theory",minutes:601,userApproved:true}),/between 1 and 600/i);
+ assert.equal(learning.status().cloudSync,false);
+ assert.throws(()=>createAuroraLearningUniverse({storage:{getItem:()=>"broken"}}).listPlans(),/corrupt/i);
+ assert.throws(()=>learning.removePlan(plan.id),/confirmation/i);
+ assert.equal(learning.removePlan(plan.id,{confirmed:true}),true);
+ assert.equal(learning.progress().planCount,0);
+ console.log("AURORA Stage 11 learning-universe tests passed: approved study plans, topic progress, practice logs, bounded duration, local-only storage and confirmed deletion.");
+})().catch(error=>{console.error(error);process.exitCode=1;});

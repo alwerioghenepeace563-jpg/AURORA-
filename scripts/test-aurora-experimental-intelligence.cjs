@@ -1,0 +1,63 @@
+const assert = require("node:assert/strict");
+(async () => {
+ const { createAuroraExperimentalIntelligence } = await import("../src/core/aurora-experimental-intelligence.js");
+ const store = new Map(), events = [];
+ const service = createAuroraExperimentalIntelligence({ storage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)}, events:{publish:(...args)=>events.push(args)}, now:()=> "2026-11-10T00:00:00.000Z" });
+ const spec={id:"workflow.review",type:"workflow_simulation",title:"Review workflow",summary:"Simulate a proposed task flow",risk:"low"};
+ service.create(spec);
+ await assert.rejects(()=>service.run(spec.id),/explicitly approved/i);
+ assert.throws(()=>service.prepare(spec.id,{approved:true,consent:true,simulationOnly:false}),/simulation-only/i);
+ service.prepare(spec.id,{approved:true,consent:true,simulationOnly:true});
+ service.registerAdapter("sandbox.local",{simulate:async input=>{assert.equal(input.simulationOnly,true);return {findings:["No external action occurred"],executed:false,sideEffects:false};}});
+ const done=await service.run(spec.id);
+ assert.equal(done.status,"completed");
+ assert.equal(done.findings.length,1);
+ assert.throws(()=>service.evaluate("not-created",{criteria:[{id:"valid.criterion",title:"A criterion",evidence:"Evidence",weight:1,passed:true}]}),/not found/i);
+ const evaluation=service.evaluate(spec.id,{evaluator:"test-reviewer",passScore:80,criteria:[
+  {id:"safe.behaviour",title:"No external side effects",evidence:"Adapter result declared no side effects",weight:5,passed:true,critical:true},
+  {id:"useful.output",title:"Useful finding produced",evidence:"One bounded finding was returned",weight:3,passed:true},
+  {id:"coverage.check",title:"All checks covered",evidence:"One optional check was not met",weight:2,passed:false}
+ ]});
+ assert.equal(evaluation.evaluation.score,80);
+ assert.equal(evaluation.evaluation.passed,true);
+ const proposal=service.proposePromotion(spec.id,{id:"proposal.safe-guard",summary:"Improve a bounded workflow guard",changeScope:"Separate implementation review of the simulation finding",testEvidence:"Passing simulation rubric and regression report"});
+ assert.equal(proposal.status,"awaiting_review");
+ assert.equal(proposal.productionChanged,false,"promotion proposal must not modify production");
+ assert.throws(()=>service.reviewPromotion(spec.id,proposal.id,{outcome:"approved_for_implementation_review"}),/reviewer/i);
+ const reviewed=service.reviewPromotion(spec.id,proposal.id,{reviewer:"human-reviewer",outcome:"approved_for_implementation_review"});
+ assert.equal(reviewed.status,"approved_for_implementation_review");
+ assert.equal(reviewed.productionChanged,false,"review approval must not activate production changes");
+ assert.throws(()=>service.reviewPromotion(spec.id,proposal.id,{reviewer:"another-reviewer",outcome:"rejected"}),/already been reviewed/i);
+
+ const failed=service.evaluate(spec.id,{passScore:80,criteria:[
+  {id:"critical.guard",title:"Critical guard",evidence:"Critical guard failed in this simulation",weight:1,passed:false,critical:true},
+  {id:"other.check",title:"Other check",evidence:"Other check passed",weight:9,passed:true}
+ ]});
+ assert.equal(failed.evaluation.score,90);
+ assert.equal(failed.evaluation.passed,false,"critical failures must fail evaluation even above threshold");
+ assert.equal(failed.evaluationHistory.length,2);
+ const regression=service.regressionReport(spec.id);
+ assert.equal(regression.status,"regression","a new critical failure must be flagged as a regression");
+ assert.deepEqual(regression.newCriticalFailures,["critical.guard"]);
+ assert.equal(regression.scoreDelta,10);
+ assert.throws(()=>service.evaluate(spec.id,{criteria:[]}),/1 to 20/i);
+ assert.throws(()=>service.evaluate(spec.id,{criteria:[{id:"bad",title:"Bad",evidence:"x",weight:11,passed:true}]}),/weight/i);
+ assert.equal(service.certificationReadiness().finalCertification,false);
+ assert.equal(service.certificationReadiness().highRiskBlocked,true);
+ assert.equal(events.length,5,"simulation, both evaluations and both promotion lifecycle events should be emitted");
+ service.create({...spec,id:"danger.prototype",type:"capability_prototype",risk:"high"});
+ service.prepare("danger.prototype",{approved:true,consent:true,simulationOnly:true});
+ await assert.rejects(()=>service.run("danger.prototype"),/High-risk/i);
+ assert.equal(service.pause(spec.id),true);
+ assert.equal(service.list().find(x=>x.id===spec.id).consentGranted,false);
+ assert.throws(()=>service.registerAdapter("bad",{run:()=>{}}),/simulation-only adapter/i);
+ const timeoutStore=new Map(); let aborted=false;
+ const timeoutService=createAuroraExperimentalIntelligence({storage:{getItem:k=>timeoutStore.get(k)||null,setItem:(k,v)=>timeoutStore.set(k,v)},simulationTimeoutMs:100});
+ timeoutService.create({...spec,id:"workflow.timeout"});
+ timeoutService.prepare("workflow.timeout",{approved:true,consent:true,simulationOnly:true});
+ timeoutService.registerAdapter("sandbox.timeout",{simulate:({signal})=>new Promise(resolve=>{const timer=setTimeout(()=>resolve({findings:["late result"]}),1000);signal.addEventListener("abort",()=>{clearTimeout(timer);aborted=true;resolve({findings:[]});},{once:true});})});
+ await assert.rejects(()=>timeoutService.run("workflow.timeout"),/timed out/i);
+ assert.equal(aborted,true,"the sandbox must cooperatively cancel timed-out simulations");
+ assert.equal(timeoutService.list().find(x=>x.id==="workflow.timeout").status,"ready","a timed-out simulation must not be marked completed");
+ console.log("AURORA experimental intelligence tests passed: consent, simulation-only adapters, high-risk blocks, weighted regression reports, bounded history, timeout cancellation and honest certification gates.");
+})().catch(error=>{console.error(error);process.exitCode=1;});

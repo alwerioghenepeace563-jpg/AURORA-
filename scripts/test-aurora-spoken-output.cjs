@@ -1,0 +1,10 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+assert.match(app, /speechReleaseRef\.current = auroraRuntime\.interactions\.register\("voice", stopSpokenOutput\)/);
+assert.match(app, /audioRef\.current\?\.pause/);
+assert.match(app, /window\.speechSynthesis\?\.cancel/);
+assert.match(app, /auroraNative\.stopTextSpeech\(\)/);
+assert.match(app, /if \(!isCurrent\(\)\) return;/);
+assert.match(app, /if \(!soundOn\) stopSpokenOutput\(\)/);
+console.log("AURORA spoken-output interruption source checks passed.");

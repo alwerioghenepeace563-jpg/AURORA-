@@ -2,15 +2,15 @@ name: Build AURORA Android APK
 # Use the new persistent local Android debug signing identity and Lively Updates publisher.
 
 on:
+  # APK compilation and publishing are reserved for release preparation.
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   build-apk:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     env:
       HAS_AURORA_DEBUG_KEYSTORE: ${{ secrets.AURORA_DEBUG_KEYSTORE_BASE64 != '' }}
@@ -40,12 +40,25 @@ jobs:
         run: npm run build
       - name: Verify Android feature integration
         run: npm run android:check
-      - name: Generate Android project
-        run: npx cap add android
+      - name: Confirm Android project is present
+        run: test -f android/app/build.gradle && test -f android/app/src/main/AndroidManifest.xml
       - name: Install native assistant foundation
         run: node scripts/patch-android-native.mjs
       - name: Sync Capacitor
         run: npx cap sync android
+      - name: Download Gradle distribution with network retries
+        run: |
+          set -euo pipefail
+          GRADLE_ZIP="$RUNNER_TEMP/gradle-8.11.1-bin.zip"
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 10 --retry-max-time 300 \
+            "https://downloads.gradle.org/distributions/gradle-8.11.1-bin.zip" \
+            --output "$GRADLE_ZIP"
+          unzip -q "$GRADLE_ZIP" -d "$RUNNER_TEMP"
+          echo "GRADLE_BIN=$RUNNER_TEMP/gradle-8.11.1/bin/gradle" >> "$GITHUB_ENV"
+          test -x "$RUNNER_TEMP/gradle-8.11.1/bin/gradle"
+      - name: Compile native Android code before signing
+        run: |
+          "$GRADLE_BIN" -p android :app:compileDebugJavaWithJavac --no-daemon
       - name: Restore stable Android signing key
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' }}
         env:
@@ -64,7 +77,7 @@ jobs:
           echo "AURORA_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           grep -E "versionCode|versionName" android/app/build.gradle
       - name: Build debug APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+        run: "$GRADLE_BIN" -p android assembleDebug --no-daemon
       - name: Verify APK archive
         run: |
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
