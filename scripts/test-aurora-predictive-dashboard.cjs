@@ -1,0 +1,47 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const component = fs.readFileSync("src/components/PredictiveDashboard.jsx", "utf8");
+assert.match(app, /PredictiveDashboard/);
+assert.match(app, /activityTab==="predictive"/);
+assert.match(component, /DeviceMotionEvent/);
+assert.match(component, /requestPermission/);
+assert.match(component, /Turn off & clear/);
+assert.match(component, /Suggestions never perform actions/);
+assert.match(component, /engine\.recordSignal/);
+console.log("AURORA predictive dashboard integration checks passed.");
+
+const native = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const java = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraPredictivePlugin.java", "utf8");
+const activity = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8");
+assert.match(component, /startPredictiveMotion/);
+assert.match(component, /addPredictiveMotionListener/);
+assert.match(component, /stopPredictiveMotion/);
+assert.match(native, /registerPlugin<AuroraPredictivePlugin>\("AuroraPredictive"\)/);
+assert.match(java, /getBoolean\("consent", false\)/);
+assert.match(java, /backgroundSampling", false/);
+assert.match(java, /Math\.max\(10000L/);
+assert.match(java, /handleOnPause/);
+assert.match(activity, /registerPlugin\(AuroraPredictivePlugin\.class\)/);
+
+assert.match(component, /Review device health/);
+assert.match(component, /buildAuroraDeviceInsights/);
+assert.match(component, /Connected data sources/);
+assert.match(component, /unregisterSource/);
+assert.match(native, /getDeviceStatus/);
+const mainChat = fs.readFileSync("src/App.jsx", "utf8");
+assert.ok(mainChat.includes("review my (?:saved )?routine"));
+assert.match(mainChat, /pause predictive intelligence/);
+assert.match(mainChat, /resume predictive intelligence/);
+assert.match(mainChat, /clear predictive history/);
+assert.match(mainChat, /show connected predictive sources/);
+assert.match(mainChat, /review my device health/);
+console.log("AURORA predictive voice and device-health command checks passed.");
+
+assert.match(component, /Pause suggestions/);
+assert.match(component, /aria-live="polite"/);
+
+assert.match(component, /Enable motion sensing/);
+
+assert.match(mainChat, /snooze latest predictive suggestion/);
+assert.match(mainChat, /dismiss latest predictive suggestion/);

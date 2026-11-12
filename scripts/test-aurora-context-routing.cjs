@@ -1,0 +1,11 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const runtime = fs.readFileSync("src/core/aurora-runtime.js", "utf8");
+const gateway = fs.readFileSync("src/core/aurora-surface-gateway.js", "utf8");
+assert.ok(runtime.includes("async function routeMessage(text, options = {})"));
+assert.ok(runtime.includes("surface: requestSurface, userInitiated: true, ttlMs: 30000"));
+assert.ok(runtime.includes("contextSessions.consume(contextSession.id, receipt.result.text)"));
+assert.ok(runtime.includes("source: documentContext.source, characterCount: documentContext.text.length, truncated: documentContext.truncated"));
+assert.ok(gateway.includes("routeMessage(message, { surface, requestId })"));
+assert.doesNotMatch(runtime, /events\.publish\(["']context\.document[^)]*text/);
+console.log("AURORA context-routing tests passed: selected document text is bounded and scoped to the requesting surface.");

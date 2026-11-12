@@ -1,0 +1,41 @@
+name: AURORA Manual Core Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aurora-manual-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # Keep this test-only workflow scoped to the active development branch.
+    if: ${{ github.ref == 'refs/heads/feature/aurora-pulse-profile-overlay' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out AURORA source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run AURORA core and architecture tests
+        run: npm run test:core
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Report verification scope
+        if: success()
+        run: echo "AURORA core tests and web build passed. No APK was built, no signing key was accessed, and no update was published."

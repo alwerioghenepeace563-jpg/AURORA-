@@ -3,5 +3,27 @@
     "api/**/*.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/admin-code",
+      "destination": "/api/admin?handler=code"
+    },
+    {
+      "source": "/api/admin-execute",
+      "destination": "/api/admin?handler=execute"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api/meta?handler=health"
+    },
+    {
+      "source": "/api/models",
+      "destination": "/api/meta?handler=models"
+    },
+    {
+      "source": "/api/public-config",
+      "destination": "/api/meta?handler=public-config"
+    }
+  ]
 }

@@ -2,6 +2,9 @@ import cors from "../lib/cors.cjs";
 const { applyAuroraCors } = cors;
 
 export default async function handler(req, res) {
+  const action = String(req.query?.handler || "");
+  if (action === "code") return adminCodeHandler(req, res);
+  if (action === "execute") return adminExecuteHandler(req, res);
   try {
     if (applyAuroraCors(req, res, "GET, OPTIONS")) return;
     res.setHeader("Cache-Control", "no-store");
