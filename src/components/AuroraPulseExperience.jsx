@@ -35,7 +35,7 @@ function RevealingText({ text }) {
       index = Math.min(value.length, index + (index < 36 ? 1 : 2));
       setVisible(value.slice(0, index));
       if (index >= value.length) { window.clearInterval(interval); setDone(true); }
-    }, 26);
+    }, 44);
     return () => window.clearInterval(interval);
   }, [text]);
   return <span className="aurora-pulse-reveal">{visible}{!done && <i aria-hidden="true" />}</span>;
