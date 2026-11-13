@@ -2247,8 +2247,27 @@ export default function App() {
                   <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} />
                   <button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); setPulseToolsOpen(false); setPulseConversationPosition({ x: 0, y: 0 }); if (page === "pulse") setPage("home"); }}>×</button>
                 </header>
-                <section className="aurora-pulse-conversation" style={{ transform: "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => { const drag = pulseDragRef.current; if (drag && drag.pointerId === event.pointerId) setPulseConversationPosition({ x: drag.originX + event.clientX - drag.startX, y: drag.originY + event.clientY - drag.startY }); }} onPointerUp={event => { if (pulseDragRef.current?.pointerId === event.pointerId) pulseDragRef.current = null; }} onPointerCancel={() => { pulseDragRef.current = null; }}>
-                  <button type="button" className="aurora-pulse-drag-handle" aria-label="Move chat panel" onPointerDown={event => { pulseDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pulseConversationPosition.x, originY: pulseConversationPosition.y }; event.currentTarget.setPointerCapture(event.pointerId); }}>••• <span>DRAG CHAT PANEL</span> •••</button>
+                <section className="aurora-pulse-conversation" style={{ transform: "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
+                  const drag = pulseDragRef.current;
+                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  const deltaX = event.clientX - drag.startX;
+                  const deltaY = event.clientY - drag.startY;
+                  const minX = 10 - drag.bounds.left;
+                  const maxX = window.innerWidth - 10 - drag.bounds.right;
+                  const minY = 10 - drag.bounds.top;
+                  const maxY = window.innerHeight - 10 - drag.bounds.bottom;
+                  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+                  setPulseConversationPosition({
+                    x: drag.originX + clamp(deltaX, minX, maxX),
+                    y: drag.originY + clamp(deltaY, minY, maxY)
+                  });
+                }} onPointerUp={event => { if (pulseDragRef.current?.pointerId === event.pointerId) pulseDragRef.current = null; }} onPointerCancel={() => { pulseDragRef.current = null; }} onLostPointerCapture={() => { pulseDragRef.current = null; }}>
+                  <button type="button" className="aurora-pulse-drag-handle" aria-label="Move chat panel" onPointerDown={event => {
+                     const bounds = pulsePanelRef.current?.querySelector(".aurora-pulse-conversation")?.getBoundingClientRect();
+                     if (!bounds) return;
+                     pulseDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pulseConversationPosition.x, originY: pulseConversationPosition.y, bounds };
+                     event.currentTarget.setPointerCapture(event.pointerId);
+                   }}>••• <span>DRAG CHAT PANEL</span> •••</button>
                   {pulseToolsOpen && <div className="aurora-pulse-tools-grid">
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("search"); }}><Sparkles size={19}/> Web search</button>
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("calculator"); }}><Calculator size={19}/> Calculator</button>
