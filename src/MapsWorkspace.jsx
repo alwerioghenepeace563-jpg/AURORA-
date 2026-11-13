@@ -55,7 +55,7 @@ export default function MapsWorkspace() {
     let cancelled = false;
     loadLeaflet().then((L) => {
       if (cancelled || !mapNodeRef.current || mapRef.current) return;
-      const map = L.map(mapNodeRef.current, { zoomControl: false, preferCanvas: true }).setView([6.5244, 3.3792], 12);
+      const map = L.map(mapNodeRef.current, { zoomControl: false, preferCanvas: true }).setView([9.0820, 8.6753], 6);
       L.control.zoom({ position: "bottomright" }).addTo(map);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
@@ -74,10 +74,6 @@ export default function MapsWorkspace() {
     return () => clearTimeout(timer);
   }, [mapReady]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => useCurrentLocation(), 650);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !location || !window.L) return;
