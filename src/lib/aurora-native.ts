@@ -275,8 +275,8 @@ export const auroraNative = {
   },
 };
 
-// Keep web requests same-origin on the website, and route native Android API calls to Cloudflare Pages.
+// Keep web requests same-origin on the website, and route native Android API calls to the production API.
 export const auroraApiUrl = (path: string): string => {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return Capacitor.isNativePlatform() ? `https://aurora-assistant.pages.dev${normalized}` : normalized;
+  return Capacitor.isNativePlatform() ? `https://aurora-ten-gold.vercel.app${normalized}` : normalized;
 };
