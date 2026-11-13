@@ -133,7 +133,7 @@ public class AuroraOverlayService extends Service {
             panel.gravity = Gravity.TOP | Gravity.LEFT;
             panel.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
             panel.x = dp(10);
-            int screenHeightDp = getResources().getDisplayMetrics().heightPixels / Math.max(1, getResources().getDisplayMetrics().densityDpi / 160);
+            int screenHeightDp = (int)(getResources().getDisplayMetrics().heightPixels / getResources().getDisplayMetrics().density);
             panel.y = Math.max(dp(90), dp(screenHeightDp - 330));
             panel.setTitle("AURORA Pulse glass chat and tools");
             panelLayout = panel;
@@ -173,9 +173,9 @@ public class AuroraOverlayService extends Service {
         @JavascriptInterface public void movePanelBy(float deltaX, float deltaY) {
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 if (windowManager == null || panelView == null || panelLayout == null || !panelAttached) return;
-                int density = Math.max(1, getResources().getDisplayMetrics().densityDpi / 160);
-                int width = getResources().getDisplayMetrics().widthPixels / density;
-                int height = getResources().getDisplayMetrics().heightPixels / density;
+                float density = getResources().getDisplayMetrics().density;
+                int width = (int)(getResources().getDisplayMetrics().widthPixels / density);
+                int height = (int)(getResources().getDisplayMetrics().heightPixels / density);
                 int maxX = Math.max(0, width - 340);
                 int maxY = Math.max(0, height - 300);
                 panelLayout.x = Math.max(0, Math.min(maxX, panelLayout.x + Math.round(deltaX * density)));
