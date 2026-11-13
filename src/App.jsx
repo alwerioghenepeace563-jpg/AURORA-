@@ -65,7 +65,7 @@ function renderInlineText(text, keyPrefix) {
   return parts.map((part, index) => {
     const key = keyPrefix + "-" + index;
     const markdownImage = part.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)$/);
-    if (markdownImage) return <a key={key} className="message-image-card" href={markdownImage[2]} target="_blank" rel="noreferrer"><img src={markdownImage[2]} alt={markdownImage[1] || "AURORA visual reference"} loading="lazy" referrerPolicy="no-referrer"/><span>{markdownImage[1] || "Open visual reference"} <ArrowUpRight size={13}/></span></a>;
+    if (markdownImage) return <a key={key} className="message-image-card" href={markdownImage[2]} target="_blank" rel="noreferrer"><img src={markdownImage[2]} alt={markdownImage[1] || "AURORA visual reference"} loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.nextElementSibling?.classList.add("image-fallback"); }}/><span>{markdownImage[1] || "Open visual reference"} <ArrowUpRight size={13}/></span></a>;
     const markdownLink = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (markdownLink) return <a key={key} className="message-inline-link" href={markdownLink[2]} target="_blank" rel="noreferrer">{renderInlineText(markdownLink[1], key + "-label")}</a>;
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={key}>{part.slice(2, -2)}</strong>;
@@ -1168,17 +1168,17 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
-      const visualIntent = !attachmentOverride && (/\b(?:show|find|get|pull|bring|display|give me)\b.{0,55}\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b|\b(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\b|\b(?:i was told to draw|i need to draw|need to draw|help me draw|how do i draw|drawing of|sketch of)\b/i.test(text));
+      const visualIntent = !attachmentOverride && (/\b(?:show|find|get|pull|bring|display|give me)\b.{0,65}\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b|\b(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\b|\b(?:i was told to draw|i was asked to draw|they asked me to draw|my teacher told me to draw|i have to draw|i need to draw|need to draw|help me draw|how do i draw|draw (?:a|an|the)?\s*(?:diagram|picture|sketch)?\s*(?:of)?|drawing of|sketch of)\b/i.test(text));
       if (visualIntent) {
         const visualQuery = text
-          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:i was told to draw|i need to draw|need to draw|help me draw|how do i draw|drawing of|sketch of)\s+/i, "")
+          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:i was told to draw|i was asked to draw|they asked me to draw|my teacher told me to draw|i have to draw|i need to draw|need to draw|help me draw|how do i draw|draw)\s+(?:(?:a|an|the)\s+)?(?:(?:diagram|picture|sketch)\s+(?:of\s+)?)?/i, "")
           .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:can you\s+)?(?:show|find|get|pull|bring|display|give me|i need|i want|can i see|let me see|draw)\s+/i, "")
           .replace(/^\s*(?:a|an|the)\s+/i, "")
           .replace(/^\s*(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\s+(?:of|for)\s+/i, "")
           .replace(/^\s*(?:some\s+)?(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\s+/i, "")
           .replace(/^\s*(?:a|an|the)\s+/i, "")
           .replace(/\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b/ig, " ")
-          .replace(/\b(?:please|for me|thanks?|me)\b/ig, " ")
+          .replace(/\b(?:please|for me|thanks?|abeg|oo|na)\b/ig, " ")
           .replace(/\s+/g, " ").trim() || text;
         let searchData = {};
         let imageSearchResponse = await fetch(auroraApiUrl("/api/search?type=images&q=" + encodeURIComponent(visualQuery)), { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
