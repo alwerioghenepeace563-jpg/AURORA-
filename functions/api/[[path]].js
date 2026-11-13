@@ -110,12 +110,6 @@ export async function onRequest({ request }) {
   } else if (route === "public-config") {
     handler = metaHandler;
     url.searchParams.set("handler", "public-config");
-  } else if (route === "admin-code") {
-    handler = adminHandler;
-    url.searchParams.set("handler", "code");
-  } else if (route === "admin-execute") {
-    handler = adminHandler;
-    url.searchParams.set("handler", "execute");
   }
 
   if (!handler) {
