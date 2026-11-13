@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 @CapacitorPlugin(name = "AuroraTranscription")
 public class AuroraTranscriptionPlugin extends Plugin {
  private static boolean isAllowedAuroraApiHost(String host) {
-  return "aurora-assistant.pages.dev".equalsIgnoreCase(host) || "aurora-ten-gold.vercel.app".equalsIgnoreCase(host);
+  return "aurora-ten-gold.vercel.app".equalsIgnoreCase(host);
  }
  @PluginMethod public void start(PluginCall call) {
   String title=call.getData().optString("title","Audio recording");
