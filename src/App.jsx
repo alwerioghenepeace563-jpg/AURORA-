@@ -1011,6 +1011,30 @@ export default function App() {
     }
   }, [authSession, authConfigured, authUrl, authKey, authStorageReady]);
 
+  async function copyAssistantMessage(content) {
+    const text = String(content || "").replace(/\[\[CHOICES:[\s\S]*?\]\]/g, "").trim();
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = text;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand("copy");
+        field.remove();
+        if (!copied) throw new Error("Clipboard access is unavailable.");
+      }
+      setNotice("AURORA's response copied.");
+    } catch {
+      setNotice("Couldn't copy automatically. Select and copy the response text instead.");
+    }
+  }
+
   function navigate(next) {
     if (next === "explore") next = "tools";
     if (next === "pulse") setPulseOpen(true);
@@ -1832,7 +1856,7 @@ export default function App() {
                   {messages.map((message, index) => (
                     <div key={index} className={`message-row ${message.role === "user" ? "message-user" : "message-assistant"}`}>
                       {message.role === "assistant" && <span className="message-avatar"><Sparkles size={15} /></span>}
-                      <div className="message-bubble"><div className="message-label">{message.role === "user" ? "YOU" : "AURORA"}</div>{message.role === "assistant" ? <FormattedMessage content={message.content} onChoice={(choice) => sendMessage(choice)} /> : <p className="message-paragraph">{message.content}</p>}{message.role === "assistant" && <button className="speak-message" onClick={() => speak(message.content.replace(/\[\[CHOICES:[\s\S]*?\]\]/g, ""))}><Volume2 size={14} /> Read aloud</button>}</div>
+                      <div className="message-bubble"><div className="message-label">{message.role === "user" ? "YOU" : "AURORA"}</div>{message.role === "assistant" ? <FormattedMessage content={message.content} onChoice={(choice) => sendMessage(choice)} /> : <p className="message-paragraph">{message.content}</p>}{message.role === "assistant" && <div className="message-actions"><button type="button" className="message-action" onClick={() => copyAssistantMessage(message.content)}><Copy size={13}/> Copy</button><button type="button" className="speak-message" onClick={() => speak(message.content.replace(/\[\[CHOICES:[\s\S]*?\]\]/g, ""))}><Volume2 size={14}/> Read aloud</button></div>}</div>
                     </div>
                   ))}
                   {busy && <div className="message-row message-assistant"><span className="message-avatar"><Sparkles size={15} /></span><div className="message-bubble"><div className="message-label">AURORA</div><div className="typing-indicator"><i /><i /><i /></div></div></div>}
