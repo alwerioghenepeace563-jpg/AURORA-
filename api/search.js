@@ -179,6 +179,40 @@ async function parseWikipedia(query) {
   }));
 }
 
+function parseBingImages(html) {
+  const results = [];
+  const patterns = [
+    /"murl":"(https?:\\\\\/\\\\\/[^"]+)","turl":"[^"]*","t":"([^"]*)"/g,
+    /"murl":"(https?:[^"]+)","turl":"[^"]*","t":"([^"]*)"/g
+  ];
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(html)) && results.length < 12) {
+      const decode = value => value.replace(/\\\\u0026/gi, "&").replace(/\\\\u003d/gi, "=").replace(/\\\\u002f/gi, "/").replace(/\\\\\\\\/g, "\\\\").replace(/\\\\\//g, "/").replace(/&amp;/g, "&");
+      let image = decode(match[1]);
+      let title = stripTags(decode(match[2]));
+      try {
+        const parsed = new URL(image);
+        if (parsed.protocol !== "https:" || !title || /(^|\\.)(localhost|local|internal)$/i.test(parsed.hostname)) continue;
+        if (!results.some(item => item.image === parsed.href)) results.push({title:title.slice(0,140),image:parsed.href,url:parsed.href,snippet:"Image preview retrieved from Bing Images"});
+      } catch {}
+    }
+  }
+  return results;
+}
+async function searchBingImages(query) {
+  const url = "https://www.bing.com/images/search?q=" + encodeURIComponent(query) + "&form=HDRSC3";
+  const response = await fetch(url, {
+    headers: {"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml"},
+    signal: AbortSignal.timeout(6500)
+  });
+  if (!response.ok) throw new Error("Bing Images HTTP " + response.status);
+  const html = (await response.text()).slice(0, 1800000);
+  const results = parseBingImages(html);
+  if (!results.length) throw new Error("Bing Images returned no parseable image previews");
+  return {query,source:"Bing Images",results:results.slice(0,8)};
+}
+
 export async function searchAuroraWeb(rawQuery) {
   const query = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 240) : "";
   if (query.length < 2) throw new Error("Search query is too short.");
@@ -257,6 +291,17 @@ export default async function handler(req, res) {
     return res.status(405).json({error:"Use GET or POST."});
   }
   let query = req.method === "GET" ? req.query?.q : req.body?.query;
+  const wantsImages = req.method === "GET" && req.query?.type === "images";
+  if (wantsImages) {
+    if (typeof query !== "string" || query.trim().length < 2) return res.status(400).json({error:"Enter an image search query."});
+    try {
+      const result = await searchBingImages(query.trim().slice(0, 200));
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("AURORA image search failed:", String(error?.message || error));
+      return res.status(502).json({error:"Image search is temporarily unavailable. Try again shortly."});
+    }
+  }
   if (typeof query !== "string") query = "";
   query = query.trim().slice(0, 240);
   if (query.length < 2) return res.status(400).json({error:"Enter a search query."});
