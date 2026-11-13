@@ -417,7 +417,7 @@ export default function App() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [pulseOpen, setPulseOpen] = useState(false);
   const [pulseDraft, setPulseDraft] = useState("");
-  const [pulseMessages, setPulseMessages] = useState([{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }]);
+  const [pulseMessages, setPulseMessages] = useState([]);
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
@@ -427,38 +427,11 @@ export default function App() {
   const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
   const pulseInterruptionReleaseRef = useRef(null);
-  const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
-  const [pulseWeather, setPulseWeather] = useState({ temperature: "â€”", condition: "Tap to load current weather", city: "Lagos" });
-  const [pulseWeatherBusy, setPulseWeatherBusy] = useState(false);
-  const pulseWeatherRequestRef = useRef(0);
   const [browserWakeListening, setBrowserWakeListening] = useState(false);
   const browserWakeRecognitionRef = useRef(null);
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
-  async function loadPulseWeather(city = pulseWeatherCity) {
-    const chosen = String(city || "").trim();
-    if (!chosen) return;
-    const requestId = ++pulseWeatherRequestRef.current;
-    setPulseWeatherBusy(true);
-    try {
-      const response = await fetch(auroraApiUrl("/api/weather?city=") + encodeURIComponent(chosen));
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Weather could not be loaded.");
-      const current = data.current || {};
-      const units = data.units || {};
-      if (requestId !== pulseWeatherRequestRef.current) return;
-      setPulseWeather({ temperature: current.temperature == null ? "â€”" : String(current.temperature) + (units.temperature || "Â°C"), condition: current.description || "Conditions unavailable", city: data.location || chosen });
-      setPulseWeatherCity(data.location || chosen);
-    } catch (error) {
-      if (requestId === pulseWeatherRequestRef.current) {
-        setPulseWeather({ temperature: "Unavailable", condition: error?.message || "Try again shortly", city: chosen });
-      }
-    } finally {
-      if (requestId === pulseWeatherRequestRef.current) setPulseWeatherBusy(false);
-    }
-  }
-  useEffect(() => { loadPulseWeather("Lagos"); }, []);
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
@@ -1452,7 +1425,6 @@ export default function App() {
   }
 
   async function togglePulseMic() {
-    setPulseMessages(items => [...items, { role: "assistant", content: "AURORA Pulse mic button received your tap. Checking speech recognition…" }]);
     if (pulseListening) {
       if (auroraNative.isAndroid()) try { await auroraNative.stopSpeechRecognition(); } catch {}
       cleanupPulseSpeech(); return;
@@ -2233,11 +2205,11 @@ export default function App() {
                   <button type="button" className="aurora-pulse-drag-handle" aria-label="Move chat panel" onPointerDown={event => { pulseDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pulseConversationPosition.x, originY: pulseConversationPosition.y }; event.currentTarget.setPointerCapture(event.pointerId); }}>••• <span>DRAG CHAT PANEL</span> •••</button>
                   {pulseToolsOpen && <div className="aurora-pulse-tools-grid">
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("search"); }}><Sparkles size={19}/> Web search</button>
-                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("calendar"); }}><CalendarDays size={19}/> Calendar</button>
-                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("tasks"); }}><Check size={19}/> Tasks</button>
-                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("email"); }}><Mail size={19}/> Email</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("calculator"); }}><Calculator size={19}/> Calculator</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("study"); }}><GraduationCap size={19}/> Study</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("writing"); }}><NotebookPen size={19}/> Writing</button>
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openAttachment("camera"); }}><Camera size={19}/> Camera</button>
-                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setAttachmentOpen(true); }}><MoreHorizontal size={19}/> More tools</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); navigate("tools"); }}><MoreHorizontal size={19}/> More tools</button>
                   </div>}
                   <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">
                     {pulseMessages.length === 0 && <div className="aurora-pulse-empty">Your AURORA conversation starts here.<br/>Ask anything or use the microphone.</div>}
