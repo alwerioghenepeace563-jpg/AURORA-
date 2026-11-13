@@ -292,7 +292,7 @@ export async function searchAuroraWeb(rawQuery) {
 }
 
 export default async function handler(req, res) {
-  if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
+  if (applyAuroraCors(req, res, "GET, POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   if (req.method !== "GET" && req.method !== "POST") {
