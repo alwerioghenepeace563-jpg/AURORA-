@@ -4,13 +4,13 @@ This is the authoritative setup checklist for the main AURORA Assistant. It is b
 
 ## Security rules
 - Never commit real credentials, send them in chat, put them in screenshots, or add them to an APK.
-- Server credentials belong in the AURORA Cloudflare Pages project → Settings → Environment Variables. Redeploy after changing them.
+- Server credentials belong in the AURORA Vercel project → Settings → Environment Variables. Redeploy after changing them.
 - Only Supabase's anon/publishable key and project URL may be used in the client build (VITE_ variables), and only with correct Supabase Row Level Security (RLS). Never use a Supabase service-role/secret key in AURORA's frontend.
 - GitHub Actions secrets belong in GitHub → AURORA repository → Settings → Secrets and variables → Actions.
 - VoiceText has its own Vercel project and its own server secrets. Do not mix the two projects' credentials.
 - Add values to Production, Preview and Development only where each environment actually needs them.
 
-## 1. Main AURORA Cloudflare Pages project
+## 1. Main AURORA Vercel project
 
 ### A. Text AI — core chat and provider fallback
 At least one provider key is required for cloud AI chat. For resilience, configure all three:
@@ -50,7 +50,7 @@ Use the same project URL and anon/publishable key in both pairs. Do not use a se
 The code also accepts the legacy typo ELEVENLAB_API_KEY; use ELEVENLABS_API_KEY for new setup. Browser speech fallback does not require ElevenLabs.
 
 ### D. AURORA ↔ VoiceText private bridge
-Set these on the main AURORA Cloudflare Pages project:
+Set these on the main AURORA Vercel project:
 
 | Variable | Requirement | Purpose |
 |---|---|---|
@@ -111,7 +111,7 @@ VoiceText's public build settings may also include VITE_API_BASE_URL, VITE_BACKU
 
 Only configure provider keys for services that are enabled and referenced by the current VoiceText backend. Never copy its service-role key or private backup tokens into main AURORA.
 
-## 3. Cloudflare Pages build/runtime configuration\n\nFor the main AURORA project, configure the following in Cloudflare Pages:\n\n- Build command: `npm install --no-audit --no-fund && npm run build`\n- Output directory: `dist`\n- Production branch: `main`\n- Build variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_GOOGLE_CLIENT_ID`, `VITE_AURORA_VERSION_CODE`, `VITE_AURORA_VERSION_NAME` where needed. These are client/build values; only the Supabase anon/publishable key belongs in the client.\n- Runtime secrets: provider keys, ElevenLabs credentials, Supabase server URL/anon key, VoiceText bridge token, Admin GitHub token and allowlist. Use Secret type for credentials.\n- Set `AURORA_ALLOWED_ORIGIN` to `https://aurora-assistant.pages.dev` (or the exact custom-domain origin after attaching it).\n\nFor the manual Cloudflare deployment workflow, add GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The token should be scoped to the intended Cloudflare account and Pages deployment.\n\n## 4. GitHub Actions secrets for Android release workflow
+## 3. GitHub Actions secrets for Android release workflow
 These are not Vercel variables. Add them only in the AURORA GitHub repository's Actions secrets:
 
 | Secret | Requirement | Purpose |
@@ -134,7 +134,7 @@ The following names are supported only as backward-compatibility fallbacks or lo
 - `VITE_AURORA_VERSION_CODE` and `VITE_AURORA_VERSION_NAME`: public build metadata, not secrets.
 - `AURORA_REDUCED_PERMISSION_TEST`: local/CI-only Android permission-parity test switch; never enable it in a production build.
 
-## 5. Stage-by-stage key requirements (1–14)
+## 4. Stage-by-stage key requirements (1–14)
 
 | Stage | Capability area | Credential position today |
 |---|---|---|
@@ -161,19 +161,19 @@ The following names are supported only as backward-compatibility fallbacks or lo
 
 These services still have usage policies, availability limits and network requirements.
 
-## 6. Recommended setup order
-1. Confirm the correct AURORA Cloudflare Pages project is selected.
+## 5. Recommended setup order
+1. Confirm the correct AURORA Vercel project is selected.
 2. Add Supabase URL and anon/publishable key to both server and client variable names.
 3. Add at least one AI provider key; ideally add Groq, OpenRouter and Gemini for fallback.
 4. Add ElevenLabs only if premium voice output is wanted.
-5. Add the VoiceText shared token to both Cloudflare Pages and VoiceText projects, using the same value on each side.
+5. Add the VoiceText shared token to both Vercel projects, using the same value on each side.
 6. Add Upstash only if shared provider preference is wanted.
 7. Add the Admin GitHub token only if Admin code editing will be used.
 8. Add GitHub Actions secrets only when preparing an Android release.
-9. Redeploy the relevant Cloudflare Pages and VoiceText projects after environment changes.
+9. Redeploy the relevant Vercel projects after environment changes.
 10. Check /api/health for configured provider/voice status. Use the authenticated Admin provider test for actual live provider checks; a configured flag alone does not prove a key is valid.
 
-## 7. What checks can and cannot prove
+## 6. What checks can and cannot prove
 A configured status means a variable exists, not that the provider accepts it, has quota, or supports a requested model. Use a live provider test for AI keys. VoiceText requires an authenticated transcription round-trip. Supabase cloud memory requires a signed-in test account and RLS verification. Android signing requires a certificate match and release build.
 
 Never mark Stages 1–14 as fully configured merely because environment variables have been entered. Stage 13 provider adapters and release/device certification remain separate work.
