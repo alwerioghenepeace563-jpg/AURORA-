@@ -976,3 +976,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .message-image-card .image-fallback:before{content:"Preview unavailable · open source";display:block;font-size:11px;color:#ffd7a3}
 .message-rich-content .message-image-card:focus-visible{outline:2px solid #bba7ff;outline-offset:3px}
 @media(max-width:700px){.message-rich-content .message-image-card{width:min(100%,340px);margin:7px 8px 9px 0}.message-rich-content .message-image-card img{max-height:250px}}
+
+
+/* Consistent, thumb-friendly actions for assistant responses */
+.message-actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:12px;padding-top:9px;border-top:1px solid rgba(150,160,185,.12)}
+.message-action,.message-actions .speak-message{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:6px 10px;border:1px solid rgba(150,160,185,.16);border-radius:10px;background:rgba(130,140,170,.07);color:#aeb8cc;font:inherit;font-size:11px;cursor:pointer;transition:background .18s ease,border-color .18s ease,color .18s ease}
+.message-action:hover,.message-actions .speak-message:hover{background:rgba(140,125,230,.13);border-color:rgba(167,139,250,.38);color:#e6ddff}
+.message-action:focus-visible,.message-actions .speak-message:focus-visible{outline:2px solid #bba7ff;outline-offset:2px}
+.message-actions .speak-message{margin:0}
+@media(max-width:600px){.message-action,.message-actions .speak-message{min-height:36px;padding:7px 11px;font-size:11px}}
