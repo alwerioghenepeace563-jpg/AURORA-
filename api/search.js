@@ -180,39 +180,31 @@ async function parseWikipedia(query) {
 }
 
 function decodeBingValue(value = "") {
-  return String(value)
-    .replace(/\\\\u0026/gi, "&").replace(/\\\\u003d/gi, "=")
-    .replace(/\\\\u002f/gi, "/").replace(/\\\\u003a/gi, ":")
-    .replace(/\\\\\\\\/g, "\\\\").replace(/\\\\\//g, "/")
-    .replace(/&amp;/g, "&").trim();
+  return String(value).replace(/\\u0026/gi, "&").replace(/\\u003d/gi, "=")
+    .replace(/\\u002f/gi, "/").replace(/\\u003a/gi, ":")
+    .replace(/\\\//g, "/").replace(/&amp;/g, "&").trim();
 }
 function parseBingImages(html) {
   const results = [];
-  // Bing embeds image metadata as JSON-like records in its image results page.
-  const recordPattern = /\{[^{}]{0,12000}?"murl"\s*:\s*"((?:\\\\.|[^"\\\\])*)"[^{}]{0,12000}?\}/g;
+  const imagePattern = /"murl"\s*:\s*"([^"]+)"/g;
   let match;
-  while ((match = recordPattern.exec(html)) && results.length < 16) {
-    const record = match[0];
-    const imageRaw = match[1];
-    const image = decodeBingValue(imageRaw);
-    const titleMatch = record.match(/"t"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/);
-    const pageMatch = record.match(/"purl"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/);
-    const descriptionMatch = record.match(/"desc"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/);
+  while ((match = imagePattern.exec(html)) && results.length < 16) {
+    const context = html.slice(Math.max(0, match.index - 1800), Math.min(html.length, match.index + 4200));
+    const image = decodeBingValue(match[1]);
+    const titleMatch = context.match(/"t"\s*:\s*"([^"]*)"/);
+    const pageMatch = context.match(/"purl"\s*:\s*"([^"]*)"/);
+    const descriptionMatch = context.match(/"desc"\s*:\s*"([^"]*)"/);
     const title = stripTags(decodeBingValue(titleMatch?.[1] || "Visual reference"));
     try {
       const imageUrl = new URL(image);
       const sourceUrl = pageMatch?.[1] ? new URL(decodeBingValue(pageMatch[1])) : imageUrl;
-      if (imageUrl.protocol !== "https:" || sourceUrl.protocol !== "https:" ||
-          !title || /(^|\\.)(localhost|local|internal)$/i.test(imageUrl.hostname) ||
-          /(^|\\.)(localhost|local|internal)$/i.test(sourceUrl.hostname)) continue;
-      if (!results.some(item => item.image === imageUrl.href)) {
-        results.push({
-          title: title.slice(0, 140),
-          image: imageUrl.href,
-          url: sourceUrl.href,
-          snippet: stripTags(decodeBingValue(descriptionMatch?.[1] || "Retrieved from Bing Images")).slice(0, 220)
-        });
-      }
+      if (imageUrl.protocol !== "https:" || sourceUrl.protocol !== "https:" || !title ||
+          /(^|\.)(localhost|local|internal)$/i.test(imageUrl.hostname) ||
+          /(^|\.)(localhost|local|internal)$/i.test(sourceUrl.hostname)) continue;
+      if (!results.some(item => item.image === imageUrl.href)) results.push({
+        title: title.slice(0, 140), image: imageUrl.href, url: sourceUrl.href,
+        snippet: stripTags(decodeBingValue(descriptionMatch?.[1] || "Retrieved from Bing Images")).slice(0, 220)
+      });
     } catch {}
   }
   return results;
