@@ -283,6 +283,7 @@ function BottomNav({ active, onNavigate }) {
     { id: "tools", label: "Tools", Icon: Sparkles },
     { id: "maps", label: "Maps", Icon: MapPinned },
     { id: "chat", label: "AURORA", Icon: AudioLines },
+    { id: "pulse", label: "Pulse", Icon: Activity },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
   return (
@@ -1031,6 +1032,7 @@ export default function App() {
   }, [authSession, authConfigured, authUrl, authKey, authStorageReady]);
 
   function navigate(next) {
+    if (next === "pulse") setPulseOpen(true);
     if (next === "tools") setToolScreen("home");
     if (next === "admin" && (!authVerified || !authSession?.access_token || String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com")) {
       setNotice("Admin access is restricted.");
@@ -2178,15 +2180,17 @@ export default function App() {
 
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>
-          {pulseOpen && (
-            <motion.div className="aurora-pulse-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setPulseOpen(false)}>
-              <motion.section ref={pulsePanelRef} tabIndex={-1} className="aurora-pulse-panel" role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+          {(pulseOpen || page === "pulse") && (
+            <motion.div className={"aurora-pulse-backdrop" + (page === "pulse" ? " aurora-pulse-page-backdrop" : "")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>
+              <motion.section ref={pulsePanelRef} tabIndex={-1} className={"aurora-pulse-panel" + (page === "pulse" ? " aurora-pulse-page-panel" : "")} role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
                 <style>{`
                   .pulse-launch-card{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:15px 17px;margin:16px 0 18px;border:1px solid #1f2a44;border-radius:20px;background:linear-gradient(120deg,#0d1322,#111b2d);color:#e8edf7;cursor:pointer}
                   .pulse-launch-orb,.aurora-pulse-orb{display:block;flex:none;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 42%,#0b3a55 72%,#b79cff 100%);box-shadow:0 0 12px #2dd4e688,0 0 30px #5aa2ff55}
                   .pulse-launch-orb{width:42px;height:42px}.pulse-launch-copy{display:grid;gap:4px;flex:1}.pulse-launch-copy strong{font-size:14px}.pulse-launch-copy small{font-size:12px;color:#8a96ad}.pulse-launch-arrow{color:#2dd4e6;font-size:22px}
                   @media (prefers-reduced-motion: reduce){.aurora-pulse-backdrop,.aurora-pulse-panel{animation:none!important;transition:none!important}.aurora-pulse-orb,.pulse-launch-orb{animation:none!important;scroll-behavior:auto!important}}
-                   .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(3,8,20,.62);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+                    .aurora-pulse-page-backdrop{background:rgba(3,8,20,.96);padding:0;backdrop-filter:none;align-items:stretch}
+                  .aurora-pulse-page-panel{width:min(100%,980px);height:100%;max-height:100%;min-height:100%;border-radius:0;margin:0;}
+                  .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(3,8,20,.62);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
                   .aurora-pulse-panel{position:relative;width:min(520px,100%);height:min(760px,88vh);min-height:420px;padding:76px 20px 16px;border:1px solid #24456e;border-radius:28px;background:linear-gradient(155deg,#0b1426f7,#080c18fc);box-shadow:0 24px 80px #0009,0 0 32px #277dff33;color:#e8edf7;display:flex;flex-direction:column;gap:8px;overflow:hidden;pointer-events:auto}
                   .aurora-pulse-head{display:contents!important}.aurora-pulse-brand{display:none!important}.aurora-pulse-close{position:fixed;top:20px;right:22px;z-index:10003;pointer-events:auto}/* Pulse content visibility restored; layout rules follow below. */
                   /* AURORA_PULSE_CARD_LAYOUT_V2 */
@@ -2643,7 +2647,7 @@ export default function App() {
 .aurora-pulse-mic{display:inline-flex;align-items:center;justify-content:center;width:42px;min-width:42px;height:42px;border:1px solid rgba(92,220,255,.28);border-radius:14px;background:rgba(18,32,54,.88);color:#8cecff;cursor:pointer}.aurora-pulse-mic:disabled{opacity:.5}.aurora-pulse-mic.is-listening{box-shadow:0 0 18px rgba(65,220,255,.3);animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-thinking{animation:auroraPulseTalking .7s ease-in-out infinite alternate}
  `}
 </style>
-                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => setPulseOpen(false)}>Ã—</button></header>
+                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>Ã—</button></header>
                 <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
                 <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">â˜€</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loadingâ€¦" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">âŒ– {pulseWeather.city} â€º</span></button>
                 <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
