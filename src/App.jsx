@@ -1171,9 +1171,11 @@ export default function App() {
       const visualIntent = !attachmentOverride && /\b(?:show|find|get|pull|bring|display|give me)\b.{0,55}\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b|\b(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\b/i.test(text);
       if (visualIntent) {
         const visualQuery = text
-          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:show|find|get|pull|bring|display|give me)\s+/i, "")
+          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:can you\s+)?(?:show|find|get|pull|bring|display|give me|i need|i want|can i see|let me see)\s+/i, "")
+          .replace(/^\s*(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\s+(?:of|for)\s+/i, "")
+          .replace(/^\s*(?:some\s+)?(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\s+/i, "")
           .replace(/\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b/ig, " ")
-          .replace(/\b(?:please|for me|thanks?)\b/ig, " ")
+          .replace(/\b(?:please|for me|thanks?|me)\b/ig, " ")
           .replace(/\s+/g, " ").trim() || text;
         const searchUrl = auroraApiUrl("/api/search?q=" + encodeURIComponent(visualQuery));
         const searchResponse = await fetch(searchUrl, { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
