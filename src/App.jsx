@@ -11,6 +11,7 @@ import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace"
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
 import IntelligenceEcosystemWorkspace from "./components/IntelligenceEcosystemWorkspace";
+import AuroraPulseExperience from "./components/AuroraPulseExperience";
 import { buildAuroraRoutineInsights } from "./core/aurora-routine-insights";
 import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
 import { AnimatePresence, motion } from "framer-motion";
@@ -421,13 +422,8 @@ export default function App() {
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const pulseRecognitionRef = useRef(null);
-  const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
   const pulseInterruptionReleaseRef = useRef(null);
-  const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
-  const [pulseWeather, setPulseWeather] = useState({ temperature: "â€”", condition: "Tap to load current weather", city: "Lagos" });
-  const [pulseWeatherBusy, setPulseWeatherBusy] = useState(false);
-  const pulseWeatherRequestRef = useRef(0);
   const [browserWakeListening, setBrowserWakeListening] = useState(false);
   const browserWakeRecognitionRef = useRef(null);
   useEffect(() => {
@@ -739,23 +735,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!pulseOpen) {
+    const pulseVisible = pulseOpen || page === "pulse";
+    if (!pulseVisible) {
       if (pulseRecognitionRef.current || pulseInterruptionReleaseRef.current || pulseNativeSpeechListenersRef.current.length) cleanupPulseSpeech();
       return undefined;
     }
-    const previousFocus = document.activeElement;
-    const panel = pulsePanelRef.current;
-    const focusable = () => panel?.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') || [];
-    const first = focusable()[0];
-    (first || panel)?.focus?.();
     const onKeyDown = (event) => {
-      if (event.key === "Escape") { event.preventDefault(); cleanupPulseSpeech(); setPulseOpen(false); return; }
-      if (event.key !== "Tab" || !panel) return;
-      const items = [...focusable()];
-      if (!items.length) { event.preventDefault(); panel.focus(); return; }
-      const firstItem = items[0], lastItem = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === firstItem) { event.preventDefault(); lastItem.focus(); }
-      else if (!event.shiftKey && document.activeElement === lastItem) { event.preventDefault(); firstItem.focus(); }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cleanupPulseSpeech();
+        setPulseOpen(false);
+        if (page === "pulse") setPage("home");
+      }
     };
     const onVisibility = () => { if (document.visibilityState === "hidden") cleanupPulseSpeech(); };
     document.addEventListener("keydown", onKeyDown);
@@ -764,9 +755,8 @@ export default function App() {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("visibilitychange", onVisibility);
       if (pulseRecognitionRef.current || pulseInterruptionReleaseRef.current || pulseNativeSpeechListenersRef.current.length) cleanupPulseSpeech();
-      if (previousFocus && typeof previousFocus.focus === "function") requestAnimationFrame(() => previousFocus.focus());
     };
-  }, [pulseOpen]);
+  }, [pulseOpen, page]);
 
   useEffect(() => {
     const syncApprovals = () => setPendingApprovals(auroraRuntime.approvals.listPending());
@@ -1415,25 +1405,37 @@ export default function App() {
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
     if (!text || pulseBusy) return;
-    const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\s+(.+)$/i);
+    const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\\s+(.+)$/i);
     if (searchMatch) { setPulseDraft(""); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
-    const next = [...pulseMessages, { role: "user", content: text }];
-    setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
+    const history = [...pulseMessages, { role: "user", content: text }];
+    const thinkingId = "pulse-response-" + Date.now();
+    setPulseMessages([...history, { id: thinkingId, role: "assistant", content: "", status: "thinking" }]);
+    setPulseDraft("");
+    setPulseBusy(true);
+    const resolveThinking = (content) => setPulseMessages(items => items.map(message =>
+      message.id === thinkingId ? { ...message, content: String(content || ""), status: "complete" } : message
+    ));
     try {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
       if (liveToolResult?.error) {
-        setPulseMessages(items => [...items, { role: "assistant", content: liveToolResult.error }]);
+        resolveThinking(liveToolResult.error);
         return;
       }
-      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
+      const response = await fetch(auroraApiUrl("/api/chat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history.slice(-12), profile, toolContext: liveToolResult?.context || "" })
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
-      setPulseMessages(items => [...items, { role: "assistant", content: String(reply) }]);
+      resolveThinking(reply);
       if (soundOn) speak(String(reply));
     } catch (error) {
-      setPulseMessages(items => [...items, { role: "assistant", content: error?.message || "I couldn't connect just now. Please try again." }]);
-    } finally { setPulseBusy(false); }
+      resolveThinking(error?.message || "I couldn't connect just now. Please try again.");
+    } finally {
+      setPulseBusy(false);
+    }
   }
 
   function cleanupPulseSpeech() {
@@ -1446,7 +1448,6 @@ export default function App() {
   }
 
   async function togglePulseMic() {
-    setPulseMessages(items => [...items, { role: "assistant", content: "AURORA Pulse mic button received your tap. Checking speech recognition…" }]);
     if (pulseListening) {
       if (auroraNative.isAndroid()) try { await auroraNative.stopSpeechRecognition(); } catch {}
       cleanupPulseSpeech(); return;
@@ -2181,486 +2182,20 @@ export default function App() {
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>
           {(pulseOpen || page === "pulse") && (
-            <motion.div className={"aurora-pulse-backdrop" + (page === "pulse" ? " aurora-pulse-page-backdrop" : "")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>
-              <motion.section ref={pulsePanelRef} tabIndex={-1} className={"aurora-pulse-panel" + (page === "pulse" ? " aurora-pulse-page-panel" : "")} role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
-                <style>{`
-                  .pulse-launch-card{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:15px 17px;margin:16px 0 18px;border:1px solid #1f2a44;border-radius:20px;background:linear-gradient(120deg,#0d1322,#111b2d);color:#e8edf7;cursor:pointer}
-                  .pulse-launch-orb,.aurora-pulse-orb{display:block;flex:none;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 42%,#0b3a55 72%,#b79cff 100%);box-shadow:0 0 12px #2dd4e688,0 0 30px #5aa2ff55}
-                  .pulse-launch-orb{width:42px;height:42px}.pulse-launch-copy{display:grid;gap:4px;flex:1}.pulse-launch-copy strong{font-size:14px}.pulse-launch-copy small{font-size:12px;color:#8a96ad}.pulse-launch-arrow{color:#2dd4e6;font-size:22px}
-                  @media (prefers-reduced-motion: reduce){.aurora-pulse-backdrop,.aurora-pulse-panel{animation:none!important;transition:none!important}.aurora-pulse-orb,.pulse-launch-orb{animation:none!important;scroll-behavior:auto!important}}
-                    .aurora-pulse-page-backdrop{background:rgba(3,8,20,.96);padding:0;backdrop-filter:none;align-items:stretch}
-                  .aurora-pulse-page-panel{width:min(100%,980px);height:100%;max-height:100%;min-height:100%;border-radius:0;margin:0;}
-                  .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(3,8,20,.62);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
-                  .aurora-pulse-panel{position:relative;width:min(520px,100%);height:min(760px,88vh);min-height:420px;padding:76px 20px 16px;border:1px solid #24456e;border-radius:28px;background:linear-gradient(155deg,#0b1426f7,#080c18fc);box-shadow:0 24px 80px #0009,0 0 32px #277dff33;color:#e8edf7;display:flex;flex-direction:column;gap:8px;overflow:hidden;pointer-events:auto}
-                  .aurora-pulse-head{display:contents!important}.aurora-pulse-brand{display:none!important}.aurora-pulse-close{position:fixed;top:20px;right:22px;z-index:10003;pointer-events:auto}/* Pulse content visibility restored; layout rules follow below. */
-                  /* AURORA_PULSE_CARD_LAYOUT_V2 */
-.aurora-pulse-panel{position:relative!important;isolation:isolate;box-sizing:border-box}
-.aurora-pulse-head{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;flex:none!important;height:54px!important;min-height:54px!important}
-.aurora-pulse-head .aurora-pulse-orb{position:relative!important;top:auto!important;left:auto!important;transform:none!important;width:42px!important;height:42px!important}
-.aurora-pulse-close{position:absolute!important;top:8px!important;right:0!important}
-.aurora-pulse-greeting{position:static!important;flex:none!important;padding:8px 0!important}
-.aurora-pulse-weather{position:static!important;left:auto!important;bottom:auto!important;transform:none!important;width:100%!important;box-sizing:border-box!important;flex:none!important;margin:4px 0!important}
-.aurora-pulse-chips{position:static!important;flex:none!important;margin:4px 0!important}
-.aurora-pulse-chat{position:relative!important;flex:1 1 auto!important;min-height:48px!important;width:100%!important;box-sizing:border-box!important}
-.aurora-pulse-composer{position:relative!important;left:auto!important;bottom:auto!important;transform:none!important;width:100%!important;box-sizing:border-box!important;flex:none!important;margin:4px 0 0!important;padding:9px!important}
-.aurora-pulse-shortcuts{position:static!important;left:auto!important;bottom:auto!important;transform:none!important;width:100%!important;box-sizing:border-box!important;flex:none!important;margin:4px 0 0!important}
-.aurora-pulse-foot{position:static!important;flex:none!important;margin:4px 0 0!important}
-@media(max-width:480px){.aurora-pulse-panel{padding:14px!important;min-height:0!important;height:min(760px,88dvh)!important}.aurora-pulse-head{height:48px!important;min-height:48px!important}.aurora-pulse-head .aurora-pulse-orb{width:40px!important;height:40px!important}.aurora-pulse-shortcuts{gap:4px!important}.aurora-pulse-shortcuts button{height:36px!important;font-size:12px!important}.aurora-pulse-shortcuts button span{font-size:10px!important}}
-                  @keyframes auroraPulseTalking{0%,100%{transform:translateX(-50%) scale(1);filter:hue-rotate(0deg);box-shadow:0 0 12px #2dd4e6,0 0 27px #5aa2ff,0 0 42px #b79cff}25%{transform:translateX(-50%) scale(1.09);filter:hue-rotate(12deg);box-shadow:0 0 18px #2dd4e6,0 0 38px #5aa2ff,0 0 54px #b79cff}50%{transform:translateX(-50%) scale(.96);filter:hue-rotate(-10deg);box-shadow:0 0 15px #b79cff,0 0 34px #2dd4e6,0 0 48px #5aa2ff}75%{transform:translateX(-50%) scale(1.06);filter:hue-rotate(20deg)}}\n                  .aurora-pulse-orb{position:fixed;top:28px;left:50%;transform:translateX(-50%);width:44px;height:44px;z-index:10002;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 36%,#167eff 58%,#7a42ff 78%,#e348ff 100%);box-shadow:0 0 12px #2dd4e6,0 0 27px #5aa2ff,0 0 42px #b79cff;pointer-events:none}
-                  .aurora-pulse-head .aurora-pulse-orb{animation:auroraPulseTalking 2.2s ease-in-out infinite}.aurora-pulse-orb:before{content:"";position:absolute;left:-78px;right:-78px;top:16px;height:12px;background:linear-gradient(90deg,transparent,#2dd4e6,#b79cff,#2dd4e6,transparent);filter:blur(5px);z-index:-1}
-                  .aurora-pulse-weather{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);width:min(490px,78vw);margin:0;padding:12px 18px;border:1px solid #478eff;border-radius:22px;background:linear-gradient(110deg,rgba(23,77,157,.82),rgba(34,44,120,.82));backdrop-filter:blur(20px);box-shadow:0 0 18px #277dff55,0 0 26px #673aff33;pointer-events:auto;color:#edf5ff;text-align:left;cursor:pointer;font:inherit}.aurora-pulse-weather:disabled{opacity:.8}.aurora-pulse-weather-copy{display:flex;flex-direction:column;gap:3px}.aurora-pulse-weather-copy strong{font-size:21px}.aurora-pulse-weather-copy small{font-size:12px;color:#d5e3ff}
-                  .aurora-pulse-weather .aurora-pulse-weather-icon{font-size:30px;color:#ffd23f}.aurora-pulse-weather strong{font-size:21px}.aurora-pulse-weather small{font-size:12px}.aurora-pulse-weather .pulse-weather-note{font-size:12px}
-                  .aurora-pulse-composer{position:fixed;left:50%;bottom:25px;transform:translateX(-50%);width:min(700px,92vw);padding:12px 15px 58px;border:1px solid #3e9eff;border-radius:34px;background:linear-gradient(145deg,rgba(11,40,103,.91),rgba(17,22,79,.91));backdrop-filter:blur(22px);box-shadow:0 0 18px #138dff99,0 0 38px #673aff44;pointer-events:auto}
-                  .aurora-pulse-composer:after{content:none}
-                  .aurora-pulse-composer .aurora-pulse-orb{position:static;transform:none;width:42px;height:42px;flex:none}
-                  .aurora-pulse-composer input{font-size:15px!important;padding:12px 6px!important}
-                  .aurora-pulse-send{width:44px;height:44px;box-shadow:0 0 14px #477bff;font-size:20px}
-                  @media(max-width:480px){.aurora-pulse-orb{top:30px;width:42px;height:42px}.aurora-pulse-weather{bottom:150px;width:82vw}.aurora-pulse-composer{bottom:24px;width:92vw;padding-bottom:56px}.aurora-pulse-composer:after{font-size:10px}}
-                  .aurora-pulse-head{display:block!important;position:static!important;border:0!important;padding:0!important}.aurora-pulse-head .aurora-pulse-orb{position:fixed!important;top:25px!important;left:50%!important;transform:translateX(-50%)!important;width:48px!important;height:48px!important;z-index:10002!important}.aurora-pulse-brand{display:none!important}.aurora-pulse-brand strong{letter-spacing:.18em;font-size:14px;font-weight:600}.aurora-pulse-brand small{display:block;color:#8a96ad;font-size:10px;letter-spacing:.12em;margin-top:4px}.aurora-pulse-close{position:fixed!important;top:18px!important;right:18px!important;z-index:10003!important;border:1px solid #1f2a44;border-radius:50%;width:36px;height:36px;background:#0d1322;color:#e8edf7;font-size:21px;cursor:pointer;pointer-events:auto}
-                  .aurora-pulse-greeting{padding:17px 0 10px}.aurora-pulse-greeting small{color:#2dd4e6;font-size:10px;letter-spacing:.15em}.aurora-pulse-greeting h2{font-size:22px;font-weight:500;margin:6px 0}.aurora-pulse-greeting p{color:#8a96ad;font-size:13px;margin:0;line-height:1.5}
-                  .aurora-pulse-weather{display:flex;align-items:center;gap:12px;border:1px solid #1f2a44;border-radius:18px;padding:13px 15px;background:linear-gradient(110deg,#0d1322,#101b2c);margin:7px 0 12px}.aurora-pulse-weather-icon{font-size:26px;color:#ffd23f}.aurora-pulse-weather strong{display:block;font-size:13px}.aurora-pulse-weather small{color:#8a96ad;font-size:11px}.aurora-pulse-weather .pulse-weather-note{margin-left:auto;color:#8a96ad;font-size:11px}
-                  .aurora-pulse-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 13px}.aurora-pulse-chips button{border:1px solid #1f2a44;border-radius:18px;background:#0d1322;color:#e8edf7;padding:8px 11px;font-size:11px;cursor:pointer}
-                  .aurora-pulse-chat{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:2px 0 12px}.aurora-pulse-message{max-width:90%;padding:11px 13px;border:1px solid #1f2a44;border-radius:16px;background:#0d1322;font-size:13px;line-height:1.5;white-space:pre-wrap}.aurora-pulse-message.user{align-self:flex-end;border-color:#2dd4e655;background:linear-gradient(120deg,#102c39,#171b36)}.aurora-pulse-message.assistant{align-self:flex-start}
-                  .aurora-pulse-composer{display:flex;gap:9px;align-items:center;padding:9px;border:1px solid #2dd4e688;border-radius:24px;background:#0d1322;box-shadow:0 0 18px #2dd4e611}.aurora-pulse-composer input{min-width:0;flex:1;border:0!important;outline:none!important;background:transparent!important;color:#e8edf7!important;padding:9px 4px!important;font-size:13px}.aurora-pulse-composer input::placeholder{color:#8a96ad}.aurora-pulse-send{width:40px;height:40px;border:0;border-radius:50%;background:linear-gradient(135deg,#22c3e6,#7a5cff);color:white;font-size:18px;cursor:pointer}.aurora-pulse-send:disabled{opacity:.5}.aurora-pulse-foot{font-size:10px;color:#8a96ad;text-align:center;margin:10px 0 0}
-                  @media(max-width:480px){.aurora-pulse-backdrop{padding-left:10px;padding-right:10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}.aurora-pulse-panel{height:min(720px,76vh);min-height:390px;border-radius:30px;padding:12px 15px 14px}}
-                  .aurora-pulse-orb.is-listening{animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-speaking{animation:auroraPulseTalking .45s ease-in-out infinite alternate;filter:hue-rotate(20deg)}
-                  .aurora-pulse-shortcuts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(700px,92vw);display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:auto}
-                  .aurora-pulse-shortcuts button{flex:1;min-width:0;height:42px;border:1px solid #315b96;border-radius:24px;background:rgba(9,28,65,.92);color:#e1edff;display:flex;align-items:center;justify-content:center;gap:5px;font-size:15px;white-space:nowrap;cursor:pointer}
-                  .aurora-pulse-shortcuts button span{font-size:12px}
-                  .aurora-pulse-weather{bottom:115px!important}
-                  .aurora-pulse-composer{bottom:68px!important;width:min(700px,92vw)!important;padding:9px!important}
-                  .aurora-pulse-composer input{min-width:0;flex:1}
-                  @media(max-width:480px){.aurora-pulse-shortcuts{bottom:17px;width:92vw;gap:5px}.aurora-pulse-shortcuts button{height:39px;font-size:13px}.aurora-pulse-shortcuts button span{font-size:10px}.aurora-pulse-weather{bottom:112px!important}.aurora-pulse-composer{bottom:63px!important;width:92vw!important}.aurora-pulse-head .aurora-pulse-orb{top:28px!important;width:44px!important;height:44px!important}}
-
-/* AURORA_PULSE_GLASS_FIX_V1 */
-
-/* AURORA_PULSE_COMPACT_GLOW_V1 */
-.aurora-pulse-backdrop {
-  padding: 10px !important;
-  background: rgba(8, 10, 14, .12) !important;
-  backdrop-filter: blur(2px) saturate(80%) !important;
-  -webkit-backdrop-filter: blur(2px) saturate(80%) !important;
-}
-.aurora-pulse-panel {
-  width: min(420px, 100%) !important;
-  height: min(620px, 78vh) !important;
-  padding: 12px !important;
-  gap: 7px !important;
-  border: none !important;
-  border-radius: 28px !important;
-  background: rgba(18, 20, 25, .24) !important;
-  box-shadow:
-    0 0 7px rgba(190, 225, 255, .30),
-    0 0 20px rgba(140, 195, 255, .19),
-    0 0 42px rgba(140, 195, 255, .10),
-    0 16px 45px rgba(0, 0, 0, .13) !important;
-}
-.aurora-pulse-head {
-  flex-basis: 76px !important;
-  height: 76px !important;
-  min-height: 76px !important;
-}
-.aurora-pulse-head .aurora-pulse-orb {
-  width: 68px !important;
-  height: 68px !important;
-  flex-basis: 68px !important;
-  border-radius: 50% !important;
-  box-shadow:
-    0 0 12px rgba(160, 220, 255, .45),
-    0 0 26px rgba(130, 190, 255, .26) !important;
-}
-.aurora-pulse-greeting {
-  padding: 0 0 4px !important;
-}
-.aurora-pulse-weather {
-  border: none !important;
-  border-radius: 16px !important;
-}
-.aurora-pulse-message {
-  border: none !important;
-  border-radius: 16px !important;
-}
-.aurora-pulse-message.user {
-  border: none !important;
-}
-.aurora-pulse-composer {
-  min-height: 58px !important;
-  padding: 12px 14px !important;
-  border: none !important;
-  border-radius: 22px !important;
-  background: rgba(255, 255, 255, .10) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, .07),
-    0 0 18px rgba(175, 215, 255, .08) !important;
-}
-.aurora-pulse-composer input {
-  font-size: 15px !important;
-}
-.aurora-pulse-shortcuts {
-  gap: 5px !important;
-}
-.aurora-pulse-shortcuts button {
-  border: none !important;
-  background: rgba(255, 255, 255, .065) !important;
-}
-@media (max-width: 480px) {
-  .aurora-pulse-backdrop {
-    padding: 8px !important;
-    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
-  }
-  .aurora-pulse-panel {
-    width: 100% !important;
-    height: min(620px, 78dvh) !important;
-    padding: 10px !important;
-    border-radius: 24px !important;
-  }
-  .aurora-pulse-head {
-    flex-basis: 72px !important;
-    height: 72px !important;
-    min-height: 72px !important;
-  }
-  .aurora-pulse-head .aurora-pulse-orb {
-    width: 64px !important;
-    height: 64px !important;
-    flex-basis: 64px !important;
-  }
-}
-/* END AURORA_PULSE_COMPACT_GLOW_V1 */
-
-.aurora-pulse-backdrop {
-  background: rgba(10, 12, 16, 0.22) !important;
-  backdrop-filter: blur(3px) saturate(85%) !important;
-  -webkit-backdrop-filter: blur(3px) saturate(85%) !important;
-  padding: 16px !important;
-}
-.aurora-pulse-panel {
-  box-sizing: border-box !important;
-  width: min(520px, 100%) !important;
-  height: min(760px, 88vh) !important;
-  min-height: 0 !important;
-  padding: 18px !important;
-  gap: 10px !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(255,255,255,.18) !important;
-  border-radius: 26px !important;
-  background: rgba(22, 24, 28, .20) !important;
-  box-shadow: 0 18px 55px rgba(0,0,0,.14) !important;
-  color: rgba(255,255,255,.92) !important;
-}
-.aurora-pulse-head {
-  display: flex !important;
-  position: relative !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex: 0 0 48px !important;
-  height: 48px !important;
-  min-height: 48px !important;
-  padding: 0 !important;
-}
-.aurora-pulse-head .aurora-pulse-orb {
-  position: static !important;
-  inset: auto !important;
-  transform: none !important;
-  flex: 0 0 42px !important;
-  width: 42px !important;
-  height: 42px !important;
-  box-shadow: 0 0 12px rgba(255,255,255,.14) !important;
-}
-.aurora-pulse-head .aurora-pulse-orb::before {
-  content: none !important;
-}
-.aurora-pulse-close {
-  position: absolute !important;
-  top: 4px !important;
-  right: 0 !important;
-  border: 1px solid rgba(255,255,255,.18) !important;
-  background: rgba(255,255,255,.06) !important;
-  color: white !important;
-}
-.aurora-pulse-greeting {
-  flex: 0 0 auto !important;
-  padding: 4px 0 8px !important;
-}
-.aurora-pulse-greeting small {
-  color: rgba(255,255,255,.62) !important;
-}
-.aurora-pulse-greeting p,
-.aurora-pulse-weather-copy small,
-.aurora-pulse-weather .pulse-weather-note {
-  color: rgba(255,255,255,.66) !important;
-}
-.aurora-pulse-weather {
-  position: static !important;
-  transform: none !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  background: rgba(255,255,255,.055) !important;
-  border: 1px solid rgba(255,255,255,.14) !important;
-  box-shadow: none !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-}
-.aurora-pulse-chips {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-.aurora-pulse-chips button {
-  background: rgba(255,255,255,.045) !important;
-  border-color: rgba(255,255,255,.16) !important;
-  color: rgba(255,255,255,.88) !important;
-}
-.aurora-pulse-chat {
-  position: relative !important;
-  flex: 1 1 0 !important;
-  min-height: 40px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  overflow-x: hidden !important;
-}
-.aurora-pulse-message {
-  box-sizing: border-box !important;
-  max-width: 100% !important;
-  background: rgba(255,255,255,.055) !important;
-  border-color: rgba(255,255,255,.12) !important;
-}
-.aurora-pulse-message.user {
-  background: rgba(255,255,255,.09) !important;
-  border-color: rgba(255,255,255,.18) !important;
-}
-.aurora-pulse-composer {
-  position: relative !important;
-  inset: auto !important;
-  transform: none !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  padding: 8px 10px !important;
-  border: 1px solid rgba(255,255,255,.20) !important;
-  border-radius: 20px !important;
-  background: rgba(255,255,255,.065) !important;
-  box-shadow: none !important;
-  backdrop-filter: blur(18px) saturate(85%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(85%) !important;
-}
-.aurora-pulse-composer input {
-  min-width: 0 !important;
-  color: rgba(255,255,255,.94) !important;
-}
-.aurora-pulse-composer input::placeholder {
-  color: rgba(255,255,255,.48) !important;
-}
-.aurora-pulse-send {
-  background: rgba(255,255,255,.13) !important;
-  color: white !important;
-  box-shadow: none !important;
-}
-.aurora-pulse-shortcuts {
-  position: static !important;
-  transform: none !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  gap: 6px !important;
-}
-.aurora-pulse-shortcuts button {
-  min-width: 0 !important;
-  background: rgba(255,255,255,.045) !important;
-  border-color: rgba(255,255,255,.14) !important;
-  color: rgba(255,255,255,.88) !important;
-}
-.aurora-pulse-foot {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  color: rgba(255,255,255,.48) !important;
-}
-@media (max-width: 480px) {
-  .aurora-pulse-backdrop {
-    padding: 10px !important;
-    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
-  }
-  .aurora-pulse-panel {
-    width: 100% !important;
-    height: min(760px, 88dvh) !important;
-    min-height: 0 !important;
-    padding: 14px !important;
-    border-radius: 22px !important;
-  }
-  .aurora-pulse-shortcuts {
-    gap: 4px !important;
-  }
-  .aurora-pulse-shortcuts button {
-    height: 36px !important;
-    font-size: 12px !important;
-  }
-  .aurora-pulse-shortcuts button span {
-    font-size: 10px !important;
-  }
-}
-/* END AURORA_PULSE_GLASS_FIX_V1 */
-
-
-/* AURORA_PULSE_NO_BORDERS_V1 */
-.aurora-pulse-backdrop .aurora-pulse-panel,
-.aurora-pulse-backdrop .aurora-pulse-panel *,
-.aurora-pulse-backdrop .aurora-pulse-panel *::before,
-.aurora-pulse-backdrop .aurora-pulse-panel *::after {
-  border-color: transparent !important;
-  border-style: none !important;
-  outline: none !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-panel {
-  box-shadow:
-    0 0 10px rgba(190, 225, 255, .24),
-    0 0 26px rgba(140, 195, 255, .16),
-    0 16px 45px rgba(0, 0, 0, .12) !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-composer {
-  box-shadow: none !important;
-}
-/* END AURORA_PULSE_NO_BORDERS_V1 */
-
-
-/* AURORA_PULSE_FINAL_COMPACT_LAYOUT_V1 */
-.aurora-pulse-backdrop {
-  padding: 10px !important;
-  padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-panel {
-  box-sizing: border-box !important;
-  width: min(420px, 100%) !important;
-  height: min(620px, 78vh) !important;
-  min-height: 0 !important;
-  max-height: calc(100dvh - 20px - env(safe-area-inset-bottom)) !important;
-  padding: 12px !important;
-  gap: 7px !important;
-  overflow: hidden !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-head {
-  position: relative !important;
-  display: flex !important;
-  flex: 0 0 68px !important;
-  height: 68px !important;
-  min-height: 68px !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-head .aurora-pulse-orb {
-  position: relative !important;
-  top: auto !important;
-  left: auto !important;
-  transform: none !important;
-  width: 56px !important;
-  height: 56px !important;
-  flex: 0 0 56px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-brand {
-  display: none !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-close {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-greeting,
-.aurora-pulse-backdrop .aurora-pulse-weather,
-.aurora-pulse-backdrop .aurora-pulse-chips,
-.aurora-pulse-backdrop .aurora-pulse-composer,
-.aurora-pulse-backdrop .aurora-pulse-shortcuts,
-.aurora-pulse-backdrop .aurora-pulse-foot {
-  position: relative !important;
-  inset: auto !important;
-  transform: none !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-weather {
-  width: 100% !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-chips {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-chat {
-  position: relative !important;
-  flex: 1 1 0 !important;
-  min-height: 32px !important;
-  width: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-composer {
-  left: auto !important;
-  bottom: auto !important;
-  width: 100% !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  padding: 7px 9px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-shortcuts {
-  left: auto !important;
-  bottom: auto !important;
-  width: 100% !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  gap: 4px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-shortcuts button {
-  min-width: 0 !important;
-  height: 36px !important;
-  padding: 0 3px !important;
-  font-size: 12px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-shortcuts button span {
-  font-size: 10px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-foot {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-@media (max-width: 480px) {
-  .aurora-pulse-backdrop .aurora-pulse-panel {
-    width: 100% !important;
-    height: min(620px, 78dvh) !important;
-    max-height: calc(100dvh - 20px - env(safe-area-inset-bottom)) !important;
-    padding: 10px !important;
-    border-radius: 24px !important;
-  }
-  .aurora-pulse-backdrop .aurora-pulse-head {
-    flex-basis: 60px !important;
-    height: 60px !important;
-    min-height: 60px !important;
-  }
-  .aurora-pulse-backdrop .aurora-pulse-head .aurora-pulse-orb {
-    width: 50px !important;
-    height: 50px !important;
-    flex-basis: 50px !important;
-  }
-}
-/* END AURORA_PULSE_FINAL_COMPACT_LAYOUT_V1 */
-.aurora-pulse-mic{display:inline-flex;align-items:center;justify-content:center;width:42px;min-width:42px;height:42px;border:1px solid rgba(92,220,255,.28);border-radius:14px;background:rgba(18,32,54,.88);color:#8cecff;cursor:pointer}.aurora-pulse-mic:disabled{opacity:.5}.aurora-pulse-mic.is-listening{box-shadow:0 0 18px rgba(65,220,255,.3);animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-thinking{animation:auroraPulseTalking .7s ease-in-out infinite alternate}
- `}
-</style>
-                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>Ã—</button></header>
-                <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
-                <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">â˜€</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loadingâ€¦" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">âŒ– {pulseWeather.city} â€º</span></button>
-                <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
-                <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinkingâ€¦</div>}</div>
-                <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
-                  <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORAâ€¦" aria-label="Message AURORA Pulse" />
-                  <button className={"aurora-pulse-mic" + (pulseListening ? " is-listening" : "")} type="button" onClick={togglePulseMic} aria-label={pulseListening ? "Stop listening" : "Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18} /></button>
-                  <button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy || !pulseDraft.trim()}>â†‘</button>
-                </form>
-                <div className="aurora-pulse-shortcuts"><button type="button" onClick={() => { const query = pulseDraft.trim().replace(/^search the web for\s*/i, ""); setPulseOpen(false); openTool("search"); setToolQuery(query); }}>âŒ• <span>Search</span></button><button type="button" onClick={() => { setPulseOpen(false); openAttachment("camera"); }}>â–£ <span>Camera</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("writing"); }}>âœŽ <span>Writing</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("translate"); }}>æ–‡ <span>Translate</span></button><button type="button" onClick={() => { setPulseOpen(false); setAttachmentOpen(true); }}>â€¢â€¢â€¢ <span>More</span></button></div>
-                <p className="aurora-pulse-foot">AURORA Pulse Â· close anytime to return to Profile</p>
-              </motion.section>
-            </motion.div>
+            <AuroraPulseExperience
+              messages={pulseMessages}
+              busy={pulseBusy}
+              draft={pulseDraft}
+              setDraft={setPulseDraft}
+              onSend={sendPulseMessage}
+              onMic={togglePulseMic}
+              listening={pulseListening}
+              speaking={speaking}
+              onClose={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}
+              onOpenTool={(id) => { setPulseOpen(false); openTool(id); }}
+              onOpenAttachment={(id) => { setPulseOpen(false); openAttachment(id); }}
+              onQuickPrompt={(prompt) => setPulseDraft(prompt)}
+            />
           )}
         </AnimatePresence>,
         document.body
