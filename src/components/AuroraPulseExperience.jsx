@@ -91,7 +91,7 @@ export default function AuroraPulseExperience({
   };
 
   return (
-    <div className="aurora-pulse-overlay" style={{ "--pulse-glass-alpha": ((100 - opacity) / 100) * .55 }}>
+    <div className="aurora-pulse-overlay" style={{ "--pulse-glass-alpha": ((100 - opacity) / 100) * .55, "--pulse-glass-alpha-soft": ((100 - opacity) / 100) * .41 }}>
       <div className="aurora-pulse-edge-light" aria-hidden="true" />
       <div className="aurora-pulse-top-controls">
         <button type="button" className={"aurora-pulse-tools-trigger" + (toolsOpen ? " is-open" : "")} onClick={() => setToolsOpen(value => !value)} aria-expanded={toolsOpen} aria-label="Open AURORA tools">
