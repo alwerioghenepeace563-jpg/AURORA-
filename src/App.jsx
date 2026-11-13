@@ -1420,22 +1420,23 @@ export default function App() {
     if (!text || pulseBusy) return;
     const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\s+(.+)$/i);
     if (searchMatch) { setPulseDraft(""); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
-    const next = [...pulseMessages, { role: "user", content: text }];
+    const pendingId = "pulse-" + Date.now();
+    const next = [...pulseMessages, { role: "user", content: text }, { id: pendingId, role: "assistant", content: "", pending: true }];
     setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
     try {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
       if (liveToolResult?.error) {
-        setPulseMessages(items => [...items, { role: "assistant", content: liveToolResult.error }]);
+        setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, pending: false, content: liveToolResult.error } : item));
         return;
       }
       const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
-      setPulseMessages(items => [...items, { role: "assistant", content: String(reply) }]);
+      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, pending: false, content: String(reply) } : item));
       if (soundOn) speak(String(reply));
     } catch (error) {
-      setPulseMessages(items => [...items, { role: "assistant", content: error?.message || "I couldn't connect just now. Please try again." }]);
+      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, pending: false, content: error?.message || "I couldn't connect just now. Please try again." } : item));
     } finally { setPulseBusy(false); }
   }
 
@@ -2677,7 +2678,7 @@ export default function App() {
                 <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
                 <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">â˜€</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loadingâ€¦" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">âŒ– {pulseWeather.city} â€º</span></button>
                 <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
-                <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinkingâ€¦</div>}</div>
+                <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message,index)=><div key={message.id||index} className={"aurora-pulse-message "+message.role+(message.pending?" pending":"")}>{message.pending?<><strong>AURORA</strong><span className="aurora-pulse-thinking-dots" aria-label="AURORA is thinking"><i/><i/><i/></span></>:message.content}</div>)}</div>{pulseToolsOpen&&<div className="aurora-pulse-tools-grid" role="group" aria-label="AURORA tools"><button className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);const q=pulseDraft.trim();setPulseOpen(false);openTool("search");setToolQuery(q);}}><span>⌕</span><span>Search</span></button><button className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseDraft("Help me with my calendar");}}><span>▦</span><span>Calendar</span></button><button className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseDraft("Help me organize my tasks");}}><span>✓</span><span>Tasks</span></button><button className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseDraft("Help me with email");}}><span>✉</span><span>Email</span></button><button className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseOpen(false);openAttachment("camera");}}><span>◈</span><span>Camera</span></button><button className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseOpen(false);setAttachmentOpen(true);}}><span>＋</span><span>More tools</span></button></div>}
                 <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
                   <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORAâ€¦" aria-label="Message AURORA Pulse" />
                   <button className={"aurora-pulse-mic" + (pulseListening ? " is-listening" : "")} type="button" onClick={togglePulseMic} aria-label={pulseListening ? "Stop listening" : "Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18} /></button>
