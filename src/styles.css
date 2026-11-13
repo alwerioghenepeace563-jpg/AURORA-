@@ -985,3 +985,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .message-action:focus-visible,.message-actions .speak-message:focus-visible{outline:2px solid #bba7ff;outline-offset:2px}
 .message-actions .speak-message{margin:0}
 @media(max-width:600px){.message-action,.message-actions .speak-message{min-height:36px;padding:7px 11px;font-size:11px}}
+
+
+/* Searchable conversation history */
+.chat-history-search{display:flex;align-items:center;gap:9px;min-height:42px;margin:12px 0;padding:0 12px;border:1px solid rgba(145,155,180,.18);border-radius:12px;background:rgba(8,11,19,.45);color:#8994ab}
+.chat-history-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#eef1fa;font:inherit;font-size:12px}
+.chat-history-search input::placeholder{color:#778198}
+.chat-history-search button{display:grid;place-items:center;width:25px;height:25px;border:0;border-radius:7px;background:rgba(145,155,180,.1);color:#c6cce0}
+.chat-history-empty{padding:12px 5px;color:#9aa4b8;font-size:12px;line-height:1.6}
