@@ -419,6 +419,9 @@ export default function App() {
   const [pulseDraft, setPulseDraft] = useState("");
   const [pulseMessages, setPulseMessages] = useState([{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }]);
   const [pulseBusy, setPulseBusy] = useState(false);
+  const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
+  const [pulsePosition, setPulsePosition] = useState({ x: null, y: null });
+  const pulseDragRef = useRef(null);
   const [pulseListening, setPulseListening] = useState(false);
   const pulseRecognitionRef = useRef(null);
   const pulsePanelRef = useRef(null);
@@ -1417,22 +1420,23 @@ export default function App() {
     if (!text || pulseBusy) return;
     const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\s+(.+)$/i);
     if (searchMatch) { setPulseDraft(""); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
-    const next = [...pulseMessages, { role: "user", content: text }];
-    setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
+    const userMessage = { id: "pulse-user-" + Date.now(), role: "user", content: text };
+    const assistantId = "pulse-assistant-" + Date.now();
+    const pendingMessage = { id: assistantId, role: "assistant", content: "", pending: true };
+    const next = [...pulseMessages, userMessage];
+    setPulseMessages([...next, pendingMessage]); setPulseDraft(""); setPulseBusy(true);
     try {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
-      if (liveToolResult?.error) {
-        setPulseMessages(items => [...items, { role: "assistant", content: liveToolResult.error }]);
-        return;
-      }
+      if (liveToolResult?.error) throw new Error(liveToolResult.error);
       const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
-      const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
-      setPulseMessages(items => [...items, { role: "assistant", content: String(reply) }]);
-      if (soundOn) speak(String(reply));
+      const reply = String(data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.");
+      setPulseMessages(items => items.map(message => message.id === assistantId ? { ...message, content: reply, pending: false } : message));
+      if (soundOn) speak(reply);
     } catch (error) {
-      setPulseMessages(items => [...items, { role: "assistant", content: error?.message || "I couldn't connect just now. Please try again." }]);
+      const errorText = error?.message || "I couldn't connect just now. Please try again.";
+      setPulseMessages(items => items.map(message => message.id === assistantId ? { ...message, content: errorText, pending: false, error: true } : message));
     } finally { setPulseBusy(false); }
   }
 
@@ -2645,21 +2649,46 @@ export default function App() {
 }
 /* END AURORA_PULSE_FINAL_COMPACT_LAYOUT_V1 */
 .aurora-pulse-mic{display:inline-flex;align-items:center;justify-content:center;width:42px;min-width:42px;height:42px;border:1px solid rgba(92,220,255,.28);border-radius:14px;background:rgba(18,32,54,.88);color:#8cecff;cursor:pointer}.aurora-pulse-mic:disabled{opacity:.5}.aurora-pulse-mic.is-listening{box-shadow:0 0 18px rgba(65,220,255,.3);animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-thinking{animation:auroraPulseTalking .7s ease-in-out infinite alternate}
+/* AURORA PULSE FINAL HOLOGRAPHIC INTERFACE */
+.aurora-pulse-backdrop,.aurora-pulse-backdrop.aurora-pulse-page-backdrop{position:fixed!important;inset:0!important;padding:0!important;display:block!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
+.aurora-pulse-backdrop:before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.9;background:linear-gradient(90deg,rgba(255,65,140,.3),transparent 12%,transparent 88%,rgba(70,190,255,.3)),linear-gradient(180deg,rgba(180,90,255,.24),transparent 12%,transparent 88%,rgba(255,190,65,.22));mask:linear-gradient(#000,#000) top/100% 2px no-repeat,linear-gradient(#000,#000) bottom/100% 2px no-repeat,linear-gradient(#000,#000) left/2px 100% no-repeat,linear-gradient(#000,#000) right/2px 100% no-repeat;animation:pulseEdgeHue 9s linear infinite}
+.aurora-pulse-panel,.aurora-pulse-panel.aurora-pulse-page-panel{position:fixed!important;inset:0!important;left:0!important;right:0!important;top:0!important;width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;margin:0!important;padding:0!important;display:block!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important;color:#fff!important;z-index:10000!important}
+.aurora-pulse-head{position:fixed!important;top:max(12px,env(safe-area-inset-top))!important;left:50%!important;transform:translateX(-50%)!important;width:min(420px,calc(100vw - 24px))!important;height:112px!important;min-height:112px!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important;z-index:10002!important}
+.aurora-pulse-head .aurora-pulse-orb{display:block!important;width:96px!important;height:96px!important;flex:0 0 96px!important;border-radius:50%!important;background:radial-gradient(circle at 32% 25%,#fff 0 4%,#ffe6ff 9%,#ff7bd5 20%,#9d79ff 37%,#50dfff 54%,#64ffc9 69%,#ffe17b 83%,#ff7bd5 100%)!important;box-shadow:0 0 14px #ff80dfaa,0 0 32px #8a7bff88,0 0 58px #53dfff66,inset 0 0 18px #fff9!important;animation:pulseOrbFlow 7s linear infinite!important;pointer-events:none!important}
+.aurora-pulse-tools-toggle{position:absolute!important;top:18px!important;left:12px!important;z-index:4!important;width:42px!important;height:42px!important;border:1px solid rgba(255,255,255,.18)!important;border-radius:50%!important;color:#f4ddff!important;background:rgba(255,255,255,.09)!important;backdrop-filter:blur(12px)!important;box-shadow:0 0 18px #bd79ff66!important;pointer-events:auto!important}
+.aurora-pulse-close{position:absolute!important;top:18px!important;right:12px!important;pointer-events:auto!important;z-index:4!important}
+.aurora-pulse-conversation{position:fixed!important;left:16px!important;right:auto!important;bottom:max(18px,env(safe-area-inset-bottom))!important;top:auto!important;width:min(420px,calc(100vw - 32px))!important;height:min(46vh,390px)!important;min-height:145px!important;max-height:58vh!important;display:flex!important;flex-direction:column!important;gap:8px!important;padding:9px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:25px!important;background:rgba(13,17,30,.22)!important;backdrop-filter:blur(12px) saturate(125%)!important;-webkit-backdrop-filter:blur(12px) saturate(125%)!important;box-shadow:0 12px 38px rgba(0,0,0,.13),inset 0 0 24px rgba(255,255,255,.025)!important;overflow:hidden!important;pointer-events:auto!important;z-index:10001!important}
+.aurora-pulse-conversation:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(130deg,#ff77c8,#a78bff,#63ddff,#7dffc9,#ffe27b,#ff77c8);background-size:300% 300%;animation:pulseRainbowBorder 8s linear infinite;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;pointer-events:none}
+.aurora-pulse-drag-handle{height:19px;flex:0 0 19px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:grab;touch-action:none;user-select:none;opacity:.72;position:relative;z-index:2}
+.aurora-pulse-drag-handle span{width:28px;height:3px;border-radius:4px;background:linear-gradient(90deg,#ff77c8,#a78bff,#63ddff,#7dffc9,#ffe27b)}
+.aurora-pulse-drag-handle small{font-size:8px;letter-spacing:1.5px;color:rgba(255,255,255,.66)}
+.aurora-pulse-chat{position:relative!important;z-index:1!important;display:flex!important;flex:1 1 auto!important;min-height:0!important;flex-direction:column!important;gap:12px!important;overflow-y:auto!important;padding:8px 3px 12px!important}
+.aurora-pulse-message{position:relative!important;isolation:isolate!important;max-width:92%!important;padding:13px 15px!important;border:0!important;border-radius:19px!important;background:rgba(255,255,255,.055)!important;backdrop-filter:blur(18px) saturate(130%)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09),0 4px 22px rgba(0,0,0,.08)!important;line-height:1.55!important;white-space:pre-wrap!important}
+.aurora-pulse-message.user{align-self:flex-end!important;background:rgba(130,100,190,.12)!important}.aurora-pulse-message.assistant{align-self:flex-start!important;background:rgba(30,45,68,.13)!important}
+.aurora-pulse-message:before,.aurora-pulse-tool-card:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ff77c8,#a78bff,#63ddff,#7dffc9,#ffe27b,#ff77c8);background-size:300% 300%;animation:pulseRainbowBorder 8s linear infinite;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;pointer-events:none}
+.aurora-pulse-message.pending{min-width:150px;min-height:48px;display:flex;align-items:center;gap:10px}
+.aurora-pulse-thinking-dots{display:inline-flex;gap:5px}.aurora-pulse-thinking-dots i{width:6px;height:6px;border-radius:50%;background:#b8a1ff;animation:pulseThink 1s ease-in-out infinite}.aurora-pulse-thinking-dots i:nth-child(2){animation-delay:.16s}.aurora-pulse-thinking-dots i:nth-child(3){animation-delay:.32s}
+.aurora-pulse-letter{display:inline-block;opacity:0;animation:pulseLetterIn .24s ease forwards;animation-delay:calc(var(--letter-index)*18ms)}@keyframes pulseLetterIn{from{opacity:0;transform:translateY(5px);filter:blur(3px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+.aurora-pulse-composer{position:relative!important;z-index:2!important;flex:0 0 auto!important;margin-top:0!important;min-height:48px!important;background:rgba(255,255,255,.075)!important;border:0!important;border-radius:22px!important;backdrop-filter:blur(18px)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)!important}
+.aurora-pulse-tools-grid{position:fixed!important;top:72px!important;left:12px!important;right:12px!important;width:min(390px,calc(100vw - 24px))!important;margin:0 auto!important;z-index:10004!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;max-height:65vh!important;overflow:auto!important;padding:12px!important;border-radius:24px!important;background:rgba(12,15,26,.42)!important;backdrop-filter:blur(22px)!important;pointer-events:auto!important}
+.aurora-pulse-tool-card{position:relative!important;min-height:82px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:8px!important;padding:14px!important;border:0!important;border-radius:19px!important;color:#fff!important;background:rgba(255,255,255,.055)!important;overflow:hidden!important}
+.aurora-pulse-greeting,.aurora-pulse-weather,.aurora-pulse-chips,.aurora-pulse-shortcuts,.aurora-pulse-foot,.aurora-pulse-brand{display:none!important}
+@keyframes pulseEdgeHue{to{filter:hue-rotate(360deg)}}@keyframes pulseOrbFlow{to{filter:hue-rotate(360deg) brightness(1.12)}}@keyframes pulseRainbowBorder{0%{background-position:0% 50%}100%{background-position:300% 50%}}@keyframes pulseThink{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-5px);opacity:1}}
+@media(max-width:480px){.aurora-pulse-head{height:104px!important;min-height:104px!important}.aurora-pulse-head .aurora-pulse-orb{width:84px!important;height:84px!important;flex-basis:84px!important}.aurora-pulse-conversation{left:10px!important;width:calc(100vw - 20px)!important;height:min(44vh,360px)!important;max-height:52vh!important}.aurora-pulse-tools-grid{top:66px!important;left:10px!important;right:10px!important;width:calc(100vw - 20px)!important}}
+
  `}
 </style>
-                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>Ã—</button></header>
-                <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
-                <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">â˜€</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loadingâ€¦" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">âŒ– {pulseWeather.city} â€º</span></button>
-                <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
-                <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinkingâ€¦</div>}</div>
-                <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
-                  <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORAâ€¦" aria-label="Message AURORA Pulse" />
-                  <button className={"aurora-pulse-mic" + (pulseListening ? " is-listening" : "")} type="button" onClick={togglePulseMic} aria-label={pulseListening ? "Stop listening" : "Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18} /></button>
-                  <button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy || !pulseDraft.trim()}>â†‘</button>
-                </form>
-                <div className="aurora-pulse-shortcuts"><button type="button" onClick={() => { const query = pulseDraft.trim().replace(/^search the web for\s*/i, ""); setPulseOpen(false); openTool("search"); setToolQuery(query); }}>âŒ• <span>Search</span></button><button type="button" onClick={() => { setPulseOpen(false); openAttachment("camera"); }}>â–£ <span>Camera</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("writing"); }}>âœŽ <span>Writing</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("translate"); }}>æ–‡ <span>Translate</span></button><button type="button" onClick={() => { setPulseOpen(false); setAttachmentOpen(true); }}>â€¢â€¢â€¢ <span>More</span></button></div>
-                <p className="aurora-pulse-foot">AURORA Pulse Â· close anytime to return to Profile</p>
-              </motion.section>
+                <header className="aurora-pulse-head"><button type="button" className="aurora-pulse-tools-toggle" aria-label="Open Pulse tools" aria-expanded={pulseToolsOpen} onClick={()=>setPulseToolsOpen(v=>!v)}>✣</button><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"}/><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={()=>{setPulseOpen(false);setPulseToolsOpen(false);setPulsePosition({x:null,y:null});if(page==="pulse")setPage("home");}}>×</button></header>
+<div className="aurora-pulse-conversation" style={pulsePosition.x == null ? undefined : {left:pulsePosition.x,top:pulsePosition.y,right:"auto",bottom:"auto"}} onPointerDown={event=>{if(!event.target.closest(".aurora-pulse-drag-handle"))return;pulseDragRef.current={x:event.clientX,y:event.clientY,left:pulsePosition.x??16,top:pulsePosition.y??Math.max(12,window.innerHeight-Math.min(window.innerHeight*.46,390)-18)};event.currentTarget.setPointerCapture?.(event.pointerId);}} onPointerMove={event=>{if(!pulseDragRef.current)return;const d=pulseDragRef.current;setPulsePosition({x:Math.max(8,Math.min(window.innerWidth-180,d.left+event.clientX-d.x)),y:Math.max(8,Math.min(window.innerHeight-130,d.top+event.clientY-d.y))});}} onPointerUp={()=>{pulseDragRef.current=null;}} onPointerCancel={()=>{pulseDragRef.current=null;}}>
+<div className="aurora-pulse-drag-handle"><span/><small>MOVE CHAT</small></div>
+<div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message,index)=><div key={message.id||index} className={"aurora-pulse-message "+message.role+(message.pending?" pending":"")+(message.error?" error":"")}>{message.pending?<><strong>AURORA</strong><span className="aurora-pulse-thinking-dots" aria-label="AURORA is thinking"><i/><i/><i/></span></>:message.role==="assistant"?String(message.content).split("").map((character,charIndex)=><span className="aurora-pulse-letter" style={{"--letter-index":charIndex}} key={charIndex}>{character===" "?" ":character}</span>):message.content}</div>)}</div>
+{pulseToolsOpen&&<div className="aurora-pulse-tools-grid" role="group" aria-label="AURORA tools"><button type="button" className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);const q=pulseDraft.trim();setPulseOpen(false);openTool("search");setToolQuery(q);}}><span>⌕</span><span>Search</span></button><button type="button" className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseDraft("Help me with my calendar");}}><span>▦</span><span>Calendar</span></button><button type="button" className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseDraft("Help me organize my tasks");}}><span>✓</span><span>Tasks</span></button><button type="button" className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseDraft("Help me with email");}}><span>✉</span><span>Email</span></button><button type="button" className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseOpen(false);openAttachment("camera");}}><span>◈</span><span>Camera</span></button><button type="button" className="aurora-pulse-tool-card" onClick={()=>{setPulseToolsOpen(false);setPulseOpen(false);setAttachmentOpen(true);}}><span>＋</span><span>More tools</span></button></div>}
+<form className="aurora-pulse-composer" onSubmit={async event=>{event.preventDefault();await sendPulseMessage(pulseDraft);}}>
+<input value={pulseDraft} onChange={event=>setPulseDraft(event.target.value)} placeholder="Message AURORA…" aria-label="Message AURORA Pulse"/>
+<button className={"aurora-pulse-mic"+(pulseListening?" is-listening":"")} type="button" onClick={togglePulseMic} aria-label={pulseListening?"Stop listening":"Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18}/></button>
+<button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy||!pulseDraft.trim()}>↑</button>
+</form></div>
+</motion.section>
             </motion.div>
           )}
         </AnimatePresence>,
