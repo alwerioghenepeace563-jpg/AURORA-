@@ -24,19 +24,21 @@ const TOOL_ITEMS = [
 
 function RevealingText({ text }) {
   const [visible, setVisible] = useState("");
+  const [done, setDone] = useState(false);
   useEffect(() => {
     const value = String(text || "");
     setVisible("");
-    if (!value) return;
+    setDone(false);
+    if (!value) { setDone(true); return; }
     let index = 0;
     const interval = window.setInterval(() => {
       index = Math.min(value.length, index + (index < 36 ? 1 : 2));
       setVisible(value.slice(0, index));
-      if (index >= value.length) window.clearInterval(interval);
+      if (index >= value.length) { window.clearInterval(interval); setDone(true); }
     }, 26);
     return () => window.clearInterval(interval);
   }, [text]);
-  return <span className="aurora-pulse-reveal">{visible}<i aria-hidden="true" /></span>;
+  return <span className="aurora-pulse-reveal">{visible}{!done && <i aria-hidden="true" />}</span>;
 }
 
 export default function AuroraPulseExperience({
@@ -55,6 +57,8 @@ export default function AuroraPulseExperience({
     return { x: 18, y: 132 };
   });
   const dragRef = useRef(null);
+  const messageListRef = useRef(null);
+  useEffect(() => { if (messageListRef.current) messageListRef.current.scrollTop = messageListRef.current.scrollHeight; }, [messages, busy]);
 
   useEffect(() => {
     try { localStorage.setItem("aurora-pulse-chat-position", JSON.stringify(position)); } catch {}
@@ -87,7 +91,7 @@ export default function AuroraPulseExperience({
   };
 
   return (
-    <div className="aurora-pulse-overlay" style={{ "--pulse-glass-opacity": opacity / 100 }}>
+    <div className="aurora-pulse-overlay" style={{ "--pulse-glass-alpha": ((100 - opacity) / 100) * .55 }}>
       <div className="aurora-pulse-edge-light" aria-hidden="true" />
       <div className="aurora-pulse-top-controls">
         <button type="button" className={"aurora-pulse-tools-trigger" + (toolsOpen ? " is-open" : "")} onClick={() => setToolsOpen(value => !value)} aria-expanded={toolsOpen} aria-label="Open AURORA tools">
@@ -117,21 +121,21 @@ export default function AuroraPulseExperience({
         )}
       </AnimatePresence>
 
-      <motion.section className="aurora-pulse-chatbox" style={{ left: position.x, top: position.y, "--pulse-glass-opacity": opacity / 100 }}
+      <motion.section className="aurora-pulse-chatbox" style={{ left: position.x, top: position.y, "--pulse-glass-alpha": ((100 - opacity) / 100) * .55 }}
         initial={{ opacity: 0, y: 18, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }}>
         <div className="aurora-pulse-chatbox-handle" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={stopDrag} onPointerCancel={stopDrag} onLostPointerCapture={stopDrag}>
           <Grip size={16}/><span>AURORA CONVERSATION</span><span className="aurora-pulse-live-dot"/>
         </div>
-        <div className="aurora-pulse-message-list" aria-live="polite" aria-relevant="additions text">
+        <div ref={messageListRef} className="aurora-pulse-message-list" aria-live="polite" aria-relevant="additions text">
           {messages.map((message, index) => {
             const key = message.id || index;
             const isThinking = message.status === "thinking";
-            return <div className={"aurora-pulse-message-card " + (message.role === "user" ? "is-user" : "is-aurora")} key={key}>
+            return <motion.div className={"aurora-pulse-message-card " + (message.role === "user" ? "is-user" : "is-aurora")} key={key} initial={{ opacity: 0, x: message.role === "user" ? 18 : -18, y: 8 }} animate={{ opacity: 1, x: 0, y: 0 }} transition={{ duration: .28 }}>
               {message.role !== "user" && <div className="aurora-pulse-message-label"><Sparkles size={12}/> AURORA</div>}
               {isThinking ? <div className="aurora-pulse-thinking"><span/><span/><span/><small>Thinking</small></div> :
                 message.role === "assistant" ? <div className="aurora-pulse-message-text"><RevealingText text={message.content}/></div> :
                 <div className="aurora-pulse-message-text">{message.content}</div>}
-            </div>;
+            </motion.div>;
           })}
           {busy && !messages.some(message => message.status === "thinking") && <div className="aurora-pulse-message-card is-aurora"><div className="aurora-pulse-message-label"><Sparkles size={12}/> AURORA</div><div className="aurora-pulse-thinking"><span/><span/><span/><small>Thinking</small></div></div>}
         </div>
@@ -141,7 +145,7 @@ export default function AuroraPulseExperience({
           <button type="submit" className="aurora-pulse-send-button" disabled={busy || !draft.trim()} aria-label="Send message"><Send size={17}/></button>
         </form>
         <div className="aurora-pulse-glass-settings">
-          <span>GLASS</span><input type="range" min="35" max="95" step="5" value={opacity} onChange={event => setOpacity(Number(event.target.value))} aria-label="Glass transparency"/>
+          <span>TRANSPARENCY</span><input type="range" min="35" max="95" step="5" value={opacity} onChange={event => setOpacity(Number(event.target.value))} aria-label="Glass transparency"/>
           <span>{opacity}%</span>
         </div>
       </motion.section>
