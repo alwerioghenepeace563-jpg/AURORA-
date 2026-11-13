@@ -2115,7 +2115,7 @@ export default function App() {
                 </div>
                 <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved âœ“" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
               </form>
-              <section id="aurora-updater" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
+              <section id="aurora-native-assistant" aria-label="Hey AURORA native assistant" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div><p className="panel-eyebrow">NATIVE ANDROID ASSISTANT</p><h2 style={{ margin: "4px 0" }}>Hey AURORA</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>{nativeStatus?.backgroundServiceFoundation ? "Native assistant foundation detected." : "Background voice service and app launching."}</p></div>
                   <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Startingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
