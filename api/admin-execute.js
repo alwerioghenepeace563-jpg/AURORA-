@@ -11,7 +11,7 @@ const PROVIDERS = {
     env: "OPENROUTER_API_KEY",
     url: "https://openrouter.ai/api/v1/chat/completions",
     payload: () => ({ model: process.env.OPENROUTER_MODEL || "openrouter/free", messages: [{ role: "user", content: "Reply with OK." }], max_tokens: 3, temperature: 0 }),
-    headers: (key) => ({ Authorization: "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": process.env.AURORA_ALLOWED_ORIGIN || "https://aurora-ten-gold.vercel.app", "X-Title": "AURORA Admin Diagnostics" })
+    headers: (key) => ({ Authorization: "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": process.env.AURORA_ALLOWED_ORIGIN || "https://aurora-assistant.pages.dev", "X-Title": "AURORA Admin Diagnostics" })
   },
   gemini: {
     env: "GEMINI_API_KEY",
