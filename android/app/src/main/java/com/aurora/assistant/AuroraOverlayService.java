@@ -32,6 +32,9 @@ public class AuroraOverlayService extends Service {
     public static final String ACTION_HIDE = "com.aurora.assistant.OVERLAY_HIDE";
 
     private WindowManager windowManager;
+    private WindowManager.LayoutParams panelParams;
+    private int panelWidth;
+    private int panelHeight;
     private WebView orbView;
     private WebView panelView;
     private boolean attached = false;
@@ -127,13 +130,18 @@ public class AuroraOverlayService extends Service {
                     }
                 });
             }
-            WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(300), overlayType(),
+            panelWidth = dp(340);
+            panelHeight = dp(300);
+            panelParams = new WindowManager.LayoutParams(panelWidth, panelHeight, overlayType(),
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
-            panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-            panel.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
-            panel.y = dp(20);
-            panel.setTitle("AURORA Pulse glass chat and tools");
-            windowManager.addView(panelView, panel);
+            panelParams.gravity = Gravity.TOP | Gravity.LEFT;
+            panelParams.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+            android.util.DisplayMetrics display = new android.util.DisplayMetrics();
+            windowManager.getDefaultDisplay().getRealMetrics(display);
+            panelParams.x = Math.max(0, (display.widthPixels - panelWidth) / 2);
+            panelParams.y = Math.max(dp(90), display.heightPixels - panelHeight - dp(110));
+            panelParams.setTitle("AURORA Pulse movable glass chat and tools");
+            windowManager.addView(panelView, panelParams);
             panelAttached = true;
             panelView.setVisibility(View.GONE);
             attached = true;
@@ -157,6 +165,9 @@ public class AuroraOverlayService extends Service {
         attached = false;
         panelAttached = false;
         orbAttached = false;
+        panelParams = null;
+        panelWidth = 0;
+        panelHeight = 0;
         if (panelView != null) { try { panelView.stopLoading(); panelView.destroy(); } catch (Exception ignored) {} panelView = null; }
         if (orbView != null) { try { orbView.stopLoading(); orbView.destroy(); } catch (Exception ignored) {} orbView = null; }
         windowManager = null;
@@ -165,6 +176,23 @@ public class AuroraOverlayService extends Service {
     public class OverlayBridge {
         @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
         @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.GONE); }); }
+        @JavascriptInterface public void movePanel(float deltaX, float deltaY) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (windowManager == null || panelView == null || panelParams == null || !panelAttached) return;
+                try {
+                    android.util.DisplayMetrics display = new android.util.DisplayMetrics();
+                    windowManager.getDefaultDisplay().getRealMetrics(display);
+                    float density = getResources().getDisplayMetrics().density;
+                    int maxX = Math.max(0, display.widthPixels - panelWidth);
+                    int maxY = Math.max(dp(24), display.heightPixels - panelHeight);
+                    panelParams.x = Math.max(0, Math.min(maxX, panelParams.x + Math.round(deltaX * density)));
+                    panelParams.y = Math.max(dp(24), Math.min(maxY, panelParams.y + Math.round(deltaY * density)));
+                    windowManager.updateViewLayout(panelView, panelParams);
+                } catch (Exception error) {
+                    android.util.Log.w("AURORAOverlay", "Could not move Pulse panel.", error);
+                }
+            });
+        }
         @JavascriptInterface public void setOrbState(String state) {
             String safe = "idle".equals(state) || "listening".equals(state) || "thinking".equals(state) || "speaking".equals(state) ? state : "idle";
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
