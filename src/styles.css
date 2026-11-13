@@ -966,3 +966,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* Retrieved visual cards: resilient previews and comfortable mobile browsing */
+.message-image-card{width:min(100%,420px);transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+.message-image-card img{min-height:110px;max-height:300px;object-fit:contain;background:linear-gradient(145deg,#101522,#171827)}
+.message-image-card span{min-height:38px;color:#d9d3ff}
+.message-image-card .image-fallback{color:#ffd7a3}
+.message-image-card .image-fallback:before{content:"Preview unavailable · open source";display:block;font-size:11px;color:#ffd7a3}
+.message-rich-content .message-image-card:focus-visible{outline:2px solid #bba7ff;outline-offset:3px}
+@media(max-width:700px){.message-rich-content .message-image-card{width:min(100%,340px);margin:7px 8px 9px 0}.message-rich-content .message-image-card img{max-height:250px}}
