@@ -61,8 +61,6 @@ jobs:
         run: npm run test:core
       - name: Build web app
         run: npm run build
-      - name: Compile Cloudflare Pages Functions
-        run: npx --yes wrangler@4 pages functions build --outdir=./.cloudflare/functions
       - name: Sync Capacitor Android project
         run: npm run android:sync
       - name: Compile Android native code
