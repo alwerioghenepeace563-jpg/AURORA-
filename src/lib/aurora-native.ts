@@ -275,9 +275,8 @@ export const auroraNative = {
   },
 };
 
-// Keep web requests same-origin on the website, but route server API calls to Vercel
-// when the UI is bundled inside the native Android application.
+// Keep web requests same-origin on the website, and route native Android API calls to Cloudflare Pages.
 export const auroraApiUrl = (path: string): string => {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return Capacitor.isNativePlatform() ? `https://aurora-ten-gold.vercel.app${normalized}` : normalized;
+  return Capacitor.isNativePlatform() ? `https://aurora-assistant.pages.dev${normalized}` : normalized;
 };
