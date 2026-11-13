@@ -1168,6 +1168,31 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
+      const visualIntent = !attachmentOverride && /\b(?:show|find|get|pull|bring|display|give me)\b.{0,55}\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b|\b(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\b/i.test(text);
+      if (visualIntent) {
+        const visualQuery = text
+          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:show|find|get|pull|bring|display|give me)\s+/i, "")
+          .replace(/\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b/ig, " ")
+          .replace(/\b(?:please|for me|thanks?)\b/ig, " ")
+          .replace(/\s+/g, " ").trim() || text;
+        const searchUrl = auroraApiUrl("/api/search?q=" + encodeURIComponent(visualQuery));
+        const searchResponse = await fetch(searchUrl, { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+        const searchData = await searchResponse.json().catch(() => ({}));
+        if (!searchResponse.ok) throw new Error(searchData.error || "Visual search could not complete.");
+        const results = Array.isArray(searchData.results) ? searchData.results.slice(0, 5) : [];
+        const visualResults = results.filter(item => typeof item.image === "string" && /^https:\/\//i.test(item.image));
+        const cleanLabel = value => String(value || "Visual reference").replace(/[\[\]()]/g, "").replace(/\s+/g, " ").slice(0, 100);
+        const visualCards = visualResults.slice(0, 4).map(item =>
+          "![" + cleanLabel(item.title) + "](" + item.image + ")\n[Open original source](" + item.url + ")"
+        );
+        const sourceList = results.slice(0, 5).map((item, index) => (index + 1) + ". [" + cleanLabel(item.title) + "](" + item.url + ")" + (item.snippet ? "\n   " + String(item.snippet).slice(0, 220) : "")).join("\n\n");
+        const visualReply = visualCards.length
+          ? "I found these visual references online for **" + visualQuery + "**. These are retrieved images from the linked websites, not AI-generated pictures.\n\n" + visualCards.join("\n\n") + "\n\n**Sources**\n" + sourceList
+          : "I found web pages about **" + visualQuery + "**, but they did not provide a safe, usable image preview. I won't invent one. You can open the original results here:\n\n" + sourceList;
+        setMessages(current => [...current, { role: "assistant", content: visualReply }]);
+        if (soundOn) speak(visualReply);
+        return;
+      }
       if (!attachmentOverride && /^(?:aurora[, ]*)?(?:review my (?:saved )?routine|review my predictive suggestions|what should i focus on|show predictive suggestions|pause predictive intelligence|resume predictive intelligence|clear predictive history|review my device health|check my device health|show connected predictive sources|snooze latest predictive suggestion|dismiss latest predictive suggestion)$/i.test(text)) {
         const predictive = auroraRuntime.predictive;
         let predictiveReply = "";
