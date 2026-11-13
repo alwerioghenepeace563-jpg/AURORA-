@@ -279,21 +279,20 @@ function Orb({ compact = false, speaking = false, duration = 5 }) {
 function BottomNav({ active, onNavigate }) {
   const items = [
     { id: "home", label: "Home", Icon: House },
-    { id: "activities", label: "Activities", Icon: CalendarDays },
-    { id: "tools", label: "Tools", Icon: Sparkles },
-    { id: "maps", label: "Maps", Icon: MapPinned },
-    { id: "chat", label: "AURORA", Icon: AudioLines },
-    { id: "pulse", label: "Pulse", Icon: Activity },
+    { id: "chat", label: "Chat", Icon: AudioLines },
+    { id: "explore", label: "Explore", Icon: Sparkles },
+    { id: "library", label: "Library", Icon: BookOpen },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
   return (
     <nav className="bottom-nav" aria-label="Main navigation">
-      {items.map(({ id, label, Icon }) => (
-        <button key={id} className={`nav-item ${active === id ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""}`} onClick={() => onNavigate(id)}>
+      {items.map(({ id, label, Icon }) => {
+        const route = id === "explore" ? "tools" : id;
+        return <button key={id} type="button" className={`nav-item ${active === route ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""}`} onClick={() => onNavigate(route)} aria-current={active === route ? "page" : undefined}>
           <span className="nav-icon"><Icon size={19} strokeWidth={1.8} /></span>
           <span>{label}</span>
-        </button>
-      ))}
+        </button>;
+      })}
     </nav>
   );
 }
@@ -1011,6 +1010,7 @@ export default function App() {
   }, [authSession, authConfigured, authUrl, authKey, authStorageReady]);
 
   function navigate(next) {
+    if (next === "explore") next = "tools";
     if (next === "pulse") setPulseOpen(true);
     if (next === "tools") setToolScreen("home");
     if (next === "admin" && (!authVerified || !authSession?.access_token || String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com")) {
@@ -1764,6 +1764,16 @@ export default function App() {
                 <button onClick={() => sendMessage("Help me organise my tasks.")}><Check size={15} /> Organise tasks</button>
               </div>
 
+              <section className="home-overview">
+                <div className="home-section-heading"><div><span className="panel-eyebrow">YOUR WORKSPACE</span><h2>Pick up where you left off</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>Open chat <ArrowUpRight size={15}/></button></div>
+                <div className="home-quick-grid">
+                  <button type="button" className="home-quick-card" onClick={() => navigate("chat")}><span className="home-quick-icon violet"><AudioLines size={19}/></span><strong>Start a conversation</strong><small>Ask, learn or think something through</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("tools")}><span className="home-quick-icon cyan"><Sparkles size={19}/></span><strong>Explore capabilities</strong><small>Research, writing, learning and more</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("library")}><span className="home-quick-icon blue"><BookOpen size={19}/></span><strong>Your library</strong><small>Saved notes and knowledge</small></button>
+                </div>
+                <div className="home-section-heading home-recent-heading"><div><span className="panel-eyebrow">RECENT CONVERSATIONS</span><h2>Your recent work</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>View all <ArrowUpRight size={15}/></button></div>
+                {chatSessions.length ? <div className="home-recent-list">{chatSessions.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,3).map(session => <button type="button" className="home-recent-item" key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); navigate("chat"); }}><span className="home-recent-icon"><MessageCircle size={17}/></span><span><strong>{session.title || "Conversation"}</strong><small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></span><ChevronRight size={17}/></button>)}</div> : <p className="home-recent-empty">Your conversations will appear here when you start chatting.</p>}
+              </section>
               <div className="home-footer-note"><ShieldCheck size={13} /> PRIVATE BY DESIGN <span /> BUILT AROUND YOU</div>
             </motion.section>
           )}
@@ -1772,7 +1782,6 @@ export default function App() {
             <motion.section key="chat" className="chat-screen" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
               <div className="chat-column">
                 <div className="chat-heading">
-                  <button className="back-button" onClick={() => navigate("home")}><ArrowLeft size={17} /> Home</button>
                   <div className="chat-title-wrap"><span className="mini-orb"><Orb compact speaking={speaking} /></span><div><h1>AURORA <span>CHAT</span></h1><p><span className="live-dot" /> Your assistant is here</p></div></div>
                   <div className="chat-heading-actions">
                     <button className="icon-button" onClick={() => setHistoryOpen((open) => !open)} aria-label="Chat history" title="Chat history"><History size={18} /></button>
@@ -1781,7 +1790,7 @@ export default function App() {
                 </div>
                 {historyOpen && <div className="chat-history-panel"><div className="chat-history-title"><strong>Previous chats</strong><span>{chatSessions.length} saved</span></div>{chatSessions.length === 0 ? <p className="chat-history-empty">Your conversations will appear here as you chat.</p> : chatSessions.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).map((session) => <button type="button" className={"chat-history-item " + (session.id === activeChatId ? "chat-history-item-active" : "")} key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); setDraft(""); setHistoryOpen(false); setNotice(""); }}>{session.title || "Conversation"}<small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></button>)}</div>}
                 <div className="messages-area">
-                  {messages.length === 0 && <div className="empty-chat"><Orb compact /><h2>Let's make something happen.</h2><p>Ask a question, work through an idea, or plan your next move.</p></div>}
+                  {messages.length === 0 && <div className="empty-chat"><Orb compact /><span className="empty-chat-kicker">YOUR INTELLIGENT WORKSPACE</span><h2>What shall we work on?</h2><p>Ask a question, explore an idea, share a picture or bring in a document. AURORA can help you work through it.</p><div className="chat-starter-grid"><button type="button" onClick={() => setDraft("Explain a difficult topic to me step by step.")}><GraduationCap size={17}/><span><strong>Help me learn</strong><small>Understand a topic</small></span></button><button type="button" onClick={() => setDraft("Research this topic and show me reliable sources: ")}><Search size={17}/><span><strong>Research something</strong><small>Find information online</small></span></button><button type="button" onClick={() => setAttachmentOpen(true)}><ImageIcon size={17}/><span><strong>Understand an image</strong><small>Share a visual or document</small></span></button></div></div>}
                   {messages.map((message, index) => (
                     <div key={index} className={`message-row ${message.role === "user" ? "message-user" : "message-assistant"}`}>
                       {message.role === "assistant" && <span className="message-avatar"><Sparkles size={15} /></span>}
@@ -1838,7 +1847,12 @@ export default function App() {
                   <h1>Tools<span>.</span></h1>
                   <p className="utility-intro">A space for thinking, creating, learning and getting things done.</p>
                 </div>
-                <div className="tools-category-heading"><span>01</span><div><h2>Search & create</h2><p>Find answers and turn ideas into something useful.</p></div></div>
+                <div className="tools-category-heading"><span>01</span><div><h2>Explore AURORA</h2><p>Choose a workspace for what you want to accomplish.</p></div></div>
+                <div className="explore-shortcuts">
+                  <button type="button" onClick={() => navigate("activities")}><CalendarDays size={18}/><span><strong>Activities</strong><small>Tasks, reminders and calendar</small></span><ChevronRight size={16}/></button>
+                  <button type="button" onClick={() => navigate("maps")}><MapPinned size={18}/><span><strong>Maps & places</strong><small>Explore locations and plan journeys</small></span><ChevronRight size={16}/></button>
+                  <button type="button" onClick={() => navigate("library")}><BookOpen size={18}/><span><strong>Knowledge library</strong><small>Your saved information and notes</small></span><ChevronRight size={16}/></button>
+                </div>
                 <div className="tool-launch-grid">
                   {[
                     { id: "search", icon: <Sparkles size={21}/>, title: "Web Search", desc: "Explore the web with source links", tint: "cyan" },
@@ -2094,6 +2108,12 @@ export default function App() {
             </motion.section>
           )}
 
+          {page === "library" && (
+            <motion.section key="library" className="utility-page aurora-library-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <div className="library-page-heading"><p className="panel-eyebrow"><BookOpen size={14}/> YOUR PERSONAL KNOWLEDGE</p><h1>Library<span>.</span></h1><p className="utility-intro">Keep your notes, documents, saved sources and useful knowledge together.</p></div>
+              <KnowledgeUniverseWorkspace />
+            </motion.section>
+          )}
           {page === "maps" && <motion.div key="maps" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><MapsWorkspace /></motion.div>}
 
           {page === "profile" && (
