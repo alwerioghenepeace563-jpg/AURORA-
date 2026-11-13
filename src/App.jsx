@@ -1180,12 +1180,18 @@ export default function App() {
           .replace(/\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b/ig, " ")
           .replace(/\b(?:please|for me|thanks?|me)\b/ig, " ")
           .replace(/\s+/g, " ").trim() || text;
-        const searchUrl = auroraApiUrl("/api/search?q=" + encodeURIComponent(visualQuery));
-        const searchResponse = await fetch(searchUrl, { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
-        const searchData = await searchResponse.json().catch(() => ({}));
-        if (!searchResponse.ok) throw new Error(searchData.error || "Visual search could not complete.");
-        const results = Array.isArray(searchData.results) ? searchData.results.slice(0, 5) : [];
-        const visualResults = results.filter(item => typeof item.image === "string" && /^https:\/\//i.test(item.image));
+        let searchData = {};
+        let imageSearchResponse = await fetch(auroraApiUrl("/api/search?type=images&q=" + encodeURIComponent(visualQuery)), { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+        searchData = await imageSearchResponse.json().catch(() => ({}));
+        let results = Array.isArray(searchData.results) ? searchData.results.slice(0, 8) : [];
+        let visualResults = results.filter(item => typeof item.image === "string" && /^https:\/\//i.test(item.image));
+        if (!visualResults.length) {
+          const searchResponse = await fetch(auroraApiUrl("/api/search?q=" + encodeURIComponent(visualQuery)), { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+          const webData = await searchResponse.json().catch(() => ({}));
+          if (!searchResponse.ok && !imageSearchResponse.ok) throw new Error(webData.error || searchData.error || "Visual search could not complete.");
+          results = Array.isArray(webData.results) ? webData.results.slice(0, 5) : [];
+          visualResults = results.filter(item => typeof item.image === "string" && /^https:\/\//i.test(item.image));
+        }
         const cleanLabel = value => String(value || "Visual reference").replace(/[\[\]()]/g, "").replace(/\s+/g, " ").slice(0, 100);
         const visualCards = visualResults.slice(0, 4).map(item =>
           "![" + cleanLabel(item.title) + "](" + item.image + ")\n[Open original source](" + item.url + ")"
