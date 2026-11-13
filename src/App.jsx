@@ -417,7 +417,7 @@ export default function App() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [pulseOpen, setPulseOpen] = useState(false);
   const [pulseDraft, setPulseDraft] = useState("");
-  const [pulseMessages, setPulseMessages] = useState([]);
+  const [pulseMessages, setPulseMessages] = useState(() => { try { const saved = JSON.parse(localStorage.getItem("aurora-pulse-messages") || "[]"); return Array.isArray(saved) ? saved.filter(item => item && !item.pending).slice(-60) : []; } catch { return []; } });
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
@@ -432,6 +432,9 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
+  useEffect(() => {
+    try { localStorage.setItem("aurora-pulse-messages", JSON.stringify(pulseMessages.filter(item => !item.pending).slice(-60))); } catch {}
+  }, [pulseMessages]);
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
