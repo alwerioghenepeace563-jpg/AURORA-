@@ -2160,7 +2160,7 @@ export default function App() {
         <AnimatePresence>
           {(pulseOpen || page === "pulse") && (
             <motion.div className="aurora-pulse-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-label="AURORA Pulse">
-              <motion.section className="aurora-pulse-panel" aria-label="AURORA Pulse assistant" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>
+              <motion.section ref={pulsePanelRef} tabIndex={-1} className="aurora-pulse-panel" aria-label="AURORA Pulse assistant" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>
                 <style>{`
                   .aurora-pulse-backdrop{position:fixed!important;inset:0!important;z-index:9999!important;display:block!important;padding:0!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
                   .aurora-pulse-panel{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#f5f7ff!important;pointer-events:none!important;isolation:isolate}
