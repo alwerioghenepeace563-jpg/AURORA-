@@ -4,6 +4,9 @@ const assert = require("node:assert/strict");
 const plugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
 const service = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraOverlayService.java", "utf8");
 const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const panel = fs.readFileSync("android/app/src/main/assets/aurora_pulse_panel.html", "utf8");
+const orb = fs.readFileSync("android/app/src/main/assets/aurora_pulse_orb.html", "utf8");
+const edges = fs.readFileSync("android/app/src/main/assets/aurora_pulse_edges.html", "utf8");
 
 for (const method of ["showOverlay", "hideOverlay", "getOverlayStatus"]) {
   assert.match(plugin, new RegExp("public void " + method + "\\(PluginCall call\\)"), "Android plugin must implement " + method);
