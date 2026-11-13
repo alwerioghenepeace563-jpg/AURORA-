@@ -61,9 +61,11 @@ function makeSpeechFriendly(value) {
 }
 
 function renderInlineText(text, keyPrefix) {
-  const parts = String(text || "").split(/(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
+  const parts = String(text || "").split(/(!\[[^\]]*\]\(https?:\/\/[^)\s]+\)|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
   return parts.map((part, index) => {
     const key = keyPrefix + "-" + index;
+    const markdownImage = part.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (markdownImage) return <a key={key} className="message-image-card" href={markdownImage[2]} target="_blank" rel="noreferrer"><img src={markdownImage[2]} alt={markdownImage[1] || "AURORA visual reference"} loading="lazy" referrerPolicy="no-referrer"/><span>{markdownImage[1] || "Open visual reference"} <ArrowUpRight size={13}/></span></a>;
     const markdownLink = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (markdownLink) return <a key={key} className="message-inline-link" href={markdownLink[2]} target="_blank" rel="noreferrer">{renderInlineText(markdownLink[1], key + "-label")}</a>;
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={key}>{part.slice(2, -2)}</strong>;
