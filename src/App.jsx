@@ -715,6 +715,18 @@ export default function App() {
   }, [messages, busy]);
 
   useEffect(() => {
+    if (!attachmentOpen && !cameraOpen && !tunerOpen) return undefined;
+    const handleOverlayEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (cameraOpen) closeCameraScreen();
+      else if (tunerOpen) setTunerOpen(false);
+      else setAttachmentOpen(false);
+    };
+    window.addEventListener("keydown", handleOverlayEscape);
+    return () => window.removeEventListener("keydown", handleOverlayEscape);
+  }, [attachmentOpen, cameraOpen, tunerOpen]);
+
+  useEffect(() => {
     if (!Capacitor.isNativePlatform()) return undefined;
     return connectAuroraNativeLifecycle(CapacitorApp, auroraRuntime.reliability);
   }, []);
@@ -2342,7 +2354,7 @@ export default function App() {
       <AnimatePresence>
         {attachmentOpen && (
           <motion.div className="aurora-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAttachmentOpen(false)}>
-            <motion.div className="aurora-attachment-menu" role="dialog" aria-label="AURORA attachments" initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+            <motion.div className="aurora-attachment-menu" role="dialog" aria-modal="true" aria-label="AURORA attachments" initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} onClick={(event) => event.stopPropagation()}>
               <div className="aurora-menu-heading"><span className="aurora-menu-mark"><Plus size={17} /></span><div><strong>AURORA tools</strong><small>Choose what you want to add</small></div><button type="button" onClick={() => setAttachmentOpen(false)} aria-label="Close attachment menu"><X size={17} /></button></div>
               <button type="button" className="aurora-tool-option aurora-tool-hub-option" onClick={() => { setAttachmentOpen(false); navigate("tools"); }}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Open Tools Workspace</strong><small>Dedicated interfaces for every tool</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("camera")}><span className="aurora-tool-icon"><Camera size={21} /></span><span><strong>Camera</strong><small>Take a new photo</small></span><ChevronRight size={16} /></button>
