@@ -1176,6 +1176,7 @@ export default function App() {
           .replace(/^\s*(?:a|an|the)\s+/i, "")
           .replace(/^\s*(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\s+(?:of|for)\s+/i, "")
           .replace(/^\s*(?:some\s+)?(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\s+/i, "")
+          .replace(/^\s*(?:a|an|the)\s+/i, "")
           .replace(/\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b/ig, " ")
           .replace(/\b(?:please|for me|thanks?|me)\b/ig, " ")
           .replace(/\s+/g, " ").trim() || text;
