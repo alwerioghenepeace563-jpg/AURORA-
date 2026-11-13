@@ -1870,9 +1870,9 @@ export default function App() {
             <motion.section key={toolScreen === "home" ? "tools-home" : "tool-detail-" + toolKind} className={"utility-page aurora-tools-page " + (toolScreen === "detail" ? "aurora-tool-detail-page" : "aurora-tool-home-page")} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .22 }}>
               {toolScreen === "home" ? <>
                 <div className="tools-page-heading">
-                  <p className="panel-eyebrow"><Sparkles size={13}/> AURORA TOOLKIT</p>
-                  <h1>Tools<span>.</span></h1>
-                  <p className="utility-intro">A space for thinking, creating, learning and getting things done.</p>
+                  <p className="panel-eyebrow"><Sparkles size={13}/> DISCOVER AURORA</p>
+                  <h1>Explore<span>.</span></h1>
+                  <p className="utility-intro">Choose the right workspace for what you want to learn, find, create or get done.</p>
                 </div>
                 <div className="tools-category-heading"><span>01</span><div><h2>Explore AURORA</h2><p>Choose a workspace for what you want to accomplish.</p></div></div>
                 <div className="explore-shortcuts">
