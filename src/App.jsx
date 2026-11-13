@@ -422,13 +422,8 @@ export default function App() {
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const pulseRecognitionRef = useRef(null);
-  const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
   const pulseInterruptionReleaseRef = useRef(null);
-  const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
-  const [pulseWeather, setPulseWeather] = useState({ temperature: "â€”", condition: "Tap to load current weather", city: "Lagos" });
-  const [pulseWeatherBusy, setPulseWeatherBusy] = useState(false);
-  const pulseWeatherRequestRef = useRef(0);
   const [browserWakeListening, setBrowserWakeListening] = useState(false);
   const browserWakeRecognitionRef = useRef(null);
   useEffect(() => {
