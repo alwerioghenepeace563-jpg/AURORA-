@@ -735,23 +735,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!pulseOpen) {
+    const pulseVisible = pulseOpen || page === "pulse";
+    if (!pulseVisible) {
       if (pulseRecognitionRef.current || pulseInterruptionReleaseRef.current || pulseNativeSpeechListenersRef.current.length) cleanupPulseSpeech();
       return undefined;
     }
-    const previousFocus = document.activeElement;
-    const panel = pulsePanelRef.current;
-    const focusable = () => panel?.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') || [];
-    const first = focusable()[0];
-    (first || panel)?.focus?.();
     const onKeyDown = (event) => {
-      if (event.key === "Escape") { event.preventDefault(); cleanupPulseSpeech(); setPulseOpen(false); return; }
-      if (event.key !== "Tab" || !panel) return;
-      const items = [...focusable()];
-      if (!items.length) { event.preventDefault(); panel.focus(); return; }
-      const firstItem = items[0], lastItem = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === firstItem) { event.preventDefault(); lastItem.focus(); }
-      else if (!event.shiftKey && document.activeElement === lastItem) { event.preventDefault(); firstItem.focus(); }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cleanupPulseSpeech();
+        setPulseOpen(false);
+        if (page === "pulse") setPage("home");
+      }
     };
     const onVisibility = () => { if (document.visibilityState === "hidden") cleanupPulseSpeech(); };
     document.addEventListener("keydown", onKeyDown);
@@ -760,9 +755,8 @@ export default function App() {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("visibilitychange", onVisibility);
       if (pulseRecognitionRef.current || pulseInterruptionReleaseRef.current || pulseNativeSpeechListenersRef.current.length) cleanupPulseSpeech();
-      if (previousFocus && typeof previousFocus.focus === "function") requestAnimationFrame(() => previousFocus.focus());
     };
-  }, [pulseOpen]);
+  }, [pulseOpen, page]);
 
   useEffect(() => {
     const syncApprovals = () => setPendingApprovals(auroraRuntime.approvals.listPending());
@@ -1454,7 +1448,6 @@ export default function App() {
   }
 
   async function togglePulseMic() {
-    setPulseMessages(items => [...items, { role: "assistant", content: "AURORA Pulse mic button received your tap. Checking speech recognition…" }]);
     if (pulseListening) {
       if (auroraNative.isAndroid()) try { await auroraNative.stopSpeechRecognition(); } catch {}
       cleanupPulseSpeech(); return;
