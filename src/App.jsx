@@ -1418,7 +1418,7 @@ export default function App() {
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
     if (!text || pulseBusy) return;
-    const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\\s+(.+)$/i);
+    const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\s+(.+)$/i);
     if (searchMatch) { setPulseDraft(""); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
     const userMessage = { id: "pulse-user-" + Date.now(), role: "user", content: text };
     const assistantId = "pulse-assistant-" + Date.now();
