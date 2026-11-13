@@ -1,4 +1,6 @@
 import cors from "../lib/cors.cjs";
+import adminCodeHandler from "./admin-code.js";
+import adminExecuteHandler from "./admin-execute.js";
 const { applyAuroraCors } = cors;
 
 export default async function handler(req, res) {
