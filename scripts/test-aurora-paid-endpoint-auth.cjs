@@ -20,6 +20,9 @@ const { verifySupabaseUser } = require("../lib/supabase-auth.cjs");
     const missing = await verifySupabaseUser({ headers: {} });
     assert.equal(missing.status, 401, "Requests without a bearer token must be rejected.");
     assert.equal(fetchCalls, 0, "Missing tokens must not call Supabase.");
+    const unconfigured = await verifySupabaseUser({ headers: { authorization: "Bearer test-token" } });
+    assert.equal(unconfigured.status, 503, "Missing server auth configuration must fail closed.");
+    assert.equal(fetchCalls, 0, "Missing server configuration must not call Supabase.");
 
     process.env.SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_ANON_KEY = "public-anon-test-key";
