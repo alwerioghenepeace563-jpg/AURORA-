@@ -92,7 +92,7 @@ function CreativeLearningWorkspace({ authSession }){
   if(prompt.length<8){setNotice("Describe the image in at least 8 characters.");return;}
   setImageBusy(true);setGeneratedImage(null);setNotice("AURORA is generating your image. This may take a little while…");
   try{
-   const response=await fetch(auroraApiUrl("/api/media-generate"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,aspectRatio:imageAspect})});
+   const response=await fetch(auroraApiUrl("/api/media-generate"),{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+(authSession?.access_token||"")},body:JSON.stringify({prompt,aspectRatio:imageAspect})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||"Image generation is unavailable.");
    if(!data.image?.data||!["image/png","image/jpeg","image/webp"].includes(data.image.mimeType))throw new Error("The image service returned an unsupported image.");
