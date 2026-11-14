@@ -1249,3 +1249,16 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .profile-hub-action small{margin-top:4px;color:#999daf;font-size:8px;line-height:1.4}
 .profile-hub-action>svg{flex:none;color:#777c9d}
 @media(max-width:600px){.profile-hub{padding:14px;border-radius:17px}.profile-hub-grid{grid-template-columns:1fr}.profile-hub-action{min-height:56px}.profile-hub-action strong{font-size:10px}.profile-hub-action small{font-size:8px}}
+
+/* Shared context navigation across Explore and Profile */
+.workspace-context-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0 0 22px;padding:9px 11px;border:1px solid rgba(190,181,235,.13);border-radius:16px;background:linear-gradient(110deg,rgba(26,31,49,.62),rgba(17,20,34,.48));box-shadow:inset 0 1px rgba(255,255,255,.035);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.workspace-context-brand{display:flex;align-items:center;gap:8px;min-width:0;color:#dcd8f1;font-size:10px;font-weight:700;letter-spacing:.13em}
+.workspace-context-brand .aurora-orb,.workspace-context-brand .orb-wrap{width:23px;height:23px;flex:none}
+.workspace-context-links{display:flex;align-items:center;justify-content:flex-end;gap:5px;min-width:0}
+.workspace-context-link{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid transparent;border-radius:10px;background:transparent;color:#9ea2b8;font:500 10px inherit;white-space:nowrap;transition:background .18s,color .18s,border-color .18s}
+.workspace-context-link:hover,.workspace-context-link:focus-visible{outline:none;color:#e6e1fb;background:rgba(255,255,255,.055)}
+.workspace-context-link.is-current{color:#e7e0ff;border-color:rgba(183,164,255,.2);background:rgba(157,133,255,.12)}
+.workspace-context-link.is-current svg{color:#c8b9ff}
+@media(max-width:520px){.workspace-context-nav{margin-bottom:17px;padding:8px}.workspace-context-brand{font-size:9px;gap:6px}.workspace-context-brand .aurora-orb,.workspace-context-brand .orb-wrap{width:20px;height:20px}.workspace-context-links{gap:2px}.workspace-context-link{gap:4px;min-height:30px;padding:0 7px;font-size:9px}.workspace-context-link svg{width:12px;height:12px}}
+@media(max-width:360px){.workspace-context-brand>span{display:none}.workspace-context-link{padding:0 6px}}
+@media(prefers-reduced-motion:reduce){.workspace-context-link{transition:none}}
