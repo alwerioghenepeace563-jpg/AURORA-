@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
@@ -394,6 +394,7 @@ export default function App() {
     } catch {}
     return [];
   });
+  const recentHomeSessions = useMemo(() => chatSessions.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3), [chatSessions]);
   const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || (JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]")[0]?.id) || (JSON.parse(localStorage.getItem("aurora-chat-history") || "[]").length ? "chat-legacy" : ("chat-" + Date.now())); } catch { return "chat-" + Date.now(); } });
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyQuery, setHistoryQuery] = useState("");
@@ -1847,7 +1848,7 @@ export default function App() {
                   <button type="button" className="home-quick-card" onClick={() => navigate("library")}><span className="home-quick-icon blue"><BookOpen size={19}/></span><strong>Your library</strong><small>Saved notes and knowledge</small></button>
                 </div>
                 <div className="home-section-heading home-recent-heading"><div><span className="panel-eyebrow">RECENT CONVERSATIONS</span><h2>Your recent work</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>View all <ArrowUpRight size={15}/></button></div>
-                {chatSessions.length ? <div className="home-recent-list">{chatSessions.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,3).map(session => <button type="button" className="home-recent-item" key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); navigate("chat"); }}><span className="home-recent-icon"><MessageCircle size={17}/></span><span><strong>{session.title || "Conversation"}</strong><small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></span><ChevronRight size={17}/></button>)}</div> : <p className="home-recent-empty">Your conversations will appear here when you start chatting.</p>}
+                {recentHomeSessions.length ? <div className="home-recent-list">{recentHomeSessions.map(session => <button type="button" className="home-recent-item" key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); navigate("chat"); }}><span className="home-recent-icon"><MessageCircle size={17}/></span><span><strong>{session.title || "Conversation"}</strong><small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></span><ChevronRight size={17}/></button>)}</div> : <p className="home-recent-empty">Your conversations will appear here when you start chatting.</p>}
               </section>
               <div className="home-footer-note"><ShieldCheck size={13} /> PRIVATE BY DESIGN <span /> BUILT AROUND YOU</div>
             </motion.section>
