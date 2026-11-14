@@ -239,7 +239,8 @@ function CreativeLearningWorkspace({ authSession }){
       localStorage.setItem(jobKey,JSON.stringify(nativeSaved));
       nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
      }
-    }else{     setMediaProgress("Copying the original recording into private Android storage…");
+    }else{
+     setMediaProgress("Copying the original recording into private Android storage…");
      const staging=await auroraNative.getNativeRecordingStagingStatus(job.requestId);
      let stagedBytes=Math.max(0,Number(staging?.stagedBytes)||0);
      if(stagedBytes>mediaFile.size)throw new Error("A previous partial transfer is larger than this recording. Cancel that transcription and start a fresh job.");
