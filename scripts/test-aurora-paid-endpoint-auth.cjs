@@ -37,13 +37,18 @@ const { verifySupabaseUser } = require("../lib/supabase-auth.cjs");
 
     const voice = fs.readFileSync(path.join(__dirname, "../api/voice.js"), "utf8");
     const image = fs.readFileSync(path.join(__dirname, "../api/media-generate.js"), "utf8");
+    const v1 = fs.readFileSync(path.join(__dirname, "../api/v1/chat.js"), "utf8");
     const app = fs.readFileSync(path.join(__dirname, "../src/App.jsx"), "utf8");
     const creative = fs.readFileSync(path.join(__dirname, "../src/components/CreativeLearningWorkspace.jsx"), "utf8");
     assert.match(voice, /verifySupabaseUser\(req\)/, "Cloud voice must verify the signed-in user.");
     assert.match(image, /verifySupabaseUser\(req\)/, "Image generation must verify the signed-in user.");
+    assert.match(v1, /verifySupabaseUser\(req\)/, "Versioned chat must use the shared Supabase verifier.");
+    assert.doesNotMatch(v1, /auth\/v1\/user/, "Versioned chat must not keep a duplicate verifier implementation.");
     assert.match(app, /Authorization: "Bearer " \+ \(authSession\?\.access_token \|\| ""\)/, "Cloud voice client must send the session token.");
     assert.match(creative, /Authorization:"Bearer "\+\(authSession\?\.access_token\|\|""\)/, "Image generation client must send the session token.");
 
+    const cors = fs.readFileSync(path.join(__dirname, "../lib/cors.cjs"), "utf8");
+    assert.match(cors, /Access-Control-Allow-Headers.*Authorization/i, "CORS must allow bearer-token preflight headers.");
     console.log("AURORA paid-endpoint authentication checks passed.");
   } finally {
     global.fetch = originalFetch;
