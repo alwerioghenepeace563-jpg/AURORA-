@@ -419,6 +419,7 @@ export default function App() {
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
   const [pulseOpen, setPulseOpen] = useState(false);
+  const [pulseTranscriptionAutoStart, setPulseTranscriptionAutoStart] = useState(false);
   const [pulseDraft, setPulseDraft] = useState("");
   const [pulseMessages, setPulseMessages] = useState(() => { try { const saved = JSON.parse(localStorage.getItem("aurora-pulse-messages") || "[]"); return Array.isArray(saved) ? saved.filter(item => item && !item.pending).slice(-60) : []; } catch { return []; } });
   const [pulseBusy, setPulseBusy] = useState(false);
@@ -1470,12 +1471,46 @@ export default function App() {
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
     if (!text || pulseBusy) return;
+    const transcriptionStatusIntent = /^(?:hey aurora[, ]*)?(?:check|show|what is)\s+(?:my\s+)?transcription\s+(?:status|progress)[.!?]*$/i.test(text);
+    if (transcriptionStatusIntent) {
+      setPulseDraft("");
+      setPulseBusy(true);
+      setPulseMessages(items => [...items, { role: "user", content: text }, { role: "assistant", content: "Checking your latest transcription job…", pending: true, id: "pulse-transcription-status" }]);
+      try {
+        const keys = Object.keys(localStorage).filter(key => key.startsWith("aurora-voicetext-job:"));
+        const jobs = keys.map(key => { try { return { key, saved: JSON.parse(localStorage.getItem(key) || "null") }; } catch { return null; } }).filter(item => item?.saved?.requestId).slice(-5);
+        if (!jobs.length) throw new Error("I couldn't find a saved transcription job on this device. Open Transcription and choose the same recording to resume or start one.");
+        const reports = [];
+        for (const item of jobs) {
+          const requestId = item.saved.requestId;
+          let cloud = null, native = null;
+          try {
+            const response = await fetch(auroraApiUrl("/api/voicetext-transcribe?requestId=" + encodeURIComponent(requestId)), { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" });
+            cloud = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(cloud.error || "Could not read cloud transcription status.");
+          } catch (error) { cloud = { status: "unavailable", error: error?.message || "Cloud status unavailable" }; }
+          if (item.saved.nativeBackground && AuroraNative.isAndroid()) {
+            try { native = await AuroraNative.getNativeRecordingStatus(requestId); } catch {}
+          }
+          const total = Number(cloud?.totalChunks || 0);
+          const completed = Math.max(Number(cloud?.completedChunks || 0), Number(native?.completedChunks || 0));
+          const state = native?.successful || cloud?.status === "completed" ? "completed" : native?.failed ? "needs attention" : native?.state || cloud?.status || "in progress";
+          reports.push((item.key.split(":")[1] || "Recording") + ": " + (total ? completed + " of " + total + " sections" : state) + " · " + state + (native?.reason ? " · " + native.reason : ""));
+        }
+        const reply = reports.join("\n");
+        setPulseMessages(items => items.map(item => item.id === "pulse-transcription-status" ? { ...item, content: reply, pending: false } : item));
+      } catch (error) {
+        setPulseMessages(items => items.map(item => item.id === "pulse-transcription-status" ? { ...item, content: error?.message || "I couldn't read transcription progress.", pending: false } : item));
+      } finally { setPulseBusy(false); }
+      return;
+    }
     const transcriptionIntent = /^(?:hey aurora[, ]*)?(?:please\s+)?(?:transcribe|start transcription|open transcription|transcription workspace)(?:\s+(?:this|my|a|the)?\s*(?:recording|audio|video|file))?[.!?]*$/i.test(text);
     if (transcriptionIntent) {
       setPulseDraft("");
       setPulseToolsOpen(false);
       setPulseOpen(false);
-      setPulseMessages(items => [...items, { role: "assistant", content: "Opening the transcription workspace. Choose your audio or video there; on supported Android builds, background processing can continue while you leave the workspace." }]);
+      setPulseTranscriptionAutoStart(true);
+      setPulseMessages(items => [...items, { role: "assistant", content: "Opening transcription. Choose your audio or video file; AURORA will start processing it automatically after you select it. On supported Android builds, background processing can continue while you leave the workspace. You can ask me to check transcription progress." }]);
       openTool("creative");
       return;
     }
@@ -1961,7 +1996,7 @@ export default function App() {
                   </div>
                   <div><p className="panel-eyebrow">AURORA TOOL / WORKSPACE</p><h1>{({search:"Web Search",weather:"Weather",calculator:"Calculator",convert:"Unit Converter",translate:"Translation",writing:"Writing Assistant",study:"Study Assistant",summarize:"Summarizer",quiz:"Quiz Maker",brainstorm:"Idea Studio",image:"Image Understanding"})[toolKind] || "AURORA Tool"}<span>.</span></h1><p>{({search:"Discover information and follow it back to its sources.",weather:"Current conditions and a short forecast for a city or town.",calculator:"Calculate arithmetic expressions without sending them to an AI provider.",convert:"Convert length, mass, volume, time, speed and temperature.",translate:"Carry your meaning across languages, naturally.",writing:"Shape a rough idea into clear, confident writing.",study:"Understand the idea first. Build confidence one step at a time.",summarize:"Turn long material into a clear, useful summary.",quiz:"Build a practice quiz from a topic or source text.",brainstorm:"Explore creative options and turn ideas into next steps.",image:"Upload an image here and ask AURORA to inspect it directly."})[toolKind] || "A dedicated AURORA workspace."}</p></div>
                 </div>
-                {toolKind === "creative" && <CreativeLearningWorkspace authSession={authSession}/>}
+                {toolKind === "creative" && <CreativeLearningWorkspace authSession={authSession} autoStartOnFileSelect={pulseTranscriptionAutoStart} onAutoStartConsumed={() => setPulseTranscriptionAutoStart(false)}/>}
                 <div className={"tool-workspace glass-panel" + (toolKind === "creative" ? " clw-hidden" : "")}>
                   <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",weather:"Weather near you or anywhere",calculator:"Enter a calculation",convert:"Enter a measurement to convert",translate:"Your translation",writing:"Letâ€™s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",weather:"Enter a city or town, for example Benin City or Lagos.",calculator:"Use +, âˆ’, Ã—, Ã·, %, powers and parentheses.",convert:"Use a format such as 12 km to miles or 25 C to F.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
                   <form className="tool-run-form" onSubmit={runTool}>
