@@ -279,23 +279,48 @@ function Orb({ compact = false, speaking = false, duration = 5 }) {
 }
 
 function BottomNav({ active, onNavigate }) {
+  const [exploreOpen, setExploreOpen] = useState(false);
   const items = [
     { id: "home", label: "Home", Icon: House },
     { id: "chat", label: "Chat", Icon: AudioLines },
-    { id: "tools", label: "Tools", Icon: Sparkles },
+    { id: "explore", label: "Explore", Icon: Sparkles },
     { id: "insights", label: "Insights", Icon: Activity },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
+  const shortcuts = [
+    { id: "tools", title: "All tools & workspaces", detail: "Search, study, write and create", Icon: Sparkles },
+    { id: "maps", title: "Maps & places", detail: "Explore places and journeys", Icon: MapPinned },
+    { id: "activities", title: "Daily activities", detail: "Tasks, reminders and calendar", Icon: CalendarDays },
+    { id: "library", title: "Knowledge library", detail: "Your saved notes and knowledge", Icon: BookOpen }
+  ];
+  function chooseExploreRoute(route) {
+    setExploreOpen(false);
+    onNavigate(route);
+  }
   return (
-    <nav className="bottom-nav" aria-label="Main navigation">
-      {items.map(({ id, label, Icon }) => {
-        const route = id === "insights" ? "activities" : id;
-        return <button key={id} type="button" className={`nav-item ${active === route ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""}`} onClick={() => onNavigate(route)} aria-current={active === route ? "page" : undefined}>
-          <span className="nav-icon"><Icon size={19} strokeWidth={1.8} /></span>
-          <span>{label}</span>
-        </button>;
-      })}
-    </nav>
+    <>
+      {exploreOpen && <button type="button" className="explore-panel-backdrop" aria-label="Close Explore panel" onClick={() => setExploreOpen(false)} />}
+      <nav className="bottom-nav" aria-label="Main navigation">
+        {exploreOpen && <section className="explore-panel" id="aurora-explore-panel" aria-label="Explore AURORA">
+          <div className="explore-panel-heading"><span className="panel-eyebrow">DISCOVER AURORA</span><strong>Where would you like to go?</strong></div>
+          <div className="explore-panel-links">
+            {shortcuts.map(({ id, title, detail, Icon }) => <button type="button" className="explore-panel-link" key={id} onClick={() => chooseExploreRoute(id)}>
+              <span className="explore-panel-icon"><Icon size={17}/></span><span><strong>{title}</strong><small>{detail}</small></span><ChevronRight size={16}/>
+            </button>)}
+          </div>
+        </section>}
+        {items.map(({ id, label, Icon }) => {
+          const route = id === "insights" ? "activities" : id === "explore" ? "tools" : id;
+          const isExplore = id === "explore";
+          const selected = isExplore ? active === "tools" || exploreOpen : active === route;
+          return <button key={id} type="button" className={`nav-item ${selected ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""} ${isExplore ? "nav-explore" : ""}`} onClick={() => isExplore ? setExploreOpen((open) => !open) : (setExploreOpen(false), onNavigate(route))} aria-current={!isExplore && active === route ? "page" : undefined} aria-expanded={isExplore ? exploreOpen : undefined} aria-controls={isExplore ? "aurora-explore-panel" : undefined}>
+            <span className="nav-icon"><Icon size={19} strokeWidth={1.8} /></span>
+            <span>{label}</span>
+            {isExplore && <span className="nav-expand-indicator"><ChevronRight size={10}/></span>}
+          </button>;
+        })}
+      </nav>
+    </>
   );
 }
 
