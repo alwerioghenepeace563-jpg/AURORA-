@@ -75,10 +75,13 @@ export default async function handler(req, res) {
   } else if (action === "process") {
     const audioBase64 = typeof body.audioBase64 === "string" ? body.audioBase64 : "";
     const mimeType = safeText(body.mimeType, 100).toLowerCase();
-    if (!/^[0-9a-f-]{36}$/i.test(requestId) || !Number.isInteger(Number(body.chunkNumber)) ||
-        !Number.isInteger(Number(body.totalChunks)) || !audioBase64 ||
+    const chunkNumber = Number(body.chunkNumber);
+    const totalChunks = Number(body.totalChunks);
+    if (!/^[0-9a-f-]{36}$/i.test(requestId) || !Number.isInteger(chunkNumber) ||
+        !Number.isInteger(totalChunks) || totalChunks < 1 || totalChunks > 2000 ||
+        chunkNumber < 0 || chunkNumber >= totalChunks || !audioBase64 ||
         audioBase64.length > 4000000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(audioBase64) || audioBase64.length % 4 !== 0) {
-      return res.status(400).json({ error: "A valid job ID, section number and audio section are required." });
+      return res.status(400).json({ error: "A valid job ID, section number within the job, and audio section are required." });
     }
     if (!AUDIO_TYPES.has(mimeType)) return res.status(415).json({ error: "Unsupported audio section format." });
     upstreamBody = {
