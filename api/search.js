@@ -121,51 +121,13 @@ function parseGoogleNews(xml) {
   }
   return items;
 }
-function extractArticleImage(html, baseUrl) {
-  const patterns = [
-    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["'][^>]*>/i,
-    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["'][^>]*>/i
-  ];
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (!match?.[1]) continue;
-    try {
-      const imageUrl = new URL(decodeHtml(match[1]), baseUrl);
-      if (imageUrl.protocol === "https:" && !/^(localhost|127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)/.test(imageUrl.hostname)) return imageUrl.href;
-    } catch {}
-  }
-  return "";
-}
-async function attachArticleImages(results) {
-  return Promise.all(results.map(async (item) => {
-    try {
-      const articleUrl = new URL(item.url);
-      if (articleUrl.protocol !== "https:" || /(^|\\.)(localhost|local|internal)$/.test(articleUrl.hostname)) return item;
-      const response = await fetch(articleUrl.href, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; AURORAReader/1.0)", "Accept": "text/html,application/xhtml+xml" },
-        redirect: "follow",
-        signal: AbortSignal.timeout(2800)
-      });
-      if (!response.ok) return item;
-      const finalUrl = new URL(response.url);
-      if (finalUrl.protocol !== "https:") return item;
-      const html = (await response.text()).slice(0, 450000);
-      const image = extractArticleImage(html, finalUrl.href);
-      return image ? { ...item, image } : item;
-    } catch {
-      return item;
-    }
-  }));
-}
 async function parseGoogleNewsSearch(query) {
   const url = "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=en-NG&gl=NG&ceid=NG:en";
   const response = await fetch(url, {headers:{"Accept":"application/rss+xml, application/xml, text/xml"},signal:AbortSignal.timeout(6500)});
   if (!response.ok) throw new Error("Google News HTTP " + response.status);
   const results = parseGoogleNews(await response.text());
   if (!results.length) throw new Error("Google News returned no parseable results");
-  return attachArticleImages(results);
+  return results;
 }
 async function parseWikipedia(query) {
   const url = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=6&format=json&origin=*";
@@ -346,7 +308,7 @@ export default async function handler(req, res) {
     if (!response.ok) throw new Error(provider.name+" HTTP "+response.status);
     const results = provider.parse(await response.text());
     if (!results.length) throw new Error(provider.name+" returned no parseable results");
-    return {query,results:await attachArticleImages(results),source:provider.name};
+    return {query,results,source:provider.name};
   });
   const webResult = await attemptGroup(webAttempts);
   if (webResult) return res.status(200).json(webResult);
