@@ -2253,21 +2253,21 @@ export default function App() {
                   .aurora-pulse-head .aurora-pulse-brand{display:none!important}
                   .aurora-pulse-tools-toggle,.aurora-pulse-close{position:absolute!important;top:16px!important;width:40px!important;height:40px!important;display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:14px!important;background:rgba(15,19,31,.22)!important;color:#fff!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;pointer-events:auto!important;cursor:pointer!important}
                   .aurora-pulse-tools-toggle{left:0!important}.aurora-pulse-close{right:0!important;font-size:22px!important}
-                  .aurora-pulse-conversation{position:fixed!important;top:104px!important;left:50%!important;width:min(540px,calc(100vw - 28px))!important;max-height:calc(100dvh - 120px)!important;display:flex!important;flex-direction:column!important;gap:10px!important;padding:12px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:22px!important;background:rgba(15,19,31,.20)!important;backdrop-filter:blur(16px) saturate(115%)!important;-webkit-backdrop-filter:blur(16px) saturate(115%)!important;box-shadow:0 12px 40px rgba(0,0,0,.10),0 0 22px rgba(125,166,255,.10)!important;pointer-events:auto!important;overflow:hidden!important;will-change:transform}
-                  .aurora-pulse-conversation:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(255,93,201,.7),rgba(88,221,255,.65),rgba(171,130,255,.7),rgba(255,222,132,.55));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.8}
+                  .aurora-pulse-conversation{position:fixed!important;top:112px!important;left:50%!important;width:min(540px,calc(100vw - 28px))!important;max-height:calc(100dvh - 132px)!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:14px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;pointer-events:auto!important;overflow:visible!important;will-change:transform}
+                  .aurora-pulse-conversation:before{display:none!important}
                   .aurora-pulse-drag-handle{position:relative;z-index:1;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;width:100%!important;height:22px!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.46)!important;font-size:10px!important;letter-spacing:.18em!important;cursor:grab!important;touch-action:none!important}
                   .aurora-pulse-drag-handle:active{cursor:grabbing!important}
                   .aurora-pulse-tools-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;max-height:220px!important;overflow:auto!important}
                   .aurora-pulse-tool-card{min-height:68px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:7px!important;padding:10px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:14px!important;background:rgba(255,255,255,.055)!important;color:#f4f7ff!important;text-align:left!important;font-size:11px!important;cursor:pointer!important;box-shadow:inset 0 0 14px rgba(255,255,255,.025),0 0 14px rgba(124,168,255,.07)!important}
                   .aurora-pulse-tool-card svg{color:#9ceaff!important}
-                  .aurora-pulse-chat{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:9px!important;min-height:90px!important;overflow:auto!important;padding:3px 2px 7px!important}
+                  .aurora-pulse-chat{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:11px!important;min-height:110px!important;max-height:min(52dvh,460px)!important;overflow:auto!important;padding:16px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(22,25,40,.42),rgba(11,14,27,.34))!important;backdrop-filter:blur(18px) saturate(125%)!important;-webkit-backdrop-filter:blur(18px) saturate(125%)!important;box-shadow:0 16px 44px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.08)!important;overscroll-behavior:contain}
                   .aurora-pulse-message{position:relative!important;max-width:92%!important;padding:10px 13px!important;border:1px solid transparent!important;border-radius:15px!important;background:rgba(255,255,255,.065)!important;color:rgba(255,255,255,.94)!important;font-size:13px!important;line-height:1.55!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}
                   .aurora-pulse-message:after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(125deg,rgba(255,99,204,.44),rgba(93,223,255,.36),rgba(173,130,255,.4));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
                   .aurora-pulse-message.user{align-self:flex-end;background:rgba(74,132,177,.13)!important}
                   .aurora-pulse-message.assistant{align-self:flex-start}
                   .aurora-pulse-message.pending{color:#b9eaff!important}
                   .aurora-pulse-letter{display:inline;opacity:0;animation:auroraPulseLetter .12s ease forwards}
-                  .aurora-pulse-composer{position:relative!important;inset:auto!important;display:flex!important;align-items:center!important;gap:8px!important;width:100%!important;flex:0 0 auto!important;margin:0!important;padding:7px!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:18px!important;background:rgba(255,255,255,.075)!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;box-shadow:none!important}
+                  .aurora-pulse-composer{position:relative!important;inset:auto!important;display:flex!important;align-items:center!important;gap:8px!important;width:100%!important;flex:0 0 auto!important;margin:0!important;padding:9px 11px!important;border:1px solid rgba(255,255,255,.17)!important;border-radius:20px!important;background:linear-gradient(135deg,rgba(30,31,48,.52),rgba(13,17,31,.42))!important;backdrop-filter:blur(20px) saturate(130%)!important;-webkit-backdrop-filter:blur(20px) saturate(130%)!important;box-shadow:0 14px 36px rgba(0,0,0,.13),inset 0 1px rgba(255,255,255,.09)!important}
                   .aurora-pulse-composer input{flex:1!important;min-width:0!important;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;padding:10px 8px!important;font-size:13px!important}
                   .aurora-pulse-composer input::placeholder{color:rgba(255,255,255,.48)!important}
                   .aurora-pulse-mic{width:38px!important;min-width:38px!important;height:38px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:12px!important;background:rgba(255,255,255,.06)!important;color:#9ceaff!important}
@@ -2276,7 +2276,7 @@ export default function App() {
                   @keyframes auroraPulseOrb{0%,100%{filter:hue-rotate(0deg);transform:scale(1)}50%{filter:hue-rotate(32deg);transform:scale(1.07)}}
                   @keyframes auroraPulseFrame{to{filter:hue-rotate(360deg)}}
                   @keyframes auroraPulseLetter{to{opacity:1}}
-                  @media(max-width:480px){.aurora-pulse-head{top:8px!important;height:68px!important}.aurora-pulse-head .aurora-pulse-orb{width:60px!important;height:60px!important;flex-basis:60px!important}.aurora-pulse-conversation{top:88px!important;width:calc(100vw - 20px)!important;max-height:calc(100dvh - 100px)!important;padding:10px!important}.aurora-pulse-tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.aurora-pulse-panel:before{inset:3px}}
+                  @media(max-width:480px){.aurora-pulse-head{top:8px!important;height:68px!important}.aurora-pulse-head .aurora-pulse-orb{width:60px!important;height:60px!important;flex-basis:60px!important}.aurora-pulse-conversation{top:94px!important;width:calc(100vw - 20px)!important;max-height:calc(100dvh - 112px)!important;gap:12px!important}.aurora-pulse-chat{max-height:48dvh!important;padding:13px!important}.aurora-pulse-tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.aurora-pulse-panel:before{inset:3px}}
                   @media(prefers-reduced-motion:reduce){.aurora-pulse-panel:before,.aurora-pulse-head .aurora-pulse-orb,.aurora-pulse-letter{animation:none!important;opacity:1!important}}
                 `}</style>
                 <header className="aurora-pulse-head">
@@ -2294,15 +2294,22 @@ export default function App() {
                   const minY = 10 - drag.bounds.top;
                   const maxY = window.innerHeight - 10 - drag.bounds.bottom;
                   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-                  setPulseConversationPosition({
-                    x: drag.originX + clamp(deltaX, minX, maxX),
-                    y: drag.originY + clamp(deltaY, minY, maxY)
-                  });
-                }} onPointerUp={event => { if (pulseDragRef.current?.pointerId === event.pointerId) pulseDragRef.current = null; }} onPointerCancel={() => { pulseDragRef.current = null; }} onLostPointerCapture={() => { pulseDragRef.current = null; }}>
+                  const nextX = drag.originX + clamp(deltaX, minX, maxX);
+                  const nextY = drag.originY + clamp(deltaY, minY, maxY);
+                  drag.nextX = nextX;
+                  drag.nextY = nextY;
+                  event.currentTarget.style.transform = "translate(calc(-50% + " + nextX + "px), " + nextY + "px)";
+                }} onPointerUp={event => {
+                  const drag = pulseDragRef.current;
+                  if (drag?.pointerId === event.pointerId) {
+                    setPulseConversationPosition({ x: drag.nextX ?? drag.originX, y: drag.nextY ?? drag.originY });
+                    pulseDragRef.current = null;
+                  }
+                }} onPointerCancel={() => { pulseDragRef.current = null; }} onLostPointerCapture={() => { pulseDragRef.current = null; }}>
                   <button type="button" className="aurora-pulse-drag-handle" aria-label="Move chat panel" onPointerDown={event => {
                      const bounds = pulsePanelRef.current?.querySelector(".aurora-pulse-conversation")?.getBoundingClientRect();
                      if (!bounds) return;
-                     pulseDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pulseConversationPosition.x, originY: pulseConversationPosition.y, bounds };
+                     pulseDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pulseConversationPosition.x, originY: pulseConversationPosition.y, nextX: pulseConversationPosition.x, nextY: pulseConversationPosition.y, bounds };
                      event.currentTarget.setPointerCapture(event.pointerId);
                    }}>••• <span>DRAG CHAT PANEL</span> •••</button>
                   {pulseToolsOpen && <div className="aurora-pulse-tools-grid">
