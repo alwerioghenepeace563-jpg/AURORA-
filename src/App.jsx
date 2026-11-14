@@ -278,6 +278,22 @@ function Orb({ compact = false, speaking = false, duration = 5 }) {
   );
 }
 
+function WorkspaceContextNav({ active, onNavigate }) {
+  const links = [
+    { id: "home", label: "Home", Icon: House },
+    { id: "tools", label: "Explore", Icon: Sparkles },
+    { id: "profile", label: "Profile", Icon: UserRound }
+  ];
+  return <nav className="workspace-context-nav" aria-label="Workspace shortcuts">
+    <span className="workspace-context-brand"><Orb compact/><span>AURORA</span></span>
+    <div className="workspace-context-links">
+      {links.map(({ id, label, Icon }) => <button key={id} type="button" className={active === id ? "workspace-context-link is-current" : "workspace-context-link"} onClick={() => onNavigate(id)} aria-current={active === id ? "page" : undefined}>
+        <Icon size={14}/><span>{label}</span>
+      </button>)}
+    </div>
+  </nav>;
+}
+
 function BottomNav({ active, onNavigate }) {
   const [exploreOpen, setExploreOpen] = useState(false);
   const items = [
@@ -2029,6 +2045,7 @@ export default function App() {
 
           {page === "tools" && (
             <motion.section key={toolScreen === "home" ? "tools-home" : "tool-detail-" + toolKind} className={"utility-page aurora-tools-page " + (toolScreen === "detail" ? "aurora-tool-detail-page" : "aurora-tool-home-page")} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .22 }}>
+              <WorkspaceContextNav active="tools" onNavigate={navigate}/>
               {toolScreen === "home" ? <>
                 <div className="tools-page-heading">
                   <p className="panel-eyebrow"><Sparkles size={13}/> DISCOVER AURORA</p>
@@ -2306,6 +2323,7 @@ export default function App() {
 
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <WorkspaceContextNav active="profile" onNavigate={navigate}/>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
               <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your in-app AI assistant panel</small></span><span className="pulse-launch-arrow">â†—</span></button>
 
