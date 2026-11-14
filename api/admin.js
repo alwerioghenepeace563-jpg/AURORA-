@@ -1,4 +1,6 @@
 import cors from "../lib/cors.cjs";
+import adminCodeHandler from "../lib/vercel-handlers/admin-code.js";
+import adminExecuteHandler from "../lib/vercel-handlers/admin-execute.js";
 const { applyAuroraCors } = cors;
 
 export default async function handler(req, res) {
