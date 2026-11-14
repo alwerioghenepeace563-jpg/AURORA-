@@ -1177,3 +1177,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .composer-footnote{font-size:9px!important}
 }
 @media(prefers-reduced-motion:reduce){.home-quick-card,.home-composer,.chat-composer{transition:none!important}}
+
+
+/* Home is a dashboard only: conversation composer exists exclusively on Chat. */
+.page-home .home-composer,.page-home .suggestion-row{display:none!important}
+.page-home .home-overview{margin-top:34px!important}
+@media(max-width:700px){.page-home .home-overview{margin-top:24px!important}}
