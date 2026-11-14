@@ -9,6 +9,7 @@ const tokenStore = fs.readFileSync("android/app/src/main/java/com/aurora/assista
 const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 const workspace = fs.readFileSync("src/components/CreativeLearningWorkspace.jsx", "utf8");
+const app = fs.readFileSync("src/App.jsx", "utf8");
 
 assert.match(manifest, /FOREGROUND_SERVICE_DATA_SYNC/);
 assert.match(manifest, /androidx\.work\.impl\.foreground\.SystemForegroundService/);
@@ -66,4 +67,10 @@ assert.match(workspace, /completedChunks/);
 assert.match(workspace, /api\("\/api\/voicetext-transcribe\?requestId=/);
 assert.match(workspace, /will retry in the background/);
 assert.doesNotMatch(workspace, /startTranscriptionService\(mediaFile\.name\)/);
+assert.match(app, /transcriptionStatusIntent/);
+assert.match(app, /getNativeRecordingStatus\(requestId\)/);
+assert.match(app, /setPulseTranscriptionAutoStart\(true\)/);
+assert.match(app, /autoStartOnFileSelect=\{pulseTranscriptionAutoStart\}/);
+assert.match(workspace, /autoStartOnFileSelect&&file\)setAutoStartPending\(true\)/);
+assert.match(workspace, /onAutoStartConsumed\?\.\(\)/);
 console.log("AURORA durable Android transcription queue contract checks passed.");
