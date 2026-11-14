@@ -1,13 +1,19 @@
 import cors from "../lib/cors.cjs";
+import auth from "../lib/supabase-auth.cjs";
 const { applyAuroraCors } = cors;
+const { verifySupabaseUser } = auth;
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Vary", "Origin, Authorization");
 
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST, OPTIONS");
     return res.status(405).json({ error: "Use POST." });
   }
+
+  const authResult = await verifySupabaseUser(req);
+  if (!authResult.ok) return res.status(authResult.status).json({ error: authResult.error, code: "AUTH_REQUIRED" });
 
   const key = process.env.ELEVENLAB_API_KEY || process.env.ELEVENLABS_API_KEY;
   if (!key) return res.status(503).json({ error: "Voice service is not configured.", code: "VOICE_KEY_MISSING" });
