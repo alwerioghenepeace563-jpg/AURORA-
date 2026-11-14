@@ -1109,7 +1109,7 @@ export default function App() {
       setSpeaking(false);
       const response = await fetch(auroraApiUrl("/api/voice"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
         body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice })
       });
       if (!isCurrent()) return;
