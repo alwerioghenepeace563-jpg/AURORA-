@@ -282,14 +282,14 @@ function BottomNav({ active, onNavigate }) {
   const items = [
     { id: "home", label: "Home", Icon: House },
     { id: "chat", label: "Chat", Icon: AudioLines },
-    { id: "explore", label: "Explore", Icon: Sparkles },
-    { id: "library", label: "Library", Icon: BookOpen },
+    { id: "tools", label: "Tools", Icon: Sparkles },
+    { id: "insights", label: "Insights", Icon: Activity },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
   return (
     <nav className="bottom-nav" aria-label="Main navigation">
       {items.map(({ id, label, Icon }) => {
-        const route = id === "explore" ? "tools" : id;
+        const route = id === "insights" ? "activities" : id;
         return <button key={id} type="button" className={`nav-item ${active === route ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""}`} onClick={() => onNavigate(route)} aria-current={active === route ? "page" : undefined}>
           <span className="nav-icon"><Icon size={19} strokeWidth={1.8} /></span>
           <span>{label}</span>
@@ -418,6 +418,8 @@ export default function App() {
   const [voicesError, setVoicesError] = useState("");
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
+  const homeGreeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
+  const homeDisplayName = String(profile.nickname || profile.name || "there").trim() || "there";
   const [pulseOpen, setPulseOpen] = useState(false);
   const [pulseTranscriptionAutoStart, setPulseTranscriptionAutoStart] = useState(false);
   const [pulseDraft, setPulseDraft] = useState("");
@@ -701,7 +703,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(true);
   const [notice, setNotice] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState(() => auroraRuntime.approvals.listPending());
-  const [activityTab, setActivityTab] = useState("tasks");
+  const [activityTab, setActivityTab] = useState("predictive");
   const [toolKind, setToolKind] = useState("search");
   const [toolScreen, setToolScreen] = useState("home");
   const [toolQuery, setToolQuery] = useState("");
@@ -1903,18 +1905,26 @@ export default function App() {
               <div className="home-eyebrow"><span className="eyebrow-line" /> YOUR SPACE. YOUR INTELLIGENCE. <span className="eyebrow-line" /></div>
               <div className="hero-orb"><Orb speaking={speaking} duration={5.5} /></div>
               <div className="home-copy">
-                <p className="welcome-kicker">GOOD TO HAVE YOU HERE</p>
-                <h1>Hello<span>,</span> there.</h1>
-                <p className="hero-subtitle">Your AI, your world.</p>
+                <p className="welcome-kicker">{homeGreeting.toUpperCase()} · YOUR PERSONAL SPACE</p>
+                <h1>{homeGreeting}<span>,</span> {homeDisplayName}.</h1>
+                <p className="hero-subtitle">Your day, ideas and intelligence — together.</p>
                 <div className="availability"><span className="live-dot" /> AURORA IS READY WHEN YOU ARE</div>
               </div>
+              <button type="button" className={"home-talk-button" + (listening ? " is-listening" : "")} onClick={toggleMic}><Mic size={17}/>{listening ? "Listening… tap to stop" : "Talk to AURORA"}</button>
+              <form className="home-composer glass-panel" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
+                <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => setAttachmentOpen(true)}><Paperclip size={18}/></button>
+                <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask AURORA anything…" aria-label="Ask AURORA anything"/>
+                <button type="button" className={"composer-tool mic-tool" + (listening ? " is-listening" : "")} onClick={toggleMic} aria-label={listening ? "Stop listening" : "Use microphone"}><Mic size={18}/></button>
+                <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send to AURORA">{busy ? <span className="mini-loader"/> : <ArrowUp size={20}/>}</button>
+              </form>
               {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
               <section className="home-overview">
                 <div className="home-section-heading"><div><span className="panel-eyebrow">YOUR WORKSPACE</span><h2>Pick up where you left off</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>Open chat <ArrowUpRight size={15}/></button></div>
                 <div className="home-quick-grid">
-                  <button type="button" className="home-quick-card" onClick={() => navigate("chat")}><span className="home-quick-icon violet"><AudioLines size={19}/></span><strong>Start a conversation</strong><small>Ask, learn or think something through</small></button>
-                  <button type="button" className="home-quick-card" onClick={() => navigate("tools")}><span className="home-quick-icon cyan"><Sparkles size={19}/></span><strong>Explore capabilities</strong><small>Research, writing, learning and more</small></button>
-                  <button type="button" className="home-quick-card" onClick={() => navigate("library")}><span className="home-quick-icon blue"><BookOpen size={19}/></span><strong>Your library</strong><small>Saved notes and knowledge</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("chat")}><span className="home-quick-icon violet"><AudioLines size={19}/></span><strong>Chat & think</strong><small>Ask questions, learn and create</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("tools")}><span className="home-quick-icon cyan"><Sparkles size={19}/></span><strong>Tools</strong><small>Research, writing, learning and more</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("activities")}><span className="home-quick-icon blue"><Activity size={19}/></span><strong>Daily insights</strong><small>Predictive intelligence and your day</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("library")}><span className="home-quick-icon blue"><BookOpen size={19}/></span><strong>Knowledge library</strong><small>Saved notes, sources and knowledge</small></button>
                 </div>
                 <div className="home-section-heading home-recent-heading"><div><span className="panel-eyebrow">RECENT CONVERSATIONS</span><h2>Your recent work</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>View all <ArrowUpRight size={15}/></button></div>
                 {recentHomeSessions.length ? <div className="home-recent-list">{recentHomeSessions.map(session => <button type="button" className="home-recent-item" key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); navigate("chat"); }}><span className="home-recent-icon"><MessageCircle size={17}/></span><span><strong>{session.title || "Conversation"}</strong><small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></span><ChevronRight size={17}/></button>)}</div> : <p className="home-recent-empty">Your conversations will appear here when you start chatting.</p>}
@@ -2113,7 +2123,7 @@ export default function App() {
 
           {page === "activities" && (
             <motion.section key="activities" className="utility-page aurora-activities-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Activities<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer â€” all saved inside AURORA on this device.</p>
+              <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Insights<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer â€” all saved inside AURORA on this device.</p>
               <div className="activity-summary-row"><div><Check size={16}/><strong>{tasks.filter((t) => !t.done).length}</strong><span>tasks left</span></div><div><Bell size={16}/><strong>{reminders.filter((r) => !r.done).length}</strong><span>reminders</span></div><div><CalendarDays size={16}/><strong>{events.length}</strong><span>events</span></div></div>
               <div className="activity-tabs" role="tablist" aria-label="Activity tools">
                 <button type="button" role="tab" aria-selected={activityTab==="tasks"} className={activityTab==="tasks"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("tasks")}><Check size={16}/>Tasks</button>
