@@ -1470,6 +1470,15 @@ export default function App() {
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
     if (!text || pulseBusy) return;
+    const transcriptionIntent = /^(?:hey aurora[, ]*)?(?:please\s+)?(?:transcribe|start transcription|open transcription|transcription workspace)(?:\s+(?:this|my|a|the)?\s*(?:recording|audio|video|file))?[.!?]*$/i.test(text);
+    if (transcriptionIntent) {
+      setPulseDraft("");
+      setPulseToolsOpen(false);
+      setPulseOpen(false);
+      setPulseMessages(items => [...items, { role: "assistant", content: "Opening the transcription workspace. Choose your audio or video there; on supported Android builds, background processing can continue while you leave the workspace." }]);
+      openTool("creative");
+      return;
+    }
     const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\s+(.+)$/i);
     if (searchMatch) { setPulseDraft(""); setPulseToolsOpen(false); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
     const next = [...pulseMessages, { role: "user", content: text }];
@@ -2305,6 +2314,7 @@ export default function App() {
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("calculator"); }}><Calculator size={19}/> Calculator</button>
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("study"); }}><GraduationCap size={19}/> Study</button>
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("writing"); }}><NotebookPen size={19}/> Writing</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("creative"); }}><FileText size={19}/> Transcription</button>
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openAttachment("camera"); }}><Camera size={19}/> Camera</button>
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); navigate("tools"); }}><MoreHorizontal size={19}/> More tools</button>
                   </div>}
