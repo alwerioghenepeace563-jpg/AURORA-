@@ -1826,20 +1826,7 @@ export default function App() {
                 <p className="hero-subtitle">Your AI, your world.</p>
                 <div className="availability"><span className="live-dot" /> AURORA IS READY WHEN YOU ARE</div>
               </div>
-              <form className="home-composer glass-panel" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
-                <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => setAttachmentOpen((v) => !v)} aria-expanded={attachmentOpen}><Plus size={20} /></button>
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask AURORA anything..." aria-label="Ask AURORA anything" />
-                <button type="button" className={`composer-tool mic-tool ${listening ? "is-listening" : ""}`} aria-label="Use microphone" onClick={toggleMic}><Mic size={19} /></button>
-                <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send message">{busy ? <span className="mini-loader" /> : <ArrowUp size={20} />}</button>
-              </form>
-
               {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
-              <div className="suggestion-row">
-                <button onClick={() => sendMessage("Help me plan my day.")}><CalendarDays size={15} /> Plan my day</button>
-                <button onClick={() => sendMessage("Help me think through an idea.")}><Sparkles size={15} /> Explore an idea</button>
-                <button onClick={() => sendMessage("Help me organise my tasks.")}><Check size={15} /> Organise tasks</button>
-              </div>
-
               <section className="home-overview">
                 <div className="home-section-heading"><div><span className="panel-eyebrow">YOUR WORKSPACE</span><h2>Pick up where you left off</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>Open chat <ArrowUpRight size={15}/></button></div>
                 <div className="home-quick-grid">
