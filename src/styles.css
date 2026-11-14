@@ -1232,3 +1232,20 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .nav-explore[aria-expanded="true"] .nav-expand-indicator{transform:rotate(90deg);color:#c9bbff}
 @media(max-width:480px){.explore-panel{width:min(360px,calc(100vw - 22px));padding:14px;border-radius:19px}.explore-panel-heading>strong{font-size:15px}.explore-panel-link{min-height:55px}.explore-panel-link strong{font-size:10px}.explore-panel-link small{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.explore-panel{animation:none}.explore-panel-link,.nav-expand-indicator{transition:none}}
+
+/* Profile hub and calmer settings entry */
+.profile-hub{margin-top:15px;padding:18px;border:1px solid rgba(211,202,255,.14);border-radius:20px;background:linear-gradient(145deg,rgba(35,34,52,.48),rgba(15,18,30,.44));backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
+.profile-hub-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}
+.profile-hub-heading .panel-eyebrow{margin-bottom:6px}
+.profile-hub-heading h2{margin:0;color:#f2f0f8;font:600 16px 'Manrope',sans-serif;letter-spacing:-.035em}
+.profile-hub-heading p:last-child{margin:5px 0 0;color:#999daf;font-size:10px;line-height:1.5}
+.profile-hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.profile-hub-action{display:flex;align-items:center;gap:10px;min-width:0;min-height:61px;padding:10px;border:1px solid rgba(211,202,255,.1);border-radius:14px;background:rgba(255,255,255,.035);color:#e9e7f2;text-align:left;transition:background .18s,border-color .18s,transform .18s}
+.profile-hub-action:hover,.profile-hub-action:focus-visible{background:rgba(167,139,250,.09);border-color:rgba(167,139,250,.28);transform:translateY(-1px);outline:none}
+.profile-hub-icon{width:34px;height:34px;display:grid;place-items:center;flex:none;border:1px solid rgba(180,164,255,.17);border-radius:11px;background:rgba(167,139,250,.1);color:#c9bbff}
+.profile-hub-action>span:nth-child(2){flex:1;min-width:0}
+.profile-hub-action strong,.profile-hub-action small{display:block}
+.profile-hub-action strong{font-size:10px;font-weight:600}
+.profile-hub-action small{margin-top:4px;color:#999daf;font-size:8px;line-height:1.4}
+.profile-hub-action>svg{flex:none;color:#777c9d}
+@media(max-width:600px){.profile-hub{padding:14px;border-radius:17px}.profile-hub-grid{grid-template-columns:1fr}.profile-hub-action{min-height:56px}.profile-hub-action strong{font-size:10px}.profile-hub-action small{font-size:8px}}
