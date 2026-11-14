@@ -439,6 +439,44 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-pulse-messages", JSON.stringify(pulseMessages.filter(item => !item.pending).slice(-60))); } catch {}
   }, [pulseMessages]);
+  useEffect(() => {
+    if (!pulseOpen || !AuroraNative.isAndroid()) return;
+    let stopped = false;
+    const checkBackgroundTranscriptions = async () => {
+      let keys = [];
+      try { keys = Object.keys(localStorage).filter(key => key.startsWith("aurora-voicetext-job:")); } catch {}
+      for (const key of keys.slice(-5)) {
+        if (stopped) return;
+        let saved;
+        try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch { continue; }
+        if (!saved?.requestId || !saved.nativeBackground) continue;
+        try {
+          const status = await AuroraNative.getNativeRecordingStatus(saved.requestId);
+          const completed = Number(status?.completedChunks || 0);
+          const previous = Number(localStorage.getItem("aurora-pulse-transcription-progress:" + saved.requestId) || 0);
+          if (completed > previous && !status?.successful && !status?.failed) {
+            localStorage.setItem("aurora-pulse-transcription-progress:" + saved.requestId, String(completed));
+            setPulseMessages(items => [...items, { role: "assistant", content: "Transcription update: " + completed + " audio sections have been processed in the background." }]);
+          }
+          if (status?.successful && localStorage.getItem("aurora-pulse-transcription-finished:" + saved.requestId) !== "1") {
+            localStorage.setItem("aurora-pulse-transcription-finished:" + saved.requestId, "1");
+            setPulseMessages(items => [...items, { role: "assistant", content: "Your background transcription is complete. Open the Transcription workspace to review the combined transcript." }]);
+          } else if (status?.failed && localStorage.getItem("aurora-pulse-transcription-failed:" + saved.requestId) !== "1") {
+            localStorage.setItem("aurora-pulse-transcription-failed:" + saved.requestId, "1");
+            const reason = String(status.reason || "");
+            const message = /(401|403|sign.?in|session|expired|unauthori[sz]ed)/i.test(reason)
+              ? "Your transcription needs a fresh AURORA sign-in. Sign in, then reopen Transcription and choose the same recording to resume from its saved sections."
+              : "Background transcription needs attention: " + (reason || "Android reported that the job did not finish.") + " Reopen Transcription and choose the same recording to resume.";
+            setPulseMessages(items => [...items, { role: "assistant", content: message }]);
+          }
+        } catch {}
+      }
+    };
+    void checkBackgroundTranscriptions();
+    const timer = setInterval(() => { void checkBackgroundTranscriptions(); }, 8000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, [pulseOpen]);
+
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
