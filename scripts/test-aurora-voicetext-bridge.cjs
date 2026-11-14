@@ -15,6 +15,9 @@ assert.match(endpoint, /Authorization: "Bearer " \+ token/);
 assert.match(endpoint, /\/api\/aurora-transcribe/);
 assert.match(endpoint, /4000000/);
 assert.match(endpoint, /audio files only/);
+assert.match(endpoint, /totalChunks < 1 \|\| totalChunks > 2000/);
+assert.match(endpoint, /chunkNumber < 0 \|\| chunkNumber >= totalChunks/);
+assert.match(endpoint, /section number within the job/);
 
 assert.match(workspace, /\/api\/voicetext-transcribe/);
 assert.match(workspace, /VoiceText transcription/);
