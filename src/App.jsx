@@ -725,7 +725,7 @@ export default function App() {
   const cameraVideoRef = useRef(null);
   const liveCameraStreamRef = useRef(null);
   const [tunerOpen, setTunerOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [notice, setNotice] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState(() => auroraRuntime.approvals.listPending());
   const [activityTab, setActivityTab] = useState("predictive");
@@ -2310,6 +2310,15 @@ export default function App() {
               <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your in-app AI assistant panel</small></span><span className="pulse-launch-arrow">â†—</span></button>
 
               <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>{profile.nickname || profile.name || "Your profile"}</h2><p>Personal details and preferences</p></div><span className="coming-pill">ON THIS DEVICE</span></div>
+              <section className="profile-hub" aria-label="Profile shortcuts">
+                <div className="profile-hub-heading"><div><p className="panel-eyebrow">YOUR AURORA</p><h2>Manage your space</h2><p>Jump straight to the parts of AURORA you use most.</p></div></div>
+                <div className="profile-hub-grid">
+                  <button type="button" className="profile-hub-action" onClick={() => { navigate("chat"); setShowSettings(true); }}><span className="profile-hub-icon"><Settings2 size={18}/></span><span><strong>Assistant settings</strong><small>Voice, responses and app updater</small></span><ChevronRight size={16}/></button>
+                  <button type="button" className="profile-hub-action" onClick={() => navigate("tools")}><span className="profile-hub-icon"><Sparkles size={18}/></span><span><strong>Explore tools</strong><small>Open AURORA workspaces</small></span><ChevronRight size={16}/></button>
+                  <button type="button" className="profile-hub-action" onClick={() => navigate("activities")}><span className="profile-hub-icon"><Activity size={18}/></span><span><strong>Daily insights</strong><small>Tasks, reminders and plans</small></span><ChevronRight size={16}/></button>
+                  <button type="button" className="profile-hub-action" onClick={() => navigate("library")}><span className="profile-hub-icon"><BookOpen size={18}/></span><span><strong>Knowledge library</strong><small>Return to saved knowledge</small></span><ChevronRight size={16}/></button>
+                </div>
+              </section>
               <form className="profile-form" onSubmit={(event) => { event.preventDefault(); setProfileSaved(true); setTimeout(() => setProfileSaved(false), 2400); }}>
                 <div className="profile-form-heading"><div><h2>Personalise AURORA</h2><p>These details stay saved on this device and help tailor replies when you chat.</p></div></div>
                 <div className="profile-field-grid">
