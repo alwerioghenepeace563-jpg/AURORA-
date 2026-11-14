@@ -1892,7 +1892,7 @@ export default function App() {
         </button>
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
-          <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
+          <button className="icon-button top-settings" onClick={() => { if (page !== "chat") navigate("chat"); setShowSettings((v) => !v); }} aria-label="Open settings"><Settings2 size={19} /></button>
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
         </div>
