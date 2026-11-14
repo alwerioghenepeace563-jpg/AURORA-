@@ -126,6 +126,8 @@ async function chatHandler(req, res) {
 
     "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request." +
     "\n\n" + buildCoreInstructions(corePlan);
+  const hasMedia = body.messages.some((m) => m && m.media);
+
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
     contents,
@@ -139,7 +141,6 @@ async function chatHandler(req, res) {
   const hasAttachments = body.messages.some((m) => m && (m.document || m.image || m.media));
   const hasImages = body.messages.some((m) => m && m.image);
   const hasPdfs = body.messages.some((m) => m && m.document);
-  const hasMedia = body.messages.some((m) => m && m.media);
   const configuredProviders = [
     groqKey ? "groq" : null,
     openRouterKey ? "openrouter" : null,
