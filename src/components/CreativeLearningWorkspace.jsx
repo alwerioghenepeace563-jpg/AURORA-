@@ -231,8 +231,15 @@ function CreativeLearningWorkspace({ authSession }){
     let nativeStatus=null;
     if(nativeSaved?.nativeBackground){
      nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
-    }else{
-     setMediaProgress("Copying the original recording into private Android storage…");
+     if(nativeStatus?.failed&&/(401|403|sign.?in|session|expired|unauthori[sz]ed)/i.test(String(nativeStatus.reason||""))){
+      if(!authSession?.access_token)throw new Error("Your AURORA sign-in has expired. Sign in again, then resume this recording; its original file and completed sections are preserved.");
+      setMediaProgress("Refreshing secure sign-in · resuming from the last saved section…");
+      const resumed=await auroraNative.queueNativeRecording({requestId:job.requestId,endpoint:auroraApiUrl("/api/voicetext-transcribe"),accessToken:authSession.access_token,mimeType:mediaFile.type,sizeBytes:mediaFile.size,durationSeconds:duration,totalChunks});
+      nativeSaved={...nativeSaved,workId:resumed.workId};
+      localStorage.setItem(jobKey,JSON.stringify(nativeSaved));
+      nativeStatus=await auroraNative.getNativeRecordingStatus(job.requestId);
+     }
+    }else{     setMediaProgress("Copying the original recording into private Android storage…");
      const staging=await auroraNative.getNativeRecordingStagingStatus(job.requestId);
      let stagedBytes=Math.max(0,Number(staging?.stagedBytes)||0);
      if(stagedBytes>mediaFile.size)throw new Error("A previous partial transfer is larger than this recording. Cancel that transcription and start a fresh job.");
