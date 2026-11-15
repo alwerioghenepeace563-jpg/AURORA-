@@ -1284,3 +1284,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(max-width:520px){.chat-workspace-shortcuts{padding:10px;border-radius:15px}.chat-workspace-shortcuts-grid{gap:6px}.chat-workspace-shortcuts-grid>button{min-height:51px;padding:8px}.chat-workspace-shortcuts-grid strong{font-size:9px}.chat-workspace-shortcuts-grid small{font-size:7px}}
 @media(max-width:360px){.chat-workspace-shortcuts-grid{grid-template-columns:1fr}.chat-workspace-shortcuts-grid>button{min-height:48px}.chat-workspace-shortcuts-grid strong{font-size:10px}.chat-workspace-shortcuts-grid small{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.chat-workspace-shortcuts{animation:none}.chat-workspace-shortcuts-grid>button{transition:none}}
+
+
+/* Adaptive mobile typography and touch sizing */
+:root{--aurora-mobile-body:15px;--aurora-mobile-support:12px;--aurora-mobile-target:44px}
+@media(min-width:701px) and (max-width:1100px){
+  .app-shell{font-size:15.5px}
+}
+@media(max-width:700px){
+  .app-shell{font-size:15px}
+  .app-shell :is(.message-paragraph,.message-quote,.message-list li,.hero-subtitle,.home-copy p,.profile-hub-heading p,.explore-panel-link small,.profile-hub-action small){font-size:max(14px,1em)!important;line-height:1.55!important}
+  .app-shell :is(input,textarea,select){font-size:max(15px,1em)!important;min-height:44px}
+  .app-shell :is(button,.icon-button,.top-settings,.composer-tool,.send-button){-webkit-tap-highlight-color:transparent}
+  .app-shell :is(.nav-item,.icon-button,.top-settings,.composer-tool,.send-button){min-height:42px}
+  .app-shell :is(.panel-eyebrow,.eyebrow,.home-eyebrow,.connection-pill){font-size:max(11px,1em)!important}
+  .app-shell :is(.chat-heading p,.chat-title-wrap p,.setting-group small,.tool-card small){font-size:max(12px,1em)!important}
+}
+@media(max-width:380px){
+  .app-shell{font-size:14px}
+  .app-shell :is(.message-paragraph,.message-quote,.message-list li){font-size:14px!important}
+  .app-shell :is(input,textarea,select){font-size:15px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .app-shell *{scroll-behavior:auto!important}
+}
