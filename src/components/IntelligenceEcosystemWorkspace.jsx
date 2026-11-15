@@ -336,7 +336,7 @@ export default function IntelligenceEcosystemWorkspace() {
     {tab === "devices" && <>
       <div style={panelStyle}>
         <strong><Bluetooth size={16}/> Trusted Android devices</strong>
-        <p className="knowledge-import-meta">Nearby Connections uses Bluetooth and Wi-Fi to find AURORA devices without requiring internet. Both phones must approve the same authentication code. Pairing is available in the Android app only.</p>
+        <p className="knowledge-import-meta">Nearby Connections uses Bluetooth and Wi-Fi to find AURORA devices without requiring internet, but Google Play services must be available. Both phones must approve the same authentication code. Google Play services may collect connection-performance and device diagnostics under Android Usage & diagnostics settings. Pairing is available in the Android app only.</p>
         {!nearby.isAvailable() ? <p className="activity-muted">Open this workspace inside the AURORA Android app to use nearby pairing.</p> : <>
           <div className="knowledge-detail-actions">
             <button type="button" className="primary-action" disabled={nearbyBusy || nearbyScanning} onClick={startNearbyDiscovery}><Radio size={15}/>{nearbyBusy ? "Starting…" : "Find nearby devices"}</button>
