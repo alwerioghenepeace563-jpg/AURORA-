@@ -46,9 +46,9 @@ public class AuroraScreenCaptureService extends Service {
             .setContentTitle("AURORA screen capture")
             .setContentText("Capturing one frame with your permission")
             .setOngoing(true).build();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        else startForeground(NOTIFICATION_ID, notification);
         try {
+            if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+            else startForeground(NOTIFICATION_ID, notification);
             MediaProjectionManager manager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             projection = manager.getMediaProjection(intent.getIntExtra(EXTRA_RESULT_CODE, 0), intent.getParcelableExtra(EXTRA_RESULT_DATA));
             if (projection == null) throw new IllegalStateException("Android did not provide a screen projection.");
