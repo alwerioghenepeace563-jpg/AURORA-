@@ -95,6 +95,7 @@ public class AuroraNearbyPlugin extends Plugin {
         final String publicKey;
         final java.security.PublicKey parsedKey;
         volatile boolean connected;
+        volatile boolean authenticated = false;
 
         Peer(String endpointId, String deviceId, String name, String platform,
              String fingerprint, String publicKey, java.security.PublicKey parsedKey) {
@@ -323,7 +324,7 @@ public class AuroraNearbyPlugin extends Plugin {
             item.put("name", peer.name);
             item.put("platform", peer.platform);
             item.put("publicKeyFingerprint", peer.fingerprint);
-            item.put("authenticated", true);
+            item.put("authenticated", peer.authenticated);
             items.put(item);
         }
         call.resolve(new JSObject().put("items", items).put("count", items.length()));
@@ -363,7 +364,7 @@ public class AuroraNearbyPlugin extends Plugin {
         JSObject payload = call.getObject("payload");
         if (deviceId == null || payload == null) { call.reject("A destination and JSON payload are required."); return; }
         Peer peer = peerForDevice(deviceId);
-        if (peer == null || !peer.connected) { call.reject("The paired device is not currently connected."); return; }
+        if (peer == null || !peer.connected || !peer.authenticated) { call.reject("The paired device must complete authenticated pairing before handoff."); return; }
         try {
             JSONObject envelope = new JSONObject();
             envelope.put("type", "APP_DATA");
@@ -486,6 +487,7 @@ public class AuroraNearbyPlugin extends Plugin {
                 notifyListeners("nearbyTransportError", new JSObject().put("code", "PEER_AUTHENTICATION_FAILED"));
                 return;
             }
+            peer.authenticated = true;
             sendControl(endpointId, signedMessage("AUTH_RESPONSE", challenge, peer.deviceId));
         } catch (Exception ignored) {
             notifyListeners("nearbyTransportError", new JSObject().put("code", "PEER_AUTHENTICATION_FAILED"));
@@ -517,6 +519,7 @@ public class AuroraNearbyPlugin extends Plugin {
             result.put("authenticated", true);
             result.put("deviceId", peer.deviceId);
             result.put("publicKeyFingerprint", peer.fingerprint);
+            peer.authenticated = true;
             pending.resolve(result);
             notifyListeners("nearbyPeerAuthenticated", new JSObject().put("deviceId", peer.deviceId).put("name", peer.name));
         } catch (Exception error) {
@@ -529,7 +532,7 @@ public class AuroraNearbyPlugin extends Plugin {
 
     private void handleAppData(String endpointId, JSONObject message) {
         Peer peer = peers.get(endpointId);
-        if (peer == null || !peer.connected) return;
+        if (peer == null || !peer.connected || !peer.authenticated) return;
         try {
             String from = message.getString("fromDeviceId");
             String id = message.getString("id");
