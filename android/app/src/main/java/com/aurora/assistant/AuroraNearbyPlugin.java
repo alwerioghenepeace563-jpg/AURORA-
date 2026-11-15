@@ -552,7 +552,9 @@ public class AuroraNearbyPlugin extends Plugin {
         } catch (Exception ignored) { }
     }
 
-    private void handleAck(JSONObject message) {
+    private void handleAck(String endpointId, JSONObject message) {
+        Peer peer = peers.get(endpointId);
+        if (peer == null || !peer.connected || !peer.authenticated || !peer.deviceId.equals(message.optString("fromDeviceId", ""))) return;
         String id = message.optString("id", "");
         PluginCall pending = sendCalls.remove(id);
         if (pending == null) return;
@@ -623,7 +625,7 @@ public class AuroraNearbyPlugin extends Plugin {
                 else if ("AUTH_CHALLENGE".equals(type)) handleChallenge(endpointId, message);
                 else if ("AUTH_RESPONSE".equals(type)) handleResponse(endpointId, message);
                 else if ("APP_DATA".equals(type)) handleAppData(endpointId, message);
-                else if ("APP_ACK".equals(type)) handleAck(message);
+                else if ("APP_ACK".equals(type)) handleAck(endpointId, message);
             } catch (Exception ignored) { }
         }
         @Override public void onPayloadTransferUpdate(String endpointId, PayloadTransferUpdate update) { }
