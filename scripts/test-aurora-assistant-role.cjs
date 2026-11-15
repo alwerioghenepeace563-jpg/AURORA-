@@ -81,6 +81,8 @@ assert.match(screenPlugin,/boolean fileAvailable = image\.isFile\(\)/);
 assert.match(screenPlugin,/prefs\.getBoolean\("captured", false\) && fileAvailable/);
 assert.match(screenPlugin,/temporary screen frame is no longer available/);
 assert.match(screenService,/Android did not deliver a screen frame before the capture timeout/);
+assert.match(screenService,/private synchronized void saveOneFrame/);
+assert.match(screenService,/synchronized \(AuroraScreenCaptureService\.this\)/);
 assert.match(screenService,/Screen capture was stopped by Android before a frame was saved/);
 assert.match(screenService,/if \(prefs\.getBoolean\("capturing", false\)\)/);
 assert.match(screenService,/putBoolean\("capturing", false\)[\s\S]*putBoolean\("captured", false\)/);
