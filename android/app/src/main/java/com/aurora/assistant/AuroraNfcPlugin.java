@@ -67,7 +67,9 @@ public class AuroraNfcPlugin extends Plugin {
         }
         JSObject event = new JSObject();
         event.put("uid", uid);
-        event.put("technologies", new org.json.JSONArray(technologies));
+        org.json.JSONArray techArray = new org.json.JSONArray();
+        for (String technology : technologies) techArray.put(technology);
+        event.put("technologies", techArray);
         event.put("readOnlyMetadata", true);
         try {
             Ndef ndef = Ndef.get(tag);
