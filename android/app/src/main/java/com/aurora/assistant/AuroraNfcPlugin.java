@@ -74,22 +74,27 @@ public class AuroraNfcPlugin extends Plugin {
         try {
             Ndef ndef = Ndef.get(tag);
             if (ndef != null) {
-                ndef.connect();
-                NdefMessage message = ndef.getNdefMessage();
-                if (message != null) {
-                    org.json.JSONArray records = new org.json.JSONArray();
-                    for (NdefRecord record : message.getRecords()) {
-                        if (record.getTnf() == NdefRecord.TNF_WELL_KNOWN && java.util.Arrays.equals(record.getType(), NdefRecord.RTD_TEXT)) {
-                            byte[] payload = record.getPayload();
-                            if (payload.length > 1) {
-                                int languageLength = payload[0] & 0x3f;
-                                if (languageLength < payload.length) records.put(new String(payload, 1 + languageLength, payload.length - 1 - languageLength, Charset.forName("UTF-8")));
+                try {
+                    ndef.connect();
+                    NdefMessage message = ndef.getNdefMessage();
+                    if (message != null) {
+                        org.json.JSONArray records = new org.json.JSONArray();
+                        for (NdefRecord record : message.getRecords()) {
+                            if (record.getTnf() == NdefRecord.TNF_WELL_KNOWN && java.util.Arrays.equals(record.getType(), NdefRecord.RTD_TEXT)) {
+                                byte[] payload = record.getPayload();
+                                if (payload.length > 1) {
+                                    int status = payload[0] & 0xff;
+                                    int languageLength = status & 0x3f;
+                                    if (1 + languageLength <= payload.length) {
+                                        Charset textCharset = (status & 0x80) == 0 ? Charset.forName("UTF-8") : Charset.forName("UTF-16");
+                                        records.put(new String(payload, 1 + languageLength, payload.length - 1 - languageLength, textCharset));
+                                    }
+                                }
                             }
                         }
+                        event.put("textRecords", records);
                     }
-                    event.put("textRecords", records);
-                }
-                ndef.close();
+                } finally { try { ndef.close(); } catch (Exception ignored) {} }
             }
         } catch (Exception error) { event.put("readError", "Tag could not be read as NDEF."); }
         notifyListeners("nfcTagDiscovered", event);
