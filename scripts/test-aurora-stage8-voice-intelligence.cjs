@@ -1,3 +1,6 @@
+  assert.ok(nativeBridge.includes("addSpeechPartialResultListener"));
+  assert.ok(nativePlugin.includes("speechPartialResult"));
+  assert.ok(nativePlugin.includes("EXTRA_PARTIAL_RESULTS"));
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync("src/App.jsx", "utf8");
@@ -22,8 +25,8 @@ const nativePlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assis
   assert.ok(chat.includes("buildVoiceIntelligenceInstructions"));
   assert.match(voiceApi, /deliveryPresets/);
   assert.match(voiceApi, /speed: delivery.speed/);
-  assert.match(app, /auroraNative\.speakText\(makeSpeechFriendly\(text\), \{ rate:/);
-  assert.match(nativeBridge, /rate\?: number; pitch\?: number/);
+  assert.ok(app.includes("auroraNative.speakText(makeSpeechFriendly(text), { rate:"));
+  assert.ok(nativeBridge.includes("rate?: number; pitch?: number"));
   assert.match(nativePlugin, /textToSpeech\.setSpeechRate\(rate\)/);
   assert.match(nativePlugin, /textToSpeech\.setPitch\(pitch\)/);
   assert.equal(voice.isImmediateInterruptionCommand("Stop talking"), true);
