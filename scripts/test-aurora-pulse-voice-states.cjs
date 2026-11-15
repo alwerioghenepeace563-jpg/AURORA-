@@ -1,0 +1,28 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const css = fs.readFileSync("src/styles.css", "utf8");
+
+assert.match(app, /const \[pulseVoiceError, setPulseVoiceError\] = useState\(" "\);|const \[pulseVoiceError, setPulseVoiceError\] = useState\("\"\);/);
+assert.match(app, /pulseListening \? "Listening…"/);
+assert.match(app, /pulseBusy \? "Thinking…"/);
+assert.match(app, /speaking \? "Speaking…"/);
+assert.match(app, /pulseVoiceError \|\| "Ready"/);
+assert.match(app, /className=\{"aurora-pulse-voice-status"/);
+assert.match(app, /role="status" aria-live="polite"/);
+assert.match(app, /pulseVoiceError \? " is-error" : ""/);
+assert.match(app, /setPulseVoiceError\("Microphone permission needed"\)/);
+assert.match(app, /setPulseVoiceError\("Microphone error"\)/);
+assert.match(app, /setPulseVoiceError\("Could not start microphone"\)/);
+assert.match(app, /setPulseVoiceError\("Connection issue"\)/);
+assert.match(app, /auroraNative\.startSpeechRecognition\(\)/);
+assert.match(app, /window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/);
+assert.match(app, /await auroraNative\.speakText\(makeSpeechFriendly\(text\)\)/);
+assert.match(css, /\.aurora-pulse-voice-status/);
+assert.match(css, /\.aurora-pulse-voice-status\.is-error/);
+assert.match(css, /\.aurora-pulse-head \.aurora-pulse-orb\.is-listening/);
+assert.match(css, /\.aurora-pulse-head \.aurora-pulse-orb\.is-thinking/);
+assert.match(css, /\.aurora-pulse-head \.aurora-pulse-orb\.is-speaking/);
+assert.match(css, /\.aurora-pulse-head \.aurora-pulse-orb\.is-error/);
+assert.match(css, /prefers-reduced-motion:reduce\).*aurora-pulse-head/);
+console.log("AURORA Pulse voice-state checks passed.");
