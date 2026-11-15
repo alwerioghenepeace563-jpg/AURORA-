@@ -162,21 +162,43 @@ function FormattedMessage({ content, onChoice }) {
 }
 function StructuredVisual({ data }) {
   const safeColor = (value, fallback) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+  const safeUrl = (value) => {
+    try { const url = new URL(String(value || "")); return url.protocol === "https:" || url.protocol === "http:" ? url.href : ""; }
+    catch { return ""; }
+  };
+  const title = typeof data?.title === "string" ? data.title : "";
+  const description = typeof data?.description === "string" ? data.description : "";
   if (data && data.type === "flow" && Array.isArray(data.steps) && data.steps.length) {
     const steps = data.steps.slice(0, 8);
-    return <div className="aurora-flow-card">{data.title && <div className="aurora-visual-title">{data.title}</div>}{steps.map((step, index) => <div className="aurora-flow-step-wrap" key={index}><div className="aurora-flow-step" style={{ background: safeColor(step.color, "#14233a") }}><div className="aurora-flow-step-title">{String(step.title || "Step " + (index + 1))}</div>{step.text && <div className="aurora-flow-step-text">{String(step.text)}</div>}</div>{index < steps.length - 1 && <div className="aurora-flow-arrow" aria-hidden="true">â†“</div>}</div>)}</div>;
+    return <div className="aurora-flow-card">{title && <div className="aurora-visual-title">{title}</div>}{steps.map((step, index) => <div className="aurora-flow-step-wrap" key={index}><div className="aurora-flow-step" style={{ background: safeColor(step.color, "#14233a") }}><div className="aurora-flow-step-title">{String(step.title || "Step " + (index + 1))}</div>{step.text && <div className="aurora-flow-step-text">{String(step.text)}</div>}</div>{index < steps.length - 1 && <div className="aurora-flow-arrow" aria-hidden="true">↓</div>}</div>)}</div>;
   }
-  if (data && data.type === "card" && typeof data.title === "string") {
-    const items = Array.isArray(data.items) ? data.items.slice(0, 8) : [];
-    const url = typeof data.buttonUrl === "string" && /^https?:\/\//i.test(data.buttonUrl) ? data.buttonUrl : "";
-    return <div className="aurora-info-card"><div className="aurora-info-card-accent"><Sparkles size={16}/></div><div className="aurora-visual-title">{data.title}</div>{data.description && <p className="message-paragraph">{String(data.description)}</p>}{items.length > 0 && <ul className="aurora-info-items">{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : String(item && (item.text || item.title) || "")}</li>)}</ul>}{url && <a className="aurora-card-link" href={url} target="_blank" rel="noreferrer">{String(data.buttonLabel || "Open link")} <span>â†—</span></a>}</div>;
-  }
-  return null;
+  if (!data || !["card", "live", "research", "action", "map", "metrics"].includes(data.type) || !title) return null;
+  const items = Array.isArray(data.items) ? data.items.slice(0, 8) : [];
+  const sources = Array.isArray(data.sources) ? data.sources.slice(0, 5) : [];
+  const actions = Array.isArray(data.actions) ? data.actions.slice(0, 3) : [];
+  const metrics = Array.isArray(data.metrics) ? data.metrics.slice(0, 4) : [];
+  const buttonUrl = safeUrl(data.buttonUrl);
+  const address = typeof data.address === "string" ? data.address.trim() : "";
+  const mapUrl = safeUrl(data.mapUrl) || (address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address) : "");
+  const kindLabel = ({ live: "LIVE INFORMATION", research: "RESEARCH", action: "QUICK ACTIONS", map: "PLACE & MAP", metrics: "AT A GLANCE", card: "AURORA INSIGHT" })[data.type];
+  return <section className={"aurora-data-card aurora-data-card-" + data.type} aria-label={title}>
+    <div className="aurora-data-card-top"><span className="aurora-data-card-icon">{data.type === "map" ? <MapPinned size={16}/> : data.type === "research" ? <BookOpen size={16}/> : data.type === "live" ? <Activity size={16}/> : data.type === "action" ? <Check size={16}/> : <Sparkles size={16}/>}</span><span className="aurora-data-card-kind">{kindLabel}</span>{data.status === "live" && <span className="aurora-data-live-dot">LIVE</span>}</div>
+    <div className="aurora-visual-title">{title}</div>
+    {description && <p className="message-paragraph">{description}</p>}
+    {data.type === "metrics" && metrics.length > 0 && <div className="aurora-metric-grid">{metrics.map((metric, index) => <div className="aurora-metric" key={index}><strong>{String(metric.value ?? "—")}</strong><span>{String(metric.label || "Metric")}</span>{metric.detail && <small>{String(metric.detail)}</small>}</div>)}</div>}
+    {data.type === "map" && <div className="aurora-map-summary"><MapPinned size={17}/><span>{address || "Location details not supplied"}</span></div>}
+    {items.length > 0 && <ul className="aurora-info-items">{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : String(item && (item.text || item.title || item.label) || "")}</li>)}</ul>}
+    {data.type === "research" && sources.length > 0 && <div className="aurora-research-sources"><strong>Sources</strong>{sources.map((source, index) => { const url = safeUrl(source?.url); return <div className="aurora-research-source" key={index}><span>{String(source?.title || source?.name || "Source " + (index + 1))}</span>{url && <a href={url} target="_blank" rel="noreferrer">Open <ArrowUpRight size={12}/></a>}</div>; })}</div>}
+    {data.updatedAt && <div className="aurora-data-updated">Updated: {String(data.updatedAt)}</div>}
+    {mapUrl && data.type === "map" && <a className="aurora-card-link" href={mapUrl} target="_blank" rel="noreferrer">Open in Maps <ArrowUpRight size={13}/></a>}
+    {buttonUrl && <a className="aurora-card-link" href={buttonUrl} target="_blank" rel="noreferrer">{String(data.buttonLabel || "Open link")} <ArrowUpRight size={13}/></a>}
+    {actions.length > 0 && <div className="aurora-action-list">{actions.map((action, index) => { const url = safeUrl(action?.url); return url ? <a className="aurora-action-item" href={url} target="_blank" rel="noreferrer" key={index}><span><strong>{String(action.label || action.title || "Open action")}</strong>{action.description && <small>{String(action.description)}</small>}</span><ArrowUpRight size={15}/></a> : <div className="aurora-action-item is-static" key={index}><span><strong>{String(action.label || action.title || "Action")}</strong>{action.description && <small>{String(action.description)}</small>}</span></div>; })}</div>}
+  </section>;
 }
 function findStructuredBlock(line) {
   const candidate = line.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
-  try { const parsed = JSON.parse(candidate); if (parsed && (parsed.type === "flow" || parsed.type === "card")) return parsed; } catch {}
+  try { const parsed = JSON.parse(candidate); if (parsed && ["flow", "card", "live", "research", "action", "map", "metrics"].includes(parsed.type)) return parsed; } catch {}
   return null;
 }
 
