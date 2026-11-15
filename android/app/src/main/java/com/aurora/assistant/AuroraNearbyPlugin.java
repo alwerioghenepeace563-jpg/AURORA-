@@ -647,7 +647,7 @@ public class AuroraNearbyPlugin extends Plugin {
     }
 
     @Override
-    protected void handleOnDestroy() {
+    public void handleOnDestroy() {
         for (PluginCall call : verifyCalls.values()) call.reject("AURORA closed the nearby pairing session.");
         for (PluginCall call : sendCalls.values()) call.reject("AURORA closed the nearby handoff session.");
         verifyCalls.clear(); sendCalls.clear(); verifyChallenges.clear(); timeouts.clear();
