@@ -22,6 +22,63 @@ import {
 } from "lucide-react";
 
 
+function buildPulseEngineCard(result, query) {
+  if (!result || typeof result !== "object" || result.error) return null;
+  const tool = String(result.tool || "");
+  const titleByTool = {
+    aurora_universal_search: "AURORA search results",
+    aurora_knowledge_search: "Related saved knowledge",
+    aurora_capability_discovery: "Available AURORA capabilities",
+    aurora_data_inventory: "AURORA data overview",
+    aurora_reminders: "Your reminders",
+    aurora_routines: "Your scheduled routines",
+    aurora_workflows: "Your saved workflows",
+    aurora_recent_tasks: "Recent AURORA tasks",
+    aurora_task_recovery: "Tasks ready for review"
+  };
+  const steps = Array.isArray(result.steps) ? result.steps : Array.isArray(result.preview?.steps) ? result.preview.steps : [];
+  if (steps.length && /task|workflow|retry|execution/i.test(tool)) {
+    return {
+      type: "flow",
+      title: titleByTool[tool] || "AURORA action workflow",
+      steps: steps.slice(0, 8).map((step, index) => ({
+        title: String(step.label || step.title || step.name || "Step " + (index + 1)).slice(0, 120),
+        text: [step.status, step.description, step.availability].filter(Boolean).map(String).join(" · ").slice(0, 220)
+      }))
+    };
+  }
+  const stores = Array.isArray(result.inventory?.stores) ? result.inventory.stores : Array.isArray(result.report?.stores) ? result.report.stores : [];
+  if (stores.length) {
+    return {
+      type: "metrics",
+      title: titleByTool[tool] || "AURORA data overview",
+      description: "A summary of registered data stores. This does not expose private record contents.",
+      metrics: stores.slice(0, 4).map(store => ({
+        label: String(store.label || store.id || "Data store").slice(0, 48),
+        value: Number.isFinite(Number(store.count)) ? Number(store.count) : "—",
+        detail: String(store.location || "").slice(0, 70)
+      }))
+    };
+  }
+  const arrays = [result.results, result.items, result.reminders, result.routines, result.capabilities, result.tasks, result.extensions, result.consents];
+  const records = arrays.find(value => Array.isArray(value) && value.length) || [];
+  const items = records.slice(0, 8).map(item => {
+    if (typeof item === "string") return item.slice(0, 220);
+    const label = item?.title || item?.label || item?.name || item?.id || "Result";
+    const summary = item?.summary || item?.description || item?.status || item?.type || "";
+    return (String(label) + (summary ? " — " + String(summary) : "")).slice(0, 260);
+  }).filter(Boolean);
+  if (!items.length) return null;
+  const isResearch = /search|knowledge/i.test(tool);
+  const isAction = /capability|extension|task|workflow|reminder|routine/i.test(tool);
+  return {
+    type: isResearch ? "research" : isAction ? "action" : "card",
+    title: titleByTool[tool] || (isResearch ? "Research results" : isAction ? "AURORA actions" : "AURORA tool results"),
+    description: String(result.context || query || "").slice(0, 260),
+    items
+  };
+}
+
 function makeSpeechFriendly(value) {
   let text = String(value || "");
   text = text
@@ -1638,8 +1695,10 @@ export default function App() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
-      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(reply), pending: false } : item));
-      if (String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
+      const engineCard = buildPulseEngineCard(liveToolResult, text);
+      const displayReply = String(reply) + (engineCard ? "\\n\\n" + JSON.stringify(engineCard) : "");
+      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: displayReply, pending: false } : item));
+      if (engineCard || String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
       if (soundOn) speak(String(reply));
     } catch (error) {
       setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: error?.message || "I couldn't connect just now. Please try again.", pending: false } : item));
