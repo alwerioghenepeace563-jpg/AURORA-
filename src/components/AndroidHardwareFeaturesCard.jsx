@@ -31,11 +31,11 @@ export default function AndroidHardwareFeaturesCard() {
       else {
         setMessage("Permission granted. AURORA is capturing one frame, then the session will stop.");
         let status = null;
-        for (let attempt = 0; attempt < 20; attempt += 1) {
+        for (let attempt = 0; attempt < 24; attempt += 1) {
           await new Promise(resolve => window.setTimeout(resolve, 250));
           status = await auroraNative.getScreenCaptureStatus();
           setScreenStatus(status);
-          if (status.captured || !status.capturing) break;
+          if (status.captured || status.error || (attempt > 2 && !status.capturing)) break;
         }
         if (status?.captured) {
           const frame = await auroraNative.getLatestScreenCapture();
