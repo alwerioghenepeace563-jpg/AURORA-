@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 
 (async () => {
   const { createAuroraDeviceContinuity } = await import("../src/core/aurora-device-continuity.js");
@@ -84,5 +85,24 @@ assert.equal(await nearby.revoke(peer.deviceId), true);
 assert.equal(continuity.list().length, 0);
 assert.equal((await nearby.stop()).stopped, true);
 await nearby.destroy();
+const nearbyPlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraNearbyPlugin.java", "utf8");
+const manifest = fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+const mainActivity = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8");
+const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
+const patcher = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
+const runtime = fs.readFileSync("src/core/aurora-runtime.js", "utf8");
+const workspace = fs.readFileSync("src/components/IntelligenceEcosystemWorkspace.jsx", "utf8");
+assert.ok(nearbyPlugin.includes("AndroidKeyStore"), "device signing identity must use Android Keystore");
+assert.ok(nearbyPlugin.includes("SHA256withECDSA"), "pairing must prove private-key possession");
+assert.ok(nearbyPlugin.includes("60000L"), "pairing proofs must be time-bounded");
+assert.ok(nearbyPlugin.includes("stopAllEndpoints"), "nearby sessions must stop when the app backgrounds");
+assert.ok(nearbyPlugin.includes("must complete authenticated pairing"), "handoff must require authenticated pairing");
+assert.ok(gradle.includes("play-services-nearby:19.5.1"), "Google Nearby SDK dependency must be installed");
+assert.ok(manifest.includes("android.permission.BLUETOOTH_SCAN") && manifest.includes("android.permission.NEARBY_WIFI_DEVICES"), "modern Nearby permissions must be declared");
+assert.ok(mainActivity.includes("registerPlugin(AuroraNearbyPlugin.class)"), "Capacitor must register the Nearby plugin");
+assert.ok(patcher.includes("registerPlugin(AuroraNearbyPlugin.class);"), "Android sync must preserve Nearby registration");
+assert.ok(runtime.includes("createAuroraNearbyDeviceAdapter"), "shared runtime must expose the transport adapter");
+assert.ok(workspace.includes('tab === "devices"') && workspace.includes("authenticationDigits"), "device workspace must expose pairing-code approval");
+assert.ok(workspace.includes("Send approved reference"), "device workspace must expose explicit reference handoff");
 console.log("AURORA Nearby device adapter tests passed.");
 })().catch(error => { console.error(error); process.exitCode = 1; });
