@@ -77,8 +77,8 @@ console.log("AURORA remaining native integration assertions passed.");
 
 assert.match(screenPlugin,/getScreenCaptureStatus/);
 assert.match(screenPlugin,/getLatestScreenCapture/);
-assert.match(screenPlugin,/boolean fileAvailable = image\\.isFile\\(\\)/);
-assert.match(screenPlugin,/prefs\\.getBoolean\\("captured", false\\) && fileAvailable/);
+assert.match(screenPlugin,/boolean fileAvailable = image\.isFile\(\)/);
+assert.match(screenPlugin,/prefs\.getBoolean\("captured", false\) && fileAvailable/);
 assert.match(screenPlugin,/temporary screen frame is no longer available/);
 assert.match(screenService,/Android did not deliver a screen frame before the capture timeout/);
 assert.match(screenService,/maxDimension = 1600/);
