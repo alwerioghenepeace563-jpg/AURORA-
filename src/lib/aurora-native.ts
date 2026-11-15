@@ -203,6 +203,14 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA background service is available only in the Android app.");
     return AuroraNative.stopAssistantService();
   },
+  getAssistantRoleStatus: async () => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { available: false, selected: false, requiresUserAction: true, serviceReady: false };
+    return AuroraNative.getAssistantRoleStatus();
+  },
+  openAssistantRoleSettings: async () => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android assistant-role setup is available only in the Android app.");
+    return AuroraNative.openAssistantRoleSettings();
+  },
   openAccessibilitySettings: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Screen Assistant settings are available only in the Android app.");
     return AuroraNative.openAccessibilitySettings();
