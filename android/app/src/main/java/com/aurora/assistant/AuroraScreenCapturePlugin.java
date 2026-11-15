@@ -87,7 +87,7 @@ public class AuroraScreenCapturePlugin extends Plugin {
         boolean deleted = !image.exists() || image.delete();
         getContext().getSharedPreferences("aurora_screen_capture", 0).edit()
             .putBoolean("captured", false).putBoolean("capturing", false)
-            .putLong("captured_at", 0L).putLong("bytes", 0L).apply();
+            .putLong("captured_at", 0L).putLong("bytes", 0L).remove("error").apply();
         call.resolve(new JSObject().put("cleared", deleted));
     }
 }
