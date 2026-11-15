@@ -40,6 +40,7 @@ type AuroraNativePlugin = {
   stopTextSpeech(): Promise<{ stopped: boolean }>;
   addListener(eventName: "ttsStatus", listenerFunc: (event: { status: "started" | "done" | "error" }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechResult", listenerFunc: (event: { transcript: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: "speechPartialResult", listenerFunc: (event: { transcript: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechError", listenerFunc: (event: { code: number; message: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechStatus", listenerFunc: (event: { status: string }) => void): Promise<{ remove: () => Promise<void> }>;
   requestMicrophonePermission(): Promise<{ granted: boolean }>;
@@ -176,6 +177,7 @@ export const auroraNative = {
   startSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.startSpeechRecognition(); },
   stopSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.stopSpeechRecognition(); },
   addSpeechResultListener: (callback: (event: { transcript: string }) => void) => AuroraNative.addListener("speechResult", callback),
+  addSpeechPartialResultListener: (callback: (event: { transcript: string }) => void) => AuroraNative.addListener("speechPartialResult", callback),
   addSpeechErrorListener: (callback: (event: { code: number; message: string }) => void) => AuroraNative.addListener("speechError", callback),
   addSpeechStatusListener: (callback: (event: { status: string }) => void) => AuroraNative.addListener("speechStatus", callback),
   speakText: async (text: string, settings: { rate?: number; pitch?: number } = {}) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native text-to-speech is available only in the Android app."); return AuroraNative.speakText({ text, ...settings }); },
