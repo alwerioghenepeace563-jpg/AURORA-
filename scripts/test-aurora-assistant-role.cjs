@@ -48,6 +48,7 @@ const patcher = read("scripts/patch-android-native.mjs");
 assert.match(screenPlugin,/createScreenCaptureIntent/);
 assert.match(screenPlugin,/getLatestScreenCapture/);
 assert.match(screenService,/FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION/);
+assert.match(screenService,/startForeground\(NOTIFICATION_ID/);
 assert.match(screenService,/createVirtualDisplay/);
 assert.match(screenService,/saveOneFrame/);
 assert.match(manifest,/FOREGROUND_SERVICE_MEDIA_PROJECTION/);
@@ -79,7 +80,7 @@ assert.match(screenPlugin,/getLatestScreenCapture/);
 assert.match(screenService,/maxDimension = 1600/);
 assert.match(screenService,/remove\("error"\)/);
 assert.match(nfcPlugin,/UTF-16/);
-assert.match(hardwareCard,/attempt < 20/);
+assert.match(hardwareCard,/attempt < 24/);
 assert.match(hardwareCard,/status\?\.error/);
 
 assert.match(nfcPlugin,/finally \{ try \{ ndef\.close\(\);/);
