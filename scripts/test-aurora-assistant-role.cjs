@@ -81,3 +81,6 @@ assert.match(screenService,/remove\("error"\)/);
 assert.match(nfc,/UTF-16/);
 assert.match(hardwareCard,/attempt < 20/);
 assert.match(hardwareCard,/status\?\.error/);
+
+assert.match(nfcPlugin,/finally \{ try \{ ndef\.close\(\);/);
+assert.match(hardwareCard,/getNfcStatus\(\)\.then\(setNfcStatus\)/);
