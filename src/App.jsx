@@ -1465,7 +1465,7 @@ export default function App() {
   async function speak(text, options = {}) {
     if ((!soundOn && !options.force) || !text) return;
     if (pulseOpen) setPulseInterrupted(false);
-    if (!options.chunkPart) {
+    if (!options.chunkPart && !options.assistantSession) {
       stopSpokenOutput();
       const fullText = String(text);
       const chunks = splitSpeechIntoChunks(makeSpeechFriendly(fullText));
