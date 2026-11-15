@@ -30,10 +30,20 @@ export default function AndroidHardwareFeaturesCard() {
       if (!result.consentGranted) setMessage("Screen capture was cancelled. Nothing was captured.");
       else {
         setMessage("Permission granted. AURORA is capturing one frame, then the session will stop.");
-        window.setTimeout(async () => {
-          try { const status = await auroraNative.getScreenCaptureStatus(); setScreenStatus(status); if (status.captured) { const frame = await auroraNative.getLatestScreenCapture(); setScreenPreview("data:" + frame.mimeType + ";base64," + frame.base64); setMessage("One frame was captured to AURORA private app cache."); } else setMessage("The capture did not complete. You can try again."); }
-          catch { setMessage("Could not refresh capture status."); }
-        }, 1800);
+        let status = null;
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await new Promise(resolve => window.setTimeout(resolve, 250));
+          status = await auroraNative.getScreenCaptureStatus();
+          setScreenStatus(status);
+          if (status.captured || !status.capturing) break;
+        }
+        if (status?.captured) {
+          const frame = await auroraNative.getLatestScreenCapture();
+          setScreenPreview("data:" + frame.mimeType + ";base64," + frame.base64);
+          setMessage("One frame was captured to AURORA private app cache.");
+        } else {
+          setMessage(status?.error || "The capture did not complete. You can try again.");
+        }
       }
     } catch (error) { setMessage(error?.message || "Could not start screen capture."); }
     finally { setBusy(false); }
