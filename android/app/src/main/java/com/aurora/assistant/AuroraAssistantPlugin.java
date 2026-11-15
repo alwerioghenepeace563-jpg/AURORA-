@@ -78,6 +78,14 @@ public class AuroraAssistantPlugin extends Plugin {
 
 
     @PluginMethod
+    public void consumeAssistantSessionQuery(PluginCall call) {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
+        String query = prefs.getString("assistant_session_query", "");
+        if (query != null && !query.isEmpty()) prefs.edit().remove("assistant_session_query").apply();
+        call.resolve(new JSObject().put("query", query == null ? "" : query));
+    }
+
+    @PluginMethod
     public void getAssistantRoleStatus(PluginCall call) {
         JSObject result = new JSObject();
         if (Build.VERSION.SDK_INT >= 29) {
