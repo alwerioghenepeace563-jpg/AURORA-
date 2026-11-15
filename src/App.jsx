@@ -268,7 +268,7 @@ function StructuredVisual({ data }) {
 function findStructuredBlock(line) {
   const candidate = line.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
-  try { const parsed = JSON.parse(candidate); if (parsed && ["flow", "card", "live", "research", "action", "map", "metrics"].includes(parsed.type)) return parsed; } catch {}
+  try { const parsed = JSON.parse(candidate); if (parsed && ["flow", "card", "live", "research", "action", "map", "metrics", "status"].includes(parsed.type)) return parsed; } catch {}
   return null;
 }
 
