@@ -93,11 +93,47 @@ function createAuroraDeviceContinuity(options = {}) {
     if (!payload || !["task", "knowledge_reference"].includes(payload.type)) {
       throw new Error("Only approved task or knowledge-reference handoffs are supported.");
     }
-    const body = JSON.stringify(payload);
-    if (body.length > MAX_PAYLOAD) throw new Error("The selected handoff is too large.");
+    // Handoff payloads are data-only. Reject secrets, executable values,
+    // exotic prototypes and excessive nesting before they reach a transport.
+    if (Object.getPrototypeOf(payload) !== Object.prototype && Object.getPrototypeOf(payload) !== null) {
+      throw new Error("The handoff must be a plain data object.");
+    }
+    const forbiddenKey = /(?:password|passwd|token|secret|authorization|credential|private.?key|access.?key|refresh.?token)/i;
+    function validateData(value, depth = 0) {
+      if (depth > 8) throw new Error("The handoff data is nested too deeply.");
+      if (value === null || typeof value === "string" || typeof value === "boolean") return;
+      if (typeof value === "number") {
+        if (!Number.isFinite(value)) throw new Error("The handoff contains an invalid number.");
+        return;
+      }
+      if (Array.isArray(value)) {
+        if (value.length > 100) throw new Error("The handoff contains too many list items.");
+        value.forEach(item => validateData(item, depth + 1));
+        return;
+      }
+      if (!value || typeof value !== "object" ||
+        (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
+        throw new Error("The handoff contains unsupported data.");
+      }
+      for (const [key, child] of Object.entries(value)) {
+        if (forbiddenKey.test(key) || key === "__proto__" || key === "prototype" || key === "constructor") {
+          throw new Error("Credential-like or unsafe fields cannot be handed off.");
+        }
+        validateData(child, depth + 1);
+      }
+    }
+    validateData(payload);
+    let body;
+    try {
+      body = JSON.stringify(payload);
+    } catch {
+      throw new Error("The handoff data could not be serialized safely.");
+    }
+    if (typeof body !== "string" || body.length > MAX_PAYLOAD) throw new Error("The selected handoff is too large.");
+    const safePayload = JSON.parse(body);
     let result;
     try {
-      result = await adapter.sendEncrypted({ deviceId: device.id, payload });
+      result = await adapter.sendEncrypted({ deviceId: device.id, payload: safePayload });
     } catch {
       throw Object.assign(new Error("The encrypted handoff could not be delivered."), { code: "HANDOFF_DELIVERY_FAILED" });
     }
