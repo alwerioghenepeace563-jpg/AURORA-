@@ -1,4 +1,4 @@
-const INTERRUPTION_COMMANDS = /^(?:stop|stop talking|stop speaking|be quiet|that's enough|thats enough|pause|hold on|wait|one second|repeat|repeat that|say that again|slow down|speak slower)[.!? ]*$/i;
+const INTERRUPTION_COMMANDS = /^(?:stop|stop talking|stop speaking|be quiet|thats enough|pause|hold on|wait|one second|repeat|repeat that|say that again|what did you just say|what was that|continue|go on|carry on|keep going|explain differently|explain another way|say it another way|i do not understand|i dont understand|im confused|slow down|speak slower|go back to (?:the )?(?:first|second|third|fourth|last) (?:point|part|step))[.!? ]*$/i;
 
 export const AURORA_VOICE_INTELLIGENCE = Object.freeze({
   interruption: "hybrid",
