@@ -39,7 +39,7 @@ function createAuroraNearbyDeviceAdapter({ nativeTransport, deviceContinuity, ev
       "nearbyEndpointFound", "nearbyEndpointLost", "nearbyConnectionRequest",
       "nearbyConnectionEstablished", "nearbyConnectionFailed", "nearbyPeerReady",
       "nearbyPeerAuthenticated", "nearbyPeerDisconnected", "nearbyPayloadReceived",
-      "nearbyTransportError"
+      "nearbyTransportError", "nearbySessionPaused"
     ];
     for (const name of eventNames) {
       nativeTransport.addListener(name, payload => publish(name.replace(/^nearby/, "").replace(/([A-Z])/g, ".$1").replace(/^\./, "").toLowerCase(), payload))
