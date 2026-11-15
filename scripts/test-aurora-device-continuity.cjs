@@ -24,7 +24,7 @@ const assert = require("node:assert/strict");
     verifyPairing: async ({ challenge, response }) => {
       assert.equal(challenge.length, 64);
       assert.equal(response.deviceId, device.deviceId);
-      return { authenticated: true, deviceId: response.deviceId };
+      return { authenticated: true, deviceId: response.deviceId, publicKeyFingerprint: response.publicKeyFingerprint };
     },
     sendEncrypted: async request => {
       deliveries.push(request);
@@ -99,6 +99,25 @@ const assert = require("node:assert/strict");
     error => error.code === "DEVICE_PAIRING_FAILED"
   );
   assert.equal(failed.list().length, 0, "unverified devices must never be trusted");
+
+  const fingerprintMismatch = createAuroraDeviceContinuity({
+    storage,
+    crypto: { getRandomValues(bytes) { bytes.fill(4); return bytes; } }
+  });
+  fingerprintMismatch.registerTransport("nearby", {
+    verifyPairing: async ({ response }) => ({
+      authenticated: true,
+      deviceId: response.deviceId,
+      publicKeyFingerprint: "sha256:attacker-key"
+    }),
+    sendEncrypted: async () => ({ delivered: true, encrypted: true }),
+    revoke: async () => ({ revoked: true })
+  });
+  await assert.rejects(
+    fingerprintMismatch.pair("nearby", device, { approved: true, consent: true }),
+    error => error.code === "DEVICE_PAIRING_FAILED"
+  );
+  assert.equal(fingerprintMismatch.list().length, 0, "a mismatched public-key fingerprint must never establish trust");
 
   const unverified = createAuroraDeviceContinuity({
     storage,
