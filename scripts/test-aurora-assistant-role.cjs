@@ -73,6 +73,10 @@ assert.match(session,/assistant_session_query/);
 assert.match(plugin,/consumeAssistantSessionQuery/);
 assert.match(app,/consumeAssistantSessionQuery/);
 assert.match(app,/Voice input is ready for review/);
+assert.match(app,/assistantSessionVoiceReplyRef\.current = true/);
+assert.match(app,/AURORA will speak its reply aloud/);
+assert.match(app,/if \(soundOn \|\| assistantSessionVoiceReplyRef\.current\) speak\(/);
+assert.match(app,/assistantSessionVoiceReplyRef\.current = false/);
 console.log("AURORA remaining native integration assertions passed.");
 
 assert.match(screenPlugin,/getScreenCaptureStatus/);
