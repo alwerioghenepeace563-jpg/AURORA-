@@ -20,7 +20,8 @@ function createAuroraDeviceContinuity(options = {}) {
         item && ID.test(String(item.id || "")) && typeof item.name === "string" &&
         typeof item.platform === "string" && typeof item.publicKeyFingerprint === "string" &&
         item.publicKeyFingerprint.length <= 160 && item.trust === "trusted" &&
-        typeof item.pairedAt === "string" && typeof item.lastSeenAt === "string"
+        typeof item.pairedAt === "string" && typeof item.lastSeenAt === "string" &&
+        typeof item.transportId === "string" && ID.test(item.transportId)
       )) return [];
       return items;
     } catch { return []; }
@@ -69,6 +70,7 @@ function createAuroraDeviceContinuity(options = {}) {
     }
     const record = {
       id: String(response.deviceId),
+      transportId: String(transportId),
       name: String(response.name).trim().slice(0, 100),
       platform: String(response.platform).trim().slice(0, 60),
       publicKeyFingerprint: String(response.publicKeyFingerprint).slice(0, 160),
@@ -86,8 +88,8 @@ function createAuroraDeviceContinuity(options = {}) {
     }
     const device = read().find(item => item.id === String(deviceId) && item.trust === "trusted");
     if (!device) throw new Error("A trusted destination device was not found.");
-    const adapter = adapters.get(String(decision.transportId || ""));
-    if (!adapter) throw new Error("No authenticated encrypted transport is available.");
+    const adapter = adapters.get(device.transportId);
+    if (!adapter) throw new Error("The paired device transport is unavailable.");
     if (!payload || !["task", "knowledge_reference"].includes(payload.type)) {
       throw new Error("Only approved task or knowledge-reference handoffs are supported.");
     }
@@ -110,7 +112,8 @@ function createAuroraDeviceContinuity(options = {}) {
   async function revoke(deviceId, transportId) {
     const device = read().find(item => item.id === String(deviceId));
     if (!device) return false;
-    const adapter = adapters.get(String(transportId || ""));
+    if (String(transportId || "") !== device.transportId) throw new Error("The selected transport does not match this paired device.");
+    const adapter = adapters.get(device.transportId);
     if (!adapter) throw new Error("The trusted device cannot be revoked until its transport is available.");
     try {
       const result = await adapter.revoke({ deviceId: device.id });
