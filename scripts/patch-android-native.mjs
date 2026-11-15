@@ -464,6 +464,29 @@ for (const [name, content] of Object.entries(files)) {
   fs.writeFileSync(target, content);
 }
 
+const nearbyPluginPath = path.join(javaRoot, "AuroraNearbyPlugin.java");
+if (!fs.existsSync(nearbyPluginPath)) throw new Error("Nearby Connections native plugin is missing.");
+const nearbyPluginSource = fs.readFileSync(nearbyPluginPath, "utf8");
+for (const marker of [
+  '@CapacitorPlugin(', 'name = "AuroraNearby"', 'void requestNearbyPermissions(PluginCall call)',
+  'void startAdvertising(PluginCall call)', 'void startDiscovery(PluginCall call)',
+  'void acceptConnection(PluginCall call)', 'void verifyPeer(PluginCall call)',
+  'void sendEncrypted(PluginCall call)', 'AndroidKeyStore', 'SHA256withECDSA',
+  'Nearby.getConnectionsClient', 'Strategy.P2P_POINT_TO_POINT'
+]) {
+  if (!nearbyPluginSource.includes(marker)) throw new Error("Nearby Connections plugin is missing required security/transport implementation: " + marker);
+}
+const appGradle = fs.readFileSync(path.join(android, "app/build.gradle"), "utf8");
+if (!appGradle.includes("com.google.android.gms:play-services-nearby:19.5.1")) {
+  throw new Error("Google Play services Nearby dependency is missing.");
+}
+for (const permission of [
+  "android.permission.BLUETOOTH_ADVERTISE", "android.permission.BLUETOOTH_CONNECT",
+  "android.permission.BLUETOOTH_SCAN", "android.permission.NEARBY_WIFI_DEVICES"
+]) {
+  if (!manifestText.includes(permission)) throw new Error("Nearby Connections manifest permission is missing: " + permission);
+}
+
 const securePluginPath = path.join(javaRoot, "AuroraSecureStoragePlugin.java");
 const securePluginSource = fs.existsSync(securePluginPath) ? fs.readFileSync(securePluginPath, "utf8") : "";
 for (const method of ["set", "get", "remove"]) {
@@ -607,8 +630,11 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AuroraAssistantPlugin.class);
+        registerPlugin(AuroraTranscriptionPlugin.class);
         registerPlugin(AuroraSecureStoragePlugin.class);
         registerPlugin(AuroraReminderPlugin.class);
+        registerPlugin(AuroraPredictivePlugin.class);
+        registerPlugin(AuroraNearbyPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -618,6 +644,9 @@ const verifiedMainActivity = fs.readFileSync(mainActivity, "utf8");
 if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraSecureStoragePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraReminderPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraTranscriptionPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraPredictivePlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraNearbyPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
