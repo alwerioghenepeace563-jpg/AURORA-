@@ -115,12 +115,13 @@ public class AuroraNfcPlugin extends Plugin {
             System.arraycopy(value, 0, payload, 1 + language.length, value.length);
             NdefRecord record = new NdefRecord(NdefRecord.TNF_WELL_KNOWN, NdefRecord.RTD_TEXT, new byte[0], payload);
             NdefMessage message = new NdefMessage(new NdefRecord[]{record});
-            ndef.connect();
-            if (!ndef.isWritable()) throw new IllegalStateException("This NFC tag is read-only.");
-            if (message.toByteArray().length > ndef.getMaxSize()) throw new IllegalStateException("The text is too large for this NFC tag.");
-            ndef.writeNdefMessage(message);
-            ndef.close();
-            event.put("written", true);
+            try {
+                ndef.connect();
+                if (!ndef.isWritable()) throw new IllegalStateException("This NFC tag is read-only.");
+                if (message.toByteArray().length > ndef.getMaxSize()) throw new IllegalStateException("The text is too large for this NFC tag.");
+                ndef.writeNdefMessage(message);
+                event.put("written", true);
+            } finally { try { ndef.close(); } catch (Exception ignored) {} }
         } catch (Exception error) { event.put("written", false); event.put("error", error.getMessage() == null ? "NFC write failed." : error.getMessage()); }
         notifyListeners("nfcWriteResult", event);
         stopReaderInternal();
