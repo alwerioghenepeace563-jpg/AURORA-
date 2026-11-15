@@ -39,7 +39,7 @@ public class AuroraScreenCaptureService extends Service {
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || !ACTION_CAPTURE_ONCE.equals(intent.getAction())) { stopSelf(startId); return START_NOT_STICKY; }
-        getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit().putBoolean("capturing", true).putBoolean("captured", false).apply();
+        getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit().putBoolean("capturing", true).putBoolean("captured", false).remove("error").apply();
         createChannel();
         Notification notification = new NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_camera)
@@ -59,11 +59,20 @@ public class AuroraScreenCaptureService extends Service {
             WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
             if (Build.VERSION.SDK_INT >= 30) {
                 android.view.WindowMetrics bounds = wm.getCurrentWindowMetrics();
-                metrics.widthPixels = bounds.getBounds().width();
-                metrics.heightPixels = bounds.getBounds().height();
-                metrics.densityDpi = getResources().getDisplayMetrics().densityDpi;
+                int sourceWidth = bounds.getBounds().width();
+                int sourceHeight = bounds.getBounds().height();
+                int maxDimension = 1600;
+                float scale = Math.min(1f, maxDimension / (float) Math.max(sourceWidth, sourceHeight));
+                metrics.widthPixels = Math.max(1, Math.round(sourceWidth * scale));
+                metrics.heightPixels = Math.max(1, Math.round(sourceHeight * scale));
+                metrics.densityDpi = Math.max(120, Math.round(getResources().getDisplayMetrics().densityDpi * scale));
             } else {
                 wm.getDefaultDisplay().getRealMetrics(metrics);
+                int maxDimension = 1600;
+                float scale = Math.min(1f, maxDimension / (float) Math.max(metrics.widthPixels, metrics.heightPixels));
+                metrics.widthPixels = Math.max(1, Math.round(metrics.widthPixels * scale));
+                metrics.heightPixels = Math.max(1, Math.round(metrics.heightPixels * scale));
+                metrics.densityDpi = Math.max(120, Math.round(metrics.densityDpi * scale));
             }
             thread = new HandlerThread("AuroraOneFrameCapture");
             thread.start();
