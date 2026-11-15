@@ -73,3 +73,11 @@ assert.match(plugin,/consumeAssistantSessionQuery/);
 assert.match(app,/consumeAssistantSessionQuery/);
 assert.match(app,/Voice input is ready for review/);
 console.log("AURORA remaining native integration assertions passed.");
+
+assert.match(screenPlugin,/getScreenCaptureStatus/);
+assert.match(screenPlugin,/getLatestScreenCapture/);
+assert.match(screenService,/maxDimension = 1600/);
+assert.match(screenService,/remove\("error"\)/);
+assert.match(nfc,/UTF-16/);
+assert.match(hardwareCard,/attempt < 20/);
+assert.match(hardwareCard,/status\?\.error/);
