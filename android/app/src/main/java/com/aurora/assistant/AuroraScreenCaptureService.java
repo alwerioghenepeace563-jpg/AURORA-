@@ -120,7 +120,7 @@ public class AuroraScreenCaptureService extends Service {
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(channel);
         }
     }
-    private void cleanup() {
+    private synchronized void cleanup() {
         if (cleaning) return;
         cleaning = true;
         try { if (display != null) display.release(); } catch (Exception ignored) {}
