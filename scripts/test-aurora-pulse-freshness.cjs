@@ -1,0 +1,18 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const css = fs.readFileSync("src/styles.css", "utf8");
+assert.match(app, /function buildPulseStatusCard\(result, fallbackTitle/);
+assert.match(app, /const rawTime = result\?\.updatedAt \|\| result\?\.fetchedAt \|\| result\?\.timestamp \|\| result\?\.checkedAt/);
+assert.match(app, /ageMinutes > 15/);
+assert.match(app, /status: failed \? "error" : stale \? "stale" : "info"/);
+assert.match(app, /"metrics", "status"\]\.includes\(data\.type\)/);
+assert.match(app, /status: "STATUS UPDATE"/);
+assert.match(app, /data\.type === "status" &&/);
+assert.match(app, /buildPulseStatusCard\(liveToolResult, "AURORA tool status"\)/);
+assert.match(app, /buildPulseStatusCard\(\{ error: error\?\.message/);
+assert.match(app, /"flow", "card", "live", "research", "action", "map", "metrics", "status"\]\.includes\(parsed\.type\)/);
+assert.match(css, /\.aurora-status-detail/);
+assert.match(css, /\.aurora-status-error/);
+assert.match(css, /\.aurora-status-stale/);
+console.log("AURORA Pulse freshness and status-card checks passed.");
