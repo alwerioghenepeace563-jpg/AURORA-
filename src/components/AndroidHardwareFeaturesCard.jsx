@@ -17,7 +17,7 @@ export default function AndroidHardwareFeaturesCard() {
     auroraNative.getScreenCaptureStatus().then(value => { if (active) setScreenStatus(value); }).catch(() => {});
     auroraNative.getNfcStatus().then(value => { if (active) setNfcStatus(value); }).catch(() => {});
     auroraNative.addNfcTagListener(event => { if (active) { setTag(event); setMessage("NFC tag read. Review the text below before using it."); } }).then(handle => { tagHandle = handle; if (!active) handle.remove(); }).catch(() => {});
-    auroraNative.addNfcWriteResultListener(event => { if (active) setMessage(event.written ? "Text written to the NFC tag." : event.error || "NFC write failed."); }).then(handle => { writeHandle = handle; if (!active) handle.remove(); }).catch(() => {});
+    auroraNative.addNfcWriteResultListener(event => { if (active) { setMessage(event.written ? "Text written to the NFC tag." : event.error || "NFC write failed."); auroraNative.getNfcStatus().then(setNfcStatus).catch(() => {}); } }).then(handle => { writeHandle = handle; if (!active) handle.remove(); }).catch(() => {});
     return () => { active = false; tagHandle?.remove(); writeHandle?.remove(); void auroraNative.stopNfcReader(); };
   }, []);
 
