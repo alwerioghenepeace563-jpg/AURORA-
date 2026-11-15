@@ -70,7 +70,7 @@ export default function AndroidHardwareFeaturesCard() {
     <p style={{ color: "#9fb7ca", fontSize: 12, lineHeight: 1.5, margin: "5px 0 12px" }}>Native Android tools with visible, user-controlled sessions.</p>
     <div style={{ padding: 11, borderRadius: 12, background: "rgba(20,48,75,.24)", marginBottom: 10 }}>
       <strong style={{ color: "#dbeeff", fontSize: 13 }}>One-frame screen capture</strong>
-      <p style={{ color: "#9fb7ca", fontSize: 11, margin: "4px 0 9px" }}>{screenStatus?.captured ? "A private cached frame is available." : "Android displays its own capture-consent prompt. Only one frame is captured; no continuous or background capture."}</p>
+      <p style={{ color: "#9fb7ca", fontSize: 11, margin: "4px 0 9px" }}>{screenStatus?.captured ? "A private cached frame is available." : "Android displays its own capture-consent prompt. Only one user-approved frame is captured; no continuous recording."}</p>
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" className="setting-row" disabled={busy || screenStatus?.capturing} onClick={capture} style={{ flex: 1, justifyContent: "center", minHeight: 38 }}>Capture screen</button>
         <button type="button" className="setting-row" disabled={busy || !screenStatus?.captured} onClick={async () => { const result = await auroraNative.clearScreenCapture(); setScreenStatus(await auroraNative.getScreenCaptureStatus()); setScreenPreview(""); setMessage(result.cleared ? "Cached screen frame cleared." : "Could not clear cached frame."); }} style={{ minHeight: 38, padding: "0 12px" }}>Clear</button>
