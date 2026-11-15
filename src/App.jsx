@@ -1479,7 +1479,7 @@ export default function App() {
           });
           if (!isCurrent()) { await nativeListener?.remove?.(); return; }
           nativeTtsListenerRef.current = nativeListener;
-          const nativeResult = await auroraNative.speakText(makeSpeechFriendly(text));
+          const nativeResult = await auroraNative.speakText(makeSpeechFriendly(text), { rate: options.slow ? 0.82 : delivery.rate, pitch: delivery.pitch });
           if (!isCurrent()) { try { await auroraNative.stopTextSpeech(); } catch {} return; }
           if (nativeResult?.started) {
             setSpeaking(true);
