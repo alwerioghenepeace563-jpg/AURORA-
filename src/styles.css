@@ -1345,3 +1345,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .aurora-status-stale{border-color:rgba(255,190,106,.28);background:rgba(105,70,26,.14);color:#f5d4a3}
 .aurora-status-stale small{color:#d9bb8c}
 @media(prefers-reduced-motion:reduce){.aurora-status-detail{transition:none}}
+
+
+/* AURORA Pulse voice state feedback */
+.aurora-pulse-head{overflow:visible!important}
+.aurora-pulse-voice-status{position:absolute;left:50%;bottom:-5px;transform:translate(-50%,100%);z-index:3;min-width:74px;padding:5px 10px;border:1px solid rgba(164,190,255,.18);border-radius:999px;background:rgba(10,15,29,.72);color:#dce8ff;font-size:10px;font-weight:650;letter-spacing:.035em;text-align:center;white-space:nowrap;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 5px 22px rgba(0,0,0,.18);pointer-events:none}
+.aurora-pulse-voice-status.is-error{border-color:rgba(255,137,145,.34);background:rgba(74,25,39,.78);color:#ffd2d5}
+.aurora-pulse-head .aurora-pulse-orb.is-listening{animation:auroraPulseListening 1.15s ease-in-out infinite!important;box-shadow:0 0 0 7px rgba(74,220,255,.12),0 0 26px rgba(75,226,255,.82),0 0 62px rgba(91,113,255,.58)!important}
+.aurora-pulse-head .aurora-pulse-orb.is-thinking{animation:auroraPulseThinking 1.7s linear infinite!important;box-shadow:0 0 18px rgba(169,139,255,.9),0 0 52px rgba(135,104,255,.65)!important}
+.aurora-pulse-head .aurora-pulse-orb.is-speaking{animation:auroraPulseSpeaking .72s ease-in-out infinite alternate!important;box-shadow:0 0 18px rgba(255,117,218,.85),0 0 52px rgba(255,117,218,.55)!important}
+.aurora-pulse-head .aurora-pulse-orb.is-error{animation:auroraPulseError 1.8s ease-in-out infinite!important;box-shadow:0 0 0 5px rgba(255,104,122,.12),0 0 30px rgba(255,104,122,.6)!important}
+@keyframes auroraPulseListening{0%,100%{transform:scale(.97);filter:saturate(1)}50%{transform:scale(1.055);filter:saturate(1.35)}}
+@keyframes auroraPulseThinking{0%{filter:hue-rotate(0deg) brightness(1)}50%{filter:hue-rotate(95deg) brightness(1.18)}100%{filter:hue-rotate(360deg) brightness(1)}}
+@keyframes auroraPulseSpeaking{from{transform:scale(.96)}to{transform:scale(1.045)}}
+@keyframes auroraPulseError{0%,100%{filter:saturate(.85);opacity:.86}50%{filter:saturate(1.25);opacity:1}}
+@media(prefers-reduced-motion:reduce){.aurora-pulse-head .aurora-pulse-orb.is-listening,.aurora-pulse-head .aurora-pulse-orb.is-thinking,.aurora-pulse-head .aurora-pulse-orb.is-speaking,.aurora-pulse-head .aurora-pulse-orb.is-error{animation:none!important}.aurora-pulse-voice-status{transition:none}}
