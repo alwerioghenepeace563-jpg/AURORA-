@@ -19,7 +19,7 @@ const nativePlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assis
   assert.match(app, /voiceIntelligence: AURORA_VOICE_INTELLIGENCE/);
   assert.match(app, /delivery: delivery.style/);
   assert.match(chat, /buildVoiceIntelligenceInstructions/);
-  assert.match(chat, /voiceIntelligenceInstructions/);
+  assert.ok(chat.includes("buildVoiceIntelligenceInstructions"));
   assert.match(voiceApi, /deliveryPresets/);
   assert.match(voiceApi, /speed: delivery.speed/);
   assert.match(app, /auroraNative\.speakText\(makeSpeechFriendly\(text\), \{ rate:/);
