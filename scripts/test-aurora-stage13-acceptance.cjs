@@ -90,7 +90,7 @@ const assert = require("node:assert/strict");
     connect: async () => { throw new Error("provider-secret-response"); },
     disconnect: async () => { throw new Error("provider-secret-response"); }
   });
-  await assert.rejects(ecosystem.disconnect(manifest.id), /disconnect this service|provider-secret-response/i);
+  await assert.rejects(ecosystem.disconnect(manifest.id), error => error.code === "CONNECTOR_DISCONNECT_FAILED" && !error.message.includes("provider-secret-response"));
   assert.equal(ecosystem.list().length, 1,
     "failed remote revocation must not erase the local connection record");
   assert.equal(disconnectCalls, 0);
@@ -102,7 +102,23 @@ const assert = require("node:assert/strict");
   assert.equal(await ecosystem.disconnect(manifest.id), true);
   assert.equal(ecosystem.list().length, 0);
   assert.equal(disconnectCalls, 1);
-  assert.equal(published.length, 2);
+  assert.equal(published.filter(event => event[0] === "ecosystem.connector_error").length, 1);
+  assert.equal(published.length, 3);
+
+  const failingConnect = createAuroraConnectedEcosystem({
+    storage: { getItem: () => null, setItem: () => {} },
+    getCapabilities: () => capabilities,
+    events: { publish: (...args) => published.push(args) }
+  });
+  failingConnect.registerAdapter("calendar.provider", {
+    connect: async () => { throw new Error("private-provider-response"); },
+    disconnect: async () => {}
+  });
+  await assert.rejects(
+    failingConnect.connect(manifest, { approved: true, consent: true }),
+    error => error.code === "CONNECTOR_CONNECT_FAILED" && !error.message.includes("private-provider-response")
+  );
+  assert.equal(failingConnect.list().length, 0, "failed connection attempts must not create connected records");
 
   const extensionValues = new Map();
   const extensionStorage = {
