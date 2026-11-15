@@ -8,7 +8,7 @@ export const AURORA_VOICE_INTELLIGENCE = Object.freeze({
 });
 
 export function normalizeSpeechText(value) {
-  return String(value || "").toLowerCase().replace(/[^a-z0-9' ]/g, " ").replace(/\\s+/g, " ").trim();
+  return String(value || "").toLowerCase().replace(/[^a-z0-9' ]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 export function isImmediateInterruptionCommand(value) {
@@ -28,22 +28,20 @@ export function isLikelySpeechEcho(transcript, spokenText) {
 
 export function inferSpeechDelivery(value) {
   const text = normalizeSpeechText(value);
-  if (/\\b(congratulations|well done|you did it|great job|excellent|fantastic|amazing|exciting|good news)\\b/.test(text)) return { style: "excited", rate: 1.02, pitch: 1.02, stability: 0.38, expressiveness: 0.62 };
-  if (/\\b(sorry|that sounds difficult|i understand|i'm sorry|im sorry|don't worry|dont worry|take your time|it's okay|its okay|frustrat)\\b/.test(text)) return { style: "reassuring", rate: 0.91, pitch: 0.96, stability: 0.68, expressiveness: 0.25 };
-  if (/\\b(warning|important safety|dangerous|urgent|emergency|do not|must not|critical|risk)\\b/.test(text)) return { style: "serious", rate: 0.94, pitch: 0.94, stability: 0.72, expressiveness: 0.18 };
-  if (/\\b(why|how does|how do|what if|wonder|curious|let's explore|lets explore)\\b/.test(text)) return { style: "curious", rate: 0.97, pitch: 1.01, stability: 0.48, expressiveness: 0.43 };
-  if (/\\b(step by step|let's learn|lets learn|for example|first,|the first step|understand|explanation|lesson|teach)\\b/.test(text)) return { style: "teaching", rate: 0.91, pitch: 0.98, stability: 0.64, expressiveness: 0.3 };
+  if (/\b(congratulations|well done|you did it|great job|excellent|fantastic|amazing|exciting|good news)\b/.test(text)) return { style: "excited", rate: 1.02, pitch: 1.02, stability: 0.38, expressiveness: 0.62 };
+  if (/\b(sorry|that sounds difficult|i understand|i'm sorry|im sorry|don't worry|dont worry|take your time|it's okay|its okay|frustrat)\b/.test(text)) return { style: "reassuring", rate: 0.91, pitch: 0.96, stability: 0.68, expressiveness: 0.25 };
+  if (/\b(warning|important safety|dangerous|urgent|emergency|do not|must not|critical|risk)\b/.test(text)) return { style: "serious", rate: 0.94, pitch: 0.94, stability: 0.72, expressiveness: 0.18 };
+  if (/\b(why|how does|how do|what if|wonder|curious|let's explore|lets explore)\b/.test(text)) return { style: "curious", rate: 0.97, pitch: 1.01, stability: 0.48, expressiveness: 0.43 };
+  if (/\b(step by step|let's learn|lets learn|for example|first,|the first step|understand|explanation|lesson|teach)\b/.test(text)) return { style: "teaching", rate: 0.91, pitch: 0.98, stability: 0.64, expressiveness: 0.3 };
   return { style: "calm", rate: 0.96, pitch: 0.98, stability: 0.58, expressiveness: 0.22 };
 }
 
-export function buildVoiceIntelligenceInstructions(options = {}) {
-  const personality = options.personality === "balanced" ? "balanced" : "balanced";
-  const teachingMode = options.teachingMode === "adaptive" ? "adaptive" : "adaptive";
+export function buildVoiceIntelligenceInstructions() {
   return [
     "CONVERSATIONAL PERSONALITY: Use a balanced personality: friendly, intelligent, mature and professional. Sound like a natural, attentive assistant. Be warm without becoming overfamiliar, theatrical, clingy, or repetitive. Use contractions and ordinary conversational phrasing where natural.",
     "SPOKEN RESPONSE WRITING: Write answers so they sound natural when read aloud. Prefer clear sentences, natural pauses, and varied but restrained phrasing. Avoid stage directions, emotion labels, phonetic spellings, and unnecessary headings in short answers. Keep the written answer useful and complete; do not sacrifice accuracy for conversational style.",
     "ADAPTIVE TEACHING: Decide whether the user needs a continuous explanation or an interactive lesson. For a simple question, answer directly without forcing a quiz. For a difficult or multi-step topic, explain one idea at a time, use a concrete example, and pause at meaningful checkpoints. If the user asks a follow-up or says they are confused, rephrase more simply and continue from the point they need. Do not repeatedly ask whether the user understands.",
     "EMOTIONAL DELIVERY: Let the meaning of the answer guide a restrained delivery tone: calm for ordinary help, curious for exploration, reassuring for frustration, serious for important warnings, teaching for lessons, and excited for genuine good news. Keep factual content, safety and uncertainty unchanged.",
     "TURN-TAKING: Respect interruptions. If the user changes topic, answer the new request instead of finishing the previous explanation. When they ask to repeat, slow down, clarify, or continue, respond to that exact conversational instruction."
-  ].join("\\n");
+  ].join("\n");
 }
