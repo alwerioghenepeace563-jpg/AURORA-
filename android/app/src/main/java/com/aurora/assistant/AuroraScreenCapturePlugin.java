@@ -64,6 +64,24 @@ public class AuroraScreenCapturePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getLatestScreenCapture(PluginCall call) {
+        java.io.File image = new java.io.File(getContext().getCacheDir(), "aurora-screen-capture.png");
+        if (!image.isFile() || image.length() <= 0 || image.length() > 8L * 1024L * 1024L) {
+            call.reject("No available screen frame, or the frame exceeds the safe preview size.");
+            return;
+        }
+        try (java.io.FileInputStream input = new java.io.FileInputStream(image);
+             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            call.resolve(new JSObject().put("mimeType", "image/png")
+                .put("base64", android.util.Base64.encodeToString(output.toByteArray(), android.util.Base64.NO_WRAP))
+                .put("bytes", image.length()));
+        } catch (Exception error) { call.reject("Could not read the private screen frame.", error); }
+    }
+
+    @PluginMethod
     public void clearScreenCapture(PluginCall call) {
         java.io.File image = new java.io.File(getContext().getCacheDir(), "aurora-screen-capture.png");
         boolean deleted = !image.exists() || image.delete();
