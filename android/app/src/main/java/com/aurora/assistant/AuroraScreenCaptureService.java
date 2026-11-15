@@ -82,7 +82,11 @@ public class AuroraScreenCaptureService extends Service {
                 metrics.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader.getSurface(), null, new Handler(getMainLooper()));
             new Handler(getMainLooper()).postDelayed(() -> {
                 if (getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).getBoolean("capturing", false)) {
-                    getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit().putBoolean("capturing", false).apply();
+                    getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit()
+                        .putBoolean("capturing", false)
+                        .putBoolean("captured", false)
+                        .putString("error", "Android did not deliver a screen frame before the capture timeout.")
+                        .apply();
                     cleanup(); stopSelf();
                 }
             }, 5000L);
