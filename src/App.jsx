@@ -1304,7 +1304,7 @@ export default function App() {
     const previous = lastSpokenTextRef.current;
     const followUp = resolveVoiceFollowUp(spoken, { lastAnswer: previous });
     stopSpokenOutput();
-    setPulseInterrupted(true);
+    if (pulseOpen) setPulseInterrupted(true);
     if (/^(?:stop|stop talking|stop speaking|be quiet|that's enough|thats enough|pause)[.!? ]*$/i.test(spoken)) {
       setNotice("Okay. I've stopped speaking.");
       return;
