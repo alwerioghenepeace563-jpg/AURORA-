@@ -487,6 +487,13 @@ for (const permission of [
   if (!manifestText.includes(permission)) throw new Error("Nearby Connections manifest permission is missing: " + permission);
 }
 
+const locationPluginPath = path.join(javaRoot, "AuroraLocationPlugin.java");
+if (!fs.existsSync(locationPluginPath)) throw new Error("Foreground one-shot Android location plugin is missing.");
+const locationPluginSource = fs.readFileSync(locationPluginPath, "utf8");
+for (const marker of ['@CapacitorPlugin(', 'name = "AuroraLocation"', 'void requestLocationPermission(PluginCall call)', 'void getCurrentLocation(PluginCall call)', 'requestSingleUpdate', 'postDelayed(timeoutRunnable, 15000L)', 'backgroundTracking", false', 'handleOnPause']) {
+  if (!locationPluginSource.includes(marker)) throw new Error("Android one-shot location plugin is missing required behavior: " + marker);
+}
+
 const securePluginPath = path.join(javaRoot, "AuroraSecureStoragePlugin.java");
 const securePluginSource = fs.existsSync(securePluginPath) ? fs.readFileSync(securePluginPath, "utf8") : "";
 for (const method of ["set", "get", "remove"]) {
@@ -635,6 +642,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraReminderPlugin.class);
         registerPlugin(AuroraPredictivePlugin.class);
         registerPlugin(AuroraNearbyPlugin.class);
+        registerPlugin(AuroraLocationPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -647,6 +655,7 @@ if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);
     !verifiedMainActivity.includes("registerPlugin(AuroraTranscriptionPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraPredictivePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraNearbyPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraLocationPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
