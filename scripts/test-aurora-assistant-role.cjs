@@ -43,7 +43,6 @@ const screenPlugin = read("android/app/src/main/java/com/aurora/assistant/Aurora
 const screenService = read("android/app/src/main/java/com/aurora/assistant/AuroraScreenCaptureService.java");
 const nfcPlugin = read("android/app/src/main/java/com/aurora/assistant/AuroraNfcPlugin.java");
 const mainActivity = read("android/app/src/main/java/com/aurora/assistant/MainActivity.java");
-const manifest = read("android/app/src/main/AndroidManifest.xml");
 const hardwareCard = read("src/components/AndroidHardwareFeaturesCard.jsx");
 const patcher = read("scripts/patch-android-native.mjs");
 assert.match(screenPlugin,/createScreenCaptureIntent/);
