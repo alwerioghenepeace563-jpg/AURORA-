@@ -78,6 +78,17 @@ public class AuroraAssistantPlugin extends Plugin {
 
 
     @PluginMethod
+    public void speakAssistantSessionReply(PluginCall call) {
+        String text = call.getString("text");
+        if (text == null || text.trim().isEmpty() || text.length() > 5000) {
+            call.reject("Provide an assistant reply between 1 and 5000 characters.");
+            return;
+        }
+        boolean delivered = AuroraVoiceInteractionSession.speakAssistantReply(text);
+        call.resolve(new JSObject().put("delivered", delivered));
+    }
+
+    @PluginMethod
     public void consumeAssistantSessionQuery(PluginCall call) {
         android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
         String query = prefs.getString("assistant_session_query", "");
