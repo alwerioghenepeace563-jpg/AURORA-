@@ -49,21 +49,33 @@ The typed bridge and existing Action Engine location permission/action path now 
 - AuroraNative exposes assistant-role availability/selection/readiness and a system-owned assistant-role request flow on Android 10+, with a voice-input settings fallback on older Android versions. Android always controls the final selection and user confirmation.
 - Added static regression coverage and registered the assistant-role test in test:core.
 
+### Assistant-session voice capture
+
+- The Android assistant session now offers a user-tapped Start voice input control, checks the existing microphone permission, and starts one-shot Android speech recognition.
+- The transcript is stored briefly in app-private preferences and handed to AURORA Pulse when the app opens. It is placed in the message composer for the user to review and send; it is not silently submitted.
+- Recognition is cancelled and released when the assistant session hides or is destroyed. The normal AURORA answer and speech pipeline remains in the app.
+
+### Android cloud document-provider access
+
+- The existing Android document picker now retains a persistable read grant when the selected provider offers one, and returns provider authority, document ID and grant status to the app.
+- The system picker can surface installed Android document providers such as cloud-drive apps. AURORA reads only the document explicitly selected by the user.
+- This is provider-mediated file access, not direct provider account integration. Direct Google Drive, Dropbox or OneDrive API connectors still require provider OAuth client IDs, approved scopes, account consent and secure backend token handling; these cannot be completed without the app owner's provider credentials.
+
 ## Remaining native integration gaps
 
 These are deliberately recorded as gaps rather than being mislabeled as complete:
 
-1. **MediaProjection screen capture:** the app has Accessibility-based visible-text reading, but no dedicated, user-consented MediaProjection capture session. If added, it must use Android's system consent prompt, a visible foreground-service notification, one-session scope, explicit stop/revoke and no silent capture.
-2. **VoiceInteraction speech session:** Android assistant-role discovery, session display, and explicit Open AURORA handoff are implemented. A full voice-session capture/response loop that uses the Android assistant session APIs, device-specific assistant gesture behavior and default-assistant validation remain open.
-3. **Direct NFC actions:** current UI/API provides a Settings handoff and hardware inventory, not an NFC reader/writer session. Any future NFC session needs foreground-only, user-initiated operation and explicit tag-content review.
+1. **MediaProjection screen capture:** implemented as a user-consented, one-frame capture with an ongoing foreground notification, private cache preview, explicit clear control and automatic teardown. Physical-device and Android 14+ validation remain open.
+2. **VoiceInteraction speech session:** role discovery, session UI, explicit start of one-shot speech recognition, transcript handoff to Pulse and user-reviewed submission are implemented. Direct spoken responses inside the system assistant surface and OEM gesture certification remain open.
+3. **Direct NFC actions:** foreground NDEF text read and explicit text-write are implemented. Reader mode stops on pause/destroy; tag compatibility and physical-device tests remain open.
 4. **Direct Wi-Fi/Bluetooth settings changes:** AURORA opens Android Settings rather than silently toggling protected connectivity state. Nearby Connections uses its own approved peer transport; it is not a general-purpose Bluetooth/Wi-Fi control API.
 5. **Full telephony/SMS dispatch:** AURORA deliberately hands off to Android's dialler and SMS composer; it does not silently place calls or send messages.
-6. **Provider-specific Stage 13 connectors:** the shared connector registry is not a native plugin for every third-party provider. OAuth/account linking, scopes, provider SDKs and live round-trip tests must be added per supported provider.
+6. **Direct provider API connectors:** Android Storage Access Framework integration now supports user-selected cloud document providers with persisted read grants where supported. Direct Drive/Dropbox/OneDrive API OAuth connectors remain blocked on provider client IDs, scopes and secure token configuration.
 7. **OEM and physical-device certification:** foreground microphone restrictions, notification access, exact alarm policy, WorkManager behavior, low-memory handling, Nearby discovery and location accuracy must be tested on supported Android versions and OEM builds.
 
 ## Verification boundary
 
 - Static source and bridge checks are added to the repository.
-- Static regression scripts for location and assistant-role integration are registered in test:core.
+- Static regression scripts for location, assistant-role, MediaProjection, NFC and provider-picker integration are registered in test:core.
 - No successful GitHub Actions run, Gradle compile, APK build or physical-device test is claimed by this audit.
 - No production deployment or PR merge is performed.
