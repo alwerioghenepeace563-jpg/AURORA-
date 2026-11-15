@@ -96,6 +96,11 @@ export default function IntelligenceEcosystemWorkspace() {
       setNotice("The nearby connection could not be established. Check both phones and try again.");
     } else if (event.type === "device.nearby.transport.error") {
       setNotice("Nearby connection notice: " + String(item.code || "transport error"));
+    } else if (event.type === "device.nearby.session.paused") {
+      setNearbyScanning(false);
+      setNearbyReadyPeers([]);
+      setNearbyRequests([]);
+      setNotice("AURORA moved to the background, so nearby discovery and connections were stopped. Start discovery again when the app is open.");
     } else if (event.type === "device.nearby.payload.received") {
       setNotice("Received a device handoff reference from " + String(item.name || "a trusted device") + ". Review it before opening anything.");
     }
