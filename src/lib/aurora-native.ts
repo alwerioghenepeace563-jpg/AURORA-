@@ -1,5 +1,11 @@
 import { registerPlugin, Capacitor } from "@capacitor/core";
 
+type AuroraLocationPlugin = {
+  requestLocationPermission(): Promise<{ granted: boolean }>;
+  getCurrentLocation(): Promise<{ latitude: number; longitude: number; accuracyMeters: number; provider: string; timestamp: number; ageMs: number; fresh: boolean; precision: "fine" | "coarse"; backgroundTracking: false; source: "one_shot_location_update" }>;
+};
+const AuroraLocation = registerPlugin<AuroraLocationPlugin>("AuroraLocation");
+
 export type AuroraNativeStatus = {
   platform: string;
   nativeBridge: boolean;
@@ -245,8 +251,8 @@ export const auroraNative = {
   searchOnMap: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Map search handoff is available only in Android."); return AuroraNative.searchOnMap({ query }); },
   startMapDirections: async (destination: string, mode = "driving") => { if (!Capacitor.isNativePlatform()) throw new Error("Map directions handoff is available only in Android."); return AuroraNative.startMapDirections({ destination, mode }); },
   requestCalendarReadPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestCalendarReadPermission(); },
-  requestLocationPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestLocationPermission(); },
-  getCurrentLocation: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device location is available only in the Android app."); return AuroraNative.getCurrentLocation(); },
+  requestLocationPermission: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { granted: false }; return AuroraLocation.requestLocationPermission(); },
+  getCurrentLocation: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device location is available only in the Android app."); return AuroraLocation.getCurrentLocation(); },
   searchCalendarEvents: async (query = "") => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar search is available only in the Android app."); return AuroraNative.searchCalendarEvents({ query }); },
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
   exportTextDocument: async (options: { content: string; filename: string; mimeType: "text/plain" | "text/markdown" | "text/csv" | "application/json" }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Document export requires Android."); return AuroraNative.exportTextDocument(options); },
