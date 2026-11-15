@@ -78,7 +78,7 @@ assert.match(screenPlugin,/getScreenCaptureStatus/);
 assert.match(screenPlugin,/getLatestScreenCapture/);
 assert.match(screenService,/maxDimension = 1600/);
 assert.match(screenService,/remove\("error"\)/);
-assert.match(nfc,/UTF-16/);
+assert.match(nfcPlugin,/UTF-16/);
 assert.match(hardwareCard,/attempt < 20/);
 assert.match(hardwareCard,/status\?\.error/);
 
