@@ -98,11 +98,12 @@ export default function IntelligenceEcosystemWorkspace() {
       setNotice("Nearby connection notice: " + String(item.code || "transport error"));
     } else if (event.type === "device.nearby.session.paused") {
       setNearbyScanning(false);
+      setNearbyEndpoints([]);
       setNearbyReadyPeers([]);
       setNearbyRequests([]);
       setNotice("AURORA moved to the background, so nearby discovery and connections were stopped. Start discovery again when the app is open.");
     } else if (event.type === "device.nearby.payload.received") {
-      setNotice("Received a device handoff reference from " + String(item.name || "a trusted device") + ". Review it before opening anything.");
+      setNotice("Received a device handoff reference from " + String(item.name || "a trusted device") + (item.payload?.title ? ": " + String(item.payload.title) : "") + ". Review it before opening anything.");
     }
     setRefresh(value => value + 1);
   }), []);
