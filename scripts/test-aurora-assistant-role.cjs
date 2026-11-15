@@ -8,6 +8,7 @@ const plugin=read("android/app/src/main/java/com/aurora/assistant/AuroraAssistan
 const bridge=read("src/lib/aurora-native.ts");
 const manifest=read("android/app/src/main/AndroidManifest.xml");
 const parity=read("scripts/check-android-feature-parity.mjs");
+const app=read("src/App.jsx");
 assert.match(manifest,/\.AuroraVoiceInteractionService/);
 assert.match(manifest,/\.AuroraVoiceInteractionSessionService/);
 assert.match(service,/void onReady\(\)/);
@@ -23,3 +24,11 @@ assert.match(bridge,/getAssistantRoleStatus/);
 assert.match(parity,/voice interaction assistant service/);
 assert.match(parity,/assistant role bridge/);
 console.log("AURORA assistant-role tests passed: lifecycle state, Android role handoff and explicit session launch.");
+
+const roleCard = read("src/components/AndroidAssistantRoleCard.jsx");
+assert.match(bridge,/getAssistantRoleStatus: async/);
+assert.match(bridge,/openAssistantRoleSettings: async/);
+assert.match(roleCard,/Choose AURORA/);
+assert.match(roleCard,/Refresh status/);
+assert.match(roleCard,/Android may not support this role on every device/);
+assert.match(app,/AndroidAssistantRoleCard/);
