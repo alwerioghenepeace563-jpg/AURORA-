@@ -94,3 +94,7 @@ These are deliberately recorded as gaps rather than being mislabeled as complete
 - Static regression scripts for location, assistant-role, MediaProjection, NFC and provider-picker integration are registered in test:core.
 - No successful GitHub Actions run, Gradle compile, APK build or physical-device test is claimed by this audit.
 - No production deployment or PR merge is performed.
+
+## Android assistant voice-response handoff
+
+When a transcript is captured from the Android VoiceInteractionSession, AURORA still places it in the app composer for user review and requires the user to tap Send. The app now marks that one reply as speech-requested: after the response is produced, it uses AURORA's existing speech pipeline even if the normal Read Aloud toggle is off, then clears the one-shot request. This preserves the review/submit boundary and avoids silently sending microphone transcripts. Speech is currently played by the app's voice pipeline after the app is opened; it is not yet rendered or spoken inside the Android system assistant surface itself. A physical Android test is required to validate audio focus, TTS provider availability, and lifecycle behavior.
