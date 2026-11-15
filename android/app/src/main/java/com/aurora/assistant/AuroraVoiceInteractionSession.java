@@ -8,6 +8,8 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -31,13 +33,14 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
     private TextToSpeech replyTts;
     private boolean replyTtsReady = false;
     private String pendingReply = "";
+    private boolean sessionDestroyed = false;
     private static WeakReference<AuroraVoiceInteractionSession> activeSession = new WeakReference<>(null);
 
     public AuroraVoiceInteractionSession(Context context) {
         super(context);
         activeSession = new WeakReference<>(this);
         replyTts = new TextToSpeech(context, result -> {
-            if (result != TextToSpeech.SUCCESS) return;
+            if (sessionDestroyed || result != TextToSpeech.SUCCESS) return;
             replyTtsReady = true;
             int language = replyTts.setLanguage(Locale.UK);
             if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -59,8 +62,8 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
     /** Delivers an app-generated answer to the currently active Android assistant session. */
     public static boolean speakAssistantReply(String text) {
         AuroraVoiceInteractionSession session = activeSession.get();
-        if (session == null || text == null || text.trim().isEmpty()) return false;
-        session.speakReply(text.trim());
+        if (session == null || session.sessionDestroyed || text == null || text.trim().isEmpty()) return false;
+        new Handler(Looper.getMainLooper()).post(() -> { if (!session.sessionDestroyed) session.speakReply(text.trim()); });
         return true;
     }
 
@@ -190,6 +193,7 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
     @Override public void onHide() { stopRecognizer(); super.onHide(); }
     @Override public void onDestroy() {
         stopRecognizer();
+        sessionDestroyed = true;
         if (activeSession.get() == this) activeSession.clear();
         if (replyTts != null) { try { replyTts.stop(); replyTts.shutdown(); } catch (Exception ignored) {} replyTts = null; }
         super.onDestroy();
