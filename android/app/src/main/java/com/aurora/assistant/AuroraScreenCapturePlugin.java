@@ -54,12 +54,19 @@ public class AuroraScreenCapturePlugin extends Plugin {
     @PluginMethod
     public void getScreenCaptureStatus(PluginCall call) {
         android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_screen_capture", 0);
+        java.io.File image = new java.io.File(getContext().getCacheDir(), "aurora-screen-capture.png");
+        boolean fileAvailable = image.isFile() && image.length() > 0 && image.length() <= 8L * 1024L * 1024L;
+        boolean captured = prefs.getBoolean("captured", false) && fileAvailable;
+        String error = prefs.getString("error", "");
+        if (prefs.getBoolean("captured", false) && !fileAvailable && error.isEmpty()) {
+            error = "The temporary screen frame is no longer available. Capture it again.";
+        }
         call.resolve(new JSObject()
-            .put("captured", prefs.getBoolean("captured", false))
+            .put("captured", captured)
             .put("capturing", prefs.getBoolean("capturing", false))
-            .put("capturedAt", prefs.getLong("captured_at", 0L))
-            .put("bytes", prefs.getLong("bytes", 0L))
-            .put("error", prefs.getString("error", ""))
+            .put("capturedAt", captured ? prefs.getLong("captured_at", 0L) : 0L)
+            .put("bytes", captured ? image.length() : 0L)
+            .put("error", error)
             .put("scope", "one_frame")
             .put("backgroundCapture", false));
     }
