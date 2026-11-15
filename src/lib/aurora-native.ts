@@ -9,6 +9,7 @@ const AuroraLocation = registerPlugin<AuroraLocationPlugin>("AuroraLocation");
 type AuroraScreenCapturePlugin = {
   requestScreenCapture(): Promise<{ started: boolean; consentGranted: boolean; scope?: string; backgroundCapture?: boolean }>;
   getScreenCaptureStatus(): Promise<{ captured: boolean; capturing: boolean; capturedAt: number; bytes: number; scope: string; backgroundCapture: false }>;
+  getLatestScreenCapture(): Promise<{ mimeType: string; base64: string; bytes: number }>;
   clearScreenCapture(): Promise<{ cleared: boolean }>;
 };
 const AuroraScreenCapture = registerPlugin<AuroraScreenCapturePlugin>("AuroraScreenCapture");
@@ -180,6 +181,7 @@ export const auroraNative = {
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
 
   requestScreenCapture: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen capture is available only in the Android app."); return AuroraScreenCapture.requestScreenCapture(); },
+  getLatestScreenCapture: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen capture is available only in Android."); return AuroraScreenCapture.getLatestScreenCapture(); },
   getScreenCaptureStatus: async () => { if (Capacitor.getPlatform() !== "android") return { captured: false, capturing: false, capturedAt: 0, bytes: 0, scope: "one_frame", backgroundCapture: false as const }; return AuroraScreenCapture.getScreenCaptureStatus(); },
   clearScreenCapture: async () => Capacitor.getPlatform() === "android" ? AuroraScreenCapture.clearScreenCapture() : { cleared: true },
   getNfcStatus: async () => Capacitor.getPlatform() === "android" ? AuroraNfc.getNfcStatus() : { available: false, enabled: false, readerActive: false, foregroundOnly: true as const },
