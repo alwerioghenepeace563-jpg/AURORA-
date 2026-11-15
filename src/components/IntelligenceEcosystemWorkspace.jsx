@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { auroraRuntime } from "../core/aurora-runtime";
+import { auroraEvents } from "../core/aurora-event-bus";
 import GoogleWorkspaceConnector from "./GoogleWorkspaceConnector";
-import { Activity, Plug, FlaskConical, ShieldCheck, Plus, CheckCircle2, Circle, Trash2, Play, PauseCircle } from "lucide-react";
+import { Activity, Plug, FlaskConical, ShieldCheck, Plus, CheckCircle2, Circle, Trash2, Play, PauseCircle, Bluetooth, Smartphone, Radio, Link2 } from "lucide-react";
 
 // This adapter is deliberately deterministic and side-effect free. It exercises
 // the sandbox workflow without pretending to connect to a live provider/device.
@@ -55,6 +56,17 @@ export default function IntelligenceEcosystemWorkspace() {
   const [promotionReviewer, setPromotionReviewer] = useState("");
   const [cloudConsent, setCloudConsent] = useState(false);
   const [cloudConnecting, setCloudConnecting] = useState(false);
+  const [nearbyScanning, setNearbyScanning] = useState(false);
+  const [nearbyBusy, setNearbyBusy] = useState(false);
+  const [nearbyEndpoints, setNearbyEndpoints] = useState([]);
+  const [nearbyRequests, setNearbyRequests] = useState([]);
+  const [nearbyReadyPeers, setNearbyReadyPeers] = useState([]);
+  const [pairConsent, setPairConsent] = useState(false);
+  const [handoffConsent, setHandoffConsent] = useState(false);
+  const [handoffDeviceId, setHandoffDeviceId] = useState("");
+  const [handoffTitle, setHandoffTitle] = useState("");
+  const [handoffSourceId, setHandoffSourceId] = useState("");
+  const nearby = auroraRuntime.nearbyDeviceTransport;
   const experiments = auroraRuntime.experimentalIntelligence;
   const connectors = auroraRuntime.connectedEcosystem;
   const ledger = auroraRuntime.certificationLedger;
@@ -64,6 +76,95 @@ export default function IntelligenceEcosystemWorkspace() {
   const connectorStatus = connectors.status();
   const readiness = experiments.certificationReadiness();
   const availableCapabilities = useMemo(() => auroraRuntime.actions.listCapabilities().map(x => x.id), []);
+  const trustedDevices = useMemo(() => auroraRuntime.deviceContinuity.list(), [refresh]);
+
+  useEffect(() => auroraEvents.subscribe("device.nearby.*", event => {
+    const item = event.payload || {};
+    if (event.type === "device.nearby.endpoint.found") {
+      setNearbyEndpoints(current => [...current.filter(x => x.endpointId !== item.endpointId), item]);
+    } else if (event.type === "device.nearby.endpoint.lost") {
+      setNearbyEndpoints(current => current.filter(x => x.endpointId !== item.endpointId));
+    } else if (event.type === "device.nearby.connection.request") {
+      setNearbyRequests(current => [...current.filter(x => x.endpointId !== item.endpointId), item]);
+    } else if (event.type === "device.nearby.peer.ready") {
+      setNearbyReadyPeers(current => [...current.filter(x => x.endpointId !== item.endpointId), item]);
+    } else if (event.type === "device.nearby.peer.disconnected") {
+      setNearbyReadyPeers(current => current.filter(x => x.deviceId !== item.deviceId));
+    } else if (event.type === "device.nearby.connection.failed") {
+      setNotice("The nearby connection could not be established. Check both phones and try again.");
+    } else if (event.type === "device.nearby.transport.error") {
+      setNotice("Nearby connection notice: " + String(item.code || "transport error"));
+    } else if (event.type === "device.nearby.payload.received") {
+      setNotice("Received a device handoff reference from " + String(item.name || "a trusted device") + ". Review it before opening anything.");
+    }
+    setRefresh(value => value + 1);
+  }), []);
+
+  async function startNearbyDiscovery() {
+    if (nearbyBusy) return;
+    setNearbyBusy(true);
+    try {
+      const result = await nearby.start();
+      setNearbyScanning(result.started);
+      setNotice(result.started ? "AURORA is advertising and discovering nearby devices. Keep this screen open while pairing." : "Nearby discovery did not start on both channels.");
+    } catch (error) { setNotice(error.message || "Nearby discovery could not start."); }
+    finally { setNearbyBusy(false); }
+  }
+  async function stopNearbyDiscovery() {
+    try { await nearby.stop(); setNearbyScanning(false); setNotice("Nearby discovery stopped. Existing trusted-device records remain saved."); }
+    catch (error) { setNotice(error.message || "Nearby discovery could not stop."); }
+  }
+  async function requestNearbyConnection(endpointId) {
+    try { await nearby.requestConnection(endpointId); setNotice("Connection requested. Compare the authentication code shown on both phones before accepting."); }
+    catch (error) { setNotice(error.message || "Connection request failed."); }
+  }
+  async function approveNearbyConnection(request) {
+    try {
+      await nearby.approveConnection(request.endpointId, true);
+      setNearbyRequests(current => current.filter(item => item.endpointId !== request.endpointId));
+      setNotice("Connection approval sent. AURORA is checking the other device's identity key.");
+    } catch (error) { setNotice(error.message || "Connection approval failed."); }
+  }
+  async function rejectNearbyConnection(request) {
+    try {
+      await nearby.rejectConnection(request.endpointId);
+      setNearbyRequests(current => current.filter(item => item.endpointId !== request.endpointId));
+      setNotice("Nearby connection rejected.");
+    } catch (error) { setNotice(error.message || "Could not reject the connection."); }
+  }
+  async function trustNearbyPeer(peer) {
+    if (!pairConsent || nearbyBusy) return;
+    setNearbyBusy(true);
+    try {
+      const trusted = await nearby.pair(peer.endpointId, { approved: true, consent: true });
+      setPairConsent(false);
+      setNotice("Trusted device saved: " + trusted.name + ". The private identity key remains protected by Android Keystore.");
+      setRefresh(value => value + 1);
+    } catch (error) { setNotice(error.message || "Device identity verification failed."); }
+    finally { setNearbyBusy(false); }
+  }
+  async function revokeNearbyDevice(device) {
+    try {
+      await nearby.revoke(device.id);
+      setNotice("Device trust revoked for " + device.name + ". If it is offline, reconnect it before retrying revocation.");
+      setRefresh(value => value + 1);
+    } catch (error) { setNotice(error.message || "Device revocation failed."); }
+  }
+  async function sendNearbyReference(event) {
+    event.preventDefault();
+    if (!handoffConsent || !handoffDeviceId) return;
+    try {
+      await nearby.handoff(handoffDeviceId, {
+        type: "knowledge_reference",
+        sourceId: handoffSourceId.trim(),
+        title: handoffTitle.trim()
+      }, { approved: true, consent: true });
+      setHandoffConsent(false);
+      setHandoffTitle("");
+      setHandoffSourceId("");
+      setNotice("Knowledge reference delivered over the encrypted nearby connection. The receiving phone must review it before opening.");
+    } catch (error) { setNotice(error.message || "The reference could not be delivered."); }
+  }
 
   function createExperiment(event) {
     event.preventDefault();
@@ -153,6 +254,7 @@ export default function IntelligenceEcosystemWorkspace() {
     <div className="activity-tabs" role="tablist" aria-label="Intelligence workspace">
       <button type="button" role="tab" aria-selected={tab === "experiments"} className={tab === "experiments" ? "activity-tab activity-tab-active" : "activity-tab"} onClick={() => setTab("experiments")}><FlaskConical size={15}/>Experiments</button>
       <button type="button" role="tab" aria-selected={tab === "connectors"} className={tab === "connectors" ? "activity-tab activity-tab-active" : "activity-tab"} onClick={() => setTab("connectors")}><Plug size={15}/>Connections</button>
+      <button type="button" role="tab" aria-selected={tab === "devices"} className={tab === "devices" ? "activity-tab activity-tab-active" : "activity-tab"} onClick={() => setTab("devices")}><Bluetooth size={15}/>Devices</button>
       <button type="button" role="tab" aria-selected={tab === "certification"} className={tab === "certification" ? "activity-tab activity-tab-active" : "activity-tab"} onClick={() => setTab("certification")}><ShieldCheck size={15}/>Release evidence</button>
     </div>
     {notice && <div className="knowledge-message" role="status">{notice}<button type="button" onClick={() => setNotice("")} aria-label="Dismiss">×</button></div>}
@@ -222,6 +324,68 @@ export default function IntelligenceEcosystemWorkspace() {
         <small>Available capability IDs: {availableCapabilities.slice(0, 18).join(", ")}{availableCapabilities.length > 18 ? "…" : ""}</small>
         <small>Validation only. This does not sign in, request credentials or claim a live connection.</small>
       </form>
+    </>}
+    {tab === "devices" && <>
+      <div style={panelStyle}>
+        <strong><Bluetooth size={16}/> Trusted Android devices</strong>
+        <p className="knowledge-import-meta">Nearby Connections uses Bluetooth and Wi-Fi to find AURORA devices without requiring internet. Both phones must approve the same authentication code. Pairing is available in the Android app only.</p>
+        {!nearby.isAvailable() ? <p className="activity-muted">Open this workspace inside the AURORA Android app to use nearby pairing.</p> : <>
+          <div className="knowledge-detail-actions">
+            <button type="button" className="primary-action" disabled={nearbyBusy || nearbyScanning} onClick={startNearbyDiscovery}><Radio size={15}/>{nearbyBusy ? "Starting…" : "Find nearby devices"}</button>
+            <button type="button" className="outline-action" disabled={!nearbyScanning} onClick={stopNearbyDiscovery}>Stop discovery</button>
+          </div>
+          <p className="knowledge-import-meta">{nearbyScanning ? "Discovery is active. Keep AURORA open on both phones." : "Discovery is stopped."}</p>
+        </>}
+      </div>
+      {nearbyEndpoints.length > 0 && <div style={panelStyle}>
+        <strong>Nearby AURORA devices</strong>
+        {nearbyEndpoints.map(item => <div key={item.endpointId} className="activity-record">
+          <span><Smartphone size={15}/> {item.name}</span>
+          <button type="button" className="outline-action" onClick={() => requestNearbyConnection(item.endpointId)}>Connect</button>
+        </div>)}
+      </div>}
+      {nearbyRequests.length > 0 && <div style={panelStyle}>
+        <strong>Connection approval</strong>
+        {nearbyRequests.map(item => <div key={item.endpointId} style={{ display: "grid", gap: 8 }}>
+          <strong>{item.name} is requesting a connection</strong>
+          <p className="knowledge-import-meta">Compare this code with the other phone. Only approve if both screens show exactly the same code.</p>
+          <div style={{ fontSize: 28, letterSpacing: 5, fontWeight: 800, textAlign: "center", padding: 14, borderRadius: 12, background: "var(--surface, rgba(255,255,255,.05))" }}>{item.authenticationDigits}</div>
+          <div className="knowledge-detail-actions">
+            <button type="button" className="primary-action" onClick={() => approveNearbyConnection(item)}>The codes match — approve</button>
+            <button type="button" className="outline-action" onClick={() => rejectNearbyConnection(item)}>Reject</button>
+          </div>
+        </div>)}
+      </div>}
+      {nearbyReadyPeers.length > 0 && <div style={panelStyle}>
+        <strong>Connected devices awaiting trust</strong>
+        {nearbyReadyPeers.map(peer => <div key={peer.endpointId} style={{ display: "grid", gap: 8 }}>
+          <span><Smartphone size={15}/> {peer.name || "Android device"}</span>
+          <small className="knowledge-import-meta">Fingerprint: {peer.publicKeyFingerprint || "Verifying…"}</small>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><input type="checkbox" checked={pairConsent} onChange={e => setPairConsent(e.target.checked)}/> I approve pairing this device and saving its public-key fingerprint as trusted on this phone.</label>
+          <button type="button" className="primary-action" disabled={!pairConsent || nearbyBusy} onClick={() => trustNearbyPeer(peer)}>{nearbyBusy ? "Verifying…" : "Verify identity and trust device"}</button>
+        </div>)}
+      </div>}
+      <div style={panelStyle}>
+        <strong>Trusted devices ({trustedDevices.length})</strong>
+        {trustedDevices.length ? trustedDevices.map(device => <div key={device.id} className="activity-record" style={{ display: "grid", gap: 6 }}>
+          <strong>{device.name}</strong>
+          <small>{device.platform} · {device.trust}</small>
+          <small className="knowledge-import-meta">{device.publicKeyFingerprint}</small>
+          <button type="button" className="outline-action" onClick={() => revokeNearbyDevice(device)}>Revoke trust</button>
+        </div>) : <p className="activity-muted">No trusted devices yet.</p>}
+      </div>
+      {trustedDevices.length > 0 && <form onSubmit={sendNearbyReference} style={panelStyle}>
+        <strong><Link2 size={16}/> Send a knowledge reference</strong>
+        <p className="knowledge-import-meta">This sends a reference ID and title, not the contents of your private files or notes. The receiving device should review it before opening.</p>
+        <select style={inputStyle} value={handoffDeviceId} onChange={e => setHandoffDeviceId(e.target.value)} required>
+          <option value="">Choose a trusted device</option>
+          {trustedDevices.map(device => <option key={device.id} value={device.id}>{device.name}</option>)}
+        </select>
+        <input style={inputStyle} value={handoffTitle} onChange={e => setHandoffTitle(e.target.value)} placeholder="Reference title" maxLength={120} required/>
+        <input style={inputStyle} value={handoffSourceId} onChange={e => setHandoffSourceId(e.target.value)} placeholder="Saved knowledge reference ID" maxLength={120} required/>
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><input type="checkbox" checked={handoffConsent} onChange={e => setHandoffConsent(e.target.checked)}/> I reviewed this reference and approve sending it to the selected trusted device.</label>
+        <button type="submit" className="primary-action" disabled={!handoffConsent || !handoffDeviceId}>Send approved reference</button>
+      </form>}
     </>}
     {tab === "certification" && <>
       <div style={panelStyle}><strong>Release certification gates</strong><p>{certification.gates.filter(x => x.verified).length} of {certification.gates.length} gates have evidence recorded.</p>
