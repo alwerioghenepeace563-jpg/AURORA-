@@ -1337,13 +1337,27 @@ export default function App() {
           if (isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) { scheduleBargeInRestart(text, requestId); return; }
           acceptBargeIn(transcript, requestId);
         });
+        const partialHandle = await auroraNative.addSpeechPartialResultListener(event => {
+          const transcript = String(event?.transcript || "").trim();
+          if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current || !transcript) return;
+          if (isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) return;
+          if (isImmediateInterruptionCommand(transcript)) { acceptBargeIn(transcript, requestId); return; }
+          if (transcript.length < 3) return;
+          if (bargeInCandidateRef.current !== transcript) {
+            bargeInCandidateRef.current = transcript;
+            if (bargeInCandidateTimerRef.current) clearTimeout(bargeInCandidateTimerRef.current);
+            bargeInCandidateTimerRef.current = setTimeout(() => {
+              if (bargeInSessionRef.current && requestId === speechRequestIdRef.current && bargeInCandidateRef.current === transcript) acceptBargeIn(transcript, requestId);
+            }, 650);
+          }
+        });
         const errorHandle = await auroraNative.addSpeechErrorListener(event => {
           if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
           const reason = String(event?.message || "");
           if (/no speech|timeout|recognition cancelled/i.test(reason)) scheduleBargeInRestart(text, requestId);
           else { stopBargeInDetection(); }
         });
-        bargeInNativeListenersRef.current = [resultHandle, errorHandle];
+        bargeInNativeListenersRef.current = [resultHandle, partialHandle, errorHandle];
         if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) { stopBargeInDetection(); return; }
         await auroraNative.startSpeechRecognition();
       } catch {
