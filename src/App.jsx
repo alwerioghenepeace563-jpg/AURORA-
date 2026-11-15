@@ -652,9 +652,10 @@ export default function App() {
         const sessionQuery = await AuroraNative.consumeAssistantSessionQuery();
         if (stopped) return;
         if (sessionQuery?.query) {
+          assistantSessionVoiceReplyRef.current = true;
           setDraft(sessionQuery.query);
           setPulseOpen(true);
-          setNativeNotice("Voice input is ready for review. Tap Send when you are happy with the transcript.");
+          setNativeNotice("Voice input is ready for review. Tap Send when you are happy with the transcript. AURORA will speak its reply aloud.");
         }
 
         const result = await AuroraNative.consumeWakeWord();
@@ -898,6 +899,7 @@ export default function App() {
   const speechReleaseRef = useRef(null);
   const speechRequestIdRef = useRef(0);
   const nativeTtsListenerRef = useRef(null);
+  const assistantSessionVoiceReplyRef = useRef(false);
   const browserUtteranceRef = useRef(null);
   const bargeInSessionRef = useRef(false);
   const bargeInRecognitionRef = useRef(null);
@@ -1638,7 +1640,7 @@ export default function App() {
           ? "I found these visual references online for **" + visualQuery + "**. These are retrieved images from the linked websites, not AI-generated pictures.\n\n" + visualCards.join("\n\n") + "\n\n**Sources**\n" + sourceList
           : "I found web pages about **" + visualQuery + "**, but they did not provide a safe, usable image preview. I won't invent one. You can open the original results here:\n\n" + sourceList;
         setMessages(current => [...current, { role: "assistant", content: visualReply }]);
-        if (soundOn) speak(visualReply);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(visualReply);
         return;
       }
       if (!attachmentOverride && /^(?:aurora[, ]*)?(?:review my (?:saved )?routine|review my predictive suggestions|what should i focus on|show predictive suggestions|pause predictive intelligence|resume predictive intelligence|clear predictive history|review my device health|check my device health|show connected predictive sources|snooze latest predictive suggestion|dismiss latest predictive suggestion)$/i.test(text)) {
@@ -1687,7 +1689,7 @@ export default function App() {
           }
         }
         setMessages(current => [...current, { role: "assistant", content: predictiveReply }]);
-        if (soundOn) speak(predictiveReply);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(predictiveReply);
         return;
       }
       if (!attachmentOverride && /^Search the web for\s+/i.test(text)) {
@@ -1704,7 +1706,7 @@ export default function App() {
           ? "Web results for: " + query + "\\n\\n" + results.map((item, index) => (index + 1) + ". " + item.title + "\\n" + (item.snippet || "Open the source to read more.") + "\\nSource: " + item.url).join("\\n\\n") + "\\n\\nThese are search results, so check the linked sources for full context."
           : "I couldn't find matching results for â€œ" + query + "â€. Try a more specific search.";
         setMessages((current) => [...current, { role: "assistant", content: searchReply }]);
-        if (soundOn) speak(searchReply);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(searchReply);
         return;
       }
       let preferredProvider;
@@ -1714,7 +1716,7 @@ export default function App() {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "main_chat" });
       if (liveToolResult?.error) {
         setMessages((current) => [...current, { role: "assistant", content: liveToolResult.error }]);
-        if (soundOn) speak(liveToolResult.error);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(liveToolResult.error);
         return;
       }
       const response = await fetch(auroraApiUrl("/api/chat"), {
@@ -1733,10 +1735,11 @@ export default function App() {
       if (!reply) throw new Error("AURORA returned an empty response.");
       if (["groq", "openrouter", "gemini"].includes(data.provider)) { try { localStorage.setItem("aurora-active-ai-provider", data.provider); } catch {} }
       setMessages((current) => [...current, { role: "assistant", content: reply }]);
-      if (soundOn) speak(reply);
+      if (soundOn || assistantSessionVoiceReplyRef.current) speak(reply);
     } catch (error) {
       setNotice(error.message || "Couldn't reach AURORA's AI service. Check the Vercel environment variables.");
     } finally {
+      assistantSessionVoiceReplyRef.current = false;
       setBusy(false);
     }
   }
