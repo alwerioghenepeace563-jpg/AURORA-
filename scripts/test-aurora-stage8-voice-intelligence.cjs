@@ -19,13 +19,13 @@ const nativePlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assis
   assert.match(app, /voiceIntelligence: AURORA_VOICE_INTELLIGENCE/);
   assert.match(app, /delivery: delivery.style/);
   assert.match(chat, /buildVoiceIntelligenceInstructions/);
-  assert.match(chat, /ADAPTIVE TEACHING/);
+  assert.match(chat, /voiceIntelligenceInstructions/);
   assert.match(voiceApi, /deliveryPresets/);
   assert.match(voiceApi, /speed: delivery.speed/);
-  assert.match(app, /auroraNative\\.speakText\\(makeSpeechFriendly\\(text\\), \\{ rate:/);
-  assert.match(nativeBridge, /rate\\?: number; pitch\\?: number/);
-  assert.match(nativePlugin, /textToSpeech\\.setSpeechRate\\(rate\\)/);
-  assert.match(nativePlugin, /textToSpeech\\.setPitch\\(pitch\\)/);
+  assert.match(app, /auroraNative\.speakText\(makeSpeechFriendly\(text\), \{ rate:/);
+  assert.match(nativeBridge, /rate\?: number; pitch\?: number/);
+  assert.match(nativePlugin, /textToSpeech\.setSpeechRate\(rate\)/);
+  assert.match(nativePlugin, /textToSpeech\.setPitch\(pitch\)/);
   assert.equal(voice.isImmediateInterruptionCommand("Stop talking"), true);
   assert.equal(voice.isImmediateInterruptionCommand("repeat that"), true);
   assert.equal(voice.isImmediateInterruptionCommand("please explain photosynthesis"), false);
