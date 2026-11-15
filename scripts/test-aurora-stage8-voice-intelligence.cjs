@@ -1,4 +1,8 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const chat = fs.readFileSync("api/chat.js", "utf8");
+const voiceApi = fs.readFileSync("api/voice.js", "utf8");
 
 (async () => {
   const voice = await import("../src/core/aurora-voice-intelligence.js");
@@ -6,6 +10,16 @@ const assert = require("node:assert/strict");
   assert.equal(voice.AURORA_VOICE_INTELLIGENCE.personality, "balanced");
   assert.equal(voice.AURORA_VOICE_INTELLIGENCE.teachingMode, "adaptive");
   assert.equal(voice.AURORA_VOICE_INTELLIGENCE.speechDelivery, "adaptive");
+  assert.equal(voice.normalizeSpeechText("Hello,   AURORA!"), "hello aurora");
+  assert.match(app, /startBargeInDetection/);
+  assert.match(app, /isLikelySpeechEcho/);
+  assert.match(app, /Speaking · you can interrupt/);
+  assert.match(app, /voiceIntelligence: AURORA_VOICE_INTELLIGENCE/);
+  assert.match(app, /delivery: delivery.style/);
+  assert.match(chat, /buildVoiceIntelligenceInstructions/);
+  assert.match(chat, /ADAPTIVE TEACHING/);
+  assert.match(voiceApi, /deliveryPresets/);
+  assert.match(voiceApi, /speed: delivery.speed/);
   assert.equal(voice.isImmediateInterruptionCommand("Stop talking"), true);
   assert.equal(voice.isImmediateInterruptionCommand("repeat that"), true);
   assert.equal(voice.isImmediateInterruptionCommand("please explain photosynthesis"), false);
