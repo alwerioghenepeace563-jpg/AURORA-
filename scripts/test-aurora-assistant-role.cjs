@@ -32,3 +32,7 @@ assert.match(roleCard,/Choose AURORA/);
 assert.match(roleCard,/Refresh status/);
 assert.match(roleCard,/Android may not support this role on every device/);
 assert.match(app,/AndroidAssistantRoleCard/);
+
+const voiceMetadata = read("android/app/src/main/res/xml/aurora_voice_interaction_service.xml");
+assert.match(voiceMetadata,/AuroraVoiceInteractionSessionService/);
+assert.doesNotMatch(voiceMetadata,/com\.google\.android\.tts/);
