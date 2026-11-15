@@ -15,6 +15,8 @@
 | AuroraPredictive | AuroraPredictivePlugin.java | Consent-gated foreground coarse motion signals | Registered; sensor hardware QA open |
 | AuroraNearby | AuroraNearbyPlugin.java | Foreground point-to-point discovery, authenticated pairing and encrypted data-only transfer | Registered; two-device QA open |
 | AuroraLocation | AuroraLocationPlugin.java | Permission-gated, foreground one-shot current-location fix | Added in this audit wave; build and device QA open |
+| AuroraScreenCapture | AuroraScreenCapturePlugin.java + AuroraScreenCaptureService.java | System-consented one-frame MediaProjection capture with foreground teardown | Registered; Android 14+ and low-memory device QA open |
+| AuroraNfc | AuroraNfcPlugin.java | Foreground NFC NDEF text reading and explicitly armed text writing | Registered; tag/device compatibility QA open |
 
 ## Existing Android services and receivers
 
