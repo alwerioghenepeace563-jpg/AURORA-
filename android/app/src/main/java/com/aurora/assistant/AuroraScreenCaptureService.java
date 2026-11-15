@@ -93,13 +93,15 @@ public class AuroraScreenCaptureService extends Service {
             display = projection.createVirtualDisplay("AURORA-OneFrame", metrics.widthPixels, metrics.heightPixels,
                 metrics.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader.getSurface(), null, new Handler(getMainLooper()));
             new Handler(getMainLooper()).postDelayed(() -> {
-                if (getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).getBoolean("capturing", false)) {
-                    getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit()
-                        .putBoolean("capturing", false)
-                        .putBoolean("captured", false)
-                        .putString("error", "Android did not deliver a screen frame before the capture timeout.")
-                        .apply();
-                    cleanup(); stopSelf();
+                synchronized (AuroraScreenCaptureService.this) {
+                    if (getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).getBoolean("capturing", false)) {
+                        getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit()
+                            .putBoolean("capturing", false)
+                            .putBoolean("captured", false)
+                            .putString("error", "Android did not deliver a screen frame before the capture timeout.")
+                            .apply();
+                        cleanup(); stopSelf();
+                    }
                 }
             }, 5000L);
         } catch (Exception error) {
@@ -109,7 +111,7 @@ public class AuroraScreenCaptureService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void saveOneFrame(ImageReader source) {
+    private synchronized void saveOneFrame(ImageReader source) {
         Image image = null;
         try {
             image = source.acquireLatestImage();
