@@ -13,7 +13,7 @@ import PredictiveDashboard from "./components/PredictiveDashboard";
 import IntelligenceEcosystemWorkspace from "./components/IntelligenceEcosystemWorkspace";
 import { buildAuroraRoutineInsights } from "./core/aurora-routine-insights";
 import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
-import { AURORA_VOICE_INTELLIGENCE, inferSpeechDelivery, isImmediateInterruptionCommand, isLikelySpeechEcho } from "./core/aurora-voice-intelligence.js";
+import { AURORA_VOICE_INTELLIGENCE, applySpeechPace, inferSpeechDelivery, isImmediateInterruptionCommand, isLikelySpeechEcho, resolveVoiceFollowUp, splitSpeechIntoChunks } from "./core/aurora-voice-intelligence.js";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
@@ -548,6 +548,8 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || ""; } catch { return ""; } });
+  const [speechPace, setSpeechPace] = useState(() => { try { return localStorage.getItem("aurora-speech-pace") || "adaptive"; } catch { return "adaptive"; } });
+  const [spokenCaption, setSpokenCaption] = useState("");
   const [availableVoices, setAvailableVoices] = useState([]);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState("");
@@ -895,6 +897,7 @@ export default function App() {
   const bargeInCandidateTimerRef = useRef(null);
   const activeSpeechTextRef = useRef("");
   const lastSpokenTextRef = useRef("");
+  const speechCaptionTimerRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
@@ -960,6 +963,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-selected-voice", selectedVoice); } catch {}
   }, [selectedVoice]);
+
+  useEffect(() => {
+    try { localStorage.setItem("aurora-speech-pace", speechPace); } catch {}
+  }, [speechPace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1294,6 +1301,7 @@ export default function App() {
     if (!spoken || !bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
     stopBargeInDetection();
     const previous = lastSpokenTextRef.current;
+    const followUp = resolveVoiceFollowUp(spoken, { lastAnswer: previous });
     stopSpokenOutput();
     if (/^(?:stop|stop talking|stop speaking|be quiet|that's enough|thats enough|pause)[.!? ]*$/i.test(spoken)) {
       setNotice("Okay. I've stopped speaking.");
@@ -1301,6 +1309,15 @@ export default function App() {
     }
     if (/^(?:repeat|repeat that|say that again)[.!? ]*$/i.test(spoken)) {
       if (previous) void speak(previous);
+      return;
+    }
+    if (followUp?.type === "repeat_last_sentence") {
+      if (followUp.text) void speak(followUp.text);
+      return;
+    }
+    if (followUp?.type === "continue" || followUp?.type === "rephrase" || followUp?.type === "return_to_point") {
+      if (pulseOpen) void sendPulseMessage(followUp.prompt);
+      else void sendMessage(followUp.prompt);
       return;
     }
     if (/^(?:slow down|speak slower)[.!? ]*$/i.test(spoken)) {
@@ -1413,6 +1430,8 @@ export default function App() {
   function stopSpokenOutput() {
     speechRequestIdRef.current += 1;
     stopBargeInDetection();
+    if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
+    setSpokenCaption("");
     if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
     try { audioRef.current?.pause?.(); if (audioRef.current) { audioRef.current.onended = null; audioRef.current.onerror = null; audioRef.current.src = ""; audioRef.current = null; } } catch {}
     try { window.speechSynthesis?.cancel?.(); } catch {}
@@ -1431,8 +1450,11 @@ export default function App() {
     if (!soundOn || !text) return;
     stopSpokenOutput();
     const requestId = speechRequestIdRef.current;
-    const delivery = inferSpeechDelivery(text);
+    const delivery = applySpeechPace(inferSpeechDelivery(text), speechPace);
     lastSpokenTextRef.current = String(text);
+    const spokenChunks = splitSpeechIntoChunks(makeSpeechFriendly(text));
+    setSpokenCaption(spokenChunks.join(" "));
+    if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
     activeSpeechTextRef.current = String(text);
     speechReleaseRef.current = auroraRuntime.interactions.register("voice", stopSpokenOutput);
     const isCurrent = () => requestId === speechRequestIdRef.current && !auroraRuntime.interactions.isBackground();
@@ -1441,13 +1463,15 @@ export default function App() {
       stopBargeInDetection();
       if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
       setSpeaking(false);
+      if (speechCaptionTimerRef.current) clearTimeout(speechCaptionTimerRef.current);
+      speechCaptionTimerRef.current = setTimeout(() => { setSpokenCaption(""); speechCaptionTimerRef.current = null; }, 2600);
     };
     try {
       setSpeaking(false);
       const response = await fetch(auroraApiUrl("/api/voice"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
-        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice, delivery: delivery.style })
+        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice, delivery: delivery.style, speechRate: delivery.rate })
       });
       if (!isCurrent()) return;
       if (!response.ok) {
@@ -2297,7 +2321,8 @@ export default function App() {
                 <div className="settings-header"><div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div><button className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button></div>
                 <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
                 <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} disabled={voicesLoading || availableVoices.length === 0} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="">{voicesLoading ? "Loading voices from ElevenLabs…" : availableVoices.length ? "Choose a voice" : "No voices available"}</option>{availableVoices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}{voice.labels?.accent ? " · " + voice.labels.accent : ""}{voice.labels?.gender ? " · " + voice.labels.gender : ""}</option>)}</select><div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}><button type="button" className="setting-row" style={{ flex: 1, justifyContent: "center", minHeight: "38px" }} disabled={!availableVoices.find((voice) => voice.voice_id === selectedVoice)?.preview_url} onClick={() => { const voice = availableVoices.find((item) => item.voice_id === selectedVoice); if (voice?.preview_url) { const preview = new Audio(voice.preview_url); preview.play().catch(() => setNotice("This voice preview could not be played on this device.")); } }}>Preview selected voice</button><button type="button" className="setting-row" style={{ minHeight: "38px", padding: "0 12px" }} disabled={voicesLoading} onClick={() => { setVoicesError(""); setVoicesLoading(true); fetch(auroraApiUrl("/api/voices"), { cache: "no-store" }).then(async (response) => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || "Could not refresh voices."); return Array.isArray(data.voices) ? data.voices : []; }).then(setAvailableVoices).catch((error) => setVoicesError(error.message || "Could not refresh voices.")).finally(() => setVoicesLoading(false)); }}>Refresh</button></div><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>{voicesError || (availableVoices.length ? "Choose a voice and AURORA will use that exact voice for spoken answers. Your selection is saved on this device." : "AURORA loads voices directly from the ElevenLabs account connected to its server.")}</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
-                <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
+                <div className="setting-group"><p className="setting-label">SPEECH DELIVERY</p><label htmlFor="aurora-speech-pace" className="setting-row" style={{ display: "grid", gap: 7, alignItems: "stretch" }}><span className="setting-text"><strong>Speaking pace</strong><small>Adaptive changes pace with the meaning of each answer.</small></span><select id="aurora-speech-pace" value={speechPace} onChange={event => setSpeechPace(event.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 10, color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107,192,255,.3)", font: "inherit" }}><option value="adaptive">Adaptive</option><option value="slower">Slower</option><option value="faster">Faster</option></select></label></div>
+                 <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 <div className="setting-group"><p className="setting-label">APP UPDATES</p>              <section id="aurora-updater-settings" aria-label="AURORA app updater" className="glass-panel" style={{ width: "min(610px,100%)", marginTop: 24, padding: "16px 18px", borderRadius: 18, textAlign: "left", display: "grid", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
@@ -2754,6 +2779,7 @@ export default function App() {
                     <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); navigate("tools"); }}><MoreHorizontal size={19}/> More tools</button>
                   </div>}
                   <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">
+                    {speaking && spokenCaption && <div className="aurora-pulse-live-caption" role="status" aria-live="polite"><span>NOW SPEAKING</span><p>{spokenCaption}</p></div>}
                     {pulseMessages.length === 0 && <div className="aurora-pulse-empty">Your AURORA conversation starts here.<br/>Ask anything or use the microphone.</div>}
                     {pulseMessages.map((message, index) => <div key={message.id || index} className={"aurora-pulse-message " + message.role + (message.pending ? " pending" : "")}>{message.role === "assistant" && !message.pending ? <FormattedMessage content={String(message.content || "")} onChoice={choice => { void sendPulseMessage(choice); }}/> : message.content}</div>)}
                   </div>
