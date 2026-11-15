@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync("src/App.jsx", "utf8");
 const css = fs.readFileSync("src/styles.css", "utf8");
-
+assert.match(app, /const \[pulseVoiceError, setPulseVoiceError\] = useState\(""\);/);
 assert.match(app, /const \\[pulseVoiceError, setPulseVoiceError\\] = useState\\("\\"\\);/);
 assert.match(app, /pulseListening \? "Listening…"/);
 assert.match(app, /pulseBusy \? "Thinking…"/);
