@@ -1360,3 +1360,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @keyframes auroraPulseSpeaking{from{transform:scale(.96)}to{transform:scale(1.045)}}
 @keyframes auroraPulseError{0%,100%{filter:saturate(.85);opacity:.86}50%{filter:saturate(1.25);opacity:1}}
 @media(prefers-reduced-motion:reduce){.aurora-pulse-head .aurora-pulse-orb.is-listening,.aurora-pulse-head .aurora-pulse-orb.is-thinking,.aurora-pulse-head .aurora-pulse-orb.is-speaking,.aurora-pulse-head .aurora-pulse-orb.is-error{animation:none!important}.aurora-pulse-voice-status{transition:none}}
+
+
+/* AURORA Stage 8: live speech captions and interruption feedback */
+.aurora-pulse-live-caption{margin:8px 2px 12px;padding:10px 12px;border:1px solid rgba(126,207,255,.2);border-radius:14px;background:linear-gradient(135deg,rgba(30,55,86,.44),rgba(34,28,62,.36));box-shadow:inset 0 1px rgba(255,255,255,.05)}
+.aurora-pulse-live-caption>span{display:block;margin-bottom:5px;color:#9bcfff;font-size:9px;font-weight:800;letter-spacing:.15em}
+.aurora-pulse-live-caption p{margin:0;color:#eef4ff;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.aurora-pulse-head .aurora-pulse-orb.is-interrupted{animation:auroraPulseInterrupted .65s ease-out 2!important;box-shadow:0 0 0 6px rgba(255,194,115,.14),0 0 30px rgba(255,194,115,.62)!important}
+@keyframes auroraPulseInterrupted{0%,100%{transform:scale(1)}45%{transform:scale(.86);filter:saturate(.7)}}
+@media(prefers-reduced-motion:reduce){.aurora-pulse-head .aurora-pulse-orb.is-interrupted{animation:none!important}}
