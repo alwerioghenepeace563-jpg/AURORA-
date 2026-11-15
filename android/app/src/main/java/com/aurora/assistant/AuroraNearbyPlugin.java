@@ -138,7 +138,11 @@ public class AuroraNearbyPlugin extends Plugin {
         store.load(null);
         if (store.containsAlias(KEY_ALIAS)) {
             java.security.PrivateKey privateKey = (java.security.PrivateKey) store.getKey(KEY_ALIAS, null);
-            java.security.PublicKey publicKey = store.getCertificate(KEY_ALIAS).getPublicKey();
+            java.security.cert.Certificate certificate = store.getCertificate(KEY_ALIAS);
+            if (privateKey == null || certificate == null) {
+                throw new IllegalStateException("The protected device identity key is unavailable or invalidated. Re-pair this device after resolving Android Keystore access.");
+            }
+            java.security.PublicKey publicKey = certificate.getPublicKey();
             return new KeyPair(publicKey, privateKey);
         }
         KeyPairGenerator generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
@@ -645,6 +649,27 @@ public class AuroraNearbyPlugin extends Plugin {
     private void cancelTimeout(String key) {
         Runnable task = timeouts.remove(key);
         if (task != null) handler.removeCallbacks(task);
+    }
+
+    @Override
+    public void handleOnPause() {
+        if (client != null) {
+            try { client.stopAdvertising(); } catch (Exception ignored) { }
+            try { client.stopDiscovery(); } catch (Exception ignored) { }
+            try { client.stopAllEndpoints(); } catch (Exception ignored) { }
+        }
+        advertising = false;
+        discovering = false;
+        peers.clear();
+        approvedEndpoints.clear();
+        for (PluginCall pending : verifyCalls.values()) pending.reject("AURORA moved to the background; nearby pairing was stopped.");
+        for (PluginCall pending : sendCalls.values()) pending.reject("AURORA moved to the background; nearby handoff was stopped.");
+        verifyCalls.clear();
+        sendCalls.clear();
+        verifyChallenges.clear();
+        for (String key : new ArrayList<>(timeouts.keySet())) cancelTimeout(key);
+        notifyListeners("nearbySessionPaused", new JSObject().put("reason", "foreground_only"));
+        super.handleOnPause();
     }
 
     @Override
