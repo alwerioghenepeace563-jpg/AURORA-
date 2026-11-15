@@ -564,6 +564,7 @@ export default function App() {
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const [pulseVoiceError, setPulseVoiceError] = useState("");
+  const [pulseInterrupted, setPulseInterrupted] = useState(false);
   const [bargeInReady, setBargeInReady] = useState(false);
   const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
   const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
@@ -1303,6 +1304,7 @@ export default function App() {
     const previous = lastSpokenTextRef.current;
     const followUp = resolveVoiceFollowUp(spoken, { lastAnswer: previous });
     stopSpokenOutput();
+    setPulseInterrupted(true);
     if (/^(?:stop|stop talking|stop speaking|be quiet|that's enough|thats enough|pause)[.!? ]*$/i.test(spoken)) {
       setNotice("Okay. I've stopped speaking.");
       return;
@@ -1832,6 +1834,7 @@ export default function App() {
 
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
+    setPulseInterrupted(false);
     if (!text || pulseBusy) return;
     const needsExpandedWorkspace = /\b(research|compare|comparison|plan|roadmap|analy[sz]e|break down|step by step|report|summari[sz]e|map|route|itinerary|organize|schedule|dashboard|visuali[sz]e|presentation|deep dive)\b/i.test(text);
     if (needsExpandedWorkspace) setPulseWorkspaceMode("expanded");
@@ -2738,7 +2741,7 @@ export default function App() {
                 <header className="aurora-pulse-head">
                   <button type="button" className="aurora-pulse-tools-toggle" onClick={() => setPulseToolsOpen(value => !value)} aria-expanded={pulseToolsOpen} aria-label={pulseToolsOpen ? "Hide AURORA tools" : "Show AURORA tools"}><Sparkles size={19}/></button>
                   <button type="button" className="aurora-pulse-expand-toggle" onClick={() => setPulseWorkspaceMode(value => value === "expanded" ? "conversation" : "expanded")} aria-label={pulseWorkspaceMode === "expanded" ? "Return to conversation view" : "Expand Pulse workspace"} title={pulseWorkspaceMode === "expanded" ? "Collapse workspace" : "Expand workspace"}>{pulseWorkspaceMode === "expanded" ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}</button>
-                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : pulseVoiceError ? " is-error" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : pulseVoiceError ? "AURORA voice needs attention" : "AURORA is ready"} /><span className={"aurora-pulse-voice-status" + (pulseVoiceError ? " is-error" : "")} role="status" aria-live="polite">{pulseListening ? "Listening…" : pulseBusy ? "Thinking…" : speaking ? (bargeInReady ? "Speaking · you can interrupt" : "Speaking…") : pulseVoiceError || "Ready"}</span>
+                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : pulseVoiceError ? " is-error" : pulseInterrupted ? " is-interrupted" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : pulseVoiceError ? "AURORA voice needs attention" : "AURORA is ready"} /><span className={"aurora-pulse-voice-status" + (pulseVoiceError ? " is-error" : "")} role="status" aria-live="polite">{pulseListening ? "Listening…" : pulseBusy ? "Thinking…" : speaking ? (bargeInReady ? "Speaking · you can interrupt" : "Speaking…") : pulseVoiceError || (pulseInterrupted ? "Interrupted · ready" : "Ready")}</span>
                   <button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); setPulseToolsOpen(false); setPulseConversationPosition({ x: 0, y: 0 }); if (page === "pulse") setPage("home"); }}>×</button>
                 </header>
                 <section className={"aurora-pulse-conversation" + (pulseWorkspaceMode === "expanded" ? " is-expanded" : "")} style={{ transform: pulseWorkspaceMode === "expanded" ? "none" : "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
