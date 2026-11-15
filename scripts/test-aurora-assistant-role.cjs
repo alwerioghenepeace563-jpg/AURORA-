@@ -84,3 +84,9 @@ assert.match(hardwareCard,/status\?\.error/);
 
 assert.match(nfcPlugin,/finally \{ try \{ ndef\.close\(\);/);
 assert.match(hardwareCard,/getNfcStatus\(\)\.then\(setNfcStatus\)/);
+
+assert.match(mainActivity,/registerPlugin\(AuroraScreenCapturePlugin\.class\)/);
+assert.match(mainActivity,/registerPlugin\(AuroraNfcPlugin\.class\)/);
+assert.match(manifest,/android\.permission\.NFC/);
+assert.match(manifest,/android\.hardware\.nfc[^>]+android:required="false"/);
+assert.match(manifest,/foregroundServiceType="mediaProjection"/);
