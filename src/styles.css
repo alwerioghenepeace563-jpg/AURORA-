@@ -1335,3 +1335,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(prefers-reduced-motion:reduce){
   .app-shell *{scroll-behavior:auto!important}
 }
+
+
+.aurora-status-detail{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid rgba(130,175,220,.16);border-radius:12px;background:rgba(18,32,51,.48);font-size:11px;color:#c7d9ee}
+.aurora-status-detail span{font-weight:700;letter-spacing:.04em}
+.aurora-status-detail small{font-size:10px;color:#93a9c4}
+.aurora-status-error{border-color:rgba(255,133,133,.3);background:rgba(111,35,47,.16);color:#ffd0d0}
+.aurora-status-error small{color:#e9aeb3}
+.aurora-status-stale{border-color:rgba(255,190,106,.28);background:rgba(105,70,26,.14);color:#f5d4a3}
+.aurora-status-stale small{color:#d9bb8c}
+@media(prefers-reduced-motion:reduce){.aurora-status-detail{transition:none}}
