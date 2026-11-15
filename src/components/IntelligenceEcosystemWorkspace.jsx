@@ -88,6 +88,8 @@ export default function IntelligenceEcosystemWorkspace() {
       setNearbyRequests(current => [...current.filter(x => x.endpointId !== item.endpointId), item]);
     } else if (event.type === "device.nearby.peer.ready") {
       setNearbyReadyPeers(current => [...current.filter(x => x.endpointId !== item.endpointId), item]);
+    } else if (event.type === "device.nearby.peer.authenticated") {
+      setNearbyReadyPeers(current => current.map(peer => peer.deviceId === item.deviceId ? { ...peer, authenticated: true } : peer));
     } else if (event.type === "device.nearby.peer.disconnected") {
       setNearbyReadyPeers(current => current.filter(x => x.deviceId !== item.deviceId));
     } else if (event.type === "device.nearby.connection.failed") {
@@ -146,7 +148,7 @@ export default function IntelligenceEcosystemWorkspace() {
   async function revokeNearbyDevice(device) {
     try {
       await nearby.revoke(device.id);
-      setNotice("Device trust revoked for " + device.name + ". If it is offline, reconnect it before retrying revocation.");
+      setNotice("Local trust removed for " + device.name + " and any active connection closed. Remove its trust separately on the other phone too.");
       setRefresh(value => value + 1);
     } catch (error) { setNotice(error.message || "Device revocation failed."); }
   }
@@ -379,12 +381,13 @@ export default function IntelligenceEcosystemWorkspace() {
         <p className="knowledge-import-meta">This sends a reference ID and title, not the contents of your private files or notes. The receiving device should review it before opening.</p>
         <select style={inputStyle} value={handoffDeviceId} onChange={e => setHandoffDeviceId(e.target.value)} required>
           <option value="">Choose a trusted device</option>
-          {trustedDevices.map(device => <option key={device.id} value={device.id}>{device.name}</option>)}
+          {trustedDevices.map(device => <option key={device.id} value={device.id}>{device.name}{nearbyReadyPeers.some(peer => peer.deviceId === device.id && peer.authenticated) ? " · connected" : " · offline"}</option>)}
         </select>
         <input style={inputStyle} value={handoffTitle} onChange={e => setHandoffTitle(e.target.value)} placeholder="Reference title" maxLength={120} required/>
         <input style={inputStyle} value={handoffSourceId} onChange={e => setHandoffSourceId(e.target.value)} placeholder="Saved knowledge reference ID" maxLength={120} required/>
         <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}><input type="checkbox" checked={handoffConsent} onChange={e => setHandoffConsent(e.target.checked)}/> I reviewed this reference and approve sending it to the selected trusted device.</label>
-        <button type="submit" className="primary-action" disabled={!handoffConsent || !handoffDeviceId}>Send approved reference</button>
+        <small className="knowledge-import-meta">The destination must be connected and identity-authenticated. Pairing and handoff are foreground-only; AURORA does not scan in the background.</small>
+        <button type="submit" className="primary-action" disabled={!handoffConsent || !handoffDeviceId || !nearbyReadyPeers.some(peer => peer.deviceId === handoffDeviceId && peer.authenticated)}>Send approved reference</button>
       </form>}
     </>}
     {tab === "certification" && <>
