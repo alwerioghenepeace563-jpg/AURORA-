@@ -54,17 +54,19 @@ public class AuroraScreenCaptureService extends Service {
             if (projection == null) throw new IllegalStateException("Android did not provide a screen projection.");
             projection.registerCallback(new MediaProjection.Callback() {
                 @Override public void onStop() {
-                    projection = null;
-                    android.content.SharedPreferences prefs = getSharedPreferences("aurora_screen_capture", MODE_PRIVATE);
-                    if (prefs.getBoolean("capturing", false)) {
-                        prefs.edit()
-                            .putBoolean("capturing", false)
-                            .putBoolean("captured", false)
-                            .putString("error", "Screen capture was stopped by Android before a frame was saved.")
-                            .apply();
+                    synchronized (AuroraScreenCaptureService.this) {
+                        projection = null;
+                        android.content.SharedPreferences prefs = getSharedPreferences("aurora_screen_capture", MODE_PRIVATE);
+                        if (prefs.getBoolean("capturing", false)) {
+                            prefs.edit()
+                                .putBoolean("capturing", false)
+                                .putBoolean("captured", false)
+                                .putString("error", "Screen capture was stopped by Android before a frame was saved.")
+                                .apply();
+                        }
+                        cleanup();
+                        stopSelf();
                     }
-                    cleanup();
-                    stopSelf();
                 }
             }, new Handler(getMainLooper()));
             DisplayMetrics metrics = new DisplayMetrics();
