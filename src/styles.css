@@ -1262,3 +1262,25 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 @media(max-width:520px){.workspace-context-nav{margin-bottom:17px;padding:8px}.workspace-context-brand{font-size:9px;gap:6px}.workspace-context-brand .aurora-orb,.workspace-context-brand .orb-wrap{width:20px;height:20px}.workspace-context-links{gap:2px}.workspace-context-link{gap:4px;min-height:30px;padding:0 7px;font-size:9px}.workspace-context-link svg{width:12px;height:12px}}
 @media(max-width:360px){.workspace-context-brand>span{display:none}.workspace-context-link{padding:0 6px}}
 @media(prefers-reduced-motion:reduce){.workspace-context-link{transition:none}}
+
+
+/* Chat command strip: fast access to existing AURORA workspaces */
+.chat-tools-toggle.is-active{color:#e9e2ff!important;border-color:rgba(183,164,255,.34)!important;background:rgba(157,133,255,.15)!important}
+.chat-workspace-shortcuts{flex:0 0 auto;position:relative;z-index:4;margin:0 0 10px;padding:13px;border:1px solid rgba(193,181,245,.16);border-radius:18px;background:linear-gradient(145deg,rgba(31,34,54,.92),rgba(15,19,33,.94));box-shadow:0 14px 38px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.045);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);animation:chatShortcutsIn .16s ease-out}
+@keyframes chatShortcutsIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.chat-workspace-shortcuts-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 10px}
+.chat-workspace-shortcuts-heading>div{display:grid;gap:3px}
+.chat-workspace-shortcuts-heading .panel-eyebrow{margin:0;font-size:8px;letter-spacing:.15em;color:#a99be5}
+.chat-workspace-shortcuts-heading strong{font-size:13px;color:#f0edfb;font-weight:650}
+.chat-shortcuts-close{width:29px;height:29px;display:grid;place-items:center;border:1px solid rgba(210,202,245,.12);border-radius:9px;background:rgba(255,255,255,.045);color:#bcb5d2}
+.chat-workspace-shortcuts-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.chat-workspace-shortcuts-grid>button{display:flex;align-items:center;gap:9px;min-width:0;min-height:55px;padding:9px 10px;border:1px solid rgba(211,202,255,.1);border-radius:13px;background:rgba(255,255,255,.035);color:#c9bbff;text-align:left;transition:background .16s,border-color .16s}
+.chat-workspace-shortcuts-grid>button:hover,.chat-workspace-shortcuts-grid>button:focus-visible{outline:none;background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.28)}
+.chat-workspace-shortcuts-grid>button>span{flex:1;min-width:0}
+.chat-workspace-shortcuts-grid strong,.chat-workspace-shortcuts-grid small{display:block}
+.chat-workspace-shortcuts-grid strong{font-size:10px;color:#eeeafa;font-weight:650}
+.chat-workspace-shortcuts-grid small{margin-top:3px;font-size:8px;line-height:1.35;color:#999bb2}
+.chat-workspace-shortcuts-grid>button>svg:last-child{flex:none;color:#777c9d}
+@media(max-width:520px){.chat-workspace-shortcuts{padding:10px;border-radius:15px}.chat-workspace-shortcuts-grid{gap:6px}.chat-workspace-shortcuts-grid>button{min-height:51px;padding:8px}.chat-workspace-shortcuts-grid strong{font-size:9px}.chat-workspace-shortcuts-grid small{font-size:7px}}
+@media(max-width:360px){.chat-workspace-shortcuts-grid{grid-template-columns:1fr}.chat-workspace-shortcuts-grid>button{min-height:48px}.chat-workspace-shortcuts-grid strong{font-size:10px}.chat-workspace-shortcuts-grid small{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.chat-workspace-shortcuts{animation:none}.chat-workspace-shortcuts-grid>button{transition:none}}
