@@ -1452,6 +1452,7 @@ export default function App() {
 
   async function speak(text, options = {}) {
     if (!soundOn || !text) return;
+    if (pulseOpen) setPulseInterrupted(false);
     if (!options.chunkPart) {
       stopSpokenOutput();
       const fullText = String(text);
@@ -1945,7 +1946,7 @@ export default function App() {
   }
 
   async function togglePulseMic() {
-    if (speaking) stopSpokenOutput();
+    if (speaking) { stopSpokenOutput(); setPulseInterrupted(true); }
     if (pulseListening) {
       if (auroraNative.isAndroid()) try { await auroraNative.stopSpeechRecognition(); } catch {}
       cleanupPulseSpeech(); return;
