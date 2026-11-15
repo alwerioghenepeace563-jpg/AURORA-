@@ -81,7 +81,7 @@ The typed bridge and existing Action Engine location permission/action path now 
 These are deliberately recorded as gaps rather than being mislabeled as complete:
 
 1. **MediaProjection screen capture:** implemented as a user-consented, one-frame capture with an ongoing foreground notification, private cache preview, explicit clear control and automatic teardown. Physical-device and Android 14+ validation remain open.
-2. **VoiceInteraction speech session:** role discovery, session UI, explicit start of one-shot speech recognition, transcript handoff to Pulse and user-reviewed submission are implemented. Direct spoken responses inside the system assistant surface and OEM gesture certification remain open.
+2. **VoiceInteraction speech session:** role discovery, session UI, explicit start of one-shot speech recognition, transcript handoff to Pulse and user-reviewed submission are implemented. The app now hands the generated answer back to the still-active Android VoiceInteractionSession for Android TextToSpeech playback. The session keeps its instance available after launching AURORA for transcript review, queues a reply while Android TTS initializes, and falls back to the app speech pipeline if the session is no longer active. OEM gesture certification and physical-device audio/lifecycle tests remain open.
 3. **Direct NFC actions:** foreground NDEF text read and explicit text-write are implemented. Reader mode stops on pause/destroy; tag compatibility and physical-device tests remain open.
 4. **Direct Wi-Fi/Bluetooth settings changes:** AURORA opens Android Settings rather than silently toggling protected connectivity state. Nearby Connections uses its own approved peer transport; it is not a general-purpose Bluetooth/Wi-Fi control API.
 5. **Full telephony/SMS dispatch:** AURORA deliberately hands off to Android's dialler and SMS composer; it does not silently place calls or send messages.
@@ -98,3 +98,13 @@ These are deliberately recorded as gaps rather than being mislabeled as complete
 ## Android assistant voice-response handoff
 
 When a transcript is captured from the Android VoiceInteractionSession, AURORA still places it in the app composer for user review and requires the user to tap Send. The app now marks that one reply as speech-requested: after the response is produced, it uses AURORA's existing speech pipeline even if the normal Read Aloud toggle is off, then clears the one-shot request. This preserves the review/submit boundary and avoids silently sending microphone transcripts. Speech is currently played by the app's voice pipeline after the app is opened; it is not yet rendered or spoken inside the Android system assistant surface itself. A physical Android test is required to validate audio focus, TTS provider availability, and lifecycle behavior.
+
+
+### Direct Android assistant-session speech handoff
+
+- The VoiceInteractionSession now owns a TextToSpeech instance and exposes a process-local handoff for generated answer text.
+- When the assistant session launches AURORA with a captured transcript, it remains eligible to receive the answer instead of immediately finishing. A normal manual Open AURORA action still finishes the session.
+- The app routes the one requested answer to the active session first. If the session has already been destroyed, the existing cloud/native/browser speech path remains the fallback.
+- Session speech is capped at 5,000 characters, queued while Android TTS initializes, and shut down when the session is destroyed. Calls are marshalled to the main thread.
+- The assistant-session one-shot speech request now bypasses the normal Read Aloud toggle as intended; this fixes the previous guard that otherwise prevented speech when that toggle was off.
+- The transcript remains review-only and requires the user to tap Send. No automatic request submission was introduced.
