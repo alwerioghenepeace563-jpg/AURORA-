@@ -22,6 +22,8 @@ const checks = [
   ["Consent-gated screen capture plugin registered", fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8").includes("registerPlugin(AuroraScreenCapturePlugin.class)")],
   ["One-frame MediaProjection foreground service", fs.existsSync("android/app/src/main/java/com/aurora/assistant/AuroraScreenCaptureService.java")],
   ["Foreground NFC plugin registered", fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8").includes("registerPlugin(AuroraNfcPlugin.class)")],
+  ["NFC hardware optional", fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8").includes('android.hardware.nfc" android:required="false"')],
+  ["MediaProjection foreground-service permission", fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8").includes("android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION")],
   ["Nearby Connections typed bridge", fs.existsSync("src/lib/aurora-nearby.ts")],
   ["Nearby Connections runtime adapter", fs.existsSync("src/core/aurora-nearby-device-adapter.js")],
   ["package ID", config.appId === "com.aurora.assistant"],
