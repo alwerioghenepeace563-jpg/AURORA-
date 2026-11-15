@@ -69,6 +69,12 @@ const assert = require("node:assert/strict");
     }, { approved: true, consent: true }),
     /invalid number/i
   );
+  const getterPayload = { type: "task" };
+  Object.defineProperty(getterPayload, "details", { enumerable: true, get() { throw new Error("getter must not run"); } });
+  await assert.rejects(
+    continuity.handoff(device.deviceId, getterPayload, { approved: true, consent: true }),
+    /executable or hidden fields/i
+  );
   assert.equal(deliveries.length, 0, "rejected payloads must never reach the transport");
 
   const result = await continuity.handoff(
@@ -124,7 +130,7 @@ const assert = require("node:assert/strict");
     crypto: { getRandomValues(bytes) { bytes.fill(3); return bytes; } }
   });
   unverified.registerTransport("nearby", {
-    verifyPairing: async ({ response }) => ({ authenticated: true, deviceId: response.deviceId }),
+    verifyPairing: async ({ response }) => ({ authenticated: true, deviceId: response.deviceId, publicKeyFingerprint: response.publicKeyFingerprint }),
     sendEncrypted: async () => ({ delivered: true, encrypted: false }),
     revoke: async () => ({ revoked: false })
   });
