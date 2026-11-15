@@ -610,7 +610,7 @@ if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraScreenCap
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraScreenCaptureService" android:exported="false" android:foregroundServiceType="mediaProjection" />\n    </application>');
 }
 if (!manifest.includes("android.hardware.nfc")) {
-  manifest = manifest.replace("<application", '<uses-feature android:name="android.hardware.nfc" android:required="false" />\\n    <application');
+  manifest = manifest.replace("<application", '<uses-feature android:name="android.hardware.nfc" android:required="false" />\n    <application');
 }
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
