@@ -6,6 +6,23 @@ type AuroraLocationPlugin = {
 };
 const AuroraLocation = registerPlugin<AuroraLocationPlugin>("AuroraLocation");
 
+type AuroraScreenCapturePlugin = {
+  requestScreenCapture(): Promise<{ started: boolean; consentGranted: boolean; scope?: string; backgroundCapture?: boolean }>;
+  getScreenCaptureStatus(): Promise<{ captured: boolean; capturing: boolean; capturedAt: number; bytes: number; scope: string; backgroundCapture: false }>;
+  clearScreenCapture(): Promise<{ cleared: boolean }>;
+};
+const AuroraScreenCapture = registerPlugin<AuroraScreenCapturePlugin>("AuroraScreenCapture");
+type AuroraNfcPlugin = {
+  getNfcStatus(): Promise<{ available: boolean; enabled: boolean; readerActive: boolean; foregroundOnly: true }>;
+  startNfcReader(): Promise<{ started: boolean; writeArmed: boolean; foregroundOnly: true }>;
+  armNfcTextWrite(options: { text: string }): Promise<{ started: boolean; writeArmed: boolean; foregroundOnly: true }>;
+  stopNfcReader(): Promise<{ stopped: boolean }>;
+  addListener(eventName: "nfcTagDiscovered", listener: (event: { uid: string; technologies: string[]; textRecords?: string[]; readOnlyMetadata: true; readError?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: "nfcWriteResult", listener: (event: { uid: string; written: boolean; error?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+};
+const AuroraNfc = registerPlugin<AuroraNfcPlugin>("AuroraNfc");
+
+
 export type AuroraNativeStatus = {
   platform: string;
   nativeBridge: boolean;
@@ -160,6 +177,16 @@ export const auroraNative = {
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
+
+  requestScreenCapture: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen capture is available only in the Android app."); return AuroraScreenCapture.requestScreenCapture(); },
+  getScreenCaptureStatus: async () => { if (Capacitor.getPlatform() !== "android") return { captured: false, capturing: false, capturedAt: 0, bytes: 0, scope: "one_frame", backgroundCapture: false as const }; return AuroraScreenCapture.getScreenCaptureStatus(); },
+  clearScreenCapture: async () => Capacitor.getPlatform() === "android" ? AuroraScreenCapture.clearScreenCapture() : { cleared: true },
+  getNfcStatus: async () => Capacitor.getPlatform() === "android" ? AuroraNfc.getNfcStatus() : { available: false, enabled: false, readerActive: false, foregroundOnly: true as const },
+  startNfcReader: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("NFC is available only in the Android app."); return AuroraNfc.startNfcReader(); },
+  armNfcTextWrite: async (text: string) => { if (Capacitor.getPlatform() !== "android") throw new Error("NFC writing is available only in the Android app."); return AuroraNfc.armNfcTextWrite({ text }); },
+  stopNfcReader: async () => Capacitor.getPlatform() === "android" ? AuroraNfc.stopNfcReader() : { stopped: true },
+  addNfcTagListener: async (listener: (event: { uid: string; technologies: string[]; textRecords?: string[]; readOnlyMetadata: true; readError?: string }) => void) => AuroraNfc.addListener("nfcTagDiscovered", listener),
+  addNfcWriteResultListener: async (listener: (event: { uid: string; written: boolean; error?: string }) => void) => AuroraNfc.addListener("nfcWriteResult", listener),
   getAssistantRoleStatus: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { available: false, selected: false, requiresUserAction: true, serviceReady: false }; return AuroraNative.getAssistantRoleStatus(); },
   openAssistantRoleSettings: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android assistant-role setup is available only in the Android app."); return AuroraNative.openAssistantRoleSettings(); },
   hasOverlayPermission: async () => {
