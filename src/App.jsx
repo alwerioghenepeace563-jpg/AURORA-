@@ -1364,13 +1364,14 @@ export default function App() {
         if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) {
           // Keep playback available even if the Android recognition service cannot listen concurrently.
           stopBargeInDetection();
+          setNotice("Hands-free interruption could not start on this device. You can still stop speech or use the microphone button.");
         }
       }
       return;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { stopBargeInDetection(); return; }
+    if (!SpeechRecognition) { stopBargeInDetection(); setNotice("This browser cannot listen while AURORA speaks. Use the microphone button to interrupt."); return; }
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = "en-GB";
@@ -1395,7 +1396,7 @@ export default function App() {
       };
       recognition.onerror = event => {
         if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
-        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(String(event?.error || ""))) { stopBargeInDetection(); return; }
+        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(String(event?.error || ""))) { stopBargeInDetection(); setNotice("Allow microphone access to interrupt AURORA while it speaks. You can still use the microphone button."); return; }
         scheduleBargeInRestart(text, requestId);
       };
       recognition.onend = () => {
