@@ -45,3 +45,57 @@ export function buildVoiceIntelligenceInstructions() {
     "TURN-TAKING: Respect interruptions. If the user changes topic, answer the new request instead of finishing the previous explanation. When they ask to repeat, slow down, clarify, or continue, respond to that exact conversational instruction."
   ].join("\n");
 }
+
+export function splitSpeechIntoChunks(value, maxLength = 360) {
+  const text = String(value || "").replace(/\\s+/g, " ").trim();
+  if (!text) return [];
+  const limit = Math.max(100, Math.min(900, Number(maxLength) || 360));
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  const chunks = [];
+  let current = "";
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (sentence.length > limit) {
+      if (current) { chunks.push(current); current = ""; }
+      let rest = sentence;
+      while (rest.length > limit) {
+        let cut = rest.lastIndexOf(" ", limit);
+        if (cut < Math.floor(limit * 0.55)) cut = limit;
+        chunks.push(rest.slice(0, cut).trim());
+        rest = rest.slice(cut).trim();
+      }
+      current = rest;
+    } else if (!current) current = sentence;
+    else if ((current + " " + sentence).length <= limit) current += " " + sentence;
+    else { chunks.push(current); current = sentence; }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+export function resolveVoiceFollowUp(value, context = {}) {
+  const command = normalizeSpeechText(value);
+  const lastAnswer = String(context.lastAnswer || "").trim();
+  const lastSentence = (lastAnswer.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || []).map(item => item.trim()).filter(Boolean).slice(-1)[0] || "";
+  if (/^(?:continue|go on|carry on|keep going)$/.test(command)) {
+    return { type: "continue", prompt: lastAnswer ? "Continue the previous explanation from the point it ended. Avoid repeating what has already been covered. Previous answer: " + lastAnswer.slice(-1800) : "Continue your explanation." };
+  }
+  if (/^(?:what did you just say|what was that|say that again)$/.test(command)) {
+    return { type: "repeat_last_sentence", text: lastSentence || lastAnswer };
+  }
+  if (/^(?:explain differently|explain another way|say it another way|i do not understand|i dont understand|i'm confused|im confused)$/.test(command)) {
+    return { type: "rephrase", prompt: lastAnswer ? "Explain your previous answer in a different, simpler way, using a fresh example. Do not merely repeat it. Previous answer: " + lastAnswer.slice(-1800) : "Please explain that more simply with a clear example." };
+  }
+  const point = command.match(/^(?:go back to|return to|explain)s+(?:thes+)?(first|second|third|fourth|last)s+(?:point|part|step)$/);
+  if (point) {
+    return { type: "return_to_point", prompt: "Return to the " + point[1] + " point of your previous answer and explain it again with a little more detail. Previous answer: " + lastAnswer.slice(-1800) };
+  }
+  return null;
+}
+
+export function applySpeechPace(delivery, preference = "adaptive") {
+  const base = delivery && Number.isFinite(delivery.rate) ? delivery.rate : 0.96;
+  const multiplier = preference === "slower" ? 0.86 : preference === "faster" ? 1.08 : 1;
+  return { ...delivery, rate: Math.max(0.78, Math.min(1.12, base * multiplier)) };
+}
