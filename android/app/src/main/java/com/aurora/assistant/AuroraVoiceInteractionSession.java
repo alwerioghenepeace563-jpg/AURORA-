@@ -11,6 +11,10 @@ import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import java.lang.ref.WeakReference;
+import java.util.Locale;
 import android.service.voice.VoiceInteractionSession;
 import android.view.Gravity;
 import android.view.View;
@@ -24,8 +28,55 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
     private SpeechRecognizer recognizer;
     private TextView status;
     private Button voiceButton;
+    private TextToSpeech replyTts;
+    private boolean replyTtsReady = false;
+    private String pendingReply = "";
+    private static WeakReference<AuroraVoiceInteractionSession> activeSession = new WeakReference<>(null);
 
-    public AuroraVoiceInteractionSession(Context context) { super(context); }
+    public AuroraVoiceInteractionSession(Context context) {
+        super(context);
+        activeSession = new WeakReference<>(this);
+        replyTts = new TextToSpeech(context, result -> {
+            if (result != TextToSpeech.SUCCESS) return;
+            replyTtsReady = true;
+            int language = replyTts.setLanguage(Locale.UK);
+            if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+                replyTts.setLanguage(Locale.getDefault());
+            }
+            replyTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String id) { updateStatus("AURORA is speaking…"); }
+                @Override public void onDone(String id) { updateStatus("Reply complete. You can continue in AURORA."); }
+                @Override public void onError(String id) { updateStatus("Android could not play the assistant reply."); }
+            });
+            if (!pendingReply.isEmpty()) {
+                String queued = pendingReply;
+                pendingReply = "";
+                speakReply(queued);
+            }
+        });
+    }
+
+    /** Delivers an app-generated answer to the currently active Android assistant session. */
+    public static boolean speakAssistantReply(String text) {
+        AuroraVoiceInteractionSession session = activeSession.get();
+        if (session == null || text == null || text.trim().isEmpty()) return false;
+        session.speakReply(text.trim());
+        return true;
+    }
+
+    private void speakReply(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        if (!replyTtsReady || replyTts == null) {
+            pendingReply = text;
+            updateStatus("Preparing the Android assistant voice…");
+            return;
+        }
+        String safeText = text.length() > 5000 ? text.substring(0, 5000) : text;
+        int result = replyTts.speak(safeText, TextToSpeech.QUEUE_FLUSH, null,
+            "aurora-session-" + java.util.UUID.randomUUID().toString());
+        if (result == TextToSpeech.ERROR) updateStatus("Android could not start the assistant reply.");
+        else updateStatus("AURORA is speaking…");
+    }
 
     @Override public View onCreateContentView() {
         Context context = getContext();
@@ -121,7 +172,7 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
         if (transcript != null && !transcript.trim().isEmpty()) intent.putExtra("aurora_assistant_query", transcript);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         getContext().startActivity(intent);
-        finish();
+        if (transcript == null || transcript.trim().isEmpty()) finish();
     }
 
     private void updateStatus(String text) {
@@ -137,6 +188,11 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
     }
 
     @Override public void onHide() { stopRecognizer(); super.onHide(); }
-    @Override public void onDestroy() { stopRecognizer(); super.onDestroy(); }
+    @Override public void onDestroy() {
+        stopRecognizer();
+        if (activeSession.get() == this) activeSession.clear();
+        if (replyTts != null) { try { replyTts.stop(); replyTts.shutdown(); } catch (Exception ignored) {} replyTts = null; }
+        super.onDestroy();
+    }
     private int dp(int value) { return (int) (value * getContext().getResources().getDisplayMetrics().density + 0.5f); }
 }
