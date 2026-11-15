@@ -496,6 +496,7 @@ public class AuroraNearbyPlugin extends Plugin {
                 return;
             }
             peer.authenticated = true;
+            notifyListeners("nearbyPeerAuthenticated", new JSObject().put("deviceId", peer.deviceId).put("name", peer.name));
             sendControl(endpointId, signedMessage("AUTH_RESPONSE", challenge, peer.deviceId));
         } catch (Exception ignored) {
             notifyListeners("nearbyTransportError", new JSObject().put("code", "PEER_AUTHENTICATION_FAILED"));
