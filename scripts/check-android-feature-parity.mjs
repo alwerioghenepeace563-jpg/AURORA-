@@ -11,6 +11,11 @@ const checks = [
   ["accessibility service", native.includes("class AuroraAccessibilityService")],
   ["in-app APK installer", native.includes("installDownloadedUpdate")],
   ["bundled UI", !(config.server && config.server.url)],
+  ["Nearby Connections native plugin registered", fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8").includes("registerPlugin(AuroraNearbyPlugin.class)")],
+  ["Nearby Connections dependency", fs.readFileSync("android/app/build.gradle", "utf8").includes("play-services-nearby:19.5.1")],
+  ["Nearby Connections native transport", fs.existsSync("android/app/src/main/java/com/aurora/assistant/AuroraNearbyPlugin.java")],
+  ["Nearby Connections typed bridge", fs.existsSync("src/lib/aurora-nearby.ts")],
+  ["Nearby Connections runtime adapter", fs.existsSync("src/core/aurora-nearby-device-adapter.js")],
   ["package ID", config.appId === "com.aurora.assistant"],
   ["web directory", config.webDir === "dist"]
 ];
