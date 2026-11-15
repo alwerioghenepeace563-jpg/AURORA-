@@ -13,6 +13,7 @@ import PredictiveDashboard from "./components/PredictiveDashboard";
 import IntelligenceEcosystemWorkspace from "./components/IntelligenceEcosystemWorkspace";
 import { buildAuroraRoutineInsights } from "./core/aurora-routine-insights";
 import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
+import { AURORA_VOICE_INTELLIGENCE, inferSpeechDelivery, isImmediateInterruptionCommand, isLikelySpeechEcho } from "./core/aurora-voice-intelligence.js";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
@@ -561,6 +562,7 @@ export default function App() {
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const [pulseVoiceError, setPulseVoiceError] = useState("");
+  const [bargeInReady, setBargeInReady] = useState(false);
   const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
   const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
   const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
@@ -884,6 +886,15 @@ export default function App() {
   const speechRequestIdRef = useRef(0);
   const nativeTtsListenerRef = useRef(null);
   const browserUtteranceRef = useRef(null);
+  const bargeInSessionRef = useRef(false);
+  const bargeInRecognitionRef = useRef(null);
+  const bargeInNativeListenersRef = useRef([]);
+  const bargeInTimerRef = useRef(null);
+  const bargeInPermissionAskedRef = useRef(false);
+  const bargeInCandidateRef = useRef("");
+  const bargeInCandidateTimerRef = useRef(null);
+  const activeSpeechTextRef = useRef("");
+  const lastSpokenTextRef = useRef("");
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
@@ -1256,8 +1267,137 @@ export default function App() {
     return () => { cancelled = true; };
   }, [page, authSession?.access_token]);
 
+  function stopBargeInDetection() {
+    bargeInSessionRef.current = false;
+    setBargeInReady(false);
+    if (bargeInTimerRef.current) { clearTimeout(bargeInTimerRef.current); bargeInTimerRef.current = null; }
+    if (bargeInCandidateTimerRef.current) { clearTimeout(bargeInCandidateTimerRef.current); bargeInCandidateTimerRef.current = null; }
+    bargeInCandidateRef.current = "";
+    try { bargeInRecognitionRef.current?.stop?.(); } catch {}
+    bargeInRecognitionRef.current = null;
+    bargeInNativeListenersRef.current.forEach(handle => { try { void handle?.remove?.(); } catch {} });
+    bargeInNativeListenersRef.current = [];
+    if (AuroraNative.isAndroid()) { try { void auroraNative.stopSpeechRecognition(); } catch {} }
+  }
+
+  function scheduleBargeInRestart(text, requestId) {
+    if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+    if (bargeInTimerRef.current) clearTimeout(bargeInTimerRef.current);
+    bargeInTimerRef.current = setTimeout(() => {
+      bargeInTimerRef.current = null;
+      if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) void startBargeInDetection(text, requestId);
+    }, 420);
+  }
+
+  function acceptBargeIn(transcript, requestId) {
+    const spoken = String(transcript || "").trim();
+    if (!spoken || !bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+    stopBargeInDetection();
+    const previous = lastSpokenTextRef.current;
+    stopSpokenOutput();
+    if (/^(?:stop|stop talking|stop speaking|be quiet|that's enough|thats enough|pause)[.!? ]*$/i.test(spoken)) {
+      setNotice("Okay. I've stopped speaking.");
+      return;
+    }
+    if (/^(?:repeat|repeat that|say that again)[.!? ]*$/i.test(spoken)) {
+      if (previous) void speak(previous);
+      return;
+    }
+    if (/^(?:slow down|speak slower)[.!? ]*$/i.test(spoken)) {
+      if (previous) void speak(previous, { slow: true });
+      return;
+    }
+    if (/^(?:wait|hold on|one second)[.!? ]*$/i.test(spoken)) {
+      setNotice("Paused. Go ahead — I'm listening.");
+      if (pulseOpen) void togglePulseMic(); else void toggleMic();
+      return;
+    }
+    if (pulseOpen) void sendPulseMessage(spoken);
+    else void sendMessage(spoken);
+  }
+
+  async function startBargeInDetection(text, requestId) {
+    if (!soundOn || requestId !== speechRequestIdRef.current || auroraRuntime.interactions.isBackground()) return;
+    bargeInSessionRef.current = true;
+    setBargeInReady(true);
+    activeSpeechTextRef.current = String(text || "");
+    if (AuroraNative.isAndroid()) {
+      try {
+        if (!bargeInPermissionAskedRef.current) {
+          bargeInPermissionAskedRef.current = true;
+          const permission = await auroraNative.requestMicrophonePermission();
+          if (!permission?.granted) { stopBargeInDetection(); setNotice("Allow microphone access to interrupt AURORA while it speaks. You can still use the on-screen microphone."); return; }
+        }
+        if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+        bargeInNativeListenersRef.current.forEach(handle => { try { void handle?.remove?.(); } catch {} });
+        bargeInNativeListenersRef.current = [];
+        const resultHandle = await auroraNative.addSpeechResultListener(event => {
+          const transcript = String(event?.transcript || "").trim();
+          if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+          if (isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) { scheduleBargeInRestart(text, requestId); return; }
+          acceptBargeIn(transcript, requestId);
+        });
+        const errorHandle = await auroraNative.addSpeechErrorListener(event => {
+          if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+          const reason = String(event?.message || "");
+          if (/no speech|timeout|recognition cancelled/i.test(reason)) scheduleBargeInRestart(text, requestId);
+          else { stopBargeInDetection(); }
+        });
+        bargeInNativeListenersRef.current = [resultHandle, errorHandle];
+        if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) { stopBargeInDetection(); return; }
+        await auroraNative.startSpeechRecognition();
+      } catch {
+        if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) {
+          // Keep playback available even if the Android recognition service cannot listen concurrently.
+          stopBargeInDetection();
+        }
+      }
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { stopBargeInDetection(); return; }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-GB";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = event => {
+        for (let index = event.resultIndex || 0; index < event.results.length; index++) {
+          const result = event.results[index];
+          const transcript = String(result?.[0]?.transcript || "").trim();
+          if (!transcript || isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) continue;
+          if (isImmediateInterruptionCommand(transcript) || result.isFinal) { acceptBargeIn(transcript, requestId); return; }
+          if (transcript.length < 3) continue;
+          if (bargeInCandidateRef.current !== transcript) {
+            bargeInCandidateRef.current = transcript;
+            if (bargeInCandidateTimerRef.current) clearTimeout(bargeInCandidateTimerRef.current);
+            bargeInCandidateTimerRef.current = setTimeout(() => {
+              if (bargeInSessionRef.current && requestId === speechRequestIdRef.current && bargeInCandidateRef.current === transcript) acceptBargeIn(transcript, requestId);
+            }, 650);
+          }
+        }
+      };
+      recognition.onerror = event => {
+        if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(String(event?.error || ""))) { stopBargeInDetection(); return; }
+        scheduleBargeInRestart(text, requestId);
+      };
+      recognition.onend = () => {
+        if (bargeInRecognitionRef.current === recognition) bargeInRecognitionRef.current = null;
+        if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) scheduleBargeInRestart(text, requestId);
+      };
+      bargeInRecognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      stopBargeInDetection();
+    }
+  }
+
   function stopSpokenOutput() {
     speechRequestIdRef.current += 1;
+    stopBargeInDetection();
     if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
     try { audioRef.current?.pause?.(); if (audioRef.current) { audioRef.current.onended = null; audioRef.current.onerror = null; audioRef.current.src = ""; audioRef.current = null; } } catch {}
     try { window.speechSynthesis?.cancel?.(); } catch {}
@@ -1272,14 +1412,18 @@ export default function App() {
     if (!soundOn) stopSpokenOutput();
   }, [soundOn]);
 
-  async function speak(text) {
+  async function speak(text, options = {}) {
     if (!soundOn || !text) return;
     stopSpokenOutput();
     const requestId = speechRequestIdRef.current;
+    const delivery = inferSpeechDelivery(text);
+    lastSpokenTextRef.current = String(text);
+    activeSpeechTextRef.current = String(text);
     speechReleaseRef.current = auroraRuntime.interactions.register("voice", stopSpokenOutput);
     const isCurrent = () => requestId === speechRequestIdRef.current && !auroraRuntime.interactions.isBackground();
     const finishSpeech = () => {
       if (requestId !== speechRequestIdRef.current) return;
+      stopBargeInDetection();
       if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
       setSpeaking(false);
     };
@@ -1288,7 +1432,7 @@ export default function App() {
       const response = await fetch(auroraApiUrl("/api/voice"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
-        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice })
+        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice, delivery: delivery.style })
       });
       if (!isCurrent()) return;
       if (!response.ok) {
@@ -1318,6 +1462,7 @@ export default function App() {
       await audio.play();
       if (!isCurrent()) { audio.pause(); URL.revokeObjectURL(url); return; }
       setSpeaking(true);
+      void startBargeInDetection(text, requestId);
     } catch (error) {
       if (!isCurrent()) return;
       // Android devices use their native TTS engine when cloud voice is unavailable.
@@ -1338,6 +1483,7 @@ export default function App() {
           if (!isCurrent()) { try { await auroraNative.stopTextSpeech(); } catch {} return; }
           if (nativeResult?.started) {
             setSpeaking(true);
+            void startBargeInDetection(text, requestId);
             setNotice("Cloud voice unavailable. Speaking with your Android system voice.");
             return;
           }
@@ -1354,8 +1500,8 @@ export default function App() {
           window.speechSynthesis.cancel();
           const utterance = new window.SpeechSynthesisUtterance(makeSpeechFriendly(text));
           browserUtteranceRef.current = utterance;
-          utterance.rate = 0.96;
-          utterance.pitch = 0.92;
+          utterance.rate = options.slow ? 0.82 : delivery.rate;
+          utterance.pitch = delivery.pitch;
           const availableVoices = window.speechSynthesis.getVoices();
           const preferredVoice = availableVoices.find((voice) => /female|samantha|victoria|karen|zira|aria|jenny|serena/i.test(voice.name) && /^en/i.test(voice.lang))
             || availableVoices.find((voice) => /^en/i.test(voice.lang));
@@ -1364,6 +1510,7 @@ export default function App() {
           utterance.onerror = () => { browserUtteranceRef.current = null; finishSpeech(); setNotice("Read aloud is unavailable on this device right now."); };
           setSpeaking(true);
           window.speechSynthesis.speak(utterance);
+          void startBargeInDetection(text, requestId);
           setNotice("Cloud voice failed: " + (error?.message || "unknown error") + ". Using this device voice for now.");
           return;
         }
@@ -1498,7 +1645,7 @@ export default function App() {
       const response = await fetch(auroraApiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile: { ...profile, activeScheduleInstructions }, preferredProvider, toolContext: liveToolResult?.context || "" })
+        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile: { ...profile, activeScheduleInstructions }, preferredProvider, toolContext: liveToolResult?.context || "", voiceIntelligence: AURORA_VOICE_INTELLIGENCE })
       });
       const rawResponse = await response.text();
       let data = {};
@@ -1707,7 +1854,7 @@ export default function App() {
         setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(liveToolResult.error) + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
         return;
       }
-      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
+      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "", voiceIntelligence: AURORA_VOICE_INTELLIGENCE }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
@@ -1733,6 +1880,7 @@ export default function App() {
   }
 
   async function togglePulseMic() {
+    if (speaking) stopSpokenOutput();
     if (pulseListening) {
       if (auroraNative.isAndroid()) try { await auroraNative.stopSpeechRecognition(); } catch {}
       cleanupPulseSpeech(); return;
@@ -1775,6 +1923,7 @@ export default function App() {
   }
 
   async function toggleMic() {
+    if (speaking) stopSpokenOutput();
     if (listening) {
       try {
         if (auroraNative.isAndroid()) {
@@ -2549,7 +2698,7 @@ export default function App() {
                 <header className="aurora-pulse-head">
                   <button type="button" className="aurora-pulse-tools-toggle" onClick={() => setPulseToolsOpen(value => !value)} aria-expanded={pulseToolsOpen} aria-label={pulseToolsOpen ? "Hide AURORA tools" : "Show AURORA tools"}><Sparkles size={19}/></button>
                   <button type="button" className="aurora-pulse-expand-toggle" onClick={() => setPulseWorkspaceMode(value => value === "expanded" ? "conversation" : "expanded")} aria-label={pulseWorkspaceMode === "expanded" ? "Return to conversation view" : "Expand Pulse workspace"} title={pulseWorkspaceMode === "expanded" ? "Collapse workspace" : "Expand workspace"}>{pulseWorkspaceMode === "expanded" ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}</button>
-                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : pulseVoiceError ? " is-error" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : pulseVoiceError ? "AURORA voice needs attention" : "AURORA is ready"} /><span className={"aurora-pulse-voice-status" + (pulseVoiceError ? " is-error" : "")} role="status" aria-live="polite">{pulseListening ? "Listening…" : pulseBusy ? "Thinking…" : speaking ? "Speaking…" : pulseVoiceError || "Ready"}</span>
+                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : pulseVoiceError ? " is-error" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : pulseVoiceError ? "AURORA voice needs attention" : "AURORA is ready"} /><span className={"aurora-pulse-voice-status" + (pulseVoiceError ? " is-error" : "")} role="status" aria-live="polite">{pulseListening ? "Listening…" : pulseBusy ? "Thinking…" : speaking ? (bargeInReady ? "Speaking · you can interrupt" : "Speaking…") : pulseVoiceError || "Ready"}</span>
                   <button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); setPulseToolsOpen(false); setPulseConversationPosition({ x: 0, y: 0 }); if (page === "pulse") setPage("home"); }}>×</button>
                 </header>
                 <section className={"aurora-pulse-conversation" + (pulseWorkspaceMode === "expanded" ? " is-expanded" : "")} style={{ transform: pulseWorkspaceMode === "expanded" ? "none" : "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
