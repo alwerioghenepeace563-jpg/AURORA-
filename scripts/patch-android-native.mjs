@@ -494,6 +494,25 @@ for (const marker of ['@CapacitorPlugin(', 'name = "AuroraLocation"', 'void requ
   if (!locationPluginSource.includes(marker)) throw new Error("Android one-shot location plugin is missing required behavior: " + marker);
 }
 
+const screenCapturePluginPath = path.join(javaRoot, "AuroraScreenCapturePlugin.java");
+const screenCaptureServicePath = path.join(javaRoot, "AuroraScreenCaptureService.java");
+const screenCaptureSource = fs.existsSync(screenCapturePluginPath) ? fs.readFileSync(screenCapturePluginPath, "utf8") : "";
+const screenCaptureServiceSource = fs.existsSync(screenCaptureServicePath) ? fs.readFileSync(screenCaptureServicePath, "utf8") : "";
+for (const marker of ["createScreenCaptureIntent()", "screenCapturePermissionResult", "clearScreenCapture", "getScreenCaptureStatus"]) {
+  if (!screenCaptureSource.includes(marker)) throw new Error("Consent-gated Android screen capture plugin is missing: " + marker);
+}
+for (const marker of ["FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION", "createVirtualDisplay", "saveOneFrame"]) {
+  if (!screenCaptureServiceSource.includes(marker)) throw new Error("One-frame MediaProjection service is missing: " + marker);
+}
+const nfcPluginPath = path.join(javaRoot, "AuroraNfcPlugin.java");
+const nfcSource = fs.existsSync(nfcPluginPath) ? fs.readFileSync(nfcPluginPath, "utf8") : "";
+for (const marker of ['name = "AuroraNfc"', "enableReaderMode", "writeNdefMessage", "handleOnPause", "stopNfcReader"]) {
+  if (!nfcSource.includes(marker)) throw new Error("Foreground NFC plugin is missing: " + marker);
+}
+if (!manifestText.includes("android.permission.NFC") || !manifestText.includes("FOREGROUND_SERVICE_MEDIA_PROJECTION")) {
+  throw new Error("NFC and MediaProjection manifest permissions are missing.");
+}
+
 const securePluginPath = path.join(javaRoot, "AuroraSecureStoragePlugin.java");
 const securePluginSource = fs.existsSync(securePluginPath) ? fs.readFileSync(securePluginPath, "utf8") : "";
 for (const method of ["set", "get", "remove"]) {
@@ -561,6 +580,8 @@ const manifestPath = path.join(android, "app/src/main/AndroidManifest.xml");
 let manifest = fs.readFileSync(manifestPath, "utf8");
 const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />',
+  '<uses-permission android:name="android.permission.NFC" />',
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />',
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
@@ -584,6 +605,12 @@ fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
 
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraReminderReceiver"')) {
   manifest = manifest.replace("</application>", '        <receiver android:name=".AuroraReminderReceiver" android:enabled="true" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter></receiver>\n    </application>');
+}
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraScreenCaptureService"')) {
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraScreenCaptureService" android:exported="false" android:foregroundServiceType="mediaProjection" />\\n    </application>');
+}
+if (!manifest.includes("android.hardware.nfc")) {
+  manifest = manifest.replace("<application", '<uses-feature android:name="android.hardware.nfc" android:required="false" />\\n    <application');
 }
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
@@ -643,6 +670,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraPredictivePlugin.class);
         registerPlugin(AuroraNearbyPlugin.class);
         registerPlugin(AuroraLocationPlugin.class);
+        registerPlugin(AuroraScreenCapturePlugin.class);
+        registerPlugin(AuroraNfcPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -656,6 +685,8 @@ if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);
     !verifiedMainActivity.includes("registerPlugin(AuroraPredictivePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraNearbyPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraLocationPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraScreenCapturePlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraNfcPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
