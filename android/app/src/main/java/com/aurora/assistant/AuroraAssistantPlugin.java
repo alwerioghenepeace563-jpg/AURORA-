@@ -306,10 +306,12 @@ public class AuroraAssistantPlugin extends Plugin {
             return;
         }
         final String utterance = text.trim();
+        final float speechRate = (float) Math.max(0.80, Math.min(1.15, call.getData().optDouble("rate", 1.0)));
+        final float speechPitch = (float) Math.max(0.85, Math.min(1.15, call.getData().optDouble("pitch", 1.0)));
         getActivity().runOnUiThread(() -> {
             try {
                 if (textToSpeech != null && textToSpeechReady) {
-                    speakWithAndroidTts(utterance, call);
+                    speakWithAndroidTts(utterance, call, speechRate, speechPitch);
                     return;
                 }
                 if (textToSpeech != null) {
@@ -338,7 +340,7 @@ public class AuroraAssistantPlugin extends Plugin {
                             JSObject event = new JSObject(); event.put("status", "error"); notifyListeners("ttsStatus", event);
                         }
                     });
-                    speakWithAndroidTts(utterance, call);
+                    speakWithAndroidTts(utterance, call, speechRate, speechPitch);
                 });
             } catch (Exception error) {
                 call.reject("Android text-to-speech failed: " + (error.getMessage() == null ? "unknown error" : error.getMessage()));
@@ -346,7 +348,9 @@ public class AuroraAssistantPlugin extends Plugin {
         });
     }
 
-    private void speakWithAndroidTts(String text, PluginCall call) {
+    private void speakWithAndroidTts(String text, PluginCall call, float rate, float pitch) {
+        textToSpeech.setSpeechRate(rate);
+        textToSpeech.setPitch(pitch);
         String id = "aurora-tts-" + java.util.UUID.randomUUID().toString();
         int result = textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, id);
         if (result == TextToSpeech.ERROR) {
