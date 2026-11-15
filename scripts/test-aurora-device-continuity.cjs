@@ -34,6 +34,7 @@ const assert = require("node:assert/strict");
   });
   const paired = await continuity.pair("nearby", device, { approved: true, consent: true });
   assert.equal(paired.trust, "trusted");
+  assert.equal(paired.transportId, "nearby", "trusted devices must remain bound to the transport that authenticated them");
   assert.equal(continuity.list().length, 1);
   assert.equal(values.get("aurora-device-continuity-v1").includes("privateKey"), false);
   await assert.rejects(
@@ -52,6 +53,7 @@ const assert = require("node:assert/strict");
   assert.equal(result.delivered, true);
   assert.equal(result.encrypted, true);
   assert.equal(deliveries.length, 1);
+  await assert.rejects(continuity.revoke(device.deviceId, "other-transport"), /does not match/i);
   assert.equal(deliveries[0].payload.sourceId, "knowledge-123");
   assert.equal(await continuity.revoke(device.deviceId, "nearby"), true);
   assert.equal(continuity.list().length, 0);
