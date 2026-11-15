@@ -1696,7 +1696,7 @@ export default function App() {
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
       const engineCard = buildPulseEngineCard(liveToolResult, text);
-      const displayReply = String(reply) + (engineCard ? "\\n\\n" + JSON.stringify(engineCard) : "");
+      const displayReply = String(reply) + (engineCard ? "\n\n" + JSON.stringify(engineCard) : "");
       setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: displayReply, pending: false } : item));
       if (engineCard || String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
       if (soundOn) speak(String(reply));
