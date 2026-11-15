@@ -649,6 +649,14 @@ export default function App() {
           setNativeNotice("AURORA Pulse opened from the assistant gesture.");
         }
 
+        const sessionQuery = await AuroraNative.consumeAssistantSessionQuery();
+        if (stopped) return;
+        if (sessionQuery?.query) {
+          setDraft(sessionQuery.query);
+          setPulseOpen(true);
+          setNativeNotice("Voice input is ready for review. Tap Send when you are happy with the transcript.");
+        }
+
         const result = await AuroraNative.consumeWakeWord();
         if (stopped || !result?.detected) return;
         setPulseOpen(true);
