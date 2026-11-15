@@ -65,8 +65,11 @@ function createAuroraDeviceContinuity(options = {}) {
     } catch {
       throw Object.assign(new Error("Device authentication could not be verified."), { code: "DEVICE_PAIRING_FAILED" });
     }
-    if (verification?.authenticated !== true || verification.deviceId !== response.deviceId) {
-      throw Object.assign(new Error("Device authentication could not be verified."), { code: "DEVICE_PAIRING_FAILED" });
+    if (verification?.authenticated !== true ||
+      verification.deviceId !== response.deviceId ||
+      typeof verification.publicKeyFingerprint !== "string" ||
+      verification.publicKeyFingerprint !== response.publicKeyFingerprint) {
+      throw Object.assign(new Error("Device identity and public-key fingerprint could not be verified."), { code: "DEVICE_PAIRING_FAILED" });
     }
     const record = {
       id: String(response.deviceId),
@@ -115,11 +118,18 @@ function createAuroraDeviceContinuity(options = {}) {
         (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) {
         throw new Error("The handoff contains unsupported data.");
       }
-      for (const [key, child] of Object.entries(value)) {
+      if (Object.getOwnPropertySymbols(value).length) {
+        throw new Error("The handoff contains unsupported symbol fields.");
+      }
+      for (const key of Object.keys(value)) {
         if (forbiddenKey.test(key) || key === "__proto__" || key === "prototype" || key === "constructor") {
           throw new Error("Credential-like or unsafe fields cannot be handed off.");
         }
-        validateData(child, depth + 1);
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (!descriptor || !descriptor.enumerable || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+          throw new Error("The handoff contains executable or hidden fields.");
+        }
+        validateData(descriptor.value, depth + 1);
       }
     }
     validateData(payload);
