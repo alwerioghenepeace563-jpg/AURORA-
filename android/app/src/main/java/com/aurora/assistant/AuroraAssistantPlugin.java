@@ -940,7 +940,13 @@ public class AuroraAssistantPlugin extends Plugin {
             return;
         }
         Uri uri = activityResult.getData().getData();
+        boolean persistedReadGrant = false;
         try {
+            int grantFlags = activityResult.getData().getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+            if (grantFlags != 0) {
+                try { getContext().getContentResolver().takePersistableUriPermission(uri, grantFlags); persistedReadGrant = true; }
+                catch (SecurityException ignored) { persistedReadGrant = false; }
+            }
             int flags = activityResult.getData().getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
             if (flags != 0) {
                 try { getContext().getContentResolver().takePersistableUriPermission(uri, flags); }
@@ -1201,6 +1207,10 @@ public class AuroraAssistantPlugin extends Plugin {
             result.put("name", displayName);
             result.put("mimeType", mimeType == null ? "application/octet-stream" : mimeType);
             result.put("contentUri", uri.toString());
+            result.put("providerAuthority", uri.getAuthority() == null ? "" : uri.getAuthority());
+            result.put("providerBacked", "content".equalsIgnoreCase(uri.getScheme()));
+            result.put("persistedReadGrant", persistedReadGrant);
+            try { if (android.provider.DocumentsContract.isDocumentUri(getContext(), uri)) result.put("documentId", android.provider.DocumentsContract.getDocumentId(uri)); } catch (Exception ignored) {}
             boolean textLike = mimeType != null && (mimeType.startsWith("text/")
                 || mimeType.equals("application/json") || mimeType.equals("application/xml"));
             if (textLike) {
