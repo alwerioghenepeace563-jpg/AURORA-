@@ -273,7 +273,11 @@ public class AuroraAssistantPlugin extends Plugin {
                         notifyListeners("speechResult", speechPayload("transcript", transcript));
                         cleanupSpeechRecognizer();
                     }
-                    @Override public void onPartialResults(Bundle partialResults) {}
+                    @Override public void onPartialResults(Bundle partialResults) {
+                        java.util.ArrayList<String> matches = partialResults == null ? null : partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        String transcript = matches == null || matches.isEmpty() ? "" : matches.get(0);
+                        if (!transcript.isEmpty()) notifyListeners("speechPartialResult", speechPayload("transcript", transcript));
+                    }
                     @Override public void onEvent(int eventType, Bundle params) {}
                 });
                 Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -281,6 +285,7 @@ public class AuroraAssistantPlugin extends Plugin {
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-GB");
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-GB");
                 intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
                 speechRecognizer.startListening(intent);
                 call.resolve(speechPayload("started", true));
             } catch (Exception e) {
