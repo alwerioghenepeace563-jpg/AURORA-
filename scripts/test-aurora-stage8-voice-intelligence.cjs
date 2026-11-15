@@ -3,6 +3,8 @@ const fs = require("node:fs");
 const app = fs.readFileSync("src/App.jsx", "utf8");
 const chat = fs.readFileSync("api/chat.js", "utf8");
 const voiceApi = fs.readFileSync("api/voice.js", "utf8");
+const nativeBridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const nativePlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
 
 (async () => {
   const voice = await import("../src/core/aurora-voice-intelligence.js");
@@ -20,6 +22,10 @@ const voiceApi = fs.readFileSync("api/voice.js", "utf8");
   assert.match(chat, /ADAPTIVE TEACHING/);
   assert.match(voiceApi, /deliveryPresets/);
   assert.match(voiceApi, /speed: delivery.speed/);
+  assert.match(app, /auroraNative\\.speakText\\(makeSpeechFriendly\\(text\\), \\{ rate:/);
+  assert.match(nativeBridge, /rate\\?: number; pitch\\?: number/);
+  assert.match(nativePlugin, /textToSpeech\\.setSpeechRate\\(rate\\)/);
+  assert.match(nativePlugin, /textToSpeech\\.setPitch\\(pitch\\)/);
   assert.equal(voice.isImmediateInterruptionCommand("Stop talking"), true);
   assert.equal(voice.isImmediateInterruptionCommand("repeat that"), true);
   assert.equal(voice.isImmediateInterruptionCommand("please explain photosynthesis"), false);
