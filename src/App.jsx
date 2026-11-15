@@ -23,7 +23,8 @@ import {
 
 
 function buildPulseEngineCard(result, query) {
-  if (!result || typeof result !== "object" || result.error) return null;
+  if (!result || typeof result !== "object") return null;
+  if (result.error) return buildPulseStatusCard(result);
   const tool = String(result.tool || "");
   const titleByTool = {
     aurora_universal_search: "AURORA search results",
@@ -77,6 +78,17 @@ function buildPulseEngineCard(result, query) {
     description: String(result.context || query || "").slice(0, 260),
     items
   };
+}
+
+function buildPulseStatusCard(result, fallbackTitle = "AURORA update") {
+  const failed = Boolean(result?.error);
+  const rawTime = result?.updatedAt || result?.fetchedAt || result?.timestamp || result?.checkedAt || null;
+  const parsedTime = rawTime ? new Date(rawTime) : null;
+  const validTime = parsedTime && Number.isFinite(parsedTime.getTime()) ? parsedTime : null;
+  const ageMinutes = validTime ? Math.max(0, Math.round((Date.now() - validTime.getTime()) / 60000)) : null;
+  const freshness = ageMinutes == null ? "Time not supplied by source" : ageMinutes < 1 ? "Updated just now" : ageMinutes < 60 ? "Updated " + ageMinutes + " min ago" : "Updated " + Math.floor(ageMinutes / 60) + " hr ago";
+  const stale = ageMinutes != null && ageMinutes > 15;
+  return { type: "status", status: failed ? "error" : stale ? "stale" : "info", title: failed ? "This request needs attention" : fallbackTitle, description: String(result?.error || result?.context || "AURORA could not verify an update from the source.").slice(0, 420), updatedAt: validTime ? validTime.toLocaleString() : "", freshness };
 }
 
 function makeSpeechFriendly(value) {
@@ -229,7 +241,7 @@ function StructuredVisual({ data }) {
     const steps = data.steps.slice(0, 8);
     return <div className="aurora-flow-card">{title && <div className="aurora-visual-title">{title}</div>}{steps.map((step, index) => <div className="aurora-flow-step-wrap" key={index}><div className="aurora-flow-step" style={{ background: safeColor(step.color, "#14233a") }}><div className="aurora-flow-step-title">{String(step.title || "Step " + (index + 1))}</div>{step.text && <div className="aurora-flow-step-text">{String(step.text)}</div>}</div>{index < steps.length - 1 && <div className="aurora-flow-arrow" aria-hidden="true">↓</div>}</div>)}</div>;
   }
-  if (!data || !["card", "live", "research", "action", "map", "metrics"].includes(data.type) || !title) return null;
+  if (!data || !["card", "live", "research", "action", "map", "metrics", "status"].includes(data.type) || !title) return null;
   const items = Array.isArray(data.items) ? data.items.slice(0, 8) : [];
   const sources = Array.isArray(data.sources) ? data.sources.slice(0, 5) : [];
   const actions = Array.isArray(data.actions) ? data.actions.slice(0, 3) : [];
@@ -237,11 +249,12 @@ function StructuredVisual({ data }) {
   const buttonUrl = safeUrl(data.buttonUrl);
   const address = typeof data.address === "string" ? data.address.trim() : "";
   const mapUrl = safeUrl(data.mapUrl) || (address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address) : "");
-  const kindLabel = ({ live: "LIVE INFORMATION", research: "RESEARCH", action: "QUICK ACTIONS", map: "PLACE & MAP", metrics: "AT A GLANCE", card: "AURORA INSIGHT" })[data.type];
+  const kindLabel = ({ status: "STATUS UPDATE", live: "LIVE INFORMATION", research: "RESEARCH", action: "QUICK ACTIONS", map: "PLACE & MAP", metrics: "AT A GLANCE", card: "AURORA INSIGHT" })[data.type];
   return <section className={"aurora-data-card aurora-data-card-" + data.type} aria-label={title}>
     <div className="aurora-data-card-top"><span className="aurora-data-card-icon">{data.type === "map" ? <MapPinned size={16}/> : data.type === "research" ? <BookOpen size={16}/> : data.type === "live" ? <Activity size={16}/> : data.type === "action" ? <Check size={16}/> : <Sparkles size={16}/>}</span><span className="aurora-data-card-kind">{kindLabel}</span>{data.status === "live" && <span className="aurora-data-live-dot">LIVE</span>}</div>
     <div className="aurora-visual-title">{title}</div>
     {description && <p className="message-paragraph">{description}</p>}
+    {data.type === "status" && <div className={"aurora-status-detail aurora-status-" + (data.status === "error" ? "error" : data.status === "stale" ? "stale" : "info")} role="status"><span>{data.status === "error" ? "Needs attention" : data.status === "stale" ? "May be out of date" : "Source status"}</span>{data.freshness && <small>{String(data.freshness)}</small>}</div>}
     {data.type === "metrics" && metrics.length > 0 && <div className="aurora-metric-grid">{metrics.map((metric, index) => <div className="aurora-metric" key={index}><strong>{String(metric.value ?? "—")}</strong><span>{String(metric.label || "Metric")}</span>{metric.detail && <small>{String(metric.detail)}</small>}</div>)}</div>}
     {data.type === "map" && <div className="aurora-map-summary"><MapPinned size={17}/><span>{address || "Location details not supplied"}</span></div>}
     {items.length > 0 && <ul className="aurora-info-items">{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : String(item && (item.text || item.title || item.label) || "")}</li>)}</ul>}
@@ -1688,7 +1701,8 @@ export default function App() {
     try {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
       if (liveToolResult?.error) {
-        setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(liveToolResult.error), pending: false } : item));
+        const statusCard = buildPulseStatusCard(liveToolResult, "AURORA tool status");
+        setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(liveToolResult.error) + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
         return;
       }
       const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
@@ -1701,7 +1715,8 @@ export default function App() {
       if (engineCard || String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
       if (soundOn) speak(String(reply));
     } catch (error) {
-      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: error?.message || "I couldn't connect just now. Please try again.", pending: false } : item));
+      const statusCard = buildPulseStatusCard({ error: error?.message || "I couldn't connect just now. Please try again." }, "AURORA connection status");
+      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(error?.message || "I couldn't connect just now. Please try again.") + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
     } finally { setPulseBusy(false); }
   }
 
