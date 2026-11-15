@@ -79,6 +79,7 @@ assert.match(plugin,/speakAssistantSessionReply/);
 assert.match(plugin,/AuroraVoiceInteractionSession\.speakAssistantReply/);
 assert.match(bridge,/speakAssistantSessionReply/);
 assert.match(app,/options\.assistantSession && auroraNative\.isAndroid\(\)/);
+assert.match(app,/if \(!options\.chunkPart && !options\.assistantSession\)/);
 assert.match(app,/if \(\(!soundOn && !options\.force\) \|\| !text\) return/);
 assert.match(app,/assistantSession: assistantSessionVoiceReplyRef\.current/);
 assert.match(plugin,/consumeAssistantSessionQuery/);
