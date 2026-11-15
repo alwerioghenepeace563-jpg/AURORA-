@@ -45,6 +45,7 @@ The typed bridge and existing Action Engine location permission/action path now 
 
 - The VoiceInteractionService now records Android's onReady/onShutdown lifecycle, so the app can distinguish an installed manifest declaration from a service actually activated by Android.
 - The assistant session now presents a small AURORA panel and launches the app only after the user taps Open AURORA; it no longer launches the app automatically as soon as Android creates the session. The service metadata no longer hard-codes a Google TTS recognition-service component, which may not exist on other Android builds.
+- Added a native-only settings card showing assistant-role availability, selection and service readiness, with an explicit Android role request and manual refresh after the user returns from system settings. The card stays hidden on web/PWA and does not imply that role selection grants microphone, notification or accessibility access.
 - AuroraNative exposes assistant-role availability/selection/readiness and a system-owned assistant-role request flow on Android 10+, with a voice-input settings fallback on older Android versions. Android always controls the final selection and user confirmation.
 - Added static regression coverage and registered the assistant-role test in test:core.
 
