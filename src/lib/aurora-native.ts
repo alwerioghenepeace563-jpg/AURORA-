@@ -51,6 +51,8 @@ type AuroraNativePlugin = {
   addListener(eventName: "speechStatus", listenerFunc: (event: { status: string }) => void): Promise<{ remove: () => Promise<void> }>;
   requestMicrophonePermission(): Promise<{ granted: boolean }>;
   requestNotificationPermission(): Promise<{ granted: boolean }>;
+  getAssistantRoleStatus(): Promise<{ available: boolean; selected: boolean; requiresUserAction: boolean; serviceReady: boolean }>;
+  openAssistantRoleSettings(): Promise<{ opened: boolean; userMustConfirm: boolean; fallback?: boolean }>;
   hasOverlayPermission(): Promise<{ granted: boolean }>;
   requestOverlayPermission(): Promise<{ opened: boolean; granted: boolean }>;
   showOverlay(): Promise<{ requested: boolean; shown: boolean; note?: string }>;
@@ -158,6 +160,8 @@ export const auroraNative = {
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
+  getAssistantRoleStatus: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { available: false, selected: false, requiresUserAction: true, serviceReady: false }; return AuroraNative.getAssistantRoleStatus(); },
+  openAssistantRoleSettings: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android assistant-role setup is available only in the Android app."); return AuroraNative.openAssistantRoleSettings(); },
   hasOverlayPermission: async () => {
     if (!Capacitor.isNativePlatform()) return { granted: false };
     return AuroraNative.hasOverlayPermission();
