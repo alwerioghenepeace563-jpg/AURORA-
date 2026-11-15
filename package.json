@@ -47,7 +47,8 @@
     "test:aurora-paid-endpoint-auth": "node scripts/test-aurora-paid-endpoint-auth.cjs",
     "test:aurora-search-safety": "node scripts/test-aurora-search-safety.cjs",
     "test:aurora-vercel-function-count": "node scripts/test-aurora-vercel-function-count.cjs && node scripts/test-aurora-pulse-visual-cards.cjs && node scripts/test-aurora-pulse-engine-cards.cjs && node scripts/test-aurora-pulse-freshness.cjs && node scripts/test-aurora-pulse-voice-states.cjs && node scripts/test-aurora-stage8-voice-intelligence.cjs",
-    "test:aurora-stage8-voice-intelligence": "node scripts/test-aurora-stage8-voice-intelligence.cjs"
+    "test:aurora-stage8-voice-intelligence": "node scripts/test-aurora-stage8-voice-intelligence.cjs",
+    "test:aurora-location-plugin": "node scripts/test-aurora-location-plugin.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
