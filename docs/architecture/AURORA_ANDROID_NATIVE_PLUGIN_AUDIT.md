@@ -53,7 +53,7 @@ The typed bridge and existing Action Engine location permission/action path now 
 
 - Added a dedicated Capacitor plugin that launches Android's system screen-capture consent prompt. A denial is handled as a normal cancellation.
 - After approval, a foreground service displays an ongoing notification, creates one virtual display frame, saves a PNG in app-private cache and tears down the projection. The frame can be previewed in Settings and explicitly cleared.
-- The service does not perform continuous recording, background capture or network upload. Android 14+ foreground-service permission and type are declared.
+- The service does not perform continuous recording, background capture or network upload. Android 14+ foreground-service permission and type are declared. Capture resolution is bounded to a 1600-pixel long edge to reduce memory pressure on entry-level Android devices, and the UI polls until the one-frame operation completes or reports its failure reason.
 
 ### Foreground NFC read and write
 
