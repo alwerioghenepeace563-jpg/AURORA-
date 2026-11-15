@@ -5,6 +5,7 @@ const chat = fs.readFileSync("api/chat.js", "utf8");
 const voiceApi = fs.readFileSync("api/voice.js", "utf8");
 const nativeBridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 const nativePlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
+const styles = fs.readFileSync("src/styles.css", "utf8");
 
 (async () => {
   const voice = await import("../src/core/aurora-voice-intelligence.js");
@@ -24,6 +25,21 @@ const nativePlugin = fs.readFileSync("android/app/src/main/java/com/aurora/assis
   assert.equal(voice.inferSpeechDelivery("Let's learn this step by step").style, "teaching");
   assert.ok(voice.buildVoiceIntelligenceInstructions().includes("ADAPTIVE TEACHING"));
   assert.ok(voice.buildVoiceIntelligenceInstructions().includes("balanced personality"));
+  const chunks = voice.splitSpeechIntoChunks("A sentence. ".repeat(40), 100);
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.every(chunk => chunk.length <= 100));
+  assert.equal(voice.resolveVoiceFollowUp("continue", { lastAnswer: "First point. Second point." }).type, "continue");
+  assert.equal(voice.resolveVoiceFollowUp("what did you just say", { lastAnswer: "First point. Second point." }).text, "Second point.");
+  assert.equal(voice.resolveVoiceFollowUp("explain differently", { lastAnswer: "A difficult explanation." }).type, "rephrase");
+  assert.equal(voice.resolveVoiceFollowUp("go back to the second point", { lastAnswer: "First point. Second point." }).type, "return_to_point");
+  assert.ok(voice.applySpeechPace(voice.inferSpeechDelivery("A normal answer."), "slower").rate < voice.inferSpeechDelivery("A normal answer.").rate);
+  assert.ok(app.includes("resolveVoiceFollowUp"));
+  assert.ok(app.includes("aurora-speech-pace"));
+  assert.ok(app.includes("aurora-pulse-live-caption"));
+  assert.ok(app.includes("pulseInterrupted ?"));
+  assert.ok(voiceApi.includes("requestedSpeed"));
+  assert.ok(styles.includes(".aurora-pulse-live-caption"));
+  assert.ok(styles.includes(".is-interrupted"));
   assert.ok(app.includes("startBargeInDetection"));
   assert.ok(app.includes("isLikelySpeechEcho"));
   assert.ok(app.includes("Speaking · you can interrupt"));
