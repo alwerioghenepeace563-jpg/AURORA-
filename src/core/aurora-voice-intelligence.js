@@ -47,7 +47,7 @@ export function buildVoiceIntelligenceInstructions() {
 }
 
 export function splitSpeechIntoChunks(value, maxLength = 360) {
-  const text = String(value || "").replace(/\\s+/g, " ").trim();
+  const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return [];
   const limit = Math.max(100, Math.min(900, Number(maxLength) || 360));
   const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
@@ -87,7 +87,7 @@ export function resolveVoiceFollowUp(value, context = {}) {
   if (/^(?:explain differently|explain another way|say it another way|i do not understand|i dont understand|i'm confused|im confused)$/.test(command)) {
     return { type: "rephrase", prompt: lastAnswer ? "Explain your previous answer in a different, simpler way, using a fresh example. Do not merely repeat it. Previous answer: " + lastAnswer.slice(-1800) : "Please explain that more simply with a clear example." };
   }
-  const point = command.match(/^(?:go back to|return to|explain)\\s+(?:the\\s+)?(first|second|third|fourth|last)\\s+(?:point|part|step)$/);
+  const point = command.match(/^(?:go back to|return to|explain)\s+(?:the\s+)?(first|second|third|fourth|last)\s+(?:point|part|step)$/);
   if (point) {
     return { type: "return_to_point", prompt: "Return to the " + point[1] + " point of your previous answer and explain it again with a little more detail. Previous answer: " + lastAnswer.slice(-1800) };
   }
