@@ -61,6 +61,7 @@ type AuroraNativePlugin = {
   startSpeechRecognition(): Promise<{ started: boolean }>;
   stopSpeechRecognition(): Promise<{ stopped: boolean }>;
   speakText(options: { text: string; rate?: number; pitch?: number }): Promise<{ started: boolean; engine: string }>;
+  speakAssistantSessionReply(options: { text: string }): Promise<{ delivered: boolean }>;
   stopTextSpeech(): Promise<{ stopped: boolean }>;
   addListener(eventName: "ttsStatus", listenerFunc: (event: { status: "started" | "done" | "error" }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechResult", listenerFunc: (event: { transcript: string }) => void): Promise<{ remove: () => Promise<void> }>;
@@ -222,6 +223,7 @@ export const auroraNative = {
   addSpeechErrorListener: (callback: (event: { code: number; message: string }) => void) => AuroraNative.addListener("speechError", callback),
   addSpeechStatusListener: (callback: (event: { status: string }) => void) => AuroraNative.addListener("speechStatus", callback),
   speakText: async (text: string, settings: { rate?: number; pitch?: number } = {}) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native text-to-speech is available only in the Android app."); return AuroraNative.speakText({ text, ...settings }); },
+  speakAssistantSessionReply: async (text: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { delivered: false }; return AuroraNative.speakAssistantSessionReply({ text }); },
   stopTextSpeech: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { stopped: true }; return AuroraNative.stopTextSpeech(); },
   addTtsStatusListener: (callback: (event: { status: "started" | "done" | "error" }) => void) => AuroraNative.addListener("ttsStatus", callback),
   consumeWakeWord: async () => { if (!Capacitor.isNativePlatform()) return { detected: false }; return AuroraNative.consumeWakeWord(); },
