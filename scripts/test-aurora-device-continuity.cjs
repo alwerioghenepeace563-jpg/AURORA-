@@ -45,6 +45,32 @@ const assert = require("node:assert/strict");
     continuity.handoff(device.deviceId, { type: "unknown", data: "x" }, { approved: true, consent: true, transportId: "nearby" }),
     /only approved task or knowledge-reference/i
   );
+  await assert.rejects(
+    continuity.handoff(device.deviceId, {
+      type: "task",
+      title: "Private task",
+      metadata: { accessToken: "must-not-cross-device" }
+    }, { approved: true, consent: true }),
+    /credential-like or unsafe fields/i
+  );
+  await assert.rejects(
+    continuity.handoff(device.deviceId, {
+      type: "task",
+      title: "Oversized task",
+      description: "x".repeat(25000)
+    }, { approved: true, consent: true }),
+    /too large/i
+  );
+  await assert.rejects(
+    continuity.handoff(device.deviceId, {
+      type: "task",
+      title: "Invalid numeric value",
+      progress: Number.POSITIVE_INFINITY
+    }, { approved: true, consent: true }),
+    /invalid number/i
+  );
+  assert.equal(deliveries.length, 0, "rejected payloads must never reach the transport");
+
   const result = await continuity.handoff(
     device.deviceId,
     { type: "knowledge_reference", sourceId: "knowledge-123", title: "Biology notes" },
