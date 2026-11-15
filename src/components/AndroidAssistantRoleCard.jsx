@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { auroraNative } from "../lib/aurora-native";
 
 export default function AndroidAssistantRoleCard() {
-  if (!auroraNative.isAndroid()) return null;
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -24,6 +23,8 @@ export default function AndroidAssistantRoleCard() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  if (!auroraNative.isAndroid()) return null;
 
   const openSetup = async () => {
     setBusy(true);
