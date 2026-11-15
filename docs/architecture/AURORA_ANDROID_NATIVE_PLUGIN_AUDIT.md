@@ -49,6 +49,18 @@ The typed bridge and existing Action Engine location permission/action path now 
 - AuroraNative exposes assistant-role availability/selection/readiness and a system-owned assistant-role request flow on Android 10+, with a voice-input settings fallback on older Android versions. Android always controls the final selection and user confirmation.
 - Added static regression coverage and registered the assistant-role test in test:core.
 
+### User-consented MediaProjection capture
+
+- Added a dedicated Capacitor plugin that launches Android's system screen-capture consent prompt. A denial is handled as a normal cancellation.
+- After approval, a foreground service displays an ongoing notification, creates one virtual display frame, saves a PNG in app-private cache and tears down the projection. The frame can be previewed in Settings and explicitly cleared.
+- The service does not perform continuous recording, background capture or network upload. Android 14+ foreground-service permission and type are declared.
+
+### Foreground NFC read and write
+
+- Added NFC hardware/availability status and foreground reader mode for supported NFC-A/B/F/V tags.
+- Reads NDEF text records and basic tag technology metadata only. Text writes must be entered and explicitly armed by the user; the plugin checks NDEF writability and tag capacity before writing.
+- NFC reader mode is stopped when the app pauses or the plugin is destroyed. NFC is declared optional so devices without NFC can still install AURORA.
+
 ### Assistant-session voice capture
 
 - The Android assistant session now offers a user-tapped Start voice input control, checks the existing microphone permission, and starts one-shot Android speech recognition.
