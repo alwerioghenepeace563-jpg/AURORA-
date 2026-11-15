@@ -13,6 +13,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraPredictivePlugin.class);
         registerPlugin(AuroraNearbyPlugin.class);
         registerPlugin(AuroraLocationPlugin.class);
+        registerPlugin(AuroraScreenCapturePlugin.class);
+        registerPlugin(AuroraNfcPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
