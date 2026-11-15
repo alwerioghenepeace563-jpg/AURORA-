@@ -35,6 +35,7 @@ public class AuroraScreenCaptureService extends Service {
     private VirtualDisplay display;
     private ImageReader reader;
     private HandlerThread thread;
+    private boolean cleaning = false;
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || !ACTION_CAPTURE_ONCE.equals(intent.getAction())) { stopSelf(startId); return START_NOT_STICKY; }
@@ -52,7 +53,7 @@ public class AuroraScreenCaptureService extends Service {
             projection = manager.getMediaProjection(intent.getIntExtra(EXTRA_RESULT_CODE, 0), intent.getParcelableExtra(EXTRA_RESULT_DATA));
             if (projection == null) throw new IllegalStateException("Android did not provide a screen projection.");
             projection.registerCallback(new MediaProjection.Callback() {
-                @Override public void onStop() { cleanup(); stopSelf(); }
+                @Override public void onStop() { projection = null; cleanup(); stopSelf(); }
             }, new Handler(getMainLooper()));
             DisplayMetrics metrics = new DisplayMetrics();
             WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -120,15 +121,19 @@ public class AuroraScreenCaptureService extends Service {
         }
     }
     private void cleanup() {
+        if (cleaning) return;
+        cleaning = true;
         try { if (display != null) display.release(); } catch (Exception ignored) {}
         display = null;
         try { if (reader != null) reader.close(); } catch (Exception ignored) {}
         reader = null;
-        try { if (projection != null) projection.stop(); } catch (Exception ignored) {}
+        MediaProjection activeProjection = projection;
         projection = null;
+        try { if (activeProjection != null) activeProjection.stop(); } catch (Exception ignored) {}
         try { if (thread != null) thread.quitSafely(); } catch (Exception ignored) {}
         thread = null;
         if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE); else stopForeground(true);
+        cleaning = false;
     }
     @Override public void onDestroy() { cleanup(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
