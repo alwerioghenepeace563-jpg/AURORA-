@@ -59,6 +59,7 @@ public class AuroraScreenCapturePlugin extends Plugin {
             .put("capturing", prefs.getBoolean("capturing", false))
             .put("capturedAt", prefs.getLong("captured_at", 0L))
             .put("bytes", prefs.getLong("bytes", 0L))
+            .put("error", prefs.getString("error", ""))
             .put("scope", "one_frame")
             .put("backgroundCapture", false));
     }
