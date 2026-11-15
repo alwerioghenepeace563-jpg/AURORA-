@@ -560,6 +560,7 @@ export default function App() {
   const [pulseMessages, setPulseMessages] = useState(() => { try { const saved = JSON.parse(localStorage.getItem("aurora-pulse-messages") || "[]"); return Array.isArray(saved) ? saved.filter(item => item && !item.pending).slice(-60) : []; } catch { return []; } });
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
+  const [pulseVoiceError, setPulseVoiceError] = useState("");
   const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
   const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
   const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
@@ -1698,6 +1699,7 @@ export default function App() {
     setPulseMessages([...next, { id: pendingId, role: "assistant", content: "AURORA is thinking…", pending: true }]);
     setPulseDraft("");
     setPulseBusy(true);
+    setPulseVoiceError("");
     try {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
       if (liveToolResult?.error) {
@@ -1715,6 +1717,7 @@ export default function App() {
       if (engineCard || String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
       if (soundOn) speak(String(reply));
     } catch (error) {
+      setPulseVoiceError("Connection issue");
       const statusCard = buildPulseStatusCard({ error: error?.message || "I couldn't connect just now. Please try again." }, "AURORA connection status");
       setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(error?.message || "I couldn't connect just now. Please try again.") + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
     } finally { setPulseBusy(false); }
@@ -1735,10 +1738,11 @@ export default function App() {
       cleanupPulseSpeech(); return;
     }
     if (pulseBusy) return;
+    setPulseVoiceError("");
     if (auroraNative.isAndroid()) {
       try {
         const permission = await auroraNative.requestMicrophonePermission();
-        if (!permission?.granted) { setPulseMessages(items => [...items, { role: "assistant", content: "Please allow microphone permission in Android Settings, then try again." }]); return; }
+        if (!permission?.granted) { setPulseVoiceError("Microphone permission needed"); setPulseMessages(items => [...items, { role: "assistant", content: "Please allow microphone permission in Android Settings, then try again." }]); return; }
         pulseNativeSpeechListenersRef.current.forEach(handle => handle?.remove?.());
         pulseNativeSpeechListenersRef.current = [];
         const cleanup = () => cleanupPulseSpeech();
@@ -1749,7 +1753,7 @@ export default function App() {
           else setPulseMessages(items => [...items, { role: "assistant", content: "I didn't catch that. Please try again." }]);
         }));
         pulseNativeSpeechListenersRef.current.push(await auroraNative.addSpeechErrorListener(event => {
-          cleanup(); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed: " + (event?.message || "check your phone's speech service") }]);
+          cleanup(); setPulseVoiceError("Microphone error"); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed: " + (event?.message || "check your phone's speech service") }]);
         }));
         pulseNativeSpeechListenersRef.current.push(await auroraNative.addSpeechStatusListener(event => { if (event?.status === "listening") setPulseListening(true); }));
         await auroraNative.startSpeechRecognition(); setPulseListening(true);
@@ -1759,15 +1763,15 @@ export default function App() {
       return;
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition isn't supported here. Please use text input." }]); return; }
+    if (!SpeechRecognition) { setPulseVoiceError("Voice input unavailable"); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition isn't supported here. Please use text input." }]); return; }
     const recognition = new SpeechRecognition();
     recognition.lang = "en-GB"; recognition.interimResults = false; recognition.maxAlternatives = 1;
     recognition.onresult = event => { const spoken = event.results?.[0]?.[0]?.transcript?.trim() || ""; cleanupPulseSpeech(); if (spoken) void sendPulseMessage(spoken); };
-    recognition.onerror = event => { cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed (" + (event?.error || "unknown error") + ")." }]); };
+    recognition.onerror = event => { cleanupPulseSpeech(); setPulseVoiceError("Microphone error"); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed (" + (event?.error || "unknown error") + ")." }]); };
     pulseInterruptionReleaseRef.current = auroraRuntime.interactions.register("pulse", cleanupPulseSpeech);
     recognition.onend = () => { pulseRecognitionRef.current = null; if (pulseInterruptionReleaseRef.current) { pulseInterruptionReleaseRef.current(); pulseInterruptionReleaseRef.current = null; } setPulseListening(false); };
     pulseRecognitionRef.current = recognition;
-    try { recognition.start(); setPulseListening(true); } catch (error) { cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start microphone." }]); }
+    try { recognition.start(); setPulseListening(true); } catch (error) { cleanupPulseSpeech(); setPulseVoiceError("Could not start microphone"); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start microphone." }]); }
   }
 
   async function toggleMic() {
@@ -2545,7 +2549,7 @@ export default function App() {
                 <header className="aurora-pulse-head">
                   <button type="button" className="aurora-pulse-tools-toggle" onClick={() => setPulseToolsOpen(value => !value)} aria-expanded={pulseToolsOpen} aria-label={pulseToolsOpen ? "Hide AURORA tools" : "Show AURORA tools"}><Sparkles size={19}/></button>
                   <button type="button" className="aurora-pulse-expand-toggle" onClick={() => setPulseWorkspaceMode(value => value === "expanded" ? "conversation" : "expanded")} aria-label={pulseWorkspaceMode === "expanded" ? "Return to conversation view" : "Expand Pulse workspace"} title={pulseWorkspaceMode === "expanded" ? "Collapse workspace" : "Expand workspace"}>{pulseWorkspaceMode === "expanded" ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}</button>
-                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} />
+                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : pulseVoiceError ? " is-error" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : pulseVoiceError ? "AURORA voice needs attention" : "AURORA is ready"} /><span className={"aurora-pulse-voice-status" + (pulseVoiceError ? " is-error" : "")} role="status" aria-live="polite">{pulseListening ? "Listening…" : pulseBusy ? "Thinking…" : speaking ? "Speaking…" : pulseVoiceError || "Ready"}</span>
                   <button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); setPulseToolsOpen(false); setPulseConversationPosition({ x: 0, y: 0 }); if (page === "pulse") setPage("home"); }}>×</button>
                 </header>
                 <section className={"aurora-pulse-conversation" + (pulseWorkspaceMode === "expanded" ? " is-expanded" : "")} style={{ transform: pulseWorkspaceMode === "expanded" ? "none" : "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
