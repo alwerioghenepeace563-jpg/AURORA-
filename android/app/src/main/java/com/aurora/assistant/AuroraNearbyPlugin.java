@@ -112,7 +112,8 @@ public class AuroraNearbyPlugin extends Plugin {
 
     @Override
     public void load() {
-        client = Nearby.getConnectionsClient(getContext());
+        try { client = Nearby.getConnectionsClient(getContext()); }
+        catch (Exception unavailable) { client = null; }
     }
 
     private String localDeviceId() {
@@ -223,7 +224,10 @@ public class AuroraNearbyPlugin extends Plugin {
     }
 
     private boolean ready(PluginCall call) {
-        if (client == null) client = Nearby.getConnectionsClient(getContext());
+        if (client == null) {
+            try { client = Nearby.getConnectionsClient(getContext()); }
+            catch (Exception unavailable) { call.reject("Google Play services Nearby Connections is unavailable on this device.", unavailable); return false; }
+        }
         if (!permissionsGranted()) {
             call.reject("Nearby device permissions are required. Request them before scanning or connecting.");
             return false;
@@ -418,7 +422,8 @@ public class AuroraNearbyPlugin extends Plugin {
         JSONObject identity = identityJson();
         String deviceId = identity.getString("deviceId");
         String fp = identity.getString("publicKeyFingerprint");
-        String canonical = canonical(type, challenge, deviceId, targetDeviceId, fp);
+        long timestamp = System.currentTimeMillis();
+        String canonical = canonical(type, challenge, deviceId, targetDeviceId, fp, timestamp);
         Signature signer = Signature.getInstance("SHA256withECDSA");
         signer.initSign(identityKeyPair().getPrivate());
         signer.update(canonical.getBytes(StandardCharsets.UTF_8));
@@ -428,19 +433,20 @@ public class AuroraNearbyPlugin extends Plugin {
         message.put("fromDeviceId", deviceId);
         message.put("toDeviceId", targetDeviceId);
         message.put("fingerprint", fp);
+        message.put("timestamp", timestamp);
         message.put("signature", Base64.encodeToString(signer.sign(), Base64.NO_WRAP));
         return message;
     }
 
-    private String canonical(String type, String challenge, String from, String to, String fp) {
-        return "AURORA-DEVICE-CONTINUITY-v1|" + type + "|" + challenge + "|" + from + "|" + to + "|" + fp;
+    private String canonical(String type, String challenge, String from, String to, String fp, long timestamp) {
+        return "AURORA-DEVICE-CONTINUITY-v1|" + type + "|" + challenge + "|" + from + "|" + to + "|" + fp + "|" + timestamp;
     }
 
-    private boolean verifySignature(Peer peer, String type, String challenge, String from, String to, String fp, String signature) {
+    private boolean verifySignature(Peer peer, String type, String challenge, String from, String to, String fp, long timestamp, String signature) {
         try {
             Signature verifier = Signature.getInstance("SHA256withECDSA");
             verifier.initVerify(peer.parsedKey);
-            verifier.update(canonical(type, challenge, from, to, fp).getBytes(StandardCharsets.UTF_8));
+            verifier.update(canonical(type, challenge, from, to, fp, timestamp).getBytes(StandardCharsets.UTF_8));
             return verifier.verify(Base64.decode(signature, Base64.DEFAULT));
         } catch (Exception ignored) { return false; }
     }
@@ -481,9 +487,11 @@ public class AuroraNearbyPlugin extends Plugin {
             String to = message.getString("toDeviceId");
             String fp = message.getString("fingerprint");
             String signature = message.getString("signature");
-            if (!to.equals(localDeviceId()) || !from.equals(peer.deviceId) || !fp.equals(peer.fingerprint) ||
+            long timestamp = message.getLong("timestamp");
+            if (Math.abs(System.currentTimeMillis() - timestamp) > 60000L ||
+                !to.equals(localDeviceId()) || !from.equals(peer.deviceId) || !fp.equals(peer.fingerprint) ||
                 !challenge.matches("[a-fA-F0-9]{64}") ||
-                !verifySignature(peer, "AUTH_CHALLENGE", challenge, from, to, fp, signature)) {
+                !verifySignature(peer, "AUTH_CHALLENGE", challenge, from, to, fp, timestamp, signature)) {
                 notifyListeners("nearbyTransportError", new JSObject().put("code", "PEER_AUTHENTICATION_FAILED"));
                 return;
             }
@@ -504,10 +512,12 @@ public class AuroraNearbyPlugin extends Plugin {
             String to = message.getString("toDeviceId");
             String fp = message.getString("fingerprint");
             String signature = message.getString("signature");
+            long timestamp = message.getLong("timestamp");
             String expected = verifyChallenges.get(endpointId);
-            boolean valid = expected != null && expected.equals(challenge) &&
+            boolean valid = Math.abs(System.currentTimeMillis() - timestamp) <= 60000L &&
+                expected != null && expected.equals(challenge) &&
                 from.equals(peer.deviceId) && to.equals(localDeviceId()) && fp.equals(peer.fingerprint) &&
-                verifySignature(peer, "AUTH_RESPONSE", challenge, from, to, fp, signature);
+                verifySignature(peer, "AUTH_RESPONSE", challenge, from, to, fp, timestamp, signature);
             verifyCalls.remove(endpointId);
             verifyChallenges.remove(endpointId);
             cancelTimeout("verify:" + endpointId);
