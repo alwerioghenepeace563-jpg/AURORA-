@@ -1758,7 +1758,7 @@ export default function App() {
         pulseNativeSpeechListenersRef.current.push(await auroraNative.addSpeechStatusListener(event => { if (event?.status === "listening") setPulseListening(true); }));
         await auroraNative.startSpeechRecognition(); setPulseListening(true);
       } catch (error) {
-        cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start speech recognition." }]);
+        cleanupPulseSpeech(); setPulseVoiceError("Could not start microphone"); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start speech recognition." }]);
       }
       return;
     }
