@@ -78,6 +78,54 @@ public class AuroraAssistantPlugin extends Plugin {
 
 
     @PluginMethod
+    public void getAssistantRoleStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        if (Build.VERSION.SDK_INT >= 29) {
+            android.app.role.RoleManager roles = (android.app.role.RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+            boolean available = roles != null && roles.isRoleAvailable(android.app.role.RoleManager.ROLE_ASSISTANT);
+            boolean selected = available && roles.isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT);
+            result.put("available", available);
+            result.put("selected", selected);
+            result.put("requiresUserAction", available && !selected);
+        } else {
+            result.put("available", false);
+            result.put("selected", false);
+            result.put("requiresUserAction", true);
+        }
+        result.put("serviceReady", getContext().getSharedPreferences("aurora_assistant", 0).getBoolean("voice_interaction_service_ready", false));
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openAssistantRoleSettings(PluginCall call) {
+        try {
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= 29) {
+                android.app.role.RoleManager roles = (android.app.role.RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+                if (roles != null && roles.isRoleAvailable(android.app.role.RoleManager.ROLE_ASSISTANT)) {
+                    intent = roles.createRequestRoleIntent(android.app.role.RoleManager.ROLE_ASSISTANT);
+                } else {
+                    intent = new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
+                }
+            } else {
+                intent = new Intent(Settings.ACTION_VOICE_INPUT_SETTINGS);
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("opened", true).put("userMustConfirm", true));
+        } catch (Exception error) {
+            try {
+                Intent fallback = new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(fallback);
+                call.resolve(new JSObject().put("opened", true).put("userMustConfirm", true).put("fallback", true));
+            } catch (Exception fallbackError) {
+                call.reject("Could not open Android assistant selection settings.", fallbackError);
+            }
+        }
+    }
+
+    @PluginMethod
     public void hasOverlayPermission(PluginCall call) {
         boolean granted = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(getContext());
         call.resolve(new JSObject().put("granted", granted));
