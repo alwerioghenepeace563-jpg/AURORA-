@@ -41,6 +41,13 @@ The old AuroraNative.getCurrentLocation implementation reads the newest last-kno
 
 The typed bridge and existing Action Engine location permission/action path now route through the dedicated plugin. Android sync and parity checks verify registration and the plugin's required lifecycle/security markers.
 
+### Android assistant-role integration added in this wave
+
+- The VoiceInteractionService now records Android's onReady/onShutdown lifecycle, so the app can distinguish an installed manifest declaration from a service actually activated by Android.
+- The assistant session now presents a small AURORA panel and launches the app only after the user taps Open AURORA; it no longer launches the app automatically as soon as Android creates the session.
+- AuroraNative exposes assistant-role availability/selection/readiness and a system-owned assistant-role request flow on Android 10+, with a voice-input settings fallback on older Android versions. Android always controls the final selection and user confirmation.
+- Added static regression coverage and registered the assistant-role test in test:core.
+
 ## Remaining native integration gaps
 
 These are deliberately recorded as gaps rather than being mislabeled as complete:
