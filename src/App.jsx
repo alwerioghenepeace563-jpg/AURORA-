@@ -898,6 +898,7 @@ export default function App() {
   const bargeInCandidateTimerRef = useRef(null);
   const activeSpeechTextRef = useRef("");
   const lastSpokenTextRef = useRef("");
+  const speechQueueRef = useRef(null);
   const speechCaptionTimerRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
@@ -1429,8 +1430,9 @@ export default function App() {
     }
   }
 
-  function stopSpokenOutput() {
+  function stopSpokenOutput(options = {}) {
     speechRequestIdRef.current += 1;
+    if (!options.preserveQueue) speechQueueRef.current = null;
     stopBargeInDetection();
     if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
     setSpokenCaption("");
@@ -1450,10 +1452,20 @@ export default function App() {
 
   async function speak(text, options = {}) {
     if (!soundOn || !text) return;
-    stopSpokenOutput();
+    if (!options.chunkPart) {
+      stopSpokenOutput();
+      const fullText = String(text);
+      const chunks = splitSpeechIntoChunks(makeSpeechFriendly(fullText));
+      if (chunks.length > 1) {
+        speechQueueRef.current = { chunks, index: 0, fullText };
+        return speak(chunks[0], { ...options, chunkPart: true, fullText });
+      }
+    }
+    stopSpokenOutput({ preserveQueue: true });
     const requestId = speechRequestIdRef.current;
+    const fullText = String(options.fullText || text);
     const delivery = applySpeechPace(inferSpeechDelivery(text), speechPace);
-    lastSpokenTextRef.current = String(text);
+    lastSpokenTextRef.current = fullText;
     const spokenChunks = splitSpeechIntoChunks(makeSpeechFriendly(text));
     setSpokenCaption(spokenChunks.join(" "));
     if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
@@ -1465,6 +1477,17 @@ export default function App() {
       stopBargeInDetection();
       if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
       setSpeaking(false);
+      const queue = speechQueueRef.current;
+      if (queue && queue.index + 1 < queue.chunks.length) {
+        queue.index += 1;
+        if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
+        const nextChunk = queue.chunks[queue.index];
+        setTimeout(() => {
+          if (speechQueueRef.current === queue) void speak(nextChunk, { chunkPart: true, fullText: queue.fullText });
+        }, 90);
+        return;
+      }
+      speechQueueRef.current = null;
       if (speechCaptionTimerRef.current) clearTimeout(speechCaptionTimerRef.current);
       speechCaptionTimerRef.current = setTimeout(() => { setSpokenCaption(""); speechCaptionTimerRef.current = null; }, 2600);
     };
