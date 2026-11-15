@@ -1,6 +1,8 @@
-import assert from "node:assert/strict";
-import { createAuroraDeviceContinuity } from "../src/core/aurora-device-continuity.js";
-import { createAuroraNearbyDeviceAdapter } from "../src/core/aurora-nearby-device-adapter.js";
+const assert = require("node:assert/strict");
+
+(async () => {
+  const { createAuroraDeviceContinuity } = await import("../src/core/aurora-device-continuity.js");
+  const { createAuroraNearbyDeviceAdapter } = await import("../src/core/aurora-nearby-device-adapter.js");
 
 const records = new Map();
 const storage = {
@@ -83,3 +85,4 @@ assert.equal(continuity.list().length, 0);
 assert.equal((await nearby.stop()).stopped, true);
 await nearby.destroy();
 console.log("AURORA Nearby device adapter tests passed.");
+})().catch(error => { console.error(error); process.exitCode = 1; });
