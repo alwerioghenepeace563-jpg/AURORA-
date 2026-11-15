@@ -18,7 +18,7 @@ import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
-  SlidersHorizontal, Sparkles, MessageCircle, Search, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned
+  SlidersHorizontal, Sparkles, MessageCircle, Search, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned, Maximize2, Minimize2
 } from "lucide-react";
 
 
@@ -469,6 +469,7 @@ export default function App() {
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
+  const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
   const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
   const pulseDragRef = useRef(null);
   const pulseRecognitionRef = useRef(null);
@@ -1553,6 +1554,8 @@ export default function App() {
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
     if (!text || pulseBusy) return;
+    const needsExpandedWorkspace = /\b(research|compare|comparison|plan|roadmap|analy[sz]e|break down|step by step|report|summari[sz]e|map|route|itinerary|organize|schedule|dashboard|visuali[sz]e|presentation|deep dive)\b/i.test(text);
+    if (needsExpandedWorkspace) setPulseWorkspaceMode("expanded");
     const transcriptionStatusIntent = /^(?:hey aurora[, ]*)?(?:check|show|what is)\s+(?:my\s+)?transcription\s+(?:status|progress)[.!?]*$/i.test(text);
     if (transcriptionStatusIntent) {
       setPulseDraft("");
@@ -1614,6 +1617,7 @@ export default function App() {
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
       setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(reply), pending: false } : item));
+      if (String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
       if (soundOn) speak(String(reply));
     } catch (error) {
       setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: error?.message || "I couldn't connect just now. Please try again.", pending: false } : item));
@@ -2432,12 +2436,13 @@ export default function App() {
                 `}</style>
                 <header className="aurora-pulse-head">
                   <button type="button" className="aurora-pulse-tools-toggle" onClick={() => setPulseToolsOpen(value => !value)} aria-expanded={pulseToolsOpen} aria-label={pulseToolsOpen ? "Hide AURORA tools" : "Show AURORA tools"}><Sparkles size={19}/></button>
+                  <button type="button" className="aurora-pulse-expand-toggle" onClick={() => setPulseWorkspaceMode(value => value === "expanded" ? "conversation" : "expanded")} aria-label={pulseWorkspaceMode === "expanded" ? "Return to conversation view" : "Expand Pulse workspace"} title={pulseWorkspaceMode === "expanded" ? "Collapse workspace" : "Expand workspace"}>{pulseWorkspaceMode === "expanded" ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}</button>
                   <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} />
                   <button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); setPulseToolsOpen(false); setPulseConversationPosition({ x: 0, y: 0 }); if (page === "pulse") setPage("home"); }}>×</button>
                 </header>
-                <section className="aurora-pulse-conversation" style={{ transform: "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
+                <section className={"aurora-pulse-conversation" + (pulseWorkspaceMode === "expanded" ? " is-expanded" : "")} style={{ transform: pulseWorkspaceMode === "expanded" ? "none" : "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
                   const drag = pulseDragRef.current;
-                  if (!drag || drag.pointerId !== event.pointerId) return;
+                  if (pulseWorkspaceMode === "expanded" || !drag || drag.pointerId !== event.pointerId) return;
                   const deltaX = event.clientX - drag.startX;
                   const deltaY = event.clientY - drag.startY;
                   const minX = 10 - drag.bounds.left;
@@ -2474,7 +2479,7 @@ export default function App() {
                   </div>}
                   <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">
                     {pulseMessages.length === 0 && <div className="aurora-pulse-empty">Your AURORA conversation starts here.<br/>Ask anything or use the microphone.</div>}
-                    {pulseMessages.map((message, index) => <div key={message.id || index} className={"aurora-pulse-message " + message.role + (message.pending ? " pending" : "")}>{message.role === "assistant" && !message.pending ? Array.from(String(message.content || "")).map((character, charIndex) => <span key={charIndex} className="aurora-pulse-letter" style={{ animationDelay: Math.min(charIndex * 0.012, 1.6) + "s" }}>{character}</span>) : message.content}</div>)}
+                    {pulseMessages.map((message, index) => <div key={message.id || index} className={"aurora-pulse-message " + message.role + (message.pending ? " pending" : "")}>{message.role === "assistant" && !message.pending ? <FormattedMessage content={String(message.content || "")} onChoice={choice => { void sendPulseMessage(choice); }}/> : message.content}</div>)}
                   </div>
                   <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
                     <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORA…" aria-label="Message AURORA Pulse" />
