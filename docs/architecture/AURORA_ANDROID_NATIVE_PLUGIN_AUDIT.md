@@ -44,7 +44,7 @@ The typed bridge and existing Action Engine location permission/action path now 
 ### Android assistant-role integration added in this wave
 
 - The VoiceInteractionService now records Android's onReady/onShutdown lifecycle, so the app can distinguish an installed manifest declaration from a service actually activated by Android.
-- The assistant session now presents a small AURORA panel and launches the app only after the user taps Open AURORA; it no longer launches the app automatically as soon as Android creates the session.
+- The assistant session now presents a small AURORA panel and launches the app only after the user taps Open AURORA; it no longer launches the app automatically as soon as Android creates the session. The service metadata no longer hard-codes a Google TTS recognition-service component, which may not exist on other Android builds.
 - AuroraNative exposes assistant-role availability/selection/readiness and a system-owned assistant-role request flow on Android 10+, with a voice-input settings fallback on older Android versions. Android always controls the final selection and user confirmation.
 - Added static regression coverage and registered the assistant-role test in test:core.
 
@@ -53,7 +53,7 @@ The typed bridge and existing Action Engine location permission/action path now 
 These are deliberately recorded as gaps rather than being mislabeled as complete:
 
 1. **MediaProjection screen capture:** the app has Accessibility-based visible-text reading, but no dedicated, user-consented MediaProjection capture session. If added, it must use Android's system consent prompt, a visible foreground-service notification, one-session scope, explicit stop/revoke and no silent capture.
-2. **VoiceInteraction implementation:** manifest services exist, but AuroraVoiceInteractionService is currently a minimal framework subclass. The full assistant-role onboarding, session UX, hotword/voice interaction integration and device-default-assistant validation remain open.
+2. **VoiceInteraction speech session:** Android assistant-role discovery, session display, and explicit Open AURORA handoff are implemented. A full voice-session capture/response loop that uses the Android assistant session APIs, device-specific assistant gesture behavior and default-assistant validation remain open.
 3. **Direct NFC actions:** current UI/API provides a Settings handoff and hardware inventory, not an NFC reader/writer session. Any future NFC session needs foreground-only, user-initiated operation and explicit tag-content review.
 4. **Direct Wi-Fi/Bluetooth settings changes:** AURORA opens Android Settings rather than silently toggling protected connectivity state. Nearby Connections uses its own approved peer transport; it is not a general-purpose Bluetooth/Wi-Fi control API.
 5. **Full telephony/SMS dispatch:** AURORA deliberately hands off to Android's dialler and SMS composer; it does not silently place calls or send messages.
@@ -63,6 +63,6 @@ These are deliberately recorded as gaps rather than being mislabeled as complete
 ## Verification boundary
 
 - Static source and bridge checks are added to the repository.
-- A test script is registered in test:core for the new location plugin.
+- Static regression scripts for location and assistant-role integration are registered in test:core.
 - No successful GitHub Actions run, Gradle compile, APK build or physical-device test is claimed by this audit.
 - No production deployment or PR merge is performed.
