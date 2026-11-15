@@ -3,6 +3,7 @@ import { auroraNative } from "../lib/aurora-native";
 
 export default function AndroidHardwareFeaturesCard() {
   const [screenStatus, setScreenStatus] = useState(null);
+  const [screenPreview, setScreenPreview] = useState("");
   const [nfcStatus, setNfcStatus] = useState(null);
   const [tag, setTag] = useState(null);
   const [writeText, setWriteText] = useState("");
@@ -30,7 +31,7 @@ export default function AndroidHardwareFeaturesCard() {
       else {
         setMessage("Permission granted. AURORA is capturing one frame, then the session will stop.");
         window.setTimeout(async () => {
-          try { const status = await auroraNative.getScreenCaptureStatus(); setScreenStatus(status); setMessage(status.captured ? "One frame was captured to AURORA's private app cache." : "The capture did not complete. You can try again."); }
+          try { const status = await auroraNative.getScreenCaptureStatus(); setScreenStatus(status); if (status.captured) { const frame = await auroraNative.getLatestScreenCapture(); setScreenPreview("data:" + frame.mimeType + ";base64," + frame.base64); setMessage("One frame was captured to AURORA private app cache."); } else setMessage("The capture did not complete. You can try again."); }
           catch { setMessage("Could not refresh capture status."); }
         }, 1800);
       }
@@ -72,8 +73,9 @@ export default function AndroidHardwareFeaturesCard() {
       <p style={{ color: "#9fb7ca", fontSize: 11, margin: "4px 0 9px" }}>{screenStatus?.captured ? "A private cached frame is available." : "Android displays its own capture-consent prompt. Only one frame is captured; no continuous or background capture."}</p>
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" className="setting-row" disabled={busy || screenStatus?.capturing} onClick={capture} style={{ flex: 1, justifyContent: "center", minHeight: 38 }}>Capture screen</button>
-        <button type="button" className="setting-row" disabled={busy || !screenStatus?.captured} onClick={async () => { const result = await auroraNative.clearScreenCapture(); setScreenStatus(await auroraNative.getScreenCaptureStatus()); setMessage(result.cleared ? "Cached screen frame cleared." : "Could not clear cached frame."); }} style={{ minHeight: 38, padding: "0 12px" }}>Clear</button>
+        <button type="button" className="setting-row" disabled={busy || !screenStatus?.captured} onClick={async () => { const result = await auroraNative.clearScreenCapture(); setScreenStatus(await auroraNative.getScreenCaptureStatus()); setScreenPreview(""); setMessage(result.cleared ? "Cached screen frame cleared." : "Could not clear cached frame."); }} style={{ minHeight: 38, padding: "0 12px" }}>Clear</button>
       </div>
+      {screenPreview && <img src={screenPreview} alt="User-approved one-frame screen capture" style={{ display: "block", width: "100%", maxHeight: 240, objectFit: "contain", borderRadius: 10, marginTop: 9 }} />}
     </div>
     <div style={{ padding: 11, borderRadius: 12, background: "rgba(20,48,75,.24)" }}>
       <strong style={{ color: "#dbeeff", fontSize: 13 }}>NFC tags</strong>
