@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService="com.aurora.assistant.AuroraVoiceInteractionSessionService"
-    android:recognitionService="com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService"
     android:supportsAssist="true" />
