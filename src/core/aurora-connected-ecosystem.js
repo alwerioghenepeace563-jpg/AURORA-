@@ -34,6 +34,11 @@ function createAuroraConnectedEcosystem(options = {}) {
     if (!storage?.setItem) throw new Error("Connected ecosystem storage is unavailable.");
     storage.setItem(key, JSON.stringify(items.slice(-MAX_CONNECTORS)));
   }
+  function adapterFailure(id, operation) {
+    const code = "CONNECTOR_" + String(operation).toUpperCase() + "_FAILED";
+    options.events?.publish?.("ecosystem.connector_error", { connectorId: String(id), operation: String(operation), code }, { source: "connected_ecosystem" });
+    return Object.assign(new Error("The connected service could not complete this request."), { code });
+  }
   function validate(manifest) {
     if (!manifest || !ID.test(String(manifest.id || ""))) throw new Error("Connector ID is invalid.");
     const name = String(manifest.name || "").trim();
@@ -62,8 +67,13 @@ function createAuroraConnectedEcosystem(options = {}) {
     if (decision.approved !== true || decision.consent !== true) throw Object.assign(new Error("Explicit approval and scope consent are required."), { code: "CONSENT_REQUIRED" });
     const adapter = adapters.get(item.id);
     if (!adapter) throw new Error("No supported connector adapter is registered for " + item.id + ".");
-    const result = await adapter.connect({ scopes: [...item.scopes] });
-    if (result?.connected !== true) throw new Error("The connector did not confirm a successful connection.");
+    let result;
+    try {
+      result = await adapter.connect({ scopes: [...item.scopes] });
+    } catch {
+      throw adapterFailure(item.id, "connect");
+    }
+    if (result?.connected !== true) throw adapterFailure(item.id, "connect");
     const record = { ...item, connectedAt: now(), status: "connected", credentialsStored: false, accountLabel: String(result.accountLabel || "").slice(0,120) };
     write([...read().filter(x => x.id !== item.id), record]);
     options.events?.publish?.("ecosystem.connector_connected", { connectorId: item.id, scopes: item.scopes }, { source: "connected_ecosystem" });
@@ -74,7 +84,12 @@ function createAuroraConnectedEcosystem(options = {}) {
     if (!item) return false;
     const adapter = adapters.get(item.id);
     if (!adapter) throw new Error("Cannot safely disconnect this service until its connector adapter is available.");
-    await adapter.disconnect();
+    try {
+      await adapter.disconnect();
+    } catch {
+      // Keep the record so the user can retry revocation; never claim it disconnected.
+      throw adapterFailure(item.id, "disconnect");
+    }
     write(read().filter(x => x.id !== item.id));
     options.events?.publish?.("ecosystem.connector_disconnected", { connectorId: item.id }, { source: "connected_ecosystem" });
     return true;
