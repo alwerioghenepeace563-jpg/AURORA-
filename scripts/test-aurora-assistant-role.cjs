@@ -36,3 +36,5 @@ assert.match(app,/AndroidAssistantRoleCard/);
 const voiceMetadata = read("android/app/src/main/res/xml/aurora_voice_interaction_service.xml");
 assert.match(voiceMetadata,/AuroraVoiceInteractionSessionService/);
 assert.doesNotMatch(voiceMetadata,/com\.google\.android\.tts/);
+
+assert.match(roleCard,/if \\(!auroraNative\\.isAndroid\\(\\)\\) return null/);
