@@ -45,7 +45,11 @@ export default async function handler(req, res) {
     teaching: { stability: 0.64, style: 0.30, speed: 0.91 }
   };
   const deliveryName = typeof body?.delivery === "string" && Object.prototype.hasOwnProperty.call(deliveryPresets, body.delivery) ? body.delivery : "calm";
-  const delivery = deliveryPresets[deliveryName];
+  const requestedSpeed = Number(body?.speechRate);
+  const delivery = {
+    ...deliveryPresets[deliveryName],
+    speed: Number.isFinite(requestedSpeed) ? Math.max(0.78, Math.min(1.12, requestedSpeed)) : deliveryPresets[deliveryName].speed
+  };
   const requestedVoiceId = typeof body?.voiceId === "string" ? body.voiceId.trim() : "";
   const voiceId = requestedVoiceId || legacyVoiceIds[voiceName];
   if (!voiceId || voiceId.length > 160 || !/^[A-Za-z0-9_-]+$/.test(voiceId)) {
