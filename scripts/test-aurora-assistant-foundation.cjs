@@ -32,6 +32,7 @@ assert.match(wake, /stopForeground\(true\)/);
 assert.doesNotMatch(wake, /startActivity\(launch\)/);
 assert.match(wake, /return START_NOT_STICKY/);
 assert.match(manifest, /android:foregroundServiceType="microphone"/);
+assert.match(manifest, /AuroraOverlayService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone"/);
 assert.match(manifest, /\.AuroraVoiceInteractionService/);
 assert.match(manifest, /\.AuroraVoiceInteractionSessionService/);
 assert.match(bridge, /getAssistantRoleStatus/);
@@ -59,6 +60,9 @@ assert.match(pulseOverlay, /SpeechRecognizer\.createSpeechRecognizer/);
 assert.match(pulseOverlay, /startVoiceInput/);
 assert.match(pulseOverlay, /RECORD_AUDIO/);
 assert.match(pulseOverlay, /startPulseConversationFromWake/);
+assert.match(pulseOverlay, /startPulseForeground/);
+assert.match(pulseOverlay, /FOREGROUND_SERVICE_TYPE_MICROPHONE/);
+assert.match(pulseOverlay, /Stop conversation/);
 assert.match(pulsePanel, /speakPulseReply/);
 assert.match(pulsePanel, /startPulseListening\(true\)/);
 
