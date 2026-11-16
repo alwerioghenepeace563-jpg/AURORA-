@@ -457,10 +457,10 @@ public class AuroraAccessibilityService extends AccessibilityService {
 
 for (const [name, content] of Object.entries(files)) {
   const target = path.join(javaRoot, name);
-  // The committed native plugin is the source of truth. Never replace it with
-  // this bootstrap template during CI, because that would erase registered
-  // adapters added after the original foundation was generated.
-  if (name === "AuroraAssistantPlugin.java" && fs.existsSync(target)) continue;
+  // Committed native sources are authoritative. Never overwrite an existing
+  // service/plugin during CI: the bootstrap templates are only for first-time
+  // generation and may be older than the maintained implementation.
+  if (fs.existsSync(target)) continue;
   fs.writeFileSync(target, content);
 }
 
@@ -607,8 +607,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AuroraAssistantPlugin.class);
+        registerPlugin(AuroraTranscriptionPlugin.class);
         registerPlugin(AuroraSecureStoragePlugin.class);
         registerPlugin(AuroraReminderPlugin.class);
+        registerPlugin(AuroraPredictivePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
@@ -616,8 +618,10 @@ public class MainActivity extends BridgeActivity {
 fs.writeFileSync(mainActivity, expectedMainActivity);
 const verifiedMainActivity = fs.readFileSync(mainActivity, "utf8");
 if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraTranscriptionPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraSecureStoragePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraReminderPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraPredictivePlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
