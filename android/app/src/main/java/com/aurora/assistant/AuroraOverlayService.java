@@ -223,12 +223,23 @@ public class AuroraOverlayService extends Service {
         }
     }
 
+    private String pulseVoiceResult(boolean started, String message) {
+        try {
+            JSONObject response = new JSONObject();
+            response.put("started", started);
+            response.put("message", message);
+            return response.toString();
+        } catch (Exception ignored) {
+            return "{\\"started\\":false,\\"message\\":\\"Native voice input failed.\\"}";
+        }
+    }
+
     private String startPulseSpeech() {
         if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            return result(false, "Microphone permission is not granted. Open AURORA and allow Microphone access, then try again.", "");
+            return pulseVoiceResult(false, "Microphone permission is not granted. Open AURORA and allow Microphone access, then try again.");
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            return result(false, "Android speech recognition is not available on this phone.", "");
+            return pulseVoiceResult(false, "Android speech recognition is not available on this phone.");
         }
         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
           stopPulseSpeech();
@@ -270,7 +281,7 @@ public class AuroraOverlayService extends Service {
             if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Android could not start speech recognition. Check microphone permission and try again.')", null));
           }
         });
-        return result(true, "Listening. Speak now.", "");
+        return pulseVoiceResult(true, "Listening. Speak now.");
     }
 
     private void stopPulseSpeechRecognizerOnly() {
