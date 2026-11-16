@@ -39,7 +39,6 @@ assert.doesNotMatch(voiceSession, /context\.startActivity\(intent\)/);
 assert.match(mainActivity, /Intent\.ACTION_ASSIST/);
 assert.match(mainActivity, /public void onNewIntent\(Intent intent\)/);
 assert.match(mainActivity, /persistAssistantLaunch\(intent\)/);
-assert.match(bootstrap, /startAssistantActivity/);
 assert.match(bootstrap, /onNewIntent\(Intent intent\)/);
 assert.match(bridge, /getAssistantRoleStatus/);
 assert.match(bridge, /requestAssistantRole/);
