@@ -1661,6 +1661,48 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getAssistantRoleStatus(PluginCall call) {
+        boolean supported = false, held = false;
+        if (Build.VERSION.SDK_INT >= 29) {
+            RoleManager roles = (RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+            supported = roles != null && roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT);
+            held = supported && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
+        }
+        call.resolve(new JSObject().put("supported", supported).put("held", held));
+    }
+
+    @PluginMethod
+    public void requestAssistantRole(PluginCall call) {
+        if (Build.VERSION.SDK_INT < 29) {
+            call.resolve(new JSObject().put("supported", false).put("held", false)); return;
+        }
+        RoleManager roles = (RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+        if (roles == null || !roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
+            call.resolve(new JSObject().put("supported", false).put("held", false)); return;
+        }
+        if (roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
+            call.resolve(new JSObject().put("supported", true).put("held", true)); return;
+        }
+        try {
+            startActivityForResult(call, roles.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), "assistantRoleResult");
+        } catch (Exception error) {
+            call.reject("Could not open Android's default-assistant selection.", error);
+        }
+    }
+
+    @ActivityCallback
+    private void assistantRoleResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        boolean held = false;
+        if (Build.VERSION.SDK_INT >= 29) {
+            RoleManager roles = (RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+            held = roles != null && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
+        }
+        call.resolve(new JSObject().put("supported", Build.VERSION.SDK_INT >= 29).put("held", held)
+            .put("cancelled", result == null || result.getResultCode() != android.app.Activity.RESULT_OK));
+    }
+
+    @PluginMethod
     public void status(PluginCall call) {
         JSObject result = new JSObject();
         result.put("platform", "android");
@@ -1672,6 +1714,14 @@ public class AuroraAssistantPlugin extends Plugin {
         result.put("notificationsPermissionGranted", notificationsAllowed);
         result.put("notificationsPermissionRequired", Build.VERSION.SDK_INT >= 33 && !notificationsAllowed);
         result.put("wakeWordEnabled", true);
+        boolean assistantRoleSupported = false, assistantRoleHeld = false;
+        if (Build.VERSION.SDK_INT >= 29) {
+            RoleManager roles = (RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+            assistantRoleSupported = roles != null && roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT);
+            assistantRoleHeld = assistantRoleSupported && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
+        }
+        result.put("assistantRoleSupported", assistantRoleSupported);
+        result.put("assistantRoleHeld", assistantRoleHeld);
         boolean serviceRunning = false;
         android.app.ActivityManager activityManager =
             (android.app.ActivityManager) getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
