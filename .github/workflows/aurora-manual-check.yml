@@ -1,6 +1,16 @@
 name: AURORA Manual Core Verification
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'android/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
@@ -12,10 +22,8 @@ concurrency:
 
 jobs:
   verify:
-    # Keep this test-only workflow scoped to the active development branch.
-    if: ${{ github.ref == 'refs/heads/feature/aurora-pulse-profile-overlay' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Check out AURORA source
         uses: actions/checkout@v4
@@ -27,8 +35,23 @@ jobs:
         with:
           node-version: 22
 
+      # The repository has no committed npm lockfile.
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --no-package-lock --no-audit --no-fund
+
+      # AURORA is currently JavaScript/JSX-first. Run tsc when TS sources
+      # exist, but do not fail an otherwise valid build for an empty include.
+      - name: Type-check application when TypeScript sources exist
+        shell: bash
+        run: |
+          if (find api src -type f -name '*.ts' -print -quit 2>/dev/null; find api src -type f -name '*.tsx' -print -quit 2>/dev/null) | grep -q .; then
+            npm run typecheck
+          else
+            echo "No TypeScript source files found; JavaScript/JSX validation continues through the regression suite and production build."
+          fi
+
+      - name: Verify Android feature parity
+        run: npm run android:check
 
       - name: Run AURORA core and architecture tests
         run: npm run test:core
@@ -38,4 +61,4 @@ jobs:
 
       - name: Report verification scope
         if: success()
-        run: echo "AURORA core tests and web build passed. No APK was built, no signing key was accessed, and no update was published."
+        run: echo "AURORA Android feature parity, core tests and web build passed. TypeScript was checked if sources exist. No APK was built, no signing key was accessed, and no update was published."

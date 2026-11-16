@@ -7,6 +7,8 @@ export type AuroraNativeStatus = {
   wakeWordEnabled: boolean;
   wakeWordListening: boolean;
   liveRealtimeVoiceEnabled: boolean;
+  assistantRoleSupported?: boolean;
+  assistantRoleHeld?: boolean;
 };
 
 type AuroraTranscriptionPlugin = {
@@ -100,6 +102,8 @@ type AuroraNativePlugin = {
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
+  getAssistantRoleStatus(): Promise<{ supported: boolean; held: boolean }>;
+  requestAssistantRole(): Promise<{ supported: boolean; held: boolean; cancelled?: boolean }>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
@@ -151,6 +155,8 @@ export const auroraNative = {
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
+  getAssistantRoleStatus: async () => Capacitor.isNativePlatform() ? AuroraNative.getAssistantRoleStatus() : { supported: false, held: false },
+  requestAssistantRole: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Default assistant selection is available only in the Android app."); return AuroraNative.requestAssistantRole(); },
   hasOverlayPermission: async () => {
     if (!Capacitor.isNativePlatform()) return { granted: false };
     return AuroraNative.hasOverlayPermission();
@@ -251,12 +257,12 @@ export const auroraNative = {
   controlActiveMedia: async (action: "play_pause" | "next" | "previous") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media session controls require Android."); return AuroraNative.controlActiveMedia({ action }); },
   searchMedia: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Media search handoff is available only in Android."); return AuroraNative.searchMedia({ query }); },
   readClipboardText: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.readClipboardText(); },
-  writeClipboardText: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.writeClipboardText(options); },
-  pickMedia: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media picker is available only in Android."); return AuroraNative.pickMedia(options); },
+  writeClipboardText: async (options: { text: string }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Clipboard access is available only in Android."); return AuroraNative.writeClipboardText(options); },
+  pickMedia: async (options: { mediaType: "image" | "video" | "audio" }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Media picker is available only in Android."); return AuroraNative.pickMedia(options); },
   prepareAudioRecording: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Audio recording handoff is available only in Android."); return AuroraNative.prepareAudioRecording(); },
   capturePhoto: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Camera capture is available only in Android."); return AuroraNative.capturePhoto(); },
-  shareSelectedFile: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
-  downloadMedia: async (options) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct media downloads require the AURORA Android app."); return AuroraNative.downloadMedia(options); },
+  shareSelectedFile: async (options: { contentUri: string; mimeType: string }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
+  downloadMedia: async (options: { url: string; filename: string; mimeType: string; confirmed: boolean }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct media downloads require the AURORA Android app."); return AuroraNative.downloadMedia(options); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
   openNotificationAccessSettings: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification access settings are available only in Android."); return AuroraNative.openNotificationAccessSettings(); },
   hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },

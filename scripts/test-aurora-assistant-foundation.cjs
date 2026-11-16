@@ -1,0 +1,45 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+
+const plugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
+const wake = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantService.java", "utf8");
+const voiceService = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraVoiceInteractionService.java", "utf8");
+const manifest = fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const chatApi = fs.readFileSync("api/chat.js", "utf8");
+const voiceApi = fs.readFileSync("api/voice.js", "utf8");
+const bootstrap = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
+
+assert.match(plugin, /SpeechRecognizer\.isOnDeviceRecognitionAvailable/);
+assert.match(plugin, /speechGeneration/);
+assert.match(plugin, /speechPartialResult/);
+assert.match(plugin, /cleanupSpeechRecognizer\(SpeechRecognizer expected\)/);
+assert.match(plugin, /pendingSpeechCalls/);
+assert.match(plugin, /rejectPendingSpeech/);
+assert.match(plugin, /RoleManager\.ROLE_ASSISTANT/);
+assert.match(plugin, /startActivityForResult\(call, roles\.createRequestRoleIntent/);
+assert.match(plugin, /assistantRoleHeld/);
+assert.match(wake, /restartPending/);
+assert.match(wake, /retryDelayMs = Math\.min\(retryDelayMs \* 2, 8000\)/);
+assert.match(wake, /setListeningState\(true\)/);
+assert.match(wake, /Wake phrase heard · tap to open AURORA/);
+assert.match(wake, /stopForeground\(false\)/);
+assert.doesNotMatch(wake, /startActivity\(launch\)/);
+assert.match(wake, /return START_NOT_STICKY/);
+assert.match(manifest, /android:foregroundServiceType="microphone"/);
+assert.match(manifest, /\.AuroraVoiceInteractionService/);
+assert.match(manifest, /\.AuroraVoiceInteractionSessionService/);
+assert.match(bridge, /getAssistantRoleStatus/);
+assert.match(bridge, /requestAssistantRole/);
+assert.match(chatApi, /GROQ_API_KEY/);
+assert.match(chatApi, /OPENROUTER_API_KEY/);
+assert.match(chatApi, /GEMINI_API_KEY/);
+assert.match(voiceApi, /ELEVENLABS_API_KEY/);
+assert.match(voiceApi, /EMPTY_AUDIO_RESPONSE/);
+assert.match(app, /requestDefaultAssistant/);
+assert.match(app, /Set as default assistant/);
+assert.match(bootstrap, /"startAssistantService"/);
+assert.match(bootstrap, /requiredNativeMethods/);
+
+console.log("AURORA assistant foundation checks passed: native speech lifecycle, queued TTS, bounded wake retries, Android role setup and bootstrap parity.");

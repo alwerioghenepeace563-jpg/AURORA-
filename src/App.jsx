@@ -466,6 +466,8 @@ export default function App() {
   const [screenReadMessage, setScreenReadMessage] = useState("");
   const [nativeStatus, setNativeStatus] = useState(null);
   const [nativeServiceOn, setNativeServiceOn] = useState(false);
+  const [assistantRoleHeld, setAssistantRoleHeld] = useState(false);
+  const [assistantRoleSupported, setAssistantRoleSupported] = useState(false);
   const [nativeBusy, setNativeBusy] = useState(false);
   const [nativeNotice, setNativeNotice] = useState("");
 
@@ -473,6 +475,19 @@ export default function App() {
     if (!AuroraNative.isAndroid()) return;
     let stopped = false;
     AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
+    AuroraNative.getAssistantRoleStatus().then((status) => {
+      if (!stopped) { setAssistantRoleSupported(Boolean(status?.supported)); setAssistantRoleHeld(Boolean(status?.held)); }
+    }).catch(() => {});
+    const statusTimer = setInterval(() => {
+      AuroraNative.status().then((status) => {
+        if (!stopped && status) {
+          setNativeStatus(status);
+          setNativeServiceOn(Boolean(status.wakeWordListening));
+          setAssistantRoleSupported(Boolean(status.assistantRoleSupported));
+          setAssistantRoleHeld(Boolean(status.assistantRoleHeld));
+        }
+      }).catch(() => {});
+    }, 5000);
     const pollWakeWord = async () => {
       try {
         const pulseRequest = await AuroraNative.consumePulseOpenRequest();
@@ -490,7 +505,7 @@ export default function App() {
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
-    return () => { stopped = true; clearInterval(timer); };
+    return () => { stopped = true; clearInterval(timer); clearInterval(statusTimer); };
   }, []);
 
   function toggleBrowserWakeWord() {
@@ -543,6 +558,23 @@ export default function App() {
       browserWakeRecognitionRef.current = null;
       setNativeNotice("Could not start laptop wake-word listening. Allow microphone access and try again.");
     }
+  }
+
+  async function requestDefaultAssistant() {
+    if (!AuroraNative.isAndroid() || nativeBusy) return;
+    setNativeBusy(true);
+    try {
+      const result = await AuroraNative.requestAssistantRole();
+      setAssistantRoleSupported(Boolean(result?.supported));
+      setAssistantRoleHeld(Boolean(result?.held));
+      setNativeNotice(result?.held
+        ? "AURORA is now selected as your Android default assistant."
+        : result?.supported
+          ? "Choose AURORA in Android's assistant selection screen to finish setup."
+          : "This Android version does not expose the assistant role request. You can still use AURORA normally.");
+    } catch (error) {
+      setNativeNotice(error?.message || "Could not open Android assistant selection.");
+    } finally { setNativeBusy(false); }
   }
 
   async function toggleNativeAssistant() {
@@ -2137,7 +2169,8 @@ export default function App() {
               <section id="aurora-updater" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div><p className="panel-eyebrow">NATIVE ANDROID ASSISTANT</p><h2 style={{ margin: "4px 0" }}>Hey AURORA</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>{nativeStatus?.backgroundServiceFoundation ? "Native assistant foundation detected." : "Background voice service and app launching."}</p></div>
-                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Startingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
+                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Workingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
+                  {AuroraNative.isAndroid() && assistantRoleSupported && <button type="button" className="outline-action" onClick={requestDefaultAssistant} disabled={nativeBusy || assistantRoleHeld}>{assistantRoleHeld ? "Default assistant active" : "Set as default assistant"}</button>}
                   {!AuroraNative.isAndroid() && <button type="button" className="outline-action" onClick={toggleBrowserWakeWord}>{browserWakeListening ? "Stop laptop listening" : "Enable Hey AURORA on laptop"}</button>}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
