@@ -230,7 +230,7 @@ public class AuroraOverlayService extends Service {
             response.put("message", message);
             return response.toString();
         } catch (Exception ignored) {
-            return "{\\"started\\":false,\\"message\\":\\"Native voice input failed.\\"}";
+            return "{\"started\":false,\"message\":\"Native voice input failed.\"}";
         }
     }
 
