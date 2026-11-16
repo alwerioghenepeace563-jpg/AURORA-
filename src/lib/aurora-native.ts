@@ -100,6 +100,8 @@ type AuroraNativePlugin = {
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
+  getAssistantRoleStatus(): Promise<{ supported: boolean; held: boolean }>;
+  requestAssistantRole(): Promise<{ supported: boolean; held: boolean; cancelled?: boolean }>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
@@ -151,6 +153,8 @@ export const auroraNative = {
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
+  getAssistantRoleStatus: async () => Capacitor.isNativePlatform() ? AuroraNative.getAssistantRoleStatus() : { supported: false, held: false },
+  requestAssistantRole: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Default assistant selection is available only in the Android app."); return AuroraNative.requestAssistantRole(); },
   hasOverlayPermission: async () => {
     if (!Capacitor.isNativePlatform()) return { granted: false };
     return AuroraNative.hasOverlayPermission();
