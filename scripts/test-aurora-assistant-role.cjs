@@ -129,7 +129,7 @@ assert.match(manifest,/foregroundServiceType="mediaProjection"/);
 
 assert.match(session,/!session\.replyTtsReady/);
 assert.match(session,/session\.replyTts == null/);
-assert.match(session,/if \(Looper\.myLooper\(\) == Looper\.getMainLooper\(\)\) return session\.speakReply\(reply\)/);
+assert.match(session,/new Handler\(Looper\.getMainLooper\(\)\)\.post\(\(\) -> \{/);
 assert.match(session,/if \(result == TextToSpeech\.ERROR\)[\s\S]*return false/);
 assert.match(session,/Android assistant speech is unavailable/);
 assert.doesNotMatch(session,/pendingReply/);
@@ -139,3 +139,13 @@ assert.match(session,/callback\.onResult\(delivered\)/);
 assert.doesNotMatch(session,/public static boolean speakAssistantReply/);
 assert.match(plugin,/AuroraVoiceInteractionSession\.speakAssistantReply\(text,[\s\S]*delivered -> call\.resolve/);
 
+
+assert.match(session,/replyTts\.setOnUtteranceProgressListener/);
+assert.match(session,/onStart\(String id\)/);
+assert.match(session,/onDone\(String id\)/);
+assert.match(session,/onError\(String id\)/);
+assert.match(session,/@Override public void onHide\(\) \{ stopRecognizer\(\); super\.onHide\(\); \}/);
+assert.match(session,/@Override public void onDestroy\(\)[\s\S]*sessionDestroyed = true/);
+assert.match(session,/replyTts\.stop\(\); replyTts\.shutdown\(\)/);
+assert.match(session,/if \(activeSession\.get\(\) == this\) activeSession\.clear\(\)/);
+console.log("AURORA assistant-session lifecycle and TTS callback assertions passed.");
