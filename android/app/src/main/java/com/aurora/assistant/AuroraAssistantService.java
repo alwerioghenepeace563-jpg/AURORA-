@@ -164,10 +164,20 @@ public class AuroraAssistantService extends Service {
                 setListeningState(false);
                 getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit().putBoolean("wake_detected", true).putBoolean("wake_word_listening", false).apply();
                 releaseRecognizer(true);
-                updateNotification("Wake phrase heard · tap to open AURORA");
-                // Android 10+ may block launching an Activity directly from a background service.
-                // Leave a tappable notification rather than falsely claiming hands-free launch succeeded.
-                stopForeground(false);
+                updateNotification("Wake phrase heard · opening AURORA Pulse");
+                // Release the wake-word microphone before Pulse starts its conversational listener.
+                stopForeground(true);
+                try {
+                    Intent pulse = new Intent(this, AuroraOverlayService.class);
+                    pulse.setAction(AuroraOverlayService.ACTION_SHOW);
+                    pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(pulse);
+                    else startService(pulse);
+                } catch (Exception launchError) {
+                    android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to Pulse.", launchError);
+                    getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
+                        .putBoolean("wake_detected", false).putString("wake_handoff_error", launchError.getMessage()).apply();
+                }
                 stopSelf();
                 return;
             }
