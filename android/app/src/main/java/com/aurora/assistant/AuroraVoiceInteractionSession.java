@@ -32,7 +32,6 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
     private Button voiceButton;
     private TextToSpeech replyTts;
     private boolean replyTtsReady = false;
-    private String pendingReply = "";
     private boolean sessionDestroyed = false;
     private static WeakReference<AuroraVoiceInteractionSession> activeSession = new WeakReference<>(null);
 
@@ -40,7 +39,11 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
         super(context);
         activeSession = new WeakReference<>(this);
         replyTts = new TextToSpeech(context, result -> {
-            if (sessionDestroyed || result != TextToSpeech.SUCCESS) return;
+            if (sessionDestroyed) return;
+            if (result != TextToSpeech.SUCCESS) {
+                updateStatus("Android assistant speech is unavailable. AURORA will use its app voice fallback.");
+                return;
+            }
             replyTtsReady = true;
             int language = replyTts.setLanguage(Locale.UK);
             if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -51,34 +54,33 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
                 @Override public void onDone(String id) { updateStatus("Reply complete. You can continue in AURORA."); }
                 @Override public void onError(String id) { updateStatus("Android could not play the assistant reply."); }
             });
-            if (!pendingReply.isEmpty()) {
-                String queued = pendingReply;
-                pendingReply = "";
-                speakReply(queued);
-            }
         });
     }
 
     /** Delivers an app-generated answer to the currently active Android assistant session. */
     public static boolean speakAssistantReply(String text) {
         AuroraVoiceInteractionSession session = activeSession.get();
-        if (session == null || session.sessionDestroyed || text == null || text.trim().isEmpty()) return false;
-        new Handler(Looper.getMainLooper()).post(() -> { if (!session.sessionDestroyed) session.speakReply(text.trim()); });
+        if (session == null || session.sessionDestroyed || !session.replyTtsReady ||
+            session.replyTts == null || text == null || text.trim().isEmpty()) return false;
+        String reply = text.trim();
+        if (Looper.myLooper() == Looper.getMainLooper()) return session.speakReply(reply);
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (!session.sessionDestroyed) session.speakReply(reply);
+        });
         return true;
     }
 
-    private void speakReply(String text) {
-        if (text == null || text.trim().isEmpty()) return;
-        if (!replyTtsReady || replyTts == null) {
-            pendingReply = text;
-            updateStatus("Preparing the Android assistant voice…");
-            return;
-        }
+    private boolean speakReply(String text) {
+        if (sessionDestroyed || !replyTtsReady || replyTts == null || text == null || text.trim().isEmpty()) return false;
         String safeText = text.length() > 5000 ? text.substring(0, 5000) : text;
         int result = replyTts.speak(safeText, TextToSpeech.QUEUE_FLUSH, null,
             "aurora-session-" + java.util.UUID.randomUUID().toString());
-        if (result == TextToSpeech.ERROR) updateStatus("Android could not start the assistant reply.");
-        else updateStatus("AURORA is speaking…");
+        if (result == TextToSpeech.ERROR) {
+            updateStatus("Android could not start the assistant reply. AURORA will use its app voice fallback.");
+            return false;
+        }
+        updateStatus("AURORA is speaking…");
+        return true;
     }
 
     @Override public View onCreateContentView() {
