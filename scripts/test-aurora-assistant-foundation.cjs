@@ -7,6 +7,8 @@ const voiceService = fs.readFileSync("android/app/src/main/java/com/aurora/assis
 const manifest = fs.readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
 const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 const app = fs.readFileSync("src/App.jsx", "utf8");
+const chatApi = fs.readFileSync("api/chat.js", "utf8");
+const voiceApi = fs.readFileSync("api/voice.js", "utf8");
 const bootstrap = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
 
 assert.match(plugin, /SpeechRecognizer\.isOnDeviceRecognitionAvailable/);
@@ -30,6 +32,11 @@ assert.match(manifest, /\.AuroraVoiceInteractionService/);
 assert.match(manifest, /\.AuroraVoiceInteractionSessionService/);
 assert.match(bridge, /getAssistantRoleStatus/);
 assert.match(bridge, /requestAssistantRole/);
+assert.match(chatApi, /GROQ_API_KEY/);
+assert.match(chatApi, /OPENROUTER_API_KEY/);
+assert.match(chatApi, /GEMINI_API_KEY/);
+assert.match(voiceApi, /ELEVENLABS_API_KEY/);
+assert.match(voiceApi, /EMPTY_AUDIO_RESPONSE/);
 assert.match(app, /requestDefaultAssistant/);
 assert.match(app, /Set as default assistant/);
 assert.match(bootstrap, /"startAssistantService"/);
