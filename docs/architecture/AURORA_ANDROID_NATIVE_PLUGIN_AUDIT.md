@@ -97,7 +97,7 @@ These are deliberately recorded as gaps rather than being mislabeled as complete
 
 ## Android assistant voice-response handoff
 
-When a transcript is captured from the Android VoiceInteractionSession, AURORA still places it in the app composer for user review and requires the user to tap Send. The app now marks that one reply as speech-requested: after the response is produced, it uses AURORA's existing speech pipeline even if the normal Read Aloud toggle is off, then clears the one-shot request. This preserves the review/submit boundary and avoids silently sending microphone transcripts. Speech is currently played by the app's voice pipeline after the app is opened; it is not yet rendered or spoken inside the Android system assistant surface itself. A physical Android test is required to validate audio focus, TTS provider availability, and lifecycle behavior.
+When a transcript is captured from the Android VoiceInteractionSession, AURORA still places it in the app composer for user review and requires the user to tap Send. The app now marks that one reply as speech-requested: after the response is produced, it uses AURORA's existing speech pipeline even if the normal Read Aloud toggle is off, then clears the one-shot request. This preserves the review/submit boundary and avoids silently sending microphone transcripts. The app first attempts to deliver the answer through the still-active Android VoiceInteractionSession's TextToSpeech engine, then falls back to the app speech pipeline if that session is no longer active. A physical Android test is required to validate audio focus, TTS provider availability, and lifecycle behavior.
 
 
 ### Direct Android assistant-session speech handoff
@@ -108,3 +108,11 @@ When a transcript is captured from the Android VoiceInteractionSession, AURORA s
 - Session speech is capped at 5,000 characters, queued while Android TTS initializes, and shut down when the session is destroyed. Calls are marshalled to the main thread.
 - The assistant-session one-shot speech request now bypasses the normal Read Aloud toggle as intended; this fixes the previous guard that otherwise prevented speech when that toggle was off.
 - The transcript remains review-only and requires the user to tap Send. No automatic request submission was introduced.
+
+
+### MediaProjection bitmap and output cleanup hardening
+
+- The one-frame capture now recycles both intermediate and cropped bitmaps in a finally block, including error paths.
+- The Image is always closed in the same finally block, even when decoding or PNG writing fails.
+- A missing pixel plane, invalid stride/buffer, failed PNG encoding, or empty output is treated as a capture failure with a clear error state.
+- Partial output is deleted on failure and the capture flags are reset so the UI cannot mistake a failed write for a valid image.
