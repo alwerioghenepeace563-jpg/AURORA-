@@ -115,32 +115,49 @@ public class AuroraScreenCaptureService extends Service {
 
     private synchronized void saveOneFrame(ImageReader source) {
         Image image = null;
+        Bitmap padded = null;
+        Bitmap frame = null;
+        File output = new File(getCacheDir(), "aurora-screen-capture.png");
         try {
             image = source.acquireLatestImage();
             if (image == null) return;
-            Image.Plane plane = image.getPlanes()[0];
+            Image.Plane[] planes = image.getPlanes();
+            if (planes == null || planes.length == 0) throw new IllegalStateException("Android returned a screen frame without pixel data.");
+            Image.Plane plane = planes[0];
             ByteBuffer buffer = plane.getBuffer();
             int pixelStride = plane.getPixelStride();
             int rowStride = plane.getRowStride();
+            if (pixelStride <= 0 || rowStride <= 0 || buffer == null) throw new IllegalStateException("Android returned invalid screen-frame dimensions.");
             int rowPadding = rowStride - pixelStride * image.getWidth();
-            Bitmap padded = Bitmap.createBitmap(image.getWidth() + rowPadding / pixelStride, image.getHeight(), Bitmap.Config.ARGB_8888);
+            int paddedWidth = image.getWidth() + Math.max(0, rowPadding / pixelStride);
+            padded = Bitmap.createBitmap(paddedWidth, image.getHeight(), Bitmap.Config.ARGB_8888);
             padded.copyPixelsFromBuffer(buffer);
-            Bitmap frame = Bitmap.createBitmap(padded, 0, 0, image.getWidth(), image.getHeight());
-            File output = new File(getCacheDir(), "aurora-screen-capture.png");
+            frame = Bitmap.createBitmap(padded, 0, 0, image.getWidth(), image.getHeight());
             try (FileOutputStream stream = new FileOutputStream(output)) {
-                frame.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                if (!frame.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                    throw new IllegalStateException("AURORA could not encode the captured screen frame.");
+                }
                 stream.flush();
                 stream.getFD().sync();
             }
-            frame.recycle(); padded.recycle();
+            if (!output.isFile() || output.length() <= 0L) throw new IllegalStateException("AURORA could not save the captured screen frame.");
             getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit()
                 .putBoolean("captured", true).putBoolean("capturing", false)
                 .putLong("captured_at", System.currentTimeMillis()).putLong("bytes", output.length()).remove("error").apply();
             cleanup(); stopSelf();
         } catch (Exception error) {
-            getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit().putBoolean("capturing", false).putString("error", error.getMessage()).apply();
+            if (output.exists()) output.delete();
+            String message = error.getMessage();
+            getSharedPreferences("aurora_screen_capture", MODE_PRIVATE).edit()
+                .putBoolean("captured", false).putBoolean("capturing", false)
+                .putString("error", message == null || message.trim().isEmpty()
+                    ? "AURORA could not save the captured screen frame." : message).apply();
             cleanup(); stopSelf();
-        } finally { if (image != null) image.close(); }
+        } finally {
+            if (frame != null && !frame.isRecycled()) frame.recycle();
+            if (padded != null && !padded.isRecycled()) padded.recycle();
+            if (image != null) image.close();
+        }
     }
 
     private void createChannel() {
