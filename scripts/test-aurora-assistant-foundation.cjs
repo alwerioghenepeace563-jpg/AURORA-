@@ -30,6 +30,7 @@ assert.match(wake, /setListeningState\(true\)/);
 assert.match(wake, /Wake phrase heard · opening AURORA Pulse/);
 assert.match(wake, /AuroraOverlayService\.ACTION_SHOW/);
 assert.match(wake, /AuroraOverlayService\.EXTRA_AUTO_LISTEN/);
+assert.match(wake, /ContextCompat\.startForegroundService\(this, pulse\)/);
 assert.match(wake, /stopForeground\(true\)/);
 assert.doesNotMatch(wake, /startActivity\(launch\)/);
 assert.match(wake, /return START_NOT_STICKY/);
