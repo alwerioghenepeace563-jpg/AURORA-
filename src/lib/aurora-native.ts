@@ -7,6 +7,8 @@ export type AuroraNativeStatus = {
   wakeWordEnabled: boolean;
   wakeWordListening: boolean;
   liveRealtimeVoiceEnabled: boolean;
+  assistantRoleSupported?: boolean;
+  assistantRoleHeld?: boolean;
 };
 
 type AuroraTranscriptionPlugin = {
