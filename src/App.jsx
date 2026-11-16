@@ -470,6 +470,9 @@ export default function App() {
   const [assistantRoleSupported, setAssistantRoleSupported] = useState(false);
   const [nativeBusy, setNativeBusy] = useState(false);
   const [nativeNotice, setNativeNotice] = useState("");
+  const [deviceDiagnostics, setDeviceDiagnostics] = useState([]);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
+  const [diagnosticsUpdatedAt, setDiagnosticsUpdatedAt] = useState("");
 
   useEffect(() => {
     if (!AuroraNative.isAndroid()) return;
@@ -557,6 +560,34 @@ export default function App() {
       setBrowserWakeListening(false);
       browserWakeRecognitionRef.current = null;
       setNativeNotice("Could not start laptop wake-word listening. Allow microphone access and try again.");
+    }
+  }
+
+  async function runDeviceDiagnostics() {
+    if (!AuroraNative.isAndroid() || diagnosticsBusy) return;
+    setDiagnosticsBusy(true);
+    setDeviceDiagnostics([]);
+    const checks = [
+      { id: "bridge", label: "AURORA native bridge", run: () => AuroraNative.status(), pass: (value) => Boolean(value?.nativeBridge), detail: "Native Android connection is responding." },
+      { id: "assistant", label: "Android assistant role", run: () => AuroraNative.getAssistantRoleStatus(), pass: (value) => Boolean(value?.held), detail: "AURORA is selected as the system assistant.", warn: "AURORA is not the selected default assistant yet." },
+      { id: "accessibility", label: "Screen-reading service", run: () => AuroraNative.isAccessibilityEnabled(), pass: (value) => Boolean(value?.enabled), detail: "AURORA accessibility service is enabled.", warn: "Optional: enable AURORA Screen Assistant in Android Accessibility settings." },
+      { id: "network", label: "Network status access", run: () => AuroraNative.getNetworkStatus(), pass: () => true, detail: "Android returned network status successfully." },
+      { id: "storage", label: "Device storage access", run: () => AuroraNative.getStorageStatus(), pass: () => true, detail: "Android returned storage status successfully." }
+    ];
+    try {
+      const results = await Promise.all(checks.map(async (check) => {
+        try {
+          const value = await check.run();
+          const passed = check.pass(value);
+          return { id: check.id, label: check.label, status: passed ? "ready" : "attention", detail: passed ? check.detail : (check.warn || "This capability needs attention.") };
+        } catch (error) {
+          return { id: check.id, label: check.label, status: "unavailable", detail: error?.message || "Android did not return this capability status." };
+        }
+      }));
+      setDeviceDiagnostics(results);
+      setDiagnosticsUpdatedAt(new Date().toLocaleTimeString());
+    } finally {
+      setDiagnosticsBusy(false);
     }
   }
 
@@ -2176,6 +2207,19 @@ export default function App() {
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                   <button type="button" className="outline-action" onClick={() => openNativeApp("com.whatsapp")} disabled={!AuroraNative.isAndroid()}>Open WhatsApp <ArrowUpRight size={15}/></button>
                   {nativeNotice && <span role="status" style={{ color: "#a9bdd2", fontSize: 13 }}>{nativeNotice}</span>}
+                </div>
+                <div style={{ marginTop: 16, padding: 14, borderRadius: 14, border: "1px solid rgba(132,164,199,.2)", background: "rgba(9,20,36,.38)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div><p className="panel-eyebrow">DEVICE READINESS</p><h3 style={{ margin: "4px 0", color: "#e5f1ff" }}>Assistant health check</h3><p style={{ margin: 0, color: "#9fb3ca", fontSize: 12 }}>Check Android integration without changing permissions or settings.</p></div>
+                    <button type="button" className="outline-action" onClick={runDeviceDiagnostics} disabled={diagnosticsBusy || !AuroraNative.isAndroid()}>{diagnosticsBusy ? "Checking…" : "Run device check"}</button>
+                  </div>
+                  {deviceDiagnostics.length > 0 && <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
+                    {deviceDiagnostics.map((item) => <div key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 10px", borderRadius: 10, background: "rgba(255,255,255,.035)" }}>
+                      <span aria-hidden="true" style={{ color: item.status === "ready" ? "#70dfb0" : item.status === "attention" ? "#f4c875" : "#ff9b9b", fontWeight: 700 }}>{item.status === "ready" ? "✓" : item.status === "attention" ? "!" : "×"}</span>
+                      <div style={{ minWidth: 0 }}><strong style={{ color: "#dceaff", fontSize: 13 }}>{item.label}</strong><p style={{ margin: "3px 0 0", color: "#9fb3ca", fontSize: 12, lineHeight: 1.5 }}>{item.detail}</p></div>
+                    </div>)}
+                    <small style={{ color: "#8098b3" }}>Last checked: {diagnosticsUpdatedAt}. This checks API availability and reported settings; it does not test microphone audio, TTS playback, or real wake-word detection.</small>
+                  </div>}
                 </div>
                 <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {installedVersionName}</p></div>
                   <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={15} />} {appUpdateBusy ? "Checkingâ€¦" : "Check for updates"}</button>
