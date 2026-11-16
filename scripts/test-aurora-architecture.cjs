@@ -118,7 +118,7 @@ const path = require("node:path");
   assert.ok(fs.readFileSync(path.join(__dirname, "../android/app/src/main/AndroidManifest.xml"), "utf8").includes("BIND_NOTIFICATION_LISTENER_SERVICE"), "Notification listener must be protected by Android's binding permission.");
   assert.throws(() => engine.registerCapability({ id: "bad id", execute: async () => {} }), /identifiers/i);
   const nativePatchScript = fs.readFileSync(path.join(__dirname, "patch-android-native.mjs"), "utf8");
-  assert.ok(nativePatchScript.includes('name === "AuroraAssistantPlugin.java" && fs.existsSync(target)'), "Android build bootstrap must preserve the committed native plugin.");
+  assert.ok(nativePatchScript.includes("if (fs.existsSync(target)) continue;"), "Android build bootstrap must preserve the committed native plugin.");
   assert.ok(nativePatchScript.includes("requiredNativeMethods"), "Android build bootstrap must verify native adapters instead of silently overwriting them.");
   assert.ok(nativePatchScript.includes('"speakText", "stopTextSpeech"'), "Android build bootstrap must verify native speech synthesis methods.");
   assert.ok(nativePatchScript.includes("AuroraNotificationListenerService"), "Android build bootstrap must register the notification listener service.");
