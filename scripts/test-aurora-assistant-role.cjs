@@ -104,6 +104,15 @@ assert.match(screenService,/Screen capture was stopped by Android before a frame
 assert.match(screenService,/if \(prefs\.getBoolean\("capturing", false\)\)/);
 assert.match(screenService,/putBoolean\("capturing", false\)[\s\S]*putBoolean\("captured", false\)/);
 assert.match(screenService,/maxDimension = 1600/);
+assert.match(screenService,/Bitmap padded = null/);
+assert.match(screenService,/Bitmap frame = null/);
+assert.match(screenService,/if \(frame != null && !frame\.isRecycled\(\)\) frame\.recycle\(\)/);
+assert.match(screenService,/if \(padded != null && !padded\.isRecycled\(\)\) padded\.recycle\(\)/);
+assert.match(screenService,/if \(image != null\) image\.close\(\)/);
+assert.match(screenService,/if \(!frame\.compress\(Bitmap\.CompressFormat\.PNG, 100, stream\)\)/);
+assert.match(screenService,/if \(output\.exists\(\)\) output\.delete\(\)/);
+assert.match(screenService,/putBoolean\("captured", false\)\.putBoolean\("capturing", false\)/);
+
 assert.match(screenService,/remove\("error"\)/);
 assert.match(nfcPlugin,/UTF-16/);
 assert.match(hardwareCard,/attempt < 24/);
