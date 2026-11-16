@@ -133,3 +133,9 @@ assert.match(session,/if \(Looper\.myLooper\(\) == Looper\.getMainLooper\(\)\) r
 assert.match(session,/if \(result == TextToSpeech\.ERROR\)[\s\S]*return false/);
 assert.match(session,/Android assistant speech is unavailable/);
 assert.doesNotMatch(session,/pendingReply/);
+assert.match(session,/interface SpeechHandoffCallback/);
+assert.match(session,/new Handler\(Looper\.getMainLooper\(\)\)\.post\(\(\) -> \{/);
+assert.match(session,/callback\.onResult\(delivered\)/);
+assert.doesNotMatch(session,/public static boolean speakAssistantReply/);
+assert.match(plugin,/AuroraVoiceInteractionSession\.speakAssistantReply\(text,[\s\S]*delivered -> call\.resolve/);
+
