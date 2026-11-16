@@ -81,5 +81,7 @@ assert.match(pulseOverlay, /FOREGROUND_SERVICE_TYPE_MICROPHONE/);
 assert.match(pulseOverlay, /Stop conversation/);
 assert.match(pulsePanel, /speakPulseReply/);
 assert.match(pulsePanel, /startPulseListening\(true\)/);
+assert.match(pulsePanel, /function hidePanel\(\)\{pulseConversationActive=false;pulseAutoRestart=false;/);
+assert.match(pulsePanel, /if\(!pulseConversationActive\)setOrbState\('idle'\)/);
 
 console.log("AURORA assistant foundation checks passed: native speech lifecycle, queued TTS, bounded wake retries, Android role setup, bootstrap parity and shared Pulse session and native Pulse microphone input.");
