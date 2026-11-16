@@ -84,7 +84,7 @@ export function resolveVoiceFollowUp(value, context = {}) {
   if (/^(?:what did you just say|what was that|say that again)$/.test(command)) {
     return { type: "repeat_last_sentence", text: lastSentence || lastAnswer };
   }
-  if (/^(?:what about|tell me about|explain)s+(?:thes+)?(?:other|second|first|last)s+option$/.test(command) || /^(?:what about the other option|what was the other option)$/.test(command)) {
+  if (/^(?:(?:what about|tell me about|explain)\\s+)?(?:(?:the|my)\\s+)?(?:other|second|first|last)\\s+option$/.test(command) || /^(?:what about the other option|what was the other option)$/.test(command)) {
     return { type: "return_to_option", prompt: "Explain the " + (/(?:second)/.test(command) ? "second" : /(?:first)/.test(command) ? "first" : "other") + " option from your previous answer. Compare it briefly with the option already discussed. Previous answer: " + lastAnswer.slice(-1800) };
   }
   if (/^(?:explain differently|explain another way|say it another way|i do not understand|i dont understand|i'm confused|im confused)$/.test(command)) {
