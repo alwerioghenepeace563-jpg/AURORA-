@@ -466,6 +466,8 @@ export default function App() {
   const [screenReadMessage, setScreenReadMessage] = useState("");
   const [nativeStatus, setNativeStatus] = useState(null);
   const [nativeServiceOn, setNativeServiceOn] = useState(false);
+  const [assistantRoleHeld, setAssistantRoleHeld] = useState(false);
+  const [assistantRoleSupported, setAssistantRoleSupported] = useState(false);
   const [nativeBusy, setNativeBusy] = useState(false);
   const [nativeNotice, setNativeNotice] = useState("");
 
@@ -473,6 +475,19 @@ export default function App() {
     if (!AuroraNative.isAndroid()) return;
     let stopped = false;
     AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
+    AuroraNative.getAssistantRoleStatus().then((status) => {
+      if (!stopped) { setAssistantRoleSupported(Boolean(status?.supported)); setAssistantRoleHeld(Boolean(status?.held)); }
+    }).catch(() => {});
+    const statusTimer = setInterval(() => {
+      AuroraNative.status().then((status) => {
+        if (!stopped && status) {
+          setNativeStatus(status);
+          setNativeServiceOn(Boolean(status.wakeWordListening));
+          setAssistantRoleSupported(Boolean(status.assistantRoleSupported));
+          setAssistantRoleHeld(Boolean(status.assistantRoleHeld));
+        }
+      }).catch(() => {});
+    }, 5000);
     const pollWakeWord = async () => {
       try {
         const pulseRequest = await AuroraNative.consumePulseOpenRequest();
@@ -490,7 +505,7 @@ export default function App() {
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
-    return () => { stopped = true; clearInterval(timer); };
+    return () => { stopped = true; clearInterval(timer); clearInterval(statusTimer); };
   }, []);
 
   function toggleBrowserWakeWord() {
