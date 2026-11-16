@@ -8,7 +8,9 @@ assert.match(app, /event\.key === "Escape"/);
 assert.match(app, /event\.key !== "Tab"/);
 assert.match(app, /document\.addEventListener\("visibilitychange", onVisibility\)/);
 assert.match(app, /document\.visibilityState === "hidden"/);
-assert.match(app, /ref=\{pulsePanelRef\} tabIndex=\{-1\} className="aurora-pulse-panel"/);
+// Accept the current conditional className expression while still checking
+// that the focusable dialog section is wired to the shared panel ref.
+assert.match(app, /ref=\{pulsePanelRef\}\s+tabIndex=\{-1\}\s+className=\{\s*["']aurora-pulse-panel["']/);
 assert.match(app, /aria-live="polite" aria-relevant="additions text"/);
 assert.match(app, /prefers-reduced-motion: reduce/);
 console.log("AURORA Pulse accessibility and lifecycle source checks passed.");
