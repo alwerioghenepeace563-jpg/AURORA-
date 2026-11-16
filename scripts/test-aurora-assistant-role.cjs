@@ -126,3 +126,10 @@ assert.match(mainActivity,/registerPlugin\(AuroraNfcPlugin\.class\)/);
 assert.match(manifest,/android\.permission\.NFC/);
 assert.match(manifest,/android\.hardware\.nfc[^>]+android:required="false"/);
 assert.match(manifest,/foregroundServiceType="mediaProjection"/);
+
+assert.match(session,/!session\.replyTtsReady/);
+assert.match(session,/session\.replyTts == null/);
+assert.match(session,/if \(Looper\.myLooper\(\) == Looper\.getMainLooper\(\)\) return session\.speakReply\(reply\)/);
+assert.match(session,/if \(result == TextToSpeech\.ERROR\)[\s\S]*return false/);
+assert.match(session,/Android assistant speech is unavailable/);
+assert.doesNotMatch(session,/pendingReply/);
