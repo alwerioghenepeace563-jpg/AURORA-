@@ -50,5 +50,11 @@ assert.match(pulsePanel, /aurora-pulse-session/);
 assert.match(pulsePanel, /loadPulseProfile/);
 assert.match(pulsePanel, /messages:pulseSession\.slice\(-12\)/);
 assert.match(pulsePanel, /profile:loadPulseProfile\(\)/);
+assert.match(pulsePanel, /id="micButton"/);
+assert.match(pulsePanel, /togglePulseListening/);
+assert.match(pulsePanel, /onPulseSpeechResult/);
+assert.match(pulseOverlay, /SpeechRecognizer\.createSpeechRecognizer/);
+assert.match(pulseOverlay, /startVoiceInput/);
+assert.match(pulseOverlay, /RECORD_AUDIO/);
 
-console.log("AURORA assistant foundation checks passed: native speech lifecycle, queued TTS, bounded wake retries, Android role setup, bootstrap parity and shared Pulse session.");
+console.log("AURORA assistant foundation checks passed: native speech lifecycle, queued TTS, bounded wake retries, Android role setup, bootstrap parity and shared Pulse session and native Pulse microphone input.");
