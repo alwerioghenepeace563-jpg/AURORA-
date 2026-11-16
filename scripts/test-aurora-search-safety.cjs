@@ -8,5 +8,7 @@ assert.doesNotMatch(source, /async function attachArticleImages/, "Arbitrary art
 assert.match(source, /return \{query,results,source:provider\.name\}/, "Web results should be returned without server-side page fetching.");
 assert.match(source, /return results;\s*}\s*async function parseWikipedia/, "Google News RSS results should be returned without following article links.");
 assert.match(source, /https:\/\/www\.bing\.com\/images\/search/, "Public visual retrieval should remain available through Bing Images.");
-assert.match(source, /https:\/\/commons\.wikimedia\.org\/w\/api\.php/, "Licensed Commons media search should remain available.");
+const mediaSearch = fs.readFileSync(path.join(__dirname, "../api/media-search.js"), "utf8");
+assert.match(mediaSearch, /https:\/\/commons\.wikimedia\.org\/w\/api\.php/, "Licensed Commons media search should remain available.");
+assert.match(mediaSearch, /https:\/\/archive\.org\/advancedsearch\.php/, "Internet Archive media search should remain available.");
 console.log("AURORA search SSRF regression checks passed.");
