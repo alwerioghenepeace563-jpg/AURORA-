@@ -1,7 +1,8 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
+const path = require("node:path");
 
-const source = readFileSync(new URL("../api/chat.js", import.meta.url), "utf8");
+const source = readFileSync(path.join(__dirname, "../api/chat.js"), "utf8");
 const mediaDeclaration = "const hasMedia = body.messages.some((m) => m && m.media);";
 const declarationIndex = source.indexOf(mediaDeclaration);
 const payloadIndex = source.indexOf("const payload = {");
