@@ -1738,6 +1738,7 @@ public class AuroraAssistantPlugin extends Plugin {
         }
         boolean listeningFlag = getContext().getSharedPreferences("aurora_assistant", 0)
             .getBoolean("wake_word_listening", false);
+        result.put("wakeWordServiceRunning", serviceRunning);
         result.put("wakeWordListening", serviceRunning && listeningFlag);
         result.put("liveRealtimeVoiceEnabled", false);
         call.resolve(result);
