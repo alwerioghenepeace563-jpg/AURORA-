@@ -9,6 +9,7 @@ on:
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'tsconfig.json'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -34,13 +35,20 @@ jobs:
         with:
           node-version: 22
 
-      # This repository currently has no committed npm lockfile, so npm ci
-      # and setup-node's npm cache cannot work. Install from package.json.
+      # The repository has no committed npm lockfile.
       - name: Install dependencies
         run: npm install --no-package-lock --no-audit --no-fund
 
-      - name: Type-check application
-        run: npm run typecheck
+      # AURORA is currently JavaScript/JSX-first. Run tsc when TS sources
+      # exist, but do not fail an otherwise valid build for an empty include.
+      - name: Type-check application when TypeScript sources exist
+        shell: bash
+        run: |
+          if find api src -type f \\( -name '*.ts' -o -name '*.tsx' \\) -print -quit 2>/dev/null | grep -q .; then
+            npm run typecheck
+          else
+            echo "No TypeScript source files found; JavaScript/JSX validation continues through the regression suite and production build."
+          fi
 
       - name: Verify Android feature parity
         run: npm run android:check
@@ -53,4 +61,4 @@ jobs:
 
       - name: Report verification scope
         if: success()
-        run: echo "AURORA type-check, Android feature parity, core tests and web build passed. No APK was built, no signing key was accessed, and no update was published."
+        run: echo "AURORA Android feature parity, core tests and web build passed. TypeScript was checked if sources exist. No APK was built, no signing key was accessed, and no update was published."
