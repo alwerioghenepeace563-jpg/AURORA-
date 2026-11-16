@@ -124,3 +124,12 @@ When a transcript is captured from the Android VoiceInteractionSession, AURORA s
 - When invoked on Android's main thread, the handoff returns the actual immediate TTS start result. Calls from other threads are marshalled to the main thread after readiness has been confirmed.
 - Removed the pending-session queue because it could report success before the Android TTS engine was ready and prevent the app fallback from speaking. The assistant-session reply remains capped at 5,000 characters and is shut down with the session.
 - Static regression assertions cover readiness gating, initialization failure, immediate TTS failure and removal of premature queue success. Device audio-focus and OEM lifecycle testing remain outstanding.
+
+
+### Assistant-session TTS asynchronous handoff correction
+
+- The Capacitor bridge now waits for the main-thread Android TTS start attempt before resolving `delivered`.
+- This avoids reporting a successful handoff merely because a background-thread request was queued; if the session disappears or TTS fails before the main-thread attempt, the app receives `delivered: false` and can use its existing voice fallback.
+- The active session and TTS readiness are checked again at dispatch time to cover lifecycle changes between the JavaScript request and Android execution.
+- Static regression assertions cover callback-based completion and reject the previous optimistic boolean return.
+- This remains source-level hardening only; Android compilation, CI and physical OEM/audio-focus validation are still required.
