@@ -8,6 +8,7 @@ on:
       - 'android/**'
       - 'scripts/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -21,7 +22,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Check out AURORA source
         uses: actions/checkout@v4
@@ -32,9 +33,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check application
+        run: npm run typecheck
+
+      - name: Verify Android feature parity
+        run: npm run android:check
 
       - name: Run AURORA core and architecture tests
         run: npm run test:core
@@ -44,4 +52,4 @@ jobs:
 
       - name: Report verification scope
         if: success()
-        run: echo "AURORA core tests and web build passed. No APK was built, no signing key was accessed, and no update was published."
+        run: echo "AURORA type-check, Android feature parity, core tests and web build passed. No APK was built, no signing key was accessed, and no update was published."
