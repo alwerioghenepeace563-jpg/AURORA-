@@ -1,6 +1,11 @@
 package com.aurora.assistant;
 
 import android.app.Service;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.os.Bundle;
+import java.util.ArrayList;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -37,6 +42,8 @@ public class AuroraOverlayService extends Service {
     private boolean attached = false;
     private boolean panelAttached = false;
     private boolean orbAttached = false;
+    private SpeechRecognizer pulseSpeechRecognizer;
+    private boolean pulseSpeechActive = false;
 
     private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
     private int overlayType() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE; }
@@ -162,9 +169,75 @@ public class AuroraOverlayService extends Service {
         windowManager = null;
     }
 
+    private void stopPulseSpeech() {
+        pulseSpeechActive = false;
+        if (pulseSpeechRecognizer != null) {
+            try { pulseSpeechRecognizer.cancel(); } catch (Exception ignored) {}
+            try { pulseSpeechRecognizer.destroy(); } catch (Exception ignored) {}
+            pulseSpeechRecognizer = null;
+        }
+        if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Voice input stopped.')", null));
+    }
+
+    private String startPulseSpeech() {
+        if (Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            return result(false, "Microphone permission is not granted. Open AURORA and allow Microphone access, then try again.", "");
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            return result(false, "Android speech recognition is not available on this phone.", "");
+        }
+        stopPulseSpeech();
+        try {
+            pulseSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            pulseSpeechActive = true;
+            pulseSpeechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override public void onReadyForSpeech(Bundle params) {}
+                @Override public void onBeginningOfSpeech() {}
+                @Override public void onRmsChanged(float rmsdB) {}
+                @Override public void onBufferReceived(byte[] buffer) {}
+                @Override public void onEndOfSpeech() {}
+                @Override public void onError(int error) {
+                    pulseSpeechActive = false;
+                    if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Speech recognition stopped. Please try again.')", null));
+                    stopPulseSpeechRecognizerOnly();
+                }
+                @Override public void onResults(Bundle results) {
+                    ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    String transcript = matches != null && !matches.isEmpty() ? matches.get(0) : "";
+                    pulseSpeechActive = false;
+                    String encoded = JSONObject.quote(transcript);
+                    if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechResult(" + encoded + ")", null));
+                    stopPulseSpeechRecognizerOnly();
+                }
+                @Override public void onPartialResults(Bundle partialResults) {}
+                @Override public void onEvent(int eventType, Bundle params) {}
+            });
+            Intent request = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-NG");
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-NG");
+            request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+            request.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            pulseSpeechRecognizer.startListening(request);
+            return result(true, "Listening. Speak now.", "");
+        } catch (Exception error) {
+            stopPulseSpeechRecognizerOnly();
+            return result(false, "Android could not start speech recognition. Check microphone permission and try again.", "");
+        }
+    }
+
+    private void stopPulseSpeechRecognizerOnly() {
+        if (pulseSpeechRecognizer != null) {
+            try { pulseSpeechRecognizer.destroy(); } catch (Exception ignored) {}
+            pulseSpeechRecognizer = null;
+        }
+    }
+
     public class OverlayBridge {
         @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
-        @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.GONE); }); }
+        @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { stopPulseSpeech(); if (panelView != null) panelView.setVisibility(View.GONE); }); }
+        @JavascriptInterface public String startVoiceInput() { return startPulseSpeech(); }
+        @JavascriptInterface public void stopVoiceInput() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> stopPulseSpeech()); }
         @JavascriptInterface public void setOrbState(String state) {
             String safe = "idle".equals(state) || "listening".equals(state) || "thinking".equals(state) || "speaking".equals(state) ? state : "idle";
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
@@ -357,6 +430,7 @@ public class AuroraOverlayService extends Service {
 
     @Override
     public void onDestroy() {
+        stopPulseSpeech();
         removeOverlay();
         reportOverlayStatus(false, "AURORA Pulse service stopped.");
         super.onDestroy();
