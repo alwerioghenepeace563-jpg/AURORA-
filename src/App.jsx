@@ -638,6 +638,12 @@ export default function App() {
         setNativeServiceOn(false);
         setNativeNotice("AURORA background listening is stopped.");
       } else {
+        const overlayPermission = await AuroraNative.hasOverlayPermission();
+        if (!overlayPermission?.granted) {
+          await AuroraNative.requestOverlayPermission();
+          setNativeNotice("Allow AURORA to display over other apps, then return and enable Hey AURORA again.");
+          return;
+        }
         await AuroraNative.requestMicrophonePermission();
         const notificationPermission = await AuroraNative.requestNotificationPermission();
         if (!notificationPermission?.granted) {
