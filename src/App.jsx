@@ -560,6 +560,23 @@ export default function App() {
     }
   }
 
+  async function requestDefaultAssistant() {
+    if (!AuroraNative.isAndroid() || nativeBusy) return;
+    setNativeBusy(true);
+    try {
+      const result = await AuroraNative.requestAssistantRole();
+      setAssistantRoleSupported(Boolean(result?.supported));
+      setAssistantRoleHeld(Boolean(result?.held));
+      setNativeNotice(result?.held
+        ? "AURORA is now selected as your Android default assistant."
+        : result?.supported
+          ? "Choose AURORA in Android's assistant selection screen to finish setup."
+          : "This Android version does not expose the assistant role request. You can still use AURORA normally.");
+    } catch (error) {
+      setNativeNotice(error?.message || "Could not open Android assistant selection.");
+    } finally { setNativeBusy(false); }
+  }
+
   async function toggleNativeAssistant() {
     if (!AuroraNative.isAndroid() || nativeBusy) return;
     setNativeBusy(true);
@@ -2152,7 +2169,8 @@ export default function App() {
               <section id="aurora-updater" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div><p className="panel-eyebrow">NATIVE ANDROID ASSISTANT</p><h2 style={{ margin: "4px 0" }}>Hey AURORA</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>{nativeStatus?.backgroundServiceFoundation ? "Native assistant foundation detected." : "Background voice service and app launching."}</p></div>
-                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Startingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
+                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Workingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
+                  {AuroraNative.isAndroid() && assistantRoleSupported && <button type="button" className="outline-action" onClick={requestDefaultAssistant} disabled={nativeBusy || assistantRoleHeld}>{assistantRoleHeld ? "Default assistant active" : "Set as default assistant"}</button>}
                   {!AuroraNative.isAndroid() && <button type="button" className="outline-action" onClick={toggleBrowserWakeWord}>{browserWakeListening ? "Stop laptop listening" : "Enable Hey AURORA on laptop"}</button>}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
