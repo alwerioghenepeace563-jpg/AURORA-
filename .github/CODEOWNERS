@@ -1,0 +1,9 @@
+# Route every proposed change through the repository owner for review.
+* @alwerioghenepeace563-jpg
+
+# Keep security-sensitive paths under explicit owner review as well.
+/.github/ @alwerioghenepeace563-jpg
+/SECURITY.md @alwerioghenepeace563-jpg
+/api/ @alwerioghenepeace563-jpg
+/lib/ @alwerioghenepeace563-jpg
+/android/ @alwerioghenepeace563-jpg
