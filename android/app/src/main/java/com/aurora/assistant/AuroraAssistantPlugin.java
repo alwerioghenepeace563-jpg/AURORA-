@@ -44,6 +44,9 @@ public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
     private boolean textToSpeechReady = false;
+    private boolean textToSpeechInitializing = false;
+    private final java.util.ArrayList<PendingSpeech> pendingSpeechCalls = new java.util.ArrayList<>();
+    private static final class PendingSpeech { final String text; final PluginCall call; PendingSpeech(String text, PluginCall call) { this.text = text; this.call = call; } }
     private long speechGeneration = 0;
     private boolean isTrustedUpdateUrl(URL url) {
         if (url == null || !"https".equalsIgnoreCase(url.getProtocol())) return false;
@@ -326,48 +329,54 @@ public class AuroraAssistantPlugin extends Plugin {
     public void speakText(PluginCall call) {
         String text = call.getString("text");
         if (text == null || text.trim().isEmpty() || text.length() > 2500) {
-            call.reject("Provide text between 1 and 2500 characters for Android speech.");
-            return;
+            call.reject("Provide text between 1 and 2500 characters for Android speech."); return;
         }
         final String utterance = text.trim();
+        if (getActivity() == null) { call.reject("AURORA is not ready to speak yet."); return; }
         getActivity().runOnUiThread(() -> {
+            if (textToSpeechReady && textToSpeech != null) { speakWithAndroidTts(utterance, call); return; }
+            if (pendingSpeechCalls.size() >= 5) {
+                call.reject("AURORA's speech queue is full. Wait for the current voice to finish."); return;
+            }
+            pendingSpeechCalls.add(new PendingSpeech(utterance, call));
+            if (textToSpeechInitializing) return;
+            textToSpeechInitializing = true;
             try {
-                if (textToSpeech != null && textToSpeechReady) {
-                    speakWithAndroidTts(utterance, call);
-                    return;
-                }
-                if (textToSpeech != null) {
-                    call.reject("Android speech is still initializing. Try again in a moment.");
-                    return;
-                }
                 textToSpeech = new TextToSpeech(getContext(), status -> {
+                    textToSpeechInitializing = false;
                     if (status != TextToSpeech.SUCCESS) {
-                        textToSpeech = null;
-                        call.reject("Android text-to-speech could not initialize. Check the phone's Text-to-speech settings.");
-                        return;
+                        textToSpeechReady = false; textToSpeech = null;
+                        rejectPendingSpeech("Android text-to-speech could not initialize. Check the phone's Text-to-speech settings."); return;
                     }
                     textToSpeechReady = true;
                     int language = textToSpeech.setLanguage(java.util.Locale.UK);
                     if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        textToSpeech.setLanguage(java.util.Locale.US);
+                        language = textToSpeech.setLanguage(java.util.Locale.US);
+                    }
+                    if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        textToSpeechReady = false;
+                        rejectPendingSpeech("No supported English voice is installed. Check Android Text-to-speech settings."); return;
                     }
                     textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                        @Override public void onStart(String id) {
-                            JSObject event = new JSObject(); event.put("status", "started"); notifyListeners("ttsStatus", event);
-                        }
-                        @Override public void onDone(String id) {
-                            JSObject event = new JSObject(); event.put("status", "done"); notifyListeners("ttsStatus", event);
-                        }
-                        @Override public void onError(String id) {
-                            JSObject event = new JSObject(); event.put("status", "error"); notifyListeners("ttsStatus", event);
-                        }
+                        @Override public void onStart(String id) { JSObject event = new JSObject(); event.put("status", "started"); notifyListeners("ttsStatus", event); }
+                        @Override public void onDone(String id) { JSObject event = new JSObject(); event.put("status", "done"); notifyListeners("ttsStatus", event); }
+                        @Override public void onError(String id) { JSObject event = new JSObject(); event.put("status", "error"); notifyListeners("ttsStatus", event); }
                     });
-                    speakWithAndroidTts(utterance, call);
+                    java.util.ArrayList<PendingSpeech> queued = new java.util.ArrayList<>(pendingSpeechCalls);
+                    pendingSpeechCalls.clear();
+                    for (PendingSpeech item : queued) speakWithAndroidTts(item.text, item.call);
                 });
             } catch (Exception error) {
-                call.reject("Android text-to-speech failed: " + (error.getMessage() == null ? "unknown error" : error.getMessage()));
+                textToSpeechInitializing = false; textToSpeech = null;
+                rejectPendingSpeech("Android text-to-speech failed: " + (error.getMessage() == null ? "unknown error" : error.getMessage()));
             }
         });
+    }
+
+    private void rejectPendingSpeech(String message) {
+        java.util.ArrayList<PendingSpeech> queued = new java.util.ArrayList<>(pendingSpeechCalls);
+        pendingSpeechCalls.clear();
+        for (PendingSpeech item : queued) item.call.reject(message);
     }
 
     private void speakWithAndroidTts(String text, PluginCall call) {
@@ -384,6 +393,7 @@ public class AuroraAssistantPlugin extends Plugin {
     @PluginMethod
     public void stopTextSpeech(PluginCall call) {
         try { if (textToSpeech != null) textToSpeech.stop(); } catch (Exception ignored) {}
+        rejectPendingSpeech("Speech was stopped before playback.");
         call.resolve(new JSObject().put("stopped", true));
     }
 
