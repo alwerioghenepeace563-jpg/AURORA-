@@ -47,7 +47,7 @@ const fs = require("node:fs");
     reminders: [{ title: "Pack notebook", at: "2026-11-15T09:30:00.000Z", done: false }]
   });
   assert.deepEqual(routine.map(item => item.kind),
-    ["task_focus", "event_preparation", "reminder_review"]);
+    ["task_next_step", "event_preparation", "reminder_review"]);
   assert.ok(buildAuroraDeviceInsights({
     batteryPercent: 18, charging: false, thermalStatus: 3, memoryLow: true
   }).length >= 1, "one-time device health signals should produce bounded insights");
