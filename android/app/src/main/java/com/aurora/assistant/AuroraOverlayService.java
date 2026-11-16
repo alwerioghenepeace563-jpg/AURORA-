@@ -102,7 +102,13 @@ public class AuroraOverlayService extends Service {
 
     private void showOverlay(boolean autoListen) {
         if (attached && orbAttached && panelAttached && orbView != null && panelView != null) {
-            reportOverlayStatus(true, "AURORA Pulse is already running.");
+            if (autoListen) {
+                panelView.setVisibility(View.VISIBLE);
+                panelView.postDelayed(() -> {
+                    if (panelView != null) panelView.evaluateJavascript("startPulseConversationFromWake()", null);
+                }, 250);
+            }
+            reportOverlayStatus(true, autoListen ? "Wake phrase detected; resuming Pulse voice conversation." : "AURORA Pulse is already running.");
             return;
         }
         // Remove a partial/stale attachment before rebuilding both overlay windows.
