@@ -127,7 +127,7 @@ assert.match(manifest,/android\.permission\.NFC/);
 assert.match(manifest,/android\.hardware\.nfc[^>]+android:required="false"/);
 assert.match(manifest,/foregroundServiceType="mediaProjection"/);
 
-assert.match(session,/!session\.replyTtsReady/);
+assert.match(session,/session\.replyTtsReady && session\.replyTts != null/);
 assert.match(session,/session\.replyTts == null/);
 assert.match(session,/new Handler\(Looper\.getMainLooper\(\)\)\.post\(\(\) -> \{/);
 assert.match(session,/if \(result == TextToSpeech\.ERROR\)[\s\S]*return false/);
