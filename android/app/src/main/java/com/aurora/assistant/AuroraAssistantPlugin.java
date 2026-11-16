@@ -84,8 +84,8 @@ public class AuroraAssistantPlugin extends Plugin {
             call.reject("Provide an assistant reply between 1 and 5000 characters.");
             return;
         }
-        boolean delivered = AuroraVoiceInteractionSession.speakAssistantReply(text);
-        call.resolve(new JSObject().put("delivered", delivered));
+        AuroraVoiceInteractionSession.speakAssistantReply(text,
+            delivered -> call.resolve(new JSObject().put("delivered", delivered)));
     }
 
     @PluginMethod
