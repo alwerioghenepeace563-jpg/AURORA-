@@ -101,7 +101,7 @@
                 <action android:name="android.service.voice.VoiceInteractionSessionService" />
             </intent-filter>
         </service>
-            <service android:name=".AuroraOverlayService" android:exported="false" />
+            <service android:name=".AuroraOverlayService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />
         <service
             android:name=".AuroraNotificationListenerService"
             android:label="AURORA Notification Intelligence"
