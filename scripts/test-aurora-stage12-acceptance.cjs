@@ -21,7 +21,7 @@ const fs = require("node:fs");
     consent: true,
     samplingIntervalMs: 5000
   });
-  assert.equal(predictive.recordSignal("motion", 1).accepted, true);
+  assert.equal(predictive.recordSignal("stage12-motion", 1).accepted, true);
   assert.equal(predictive.suggest({
     id: "stage12-study",
     title: "Review your study plan",
