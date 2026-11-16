@@ -54,7 +54,7 @@ const styles = fs.readFileSync("src/styles.css", "utf8");
   assert.ok(app.includes("startBargeInDetection"));
   assert.ok(app.includes("visibilitychange"));
   assert.ok(app.includes("AURORA was interrupted and is ready"));
-  assert.ok(app.includes("speechPartialResult"));
+  assert.ok(app.includes("addSpeechPartialResultListener"));
   assert.ok(app.includes("650"));
   assert.ok(app.includes("setSpokenCaption"));
   assert.ok(app.includes("isLikelySpeechEcho"));
