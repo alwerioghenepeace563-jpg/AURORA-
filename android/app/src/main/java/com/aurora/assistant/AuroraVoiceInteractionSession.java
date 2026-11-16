@@ -57,17 +57,25 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
         });
     }
 
-    /** Delivers an app-generated answer to the currently active Android assistant session. */
-    public static boolean speakAssistantReply(String text) {
-        AuroraVoiceInteractionSession session = activeSession.get();
-        if (session == null || session.sessionDestroyed || !session.replyTtsReady ||
-            session.replyTts == null || text == null || text.trim().isEmpty()) return false;
-        String reply = text.trim();
-        if (Looper.myLooper() == Looper.getMainLooper()) return session.speakReply(reply);
+    interface SpeechHandoffCallback {
+        void onResult(boolean delivered);
+    }
+
+    /** Delivers an app-generated answer and reports the real TTS start result on the main thread. */
+    public static void speakAssistantReply(String text, SpeechHandoffCallback callback) {
+        if (callback == null) return;
+        String reply = text == null ? "" : text.trim();
+        if (reply.isEmpty()) {
+            callback.onResult(false);
+            return;
+        }
         new Handler(Looper.getMainLooper()).post(() -> {
-            if (!session.sessionDestroyed) session.speakReply(reply);
+            AuroraVoiceInteractionSession session = activeSession.get();
+            boolean delivered = session != null && !session.sessionDestroyed
+                && session.replyTtsReady && session.replyTts != null
+                && session.speakReply(reply);
+            callback.onResult(delivered);
         });
-        return true;
     }
 
     private boolean speakReply(String text) {
