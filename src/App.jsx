@@ -417,7 +417,13 @@ export default function App() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [pulseOpen, setPulseOpen] = useState(false);
   const [pulseDraft, setPulseDraft] = useState("");
-  const [pulseMessages, setPulseMessages] = useState([{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }]);
+  const [pulseMessages, setPulseMessages] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("aurora-pulse-session") || "[]");
+      const valid = Array.isArray(saved) ? saved.filter(message => message && ["user", "assistant"].includes(message.role) && typeof message.content === "string" && message.content.trim()).slice(-40) : [];
+      return valid.length ? valid : [{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }];
+    } catch { return [{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }]; }
+  });
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
   const pulseRecognitionRef = useRef(null);
@@ -433,6 +439,21 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
+  useEffect(() => {
+    try { localStorage.setItem("aurora-pulse-session", JSON.stringify(pulseMessages.slice(-40))); } catch {}
+  }, [pulseMessages]);
+  useEffect(() => {
+    const refreshPulseSession = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("aurora-pulse-session") || "[]");
+        if (!Array.isArray(saved)) return;
+        const valid = saved.filter(message => message && ["user", "assistant"].includes(message.role) && typeof message.content === "string" && message.content.trim()).slice(-40);
+        if (valid.length) setPulseMessages(valid);
+      } catch {}
+    };
+    window.addEventListener("focus", refreshPulseSession);
+    return () => window.removeEventListener("focus", refreshPulseSession);
+  }, []);
   async function loadPulseWeather(city = pulseWeatherCity) {
     const chosen = String(city || "").trim();
     if (!chosen) return;
