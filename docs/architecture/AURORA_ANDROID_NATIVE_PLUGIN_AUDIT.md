@@ -116,3 +116,11 @@ When a transcript is captured from the Android VoiceInteractionSession, AURORA s
 - The Image is always closed in the same finally block, even when decoding or PNG writing fails.
 - A missing pixel plane, invalid stride/buffer, failed PNG encoding, or empty output is treated as a capture failure with a clear error state.
 - Partial output is deleted on failure and the capture flags are reset so the UI cannot mistake a failed write for a valid image.
+
+
+### Assistant-session TTS fallback reliability
+
+- The active-session handoff now reports unavailable when Android TextToSpeech has not initialized, has failed initialization, or returns an immediate speech error. This lets the app use its existing voice fallback instead of treating an unstarted utterance as successful.
+- When invoked on Android's main thread, the handoff returns the actual immediate TTS start result. Calls from other threads are marshalled to the main thread after readiness has been confirmed.
+- Removed the pending-session queue because it could report success before the Android TTS engine was ready and prevent the app fallback from speaking. The assistant-session reply remains capped at 5,000 characters and is shut down with the session.
+- Static regression assertions cover readiness gating, initialization failure, immediate TTS failure and removal of premature queue success. Device audio-focus and OEM lifecycle testing remain outstanding.
