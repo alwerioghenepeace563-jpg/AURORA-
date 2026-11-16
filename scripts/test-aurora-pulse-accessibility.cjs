@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const app = fs.readFileSync("src/App.jsx", "utf8");
+const styles = fs.readFileSync("src/styles.css", "utf8");
 assert.match(app, /pulsePanelRef = useRef\(null\)/);
 assert.match(app, /if \(!pulseOpen\)[\s\S]*?cleanupPulseSpeech\(\)/);
 assert.match(app, /document\.addEventListener\("keydown", onKeyDown\)/);
@@ -10,5 +11,5 @@ assert.match(app, /document\.addEventListener\("visibilitychange", onVisibility\
 assert.match(app, /document\.visibilityState === "hidden"/);
 assert.match(app, /ref=\{pulsePanelRef\} tabIndex=\{-1\} className="aurora-pulse-panel"/);
 assert.match(app, /aria-live="polite" aria-relevant="additions text"/);
-assert.match(app, /prefers-reduced-motion: reduce/);
+assert.match(styles, /prefers-reduced-motion:reduce/);
 console.log("AURORA Pulse accessibility and lifecycle source checks passed.");
