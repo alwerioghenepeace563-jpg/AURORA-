@@ -37,7 +37,7 @@ assert.match(voiceSession, /startAssistantActivity\(intent\)/);
 assert.match(voiceSession, /putBoolean\("pulse_open_requested", true\)/);
 assert.doesNotMatch(voiceSession, /context\.startActivity\(intent\)/);
 assert.match(mainActivity, /Intent\.ACTION_ASSIST/);
-assert.match(mainActivity, /protected void onNewIntent\(Intent intent\)/);
+assert.match(mainActivity, /public void onNewIntent(Intent intent)/);
 assert.match(mainActivity, /persistAssistantLaunch\(intent\)/);
 assert.match(bootstrap, /startAssistantActivity/);
 assert.match(bootstrap, /onNewIntent\(Intent intent\)/);
