@@ -15,7 +15,8 @@ assert.match(service, /orbAttached/, "orb attachment must be tracked independent
 assert.match(service, /panelAttached/, "panel attachment must be tracked independently");
 assert.match(service, /pulse_overlay_shown/, "overlay attachment state must be persisted for status reads");
 assert.match(service, /reportOverlayStatus\(false, "AURORA Pulse is closed\."/);
-assert.match(service, /removeOverlay\(\);\s*reportOverlayStatus\(false, "AURORA Pulse service stopped\."/);
+assert.match(service, /removeOverlay\(\);[\s\S]*?reportOverlayStatus\(false, "AURORA Pulse service stopped\."/);
+assert.match(service, /stopPulseSpeech\(\);\s*removeOverlay\(\);/, "service destruction must stop microphone capture before removing the overlay");
 assert.match(service, /if \(attached && orbAttached && panelAttached && orbView != null && panelView != null\)/,
   "only a complete orb+panel pair may be treated as already running");
 console.log("AURORA Pulse native bridge contract checks passed.");
