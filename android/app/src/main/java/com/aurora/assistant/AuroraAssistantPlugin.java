@@ -355,6 +355,8 @@ public class AuroraAssistantPlugin extends Plugin {
                     }
                     if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
                         textToSpeechReady = false;
+                        try { textToSpeech.shutdown(); } catch (Exception ignored) {}
+                        textToSpeech = null;
                         rejectPendingSpeech("No supported English voice is installed. Check Android Text-to-speech settings."); return;
                     }
                     textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
