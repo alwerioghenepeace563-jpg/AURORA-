@@ -51,6 +51,8 @@ assert.match(chatApi, /GEMINI_API_KEY/);
 assert.match(voiceApi, /ELEVENLABS_API_KEY/);
 assert.match(voiceApi, /EMPTY_AUDIO_RESPONSE/);
 assert.match(app, /requestDefaultAssistant/);
+assert.match(app, /AuroraNative\.hasOverlayPermission\(\)/);
+assert.match(app, /AuroraNative\.requestOverlayPermission\(\)/);
 assert.match(app, /Set as default assistant/);
 assert.match(bootstrap, /"startAssistantService"/);
 assert.match(bootstrap, /requiredNativeMethods/);
