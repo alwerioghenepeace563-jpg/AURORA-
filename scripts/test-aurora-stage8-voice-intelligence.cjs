@@ -37,6 +37,8 @@ const styles = fs.readFileSync("src/styles.css", "utf8");
   assert.equal(voice.resolveVoiceFollowUp("go back to the second point", { lastAnswer: "First point. Second point." }).type, "return_to_point");
   assert.equal(voice.resolveVoiceFollowUp("what about the other option", { lastAnswer: "Option one is fast. Option two is more flexible." }).type, "return_to_option");
   assert.equal(voice.resolveVoiceFollowUp("what about the second option", { lastAnswer: "Option one is fast. Option two is more flexible." }).type, "return_to_option");
+  assert.equal(voice.resolveVoiceFollowUp("tell me about the first option", { lastAnswer: "Option one is fast. Option two is more flexible." }).type, "return_to_option");
+  assert.equal(voice.resolveVoiceFollowUp("explain the last option", { lastAnswer: "Option one is fast. Option two is more flexible." }).type, "return_to_option");
   assert.ok(voice.applySpeechPace(voice.inferSpeechDelivery("A normal answer."), "slower").rate < voice.inferSpeechDelivery("A normal answer.").rate);
   assert.ok(app.includes("resolveVoiceFollowUp"));
   assert.ok(app.includes("aurora-speech-pace"));
