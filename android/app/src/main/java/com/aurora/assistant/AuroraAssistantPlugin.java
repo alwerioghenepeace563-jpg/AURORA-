@@ -1,6 +1,7 @@
 package com.aurora.assistant;
 
 import android.Manifest;
+import android.app.role.RoleManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -33,6 +34,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.PermissionState;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
@@ -42,6 +44,7 @@ public class AuroraAssistantPlugin extends Plugin {
     private SpeechRecognizer speechRecognizer;
     private TextToSpeech textToSpeech;
     private boolean textToSpeechReady = false;
+    private long speechGeneration = 0;
     private boolean isTrustedUpdateUrl(URL url) {
         if (url == null || !"https".equalsIgnoreCase(url.getProtocol())) return false;
         String host = url.getHost().toLowerCase(java.util.Locale.ROOT);
@@ -243,57 +246,78 @@ public class AuroraAssistantPlugin extends Plugin {
     @PluginMethod
     public void startSpeechRecognition(PluginCall call) {
         if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            call.reject("Grant microphone permission first.");
-            return;
+            call.reject("Grant microphone permission first."); return;
+        }
+        if (getActivity() == null || getActivity().isFinishing()) {
+            call.reject("AURORA must be open to start a voice conversation."); return;
         }
         getActivity().runOnUiThread(() -> {
+            cleanupSpeechRecognizer();
+            final long generation = ++speechGeneration;
             try {
                 if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
-                    call.reject("Android speech recognition is unavailable. Install or enable a speech recognition service, then try again.");
-                    return;
+                    call.reject("Android speech recognition is unavailable. Enable a speech recognition service in Android Settings, then try again."); return;
                 }
-                if (speechRecognizer != null) {
-                    speechRecognizer.destroy();
-                    speechRecognizer = null;
+                if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(getContext())) {
+                    speechRecognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(getContext());
+                } else {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
                 }
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
-                speechRecognizer.setRecognitionListener(new RecognitionListener() {
-                    @Override public void onReadyForSpeech(Bundle params) { notifyListeners("speechStatus", speechPayload("status", "listening")); }
-                    @Override public void onBeginningOfSpeech() {}
+                final SpeechRecognizer activeRecognizer = speechRecognizer;
+                activeRecognizer.setRecognitionListener(new RecognitionListener() {
+                    private boolean isCurrent() { return speechRecognizer == activeRecognizer && speechGeneration == generation; }
+                    @Override public void onReadyForSpeech(Bundle params) { if (isCurrent()) notifyListeners("speechStatus", speechPayload("status", "listening")); }
+                    @Override public void onBeginningOfSpeech() { if (isCurrent()) notifyListeners("speechStatus", speechPayload("status", "hearing")); }
                     @Override public void onRmsChanged(float rmsdB) {}
                     @Override public void onBufferReceived(byte[] buffer) {}
-                    @Override public void onEndOfSpeech() { notifyListeners("speechStatus", speechPayload("status", "processing")); }
+                    @Override public void onEndOfSpeech() { if (isCurrent()) notifyListeners("speechStatus", speechPayload("status", "processing")); }
                     @Override public void onError(int error) {
-                        JSObject errorEvent = new JSObject(); errorEvent.put("code", error); errorEvent.put("message", speechErrorMessage(error)); notifyListeners("speechError", errorEvent);
-                        cleanupSpeechRecognizer();
+                        if (!isCurrent()) return;
+                        JSObject event = new JSObject(); event.put("code", error); event.put("message", speechErrorMessage(error));
+                        notifyListeners("speechError", event);
+                        notifyListeners("speechStatus", speechPayload("status", "idle"));
+                        cleanupSpeechRecognizer(activeRecognizer);
                     }
                     @Override public void onResults(Bundle results) {
+                        if (!isCurrent()) return;
                         java.util.ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                         String transcript = matches == null || matches.isEmpty() ? "" : matches.get(0);
                         notifyListeners("speechResult", speechPayload("transcript", transcript));
-                        cleanupSpeechRecognizer();
+                        notifyListeners("speechStatus", speechPayload("status", "idle"));
+                        cleanupSpeechRecognizer(activeRecognizer);
                     }
-                    @Override public void onPartialResults(Bundle partialResults) {}
+                    @Override public void onPartialResults(Bundle partialResults) {
+                        if (!isCurrent()) return;
+                        java.util.ArrayList<String> matches = partialResults == null ? null : partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        if (matches != null && !matches.isEmpty()) notifyListeners("speechPartialResult", speechPayload("transcript", matches.get(0)));
+                    }
                     @Override public void onEvent(int eventType, Bundle params) {}
                 });
                 Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-GB");
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-GB");
-                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-                speechRecognizer.startListening(intent);
+                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getContext().getPackageName());
+                intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+                intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L);
+                activeRecognizer.startListening(intent);
                 call.resolve(speechPayload("started", true));
-            } catch (Exception e) {
+            } catch (Exception error) {
                 cleanupSpeechRecognizer();
-                call.reject("Could not start Android speech recognition: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
+                call.reject("Could not start Android speech recognition: " + (error.getMessage() == null ? "unknown error" : error.getMessage()));
             }
         });
     }
 
     @PluginMethod
     public void stopSpeechRecognition(PluginCall call) {
+        if (getActivity() == null) {
+            cleanupSpeechRecognizer(); call.resolve(speechPayload("stopped", true)); return;
+        }
         getActivity().runOnUiThread(() -> {
             cleanupSpeechRecognizer();
+            notifyListeners("speechStatus", speechPayload("status", "idle"));
             call.resolve(speechPayload("stopped", true));
         });
     }
@@ -364,11 +388,20 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     private void cleanupSpeechRecognizer() {
-        if (speechRecognizer != null) {
-            try { speechRecognizer.cancel(); } catch (Exception ignored) {}
-            try { speechRecognizer.destroy(); } catch (Exception ignored) {}
-            speechRecognizer = null;
+        SpeechRecognizer current = speechRecognizer;
+        speechRecognizer = null;
+        speechGeneration++;
+        if (current != null) {
+            try { current.cancel(); } catch (Exception ignored) {}
+            try { current.destroy(); } catch (Exception ignored) {}
         }
+    }
+
+    private void cleanupSpeechRecognizer(SpeechRecognizer expected) {
+        if (expected == null) return;
+        if (speechRecognizer == expected) { speechRecognizer = null; speechGeneration++; }
+        try { expected.cancel(); } catch (Exception ignored) {}
+        try { expected.destroy(); } catch (Exception ignored) {}
     }
 
     private JSObject speechPayload(String key, Object value) {
