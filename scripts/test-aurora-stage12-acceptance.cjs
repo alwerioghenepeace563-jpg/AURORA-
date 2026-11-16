@@ -27,7 +27,7 @@ const fs = require("node:fs");
     title: "Review your study plan",
     reason: "A suitable study window may be available.",
     sourceIds: ["stage12-motion"]
-  }).status, "suggested");
+  }).status, "pending");
   assert.equal(predictive.listSuggestions().length, 1,
     "predictive output must remain a suggestion, not an executed action");
 
