@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 public class AuroraOverlayService extends Service {
     public static final String ACTION_SHOW = "com.aurora.assistant.OVERLAY_SHOW";
     public static final String ACTION_HIDE = "com.aurora.assistant.OVERLAY_HIDE";
+    public static final String EXTRA_AUTO_LISTEN = "com.aurora.assistant.AUTO_LISTEN";
 
     private WindowManager windowManager;
     private WebView orbView;
@@ -82,7 +83,8 @@ public class AuroraOverlayService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        showOverlay();
+        boolean autoListen = intent != null && intent.getBooleanExtra(EXTRA_AUTO_LISTEN, false);
+        showOverlay(autoListen);
         return START_NOT_STICKY;
     }
 
@@ -98,7 +100,7 @@ public class AuroraOverlayService extends Service {
         sendBroadcast(status);
     }
 
-    private void showOverlay() {
+    private void showOverlay(boolean autoListen) {
         if (attached && orbAttached && panelAttached && orbView != null && panelView != null) {
             reportOverlayStatus(true, "AURORA Pulse is already running.");
             return;
@@ -144,7 +146,13 @@ public class AuroraOverlayService extends Service {
             panelAttached = true;
             panelView.setVisibility(View.GONE);
             attached = true;
-            reportOverlayStatus(true, "AURORA Pulse orb attached; glass chat and tools open on demand.");
+            reportOverlayStatus(true, autoListen ? "Wake phrase detected; opening Pulse voice conversation." : "AURORA Pulse orb attached; glass chat and tools open on demand.");
+            if (autoListen) {
+                panelView.setVisibility(View.VISIBLE);
+                panelView.postDelayed(() -> {
+                    if (panelView != null) panelView.evaluateJavascript("startPulseConversationFromWake()", null);
+                }, 700);
+            }
         } catch (Exception error) {
             android.util.Log.e("AURORAOverlay", "Failed to display AURORA Pulse.", error);
             reportOverlayStatus(false, "Android could not display AURORA Pulse: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage()));
@@ -153,6 +161,7 @@ public class AuroraOverlayService extends Service {
     }
 
     private void removeOverlay() {
+        stopPulseSpeech();
         if (windowManager != null) {
             if (panelView != null && panelAttached) {
                 try { windowManager.removeView(panelView); } catch (Exception ignored) {}
