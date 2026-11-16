@@ -1,6 +1,11 @@
 package com.aurora.assistant;
 
 import android.app.Service;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.pm.ServiceInfo;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -36,6 +41,8 @@ public class AuroraOverlayService extends Service {
     public static final String ACTION_SHOW = "com.aurora.assistant.OVERLAY_SHOW";
     public static final String ACTION_HIDE = "com.aurora.assistant.OVERLAY_HIDE";
     public static final String EXTRA_AUTO_LISTEN = "com.aurora.assistant.AUTO_LISTEN";
+    private static final String PULSE_CHANNEL_ID = "aurora_pulse_voice";
+    private static final int PULSE_NOTIFICATION_ID = 7402;
 
     private WindowManager windowManager;
     private WebView orbView;
@@ -84,8 +91,31 @@ public class AuroraOverlayService extends Service {
             return START_NOT_STICKY;
         }
         boolean autoListen = intent != null && intent.getBooleanExtra(EXTRA_AUTO_LISTEN, false);
+        if (autoListen) startPulseForeground();
         showOverlay(autoListen);
         return START_NOT_STICKY;
+    }
+
+    private void startPulseForeground() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(new NotificationChannel(
+                PULSE_CHANNEL_ID, "AURORA Pulse voice conversation", NotificationManager.IMPORTANCE_LOW));
+        }
+        Intent stop = new Intent(this, AuroraOverlayService.class);
+        stop.setAction(ACTION_HIDE);
+        PendingIntent stopIntent = PendingIntent.getService(this, 7402, stop,
+            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+            ? new Notification.Builder(this, PULSE_CHANNEL_ID) : new Notification.Builder(this);
+        builder.setContentTitle("AURORA Pulse is listening")
+            .setContentText("Voice conversation active · Stop to end")
+            .setSmallIcon(getApplicationInfo().icon).setOngoing(true)
+            .addAction(android.R.drawable.ic_media_pause, "Stop conversation", stopIntent);
+        Notification notification = builder.build();
+        if (Build.VERSION.SDK_INT >= 29)
+            startForeground(PULSE_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        else startForeground(PULSE_NOTIFICATION_ID, notification);
     }
 
     private void reportOverlayStatus(boolean shown, String note) {
@@ -449,6 +479,7 @@ public class AuroraOverlayService extends Service {
     public void onDestroy() {
         stopPulseSpeech();
         removeOverlay();
+        stopForeground(true);
         reportOverlayStatus(false, "AURORA Pulse service stopped.");
         super.onDestroy();
     }
