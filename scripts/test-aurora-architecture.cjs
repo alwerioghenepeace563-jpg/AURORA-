@@ -109,7 +109,7 @@ const path = require("node:path");
   assert.ok(pluginSource.includes("CameraManager"), "Flashlight control must use Android CameraManager.");
   assert.ok(pluginSource.includes("requestPermissionForAlias(\"camera\""), "Flashlight control must request camera permission before activation.");
   assert.ok(pluginSource.includes("BatteryManager.EXTRA_LEVEL"), "Device status must include battery information.");
-  assert.ok(nativeSource.includes("speakText(options: { text: string })"), "Android speech synthesis must be exposed through the typed native bridge.");
+  assert.ok(nativeSource.includes("speakText(options: { text: string; rate?: number; pitch?: number })"), "Android speech synthesis with optional rate and pitch controls must be exposed through the typed native bridge.");
   assert.ok(nativeSource.includes('addListener("ttsStatus", callback)'), "Android speech synthesis completion events must be observable by the app.");
   assert.ok(pluginSource.includes("TextToSpeech.QUEUE_FLUSH"), "Android speech fallback must replace stale queued speech.");
   assert.ok(pluginSource.includes("UtteranceProgressListener"), "Android speech fallback must report completion and errors.");
