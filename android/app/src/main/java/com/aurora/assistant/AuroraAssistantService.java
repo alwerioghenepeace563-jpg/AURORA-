@@ -172,7 +172,7 @@ public class AuroraAssistantService extends Service {
                     pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
                     // Start the overlay while this microphone foreground service still
                     // provides Android's foreground-start exemption.
-                    startService(pulse);
+                    androidx.core.content.ContextCompat.startForegroundService(this, pulse);
                 } catch (Exception launchError) {
                     android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to Pulse.", launchError);
                     getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
