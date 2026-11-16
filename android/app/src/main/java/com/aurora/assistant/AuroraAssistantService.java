@@ -171,8 +171,7 @@ public class AuroraAssistantService extends Service {
                     Intent pulse = new Intent(this, AuroraOverlayService.class);
                     pulse.setAction(AuroraOverlayService.ACTION_SHOW);
                     pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(pulse);
-                    else startService(pulse);
+                    startService(pulse);
                 } catch (Exception launchError) {
                     android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to Pulse.", launchError);
                     getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
