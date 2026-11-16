@@ -645,7 +645,7 @@ if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);
     !verifiedMainActivity.includes("ACTION_OPEN_PULSE") ||
     !verifiedMainActivity.includes("persistAssistantLaunch(getIntent())") ||
     !verifiedMainActivity.includes("public void onNewIntent(Intent intent)") ||
-    !verifiedMainActivity.includes("startAssistantActivity") && !verifiedMainActivity.includes("Intent.ACTION_ASSIST.equals(action)") ||
+    !verifiedMainActivity.includes("Intent.ACTION_ASSIST.equals(action)") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
