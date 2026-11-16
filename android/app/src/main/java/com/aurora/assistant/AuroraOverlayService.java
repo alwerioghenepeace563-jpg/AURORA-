@@ -176,7 +176,6 @@ public class AuroraOverlayService extends Service {
             try { pulseSpeechRecognizer.destroy(); } catch (Exception ignored) {}
             pulseSpeechRecognizer = null;
         }
-        if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Voice input stopped.')", null));
     }
 
     private String startPulseSpeech() {
@@ -186,8 +185,9 @@ public class AuroraOverlayService extends Service {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             return result(false, "Android speech recognition is not available on this phone.", "");
         }
-        stopPulseSpeech();
-        try {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+          stopPulseSpeech();
+          try {
             pulseSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
             pulseSpeechActive = true;
             pulseSpeechRecognizer.setRecognitionListener(new RecognitionListener() {
@@ -219,11 +219,13 @@ public class AuroraOverlayService extends Service {
             request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
             request.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
             pulseSpeechRecognizer.startListening(request);
-            return result(true, "Listening. Speak now.", "");
-        } catch (Exception error) {
+          } catch (Exception error) {
+            pulseSpeechActive = false;
             stopPulseSpeechRecognizerOnly();
-            return result(false, "Android could not start speech recognition. Check microphone permission and try again.", "");
-        }
+            if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Android could not start speech recognition. Check microphone permission and try again.')", null));
+          }
+        });
+        return result(true, "Listening. Speak now.", "");
     }
 
     private void stopPulseSpeechRecognizerOnly() {
