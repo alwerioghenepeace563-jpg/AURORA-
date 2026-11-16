@@ -49,3 +49,34 @@
 - Build the APK with the existing signing configuration; do not replace or bypass the signing certificate check.
 - On a supported Android device, verify microphone permission, one-shot voice input, spoken fallback, wake listener start/stop, recognition-provider recovery, notification hand-off, and Android default-assistant role selection.
 - Do not claim physical-device verification until those steps are actually performed.
+
+## Wider application and AI-engine audit
+
+### AI provider routing
+
+- `api/chat.js` reads the Groq, OpenRouter and Gemini server-side keys and attempts configured providers in a fallback sequence. It can also choose a preferred provider when that provider is configured. Image/PDF requests have provider-specific routing constraints.
+- `api/voice.js` uses the ElevenLabs text-to-speech API and configured voice IDs. The app's spoken-output path falls back to Android TextToSpeech and then browser speech synthesis when hosted audio cannot be used.
+- Provider credentials are environment secrets, not source files. This audit confirms the code paths and variable names, not whether the current Vercel environment variables are valid, funded, or reachable.
+- The backend returns provider-specific error codes for invalid credentials, access restrictions, missing voices, empty audio, timeouts and network failures. Those diagnostics should be retained rather than hidden behind a generic voice error.
+
+### Shared runtime and Android capability boundary
+
+- `src/core/aurora-runtime.js` is the shared entry point for chat, Pulse and voice routing. It connects the surface gateway to the shared Action Engine and the capability registry.
+- `src/core/aurora-action-engine.js` validates registered capability definitions and centralizes execution, availability, risk and approval checks.
+- Multi-step plans are preview-first and require explicit user confirmation; model output cannot invent arbitrary capability IDs or package names.
+- Android capabilities are implemented in the native Capacitor plugin and are exposed through the web/native bridge. The app keeps sensitive permissions user-granted and action-specific.
+- The Android secure-storage plugin uses Android Keystore-backed AES-GCM storage for authentication/session secrets. The existing APK updater checks the candidate APK's signing certificate against the installed app before installation; this audit did not change or bypass that check.
+
+### CI and release boundaries
+
+- The repository's Android compile workflow is compile-only: it assembles a debug APK, verifies the archive and uploads a temporary artifact. It does not publish an update or use the release signing key.
+- The release workflow is separately gated to the default branch and checks the established signing certificate before any update publication.
+- Pull-request verification workflows have been enabled for the active assistant foundation branch so source tests, web build, Android parity and debug compilation can be checked without publishing an APK.
+- A Vercel preview status is separate from Android compilation and does not prove native Android behaviour.
+
+### Current limitations not silently marked complete
+
+- No source audit can verify the current provider secrets, remote service quotas, phone-installed speech engine, installed TTS voices, OEM battery policy, or default-assistant chooser behaviour.
+- AURORA's wake phrase still depends on Android SpeechRecognizer. A dedicated low-power hotword DSP engine and uninterrupted offline wake detection are not implemented by this repair.
+- The user must choose AURORA in Android's system role prompt; the app cannot silently make itself the default assistant.
+- Physical device testing remains a required release gate.
