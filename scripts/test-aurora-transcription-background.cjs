@@ -59,7 +59,7 @@ assert.match(workspace, /queueNativeRecording\(/);
 assert.match(workspace, /stageNativeRecordingPart\(/);
 assert.match(workspace, /nativeBackground/);
 assert.match(workspace, /Refreshing secure sign-in/);
-assert.match(workspace, /queueNativeRecording\\(\\{requestId:job\\.requestId/);
+assert.match(workspace, /queueNativeRecording\(\{requestId:job\.requestId/);
 assert.match(workspace, /getTranscriptionWorkStatus/);
 assert.match(workspace, /action:\"create\"/);
 assert.match(workspace, /action:\"process\"/);
