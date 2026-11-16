@@ -1,7 +1,15 @@
 name: AURORA Android Compile Verification
 
 on:
-  # Run manually during the later APK/release-preparation phase.
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'android/**'
+      - 'scripts/**'
+      - 'package.json'
+      - '.github/workflows/**'
+  # APK compilation is compile-only on pull requests; publishing remains manual.
   workflow_dispatch:
 
 permissions:

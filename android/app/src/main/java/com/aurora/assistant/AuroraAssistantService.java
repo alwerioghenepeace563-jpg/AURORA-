@@ -21,9 +21,10 @@ import java.util.Locale;
 
 /**
  * Explicitly enabled, user-visible wake-phrase listener.
- * This uses Android's configured speech-recognition provider; it is not a
- * low-power DSP hotword engine. The user can stop it from the persistent
- * notification or from AURORA's controls. It never auto-restarts after process death.
+ * Android's speech provider is used in short sessions with bounded retries.
+ * The persistent notification exposes microphone state and a Stop action.
+ * A wake phrase hands off to the Pulse overlay while this visible microphone
+ * foreground service is active, then Pulse owns the conversational microphone.
  */
 public class AuroraAssistantService extends Service {
     public static final String ACTION_START = "com.aurora.assistant.START";
@@ -35,14 +36,14 @@ public class AuroraAssistantService extends Service {
     private SpeechRecognizer recognizer;
     private boolean stopping = false;
     private boolean wakeDetected = false;
+    private boolean restartPending = false;
+    private int retryDelayMs = 1500;
 
     @Override
     public void onCreate() {
         super.onCreate();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "AURORA Assistant", NotificationManager.IMPORTANCE_LOW
-            );
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "AURORA Assistant", NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("Visible microphone status for the user-enabled Hey AURORA listener.");
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) manager.createNotificationChannel(channel);
@@ -58,25 +59,20 @@ public class AuroraAssistantService extends Service {
         }
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            stopSelf();
-            return START_NOT_STICKY;
+            stopSelf(); return START_NOT_STICKY;
         }
-        if (Build.VERSION.SDK_INT >= 33
-            && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            stopSelf();
-            return START_NOT_STICKY;
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            stopSelf(); return START_NOT_STICKY;
         }
 
-        Notification notification = buildNotification("Microphone active · Android speech recognition · tap Stop to end");
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
+        Notification notification = buildNotification("Starting microphone · say Hey AURORA · tap Stop to end");
+        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+        else startForeground(NOTIFICATION_ID, notification);
         stopping = false;
         wakeDetected = false;
-        getSharedPreferences("aurora_assistant", MODE_PRIVATE)
-            .edit().putBoolean("wake_word_listening", true).apply();
+        retryDelayMs = 1500;
+        getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
+            .putBoolean("wake_word_listening", false).putBoolean("wake_detected", false).apply();
         handler.removeCallbacksAndMessages(null);
         handler.post(this::listen);
         return START_NOT_STICKY;
@@ -84,61 +80,75 @@ public class AuroraAssistantService extends Service {
 
     private Notification buildNotification(String text) {
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        PendingIntent openIntent = launch == null ? null : PendingIntent.getActivity(
-            this, 0, launch,
-            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0)
-        );
+        PendingIntent openIntent = launch == null ? null : PendingIntent.getActivity(this, 0, launch,
+            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
         Intent stop = new Intent(this, AuroraAssistantService.class);
         stop.setAction(ACTION_STOP);
-        PendingIntent stopIntent = PendingIntent.getService(
-            this, 1, stop,
-            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0)
-        );
+        PendingIntent stopIntent = PendingIntent.getService(this, 1, stop,
+            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        boolean wakeNotice = text.startsWith("Wake phrase heard");
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
             ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
-        builder.setContentTitle("AURORA · Hey AURORA")
-            .setContentText(text)
-            .setSmallIcon(getApplicationInfo().icon)
-            .setOngoing(true)
-            .addAction(android.R.drawable.ic_media_pause, "Stop listening", stopIntent);
+        builder.setContentTitle("AURORA · Hey AURORA").setContentText(text)
+            .setSmallIcon(getApplicationInfo().icon).setOngoing(!wakeNotice);
         if (openIntent != null) builder.setContentIntent(openIntent);
+        if (!wakeNotice) builder.addAction(android.R.drawable.ic_media_pause, "Stop listening", stopIntent);
         return builder.build();
     }
 
     private void listen() {
+        restartPending = false;
         if (stopping || wakeDetected) return;
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            updateNotification("Speech recognition unavailable · tap Stop to end");
-            handler.postDelayed(this::listen, 5000);
-            return;
+            setListeningState(false);
+            updateNotification("Speech recognition unavailable · check Android speech services");
+            scheduleListen(5000); return;
         }
+        releaseRecognizer(true);
         try {
-            if (recognizer != null) {
-                recognizer.destroy();
-                recognizer = null;
-            }
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
-            recognizer.setRecognitionListener(new RecognitionListener() {
-                public void onReadyForSpeech(Bundle bundle) {}
-                public void onBeginningOfSpeech() {}
-                public void onRmsChanged(float rms) {}
-                public void onBufferReceived(byte[] buffer) {}
-                public void onEndOfSpeech() {}
-                public void onError(int error) {
-                    if (!stopping && !wakeDetected) handler.postDelayed(AuroraAssistantService.this::listen, 1500);
+            if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this))
+                recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
+            else recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            final SpeechRecognizer active = recognizer;
+            active.setRecognitionListener(new RecognitionListener() {
+                private boolean isCurrent() { return recognizer == active && !stopping && !wakeDetected; }
+                @Override public void onReadyForSpeech(Bundle params) {
+                    if (!isCurrent()) return;
+                    retryDelayMs = 1500;
+                    setListeningState(true);
+                    updateNotification("Listening for Hey AURORA · tap Stop to end");
                 }
-                public void onResults(Bundle bundle) { checkForWakePhrase(bundle, true); }
-                public void onPartialResults(Bundle bundle) { checkForWakePhrase(bundle, false); }
-                public void onEvent(int eventType, Bundle params) {}
+                @Override public void onBeginningOfSpeech() {}
+                @Override public void onRmsChanged(float rmsdB) {}
+                @Override public void onBufferReceived(byte[] buffer) {}
+                @Override public void onEndOfSpeech() { if (isCurrent()) setListeningState(false); }
+                @Override public void onError(int error) {
+                    if (!isCurrent()) return;
+                    setListeningState(false);
+                    releaseRecognizer(false);
+                    updateNotification("Speech service reconnecting · tap Stop to end");
+                    scheduleListen(Math.min(retryDelayMs, 8000));
+                    retryDelayMs = Math.min(retryDelayMs * 2, 8000);
+                }
+                @Override public void onResults(Bundle results) { if (isCurrent()) checkForWakePhrase(results, true); }
+                @Override public void onPartialResults(Bundle partialResults) { if (isCurrent()) checkForWakePhrase(partialResults, false); }
+                @Override public void onEvent(int eventType, Bundle params) {}
             });
             Intent request = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             request.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.UK.toLanguageTag());
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, Locale.UK.toLanguageTag());
+            request.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
             request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
             request.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
-            recognizer.startListening(request);
+            request.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L);
+            active.startListening(request);
         } catch (Exception error) {
-            handler.postDelayed(this::listen, 2500);
+            setListeningState(false);
+            releaseRecognizer(false);
+            updateNotification("Speech service unavailable · retrying");
+            scheduleListen(Math.min(retryDelayMs, 8000));
+            retryDelayMs = Math.min(retryDelayMs * 2, 8000);
         }
     }
 
@@ -147,25 +157,47 @@ public class AuroraAssistantService extends Service {
         ArrayList<String> alternatives = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
         if (alternatives == null) return;
         for (String candidate : alternatives) {
-            String normalized = candidate == null ? "" : candidate.toLowerCase(Locale.UK)
+            String normalized = candidate == null ? "" : candidate.toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z ]", " ").replaceAll("\\s+", " ").trim();
             if (normalized.contains("hey aurora") || normalized.contains("hey a urora") || normalized.contains("hey orora")) {
                 wakeDetected = true;
-                stopRecognition();
-                getSharedPreferences("aurora_assistant", MODE_PRIVATE)
-                    .edit().putBoolean("wake_detected", true).putBoolean("wake_word_listening", false).apply();
-                updateNotification("Wake phrase heard · opening AURORA");
-                Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
-                if (launch != null) {
-                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    startActivity(launch);
+                setListeningState(false);
+                getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit().putBoolean("wake_detected", true).putBoolean("wake_word_listening", false).apply();
+                releaseRecognizer(true);
+                updateNotification("Wake phrase heard · opening AURORA Pulse");
+                // Release the wake-word microphone before Pulse starts its conversational listener.
+                try {
+                    Intent pulse = new Intent(this, AuroraOverlayService.class);
+                    pulse.setAction(AuroraOverlayService.ACTION_SHOW);
+                    pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
+                    // Start the overlay while this microphone foreground service still
+                    // provides Android's foreground-start exemption.
+                    androidx.core.content.ContextCompat.startForegroundService(this, pulse);
+                } catch (Exception launchError) {
+                    android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to Pulse.", launchError);
+                    getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
+                        .putBoolean("wake_detected", false).putString("wake_handoff_error", launchError.getMessage()).apply();
                 }
                 stopForeground(true);
                 stopSelf();
                 return;
             }
         }
-        if (finalResult && !stopping && !wakeDetected) handler.postDelayed(this::listen, 350);
+        if (finalResult && !stopping && !wakeDetected) {
+            setListeningState(false);
+            releaseRecognizer(false);
+            scheduleListen(350);
+        }
+    }
+
+    private void scheduleListen(long delayMs) {
+        if (stopping || wakeDetected || restartPending) return;
+        restartPending = true;
+        handler.postDelayed(this::listen, delayMs);
+    }
+
+    private void setListeningState(boolean listening) {
+        getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit().putBoolean("wake_word_listening", listening).apply();
     }
 
     private void updateNotification(String text) {
@@ -173,20 +205,21 @@ public class AuroraAssistantService extends Service {
         if (manager != null) manager.notify(NOTIFICATION_ID, buildNotification(text));
     }
 
-    private void stopRecognition() {
-        handler.removeCallbacksAndMessages(null);
-        if (recognizer != null) {
-            try { recognizer.cancel(); } catch (Exception ignored) {}
-            try { recognizer.destroy(); } catch (Exception ignored) {}
-            recognizer = null;
+    private void releaseRecognizer(boolean cancel) {
+        SpeechRecognizer current = recognizer;
+        recognizer = null;
+        if (current != null) {
+            if (cancel) try { current.cancel(); } catch (Exception ignored) {}
+            try { current.destroy(); } catch (Exception ignored) {}
         }
     }
 
     private void stopListeningAndService() {
         stopping = true;
-        getSharedPreferences("aurora_assistant", MODE_PRIVATE)
-            .edit().putBoolean("wake_word_listening", false).apply();
-        stopRecognition();
+        setListeningState(false);
+        handler.removeCallbacksAndMessages(null);
+        restartPending = false;
+        releaseRecognizer(true);
         stopForeground(true);
         stopSelf();
     }
@@ -194,9 +227,9 @@ public class AuroraAssistantService extends Service {
     @Override
     public void onDestroy() {
         stopping = true;
-        getSharedPreferences("aurora_assistant", MODE_PRIVATE)
-            .edit().putBoolean("wake_word_listening", false).apply();
-        stopRecognition();
+        handler.removeCallbacksAndMessages(null);
+        setListeningState(false);
+        releaseRecognizer(true);
         super.onDestroy();
     }
 
