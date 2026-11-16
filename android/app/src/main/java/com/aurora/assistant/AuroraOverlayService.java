@@ -56,7 +56,7 @@ public class AuroraOverlayService extends Service {
             while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
             html = output.toString(StandardCharsets.UTF_8.name());
         }
-        view.loadDataWithBaseURL("https://aurora-ten-gold.vercel.app/", html, "text/html", "UTF-8", null);
+        view.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
         return view;
     }
 

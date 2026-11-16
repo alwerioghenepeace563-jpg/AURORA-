@@ -10,6 +10,8 @@ const app = fs.readFileSync("src/App.jsx", "utf8");
 const chatApi = fs.readFileSync("api/chat.js", "utf8");
 const voiceApi = fs.readFileSync("api/voice.js", "utf8");
 const bootstrap = fs.readFileSync("scripts/patch-android-native.mjs", "utf8");
+const pulseOverlay = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraOverlayService.java", "utf8");
+const pulsePanel = fs.readFileSync("android/app/src/main/assets/aurora_pulse_panel.html", "utf8");
 
 assert.match(plugin, /SpeechRecognizer\.isOnDeviceRecognitionAvailable/);
 assert.match(plugin, /speechGeneration/);
@@ -41,5 +43,12 @@ assert.match(app, /requestDefaultAssistant/);
 assert.match(app, /Set as default assistant/);
 assert.match(bootstrap, /"startAssistantService"/);
 assert.match(bootstrap, /requiredNativeMethods/);
+assert.match(pulseOverlay, /loadDataWithBaseURL\("https:\/\/localhost\//);
+assert.match(app, /aurora-pulse-session/);
+assert.match(app, /refreshPulseSession/);
+assert.match(pulsePanel, /aurora-pulse-session/);
+assert.match(pulsePanel, /loadPulseProfile/);
+assert.match(pulsePanel, /messages:pulseSession\.slice\(-12\)/);
+assert.match(pulsePanel, /profile:loadPulseProfile\(\)/);
 
-console.log("AURORA assistant foundation checks passed: native speech lifecycle, queued TTS, bounded wake retries, Android role setup and bootstrap parity.");
+console.log("AURORA assistant foundation checks passed: native speech lifecycle, queued TTS, bounded wake retries, Android role setup, bootstrap parity and shared Pulse session.");
