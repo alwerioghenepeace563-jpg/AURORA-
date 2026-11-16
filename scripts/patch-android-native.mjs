@@ -484,7 +484,7 @@ const requiredNativeMethods = [
   "pickDocument", "prepareSms", "shareText", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
   "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
   "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
-  "requestContactsPermission", "searchContacts", "openDialer", "hasOverlayPermission", "requestOverlayPermission", "setFlashlight", "startSpeechRecognition", "stopSpeechRecognition", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "status"
+  "requestContactsPermission", "searchContacts", "openDialer", "hasOverlayPermission", "requestOverlayPermission", "setFlashlight", "startSpeechRecognition", "stopSpeechRecognition", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "getAssistantRoleStatus", "requestAssistantRole", "status"
 ];
 for (const method of requiredNativeMethods) {
   if (!nativePluginSource.includes("void " + method + "(PluginCall call)")) {
