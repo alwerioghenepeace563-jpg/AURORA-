@@ -9,6 +9,7 @@ if (!fs.existsSync(path.join(android, "app/src/main/AndroidManifest.xml"))) {
   throw new Error("Android project is missing. Run 'npx cap add android' first.");
 }
 fs.mkdirSync(javaRoot, { recursive: true });
+const manifestText = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
 
 const files = {
   "AuroraAssistantPlugin.java": `package com.aurora.assistant;
@@ -551,7 +552,7 @@ for (const [fileName, required] of [
   const source = fs.readFileSync(filePath, "utf8");
   for (const marker of required) if (!source.includes(marker)) throw new Error(fileName + " is missing required implementation marker: " + marker);
 }
-const manifestText = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
+
 if (!manifestText.includes(".AuroraReminderReceiver") || !manifestText.includes("android.permission.RECEIVE_BOOT_COMPLETED")) {
   throw new Error("Reminder receiver or reboot permission is missing from AndroidManifest.xml");
 }
