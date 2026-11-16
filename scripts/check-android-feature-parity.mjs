@@ -9,7 +9,7 @@ const checks = [
   ["screen assistant", app.includes("readCurrentAndroidScreen")],
   ["wake-word service", native.includes("class AuroraAssistantService")],
   ["voice interaction assistant service", fs.existsSync("android/app/src/main/java/com/aurora/assistant/AuroraVoiceInteractionService.java") && fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraVoiceInteractionService.java", "utf8").includes("voice_interaction_service_ready")],
-  ["voice interaction session requires explicit user tap", fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraVoiceInteractionSession.java", "utf8").includes("setOnClickListener")],
+  ["voice interaction session opens Pulse on system assistant invocation", fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraVoiceInteractionSession.java", "utf8").includes("startAssistantActivity(intent)") && fs.readFileSync("android/app/src/main/java/com/aurora/assistant/MainActivity.java", "utf8").includes("ACTION_OPEN_PULSE")],
   ["assistant role bridge", fs.readFileSync("src/lib/aurora-native.ts", "utf8").includes("openAssistantRoleSettings")],
   ["accessibility service", native.includes("class AuroraAccessibilityService")],
   ["in-app APK installer", native.includes("installDownloadedUpdate")],
