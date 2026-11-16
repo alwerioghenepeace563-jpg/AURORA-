@@ -23,8 +23,8 @@ import java.util.Locale;
  * Explicitly enabled, user-visible wake-phrase listener.
  * Android's speech provider is used in short sessions with bounded retries.
  * The persistent notification exposes microphone state and a Stop action.
- * A wake phrase opens Pulse when AURORA is foregrounded; otherwise the user
- * taps the resulting notification to open the app (Android may block background launches).
+ * A wake phrase hands off to the Pulse overlay while this visible microphone
+ * foreground service is active, then Pulse owns the conversational microphone.
  */
 public class AuroraAssistantService extends Service {
     public static final String ACTION_START = "com.aurora.assistant.START";
@@ -166,17 +166,19 @@ public class AuroraAssistantService extends Service {
                 releaseRecognizer(true);
                 updateNotification("Wake phrase heard · opening AURORA Pulse");
                 // Release the wake-word microphone before Pulse starts its conversational listener.
-                stopForeground(true);
                 try {
                     Intent pulse = new Intent(this, AuroraOverlayService.class);
                     pulse.setAction(AuroraOverlayService.ACTION_SHOW);
                     pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
+                    // Start the overlay while this microphone foreground service still
+                    // provides Android's foreground-start exemption.
                     startService(pulse);
                 } catch (Exception launchError) {
                     android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to Pulse.", launchError);
                     getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
                         .putBoolean("wake_detected", false).putString("wake_handoff_error", launchError.getMessage()).apply();
                 }
+                stopForeground(true);
                 stopSelf();
                 return;
             }
