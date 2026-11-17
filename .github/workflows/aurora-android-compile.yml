@@ -63,6 +63,11 @@ jobs:
       - name: Verify Android feature integration
         run: npm run android:check
 
+      - name: Run assistant role and wake-word regression tests
+        run: |
+          npm run test:aurora-assistant-role
+          npm run test:aurora-wake-listener
+
       - name: Apply native assistant integration
         run: node scripts/patch-android-native.mjs
 
