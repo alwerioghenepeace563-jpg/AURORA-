@@ -1,6 +1,16 @@
 name: AURORA Android Compile Verification
 
 on:
+  push:
+    branches: [aurora/system-integration-repair]
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'android/**'
+      - 'supabase/**'
+      - 'scripts/**'
+      - 'package.json'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
@@ -67,6 +77,7 @@ jobs:
         run: |
           npm run test:aurora-assistant-role
           npm run test:aurora-wake-listener
+          npm run test:aurora-research
 
       - name: Apply native assistant integration
         run: node scripts/patch-android-native.mjs

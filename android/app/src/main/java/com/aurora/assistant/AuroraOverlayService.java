@@ -52,6 +52,7 @@ public class AuroraOverlayService extends Service {
     private boolean orbAttached = false;
     private SpeechRecognizer pulseSpeechRecognizer;
     private boolean pulseSpeechActive = false;
+    private boolean pulseResumeWakeWordAfterSpeech = false;
 
     private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
     private int overlayType() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE; }
@@ -130,6 +131,32 @@ public class AuroraOverlayService extends Service {
         sendBroadcast(status);
     }
 
+
+    private int getBottomSystemInset() {
+        if (panelView == null || Build.VERSION.SDK_INT < 23) return 0;
+        try {
+            WindowInsets insets = panelView.getRootWindowInsets();
+            if (insets == null) return 0;
+            if (Build.VERSION.SDK_INT >= 30) return insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+            return insets.getSystemWindowInsetBottom();
+        } catch (Exception ignored) { return 0; }
+    }
+
+    private void updatePanelLayout(boolean collapsed) {
+        if (windowManager == null || panelView == null || !panelAttached) return;
+        try {
+            WindowManager.LayoutParams params = (WindowManager.LayoutParams) panelView.getLayoutParams();
+            params.width = dp(340);
+            params.height = dp(collapsed ? 82 : 440);
+            params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            params.y = getBottomSystemInset();
+            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+            windowManager.updateViewLayout(panelView, params);
+        } catch (Exception error) {
+            android.util.Log.w("AURORAOverlay", "Could not update Pulse panel dock position.", error);
+        }
+    }
+
     private void showOverlay(boolean autoListen) {
         if (attached && orbAttached && panelAttached && orbView != null && panelView != null) {
             if (autoListen) {
@@ -172,14 +199,15 @@ public class AuroraOverlayService extends Service {
                     }
                 });
             }
-            WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(300), overlayType(),
+            WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(440), overlayType(),
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
             panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
             panel.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
-            panel.y = dp(20);
+            panel.y = 0;
             panel.setTitle("AURORA Pulse glass chat and tools");
             windowManager.addView(panelView, panel);
             panelAttached = true;
+            panelView.post(() -> updatePanelLayout(false));
             panelView.setVisibility(View.GONE);
             attached = true;
             reportOverlayStatus(true, autoListen ? "Wake phrase detected; opening Pulse voice conversation." : "AURORA Pulse orb attached; glass chat and tools open on demand.");
@@ -214,13 +242,45 @@ public class AuroraOverlayService extends Service {
         windowManager = null;
     }
 
-    private void stopPulseSpeech() {
+
+    private boolean pauseWakeWordForPulseSpeech() {
+        android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
+        if (!prefs.getBoolean("wake_word_service_enabled", false) && !prefs.getBoolean("wake_word_listening", false)) return false;
+        pulseResumeWakeWordAfterSpeech = true;
+        prefs.edit().putBoolean("resume_wake_word_after_pulse", true).apply();
+        Intent stop = new Intent(this, AuroraAssistantService.class);
+        stop.setAction(AuroraAssistantService.ACTION_STOP);
+        try { startService(stop); return true; }
+        catch (Exception error) {
+            pulseResumeWakeWordAfterSpeech = false;
+            prefs.edit().putBoolean("resume_wake_word_after_pulse", false).apply();
+            android.util.Log.w("AURORAOverlay", "Could not pause Hey AURORA before Pulse speech.", error);
+            return false;
+        }
+    }
+
+    private void resumeWakeWordAfterPulseSpeech() {
+        android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
+        if (!pulseResumeWakeWordAfterSpeech && !prefs.getBoolean("resume_wake_word_after_pulse", false)) return;
+        pulseResumeWakeWordAfterSpeech = false;
+        prefs.edit().putBoolean("resume_wake_word_after_pulse", false).putBoolean("wake_word_service_enabled", true).apply();
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+        Intent start = new Intent(this, AuroraAssistantService.class);
+        start.setAction(AuroraAssistantService.ACTION_START);
+        try { androidx.core.content.ContextCompat.startForegroundService(this, start); }
+        catch (Exception error) { android.util.Log.w("AURORAOverlay", "Could not resume Hey AURORA after Pulse speech.", error); }
+    }
+
+    private void stopPulseSpeech() { stopPulseSpeech(true); }
+
+    private void stopPulseSpeech(boolean resumeWakeWord) {
         pulseSpeechActive = false;
         if (pulseSpeechRecognizer != null) {
             try { pulseSpeechRecognizer.cancel(); } catch (Exception ignored) {}
             try { pulseSpeechRecognizer.destroy(); } catch (Exception ignored) {}
             pulseSpeechRecognizer = null;
         }
+        if (resumeWakeWord) resumeWakeWordAfterPulseSpeech();
     }
 
     private String pulseVoiceResult(boolean started, String message) {
@@ -241,8 +301,9 @@ public class AuroraOverlayService extends Service {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             return pulseVoiceResult(false, "Android speech recognition is not available on this phone.");
         }
-        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-          stopPulseSpeech();
+        boolean resumeWakeWord = pauseWakeWordForPulseSpeech();
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+          stopPulseSpeech(false);
           try {
             pulseSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
             pulseSpeechActive = true;
@@ -256,6 +317,7 @@ public class AuroraOverlayService extends Service {
                     pulseSpeechActive = false;
                     if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Speech recognition stopped. Please try again.')", null));
                     stopPulseSpeechRecognizerOnly();
+                    resumeWakeWordAfterPulseSpeech();
                 }
                 @Override public void onResults(Bundle results) {
                     ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -264,6 +326,7 @@ public class AuroraOverlayService extends Service {
                     String encoded = JSONObject.quote(transcript);
                     if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechResult(" + encoded + ")", null));
                     stopPulseSpeechRecognizerOnly();
+                    resumeWakeWordAfterPulseSpeech();
                 }
                 @Override public void onPartialResults(Bundle partialResults) {}
                 @Override public void onEvent(int eventType, Bundle params) {}
@@ -279,8 +342,9 @@ public class AuroraOverlayService extends Service {
             pulseSpeechActive = false;
             stopPulseSpeechRecognizerOnly();
             if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Android could not start speech recognition. Check microphone permission and try again.')", null));
+            resumeWakeWordAfterPulseSpeech();
           }
-        });
+        }, resumeWakeWord ? 450 : 0);
         return pulseVoiceResult(true, "Listening. Speak now.");
     }
 
@@ -292,7 +356,8 @@ public class AuroraOverlayService extends Service {
     }
 
     public class OverlayBridge {
-        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
+        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) { panelView.setVisibility(View.VISIBLE); panelView.post(() -> updatePanelLayout(false)); panelView.evaluateJavascript("setCollapsed(false)", null); } }); }
+        @JavascriptInterface public void setPanelCollapsed(boolean collapsed) { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> updatePanelLayout(collapsed)); }
         @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { stopPulseSpeech(); if (panelView != null) panelView.setVisibility(View.GONE); }); }
         @JavascriptInterface public String startVoiceInput() { return startPulseSpeech(); }
         @JavascriptInterface public void stopVoiceInput() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> stopPulseSpeech()); }

@@ -1,0 +1,2 @@
+[functions.aurora-research-worker]
+verify_jwt = false

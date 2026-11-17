@@ -1,6 +1,17 @@
 name: AURORA Manual Core Verification
 
 on:
+  push:
+    branches: [aurora/system-integration-repair]
+    paths:
+      - 'api/**'
+      - 'src/**'
+      - 'supabase/**'
+      - 'docs/integrations/**'
+      - 'docs/architecture/**'
+      - 'scripts/**'
+      - 'package.json'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:

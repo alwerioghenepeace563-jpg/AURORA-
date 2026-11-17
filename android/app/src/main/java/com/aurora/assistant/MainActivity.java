@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraLocationPlugin.class);
         registerPlugin(AuroraScreenCapturePlugin.class);
         registerPlugin(AuroraNfcPlugin.class);
+        registerPlugin(AuroraResearchBrowserPlugin.class);
         persistAssistantLaunch(getIntent());
         super.onCreate(savedInstanceState);
     }

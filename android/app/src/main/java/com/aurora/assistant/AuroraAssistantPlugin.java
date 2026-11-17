@@ -307,15 +307,48 @@ public class AuroraAssistantPlugin extends Plugin {
         }
     }
 
+
+    private boolean pauseWakeWordForChatSpeech() {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
+        if (!prefs.getBoolean("wake_word_service_enabled", false) && !prefs.getBoolean("wake_word_listening", false)) return false;
+        prefs.edit().putBoolean("resume_wake_word_after_chat", true).apply();
+        Intent stop = new Intent(getContext(), AuroraAssistantService.class);
+        stop.setAction(AuroraAssistantService.ACTION_STOP);
+        try { getContext().startService(stop); return true; }
+        catch (Exception error) {
+            prefs.edit().putBoolean("resume_wake_word_after_chat", false).apply();
+            android.util.Log.w("AURORA", "Could not pause wake-word service before chat speech.", error);
+            return false;
+        }
+    }
+
+    private void resumeWakeWordAfterChatSpeech() {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
+        if (!prefs.getBoolean("resume_wake_word_after_chat", false)) return;
+        prefs.edit().putBoolean("resume_wake_word_after_chat", false).apply();
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+        Intent start = new Intent(getContext(), AuroraAssistantService.class);
+        start.setAction(AuroraAssistantService.ACTION_START);
+        try { androidx.core.content.ContextCompat.startForegroundService(getContext(), start); }
+        catch (Exception error) { android.util.Log.w("AURORA", "Could not resume Hey AURORA after chat speech.", error); }
+    }
+
     @PluginMethod
     public void startSpeechRecognition(PluginCall call) {
         if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             call.reject("Grant microphone permission first.");
             return;
         }
-        getActivity().runOnUiThread(() -> {
+        final boolean resumeWakeWord = pauseWakeWordForChatSpeech();
+        if (getActivity() == null) {
+            if (resumeWakeWord) resumeWakeWordAfterChatSpeech();
+            call.reject("AURORA is not attached to an active screen. Reopen the app and try the microphone again.");
+            return;
+        }
+        getActivity().runOnUiThread(() -> new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             try {
                 if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+                    if (resumeWakeWord) resumeWakeWordAfterChatSpeech();
                     call.reject("Android speech recognition is unavailable. Install or enable a speech recognition service, then try again.");
                     return;
                 }
@@ -333,12 +366,14 @@ public class AuroraAssistantPlugin extends Plugin {
                     @Override public void onError(int error) {
                         JSObject errorEvent = new JSObject(); errorEvent.put("code", error); errorEvent.put("message", speechErrorMessage(error)); notifyListeners("speechError", errorEvent);
                         cleanupSpeechRecognizer();
+                        resumeWakeWordAfterChatSpeech();
                     }
                     @Override public void onResults(Bundle results) {
                         java.util.ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                         String transcript = matches == null || matches.isEmpty() ? "" : matches.get(0);
                         notifyListeners("speechResult", speechPayload("transcript", transcript));
                         cleanupSpeechRecognizer();
+                        resumeWakeWordAfterChatSpeech();
                     }
                     @Override public void onPartialResults(Bundle partialResults) {
                         java.util.ArrayList<String> matches = partialResults == null ? null : partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -353,19 +388,22 @@ public class AuroraAssistantPlugin extends Plugin {
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-GB");
                 intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
                 intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getContext().getPackageName());
                 speechRecognizer.startListening(intent);
                 call.resolve(speechPayload("started", true));
             } catch (Exception e) {
                 cleanupSpeechRecognizer();
+                resumeWakeWordAfterChatSpeech();
                 call.reject("Could not start Android speech recognition: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
             }
-        });
+        }, resumeWakeWord ? 450 : 0));
     }
 
     @PluginMethod
     public void stopSpeechRecognition(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             cleanupSpeechRecognizer();
+            resumeWakeWordAfterChatSpeech();
             call.resolve(speechPayload("stopped", true));
         });
     }
@@ -496,6 +534,7 @@ public class AuroraAssistantPlugin extends Plugin {
         Intent intent = new Intent(getContext(), AuroraAssistantService.class);
         intent.setAction(AuroraAssistantService.ACTION_START);
         androidx.core.content.ContextCompat.startForegroundService(getContext(), intent);
+        getContext().getSharedPreferences("aurora_assistant", 0).edit().putBoolean("wake_word_service_enabled", true).putBoolean("resume_wake_word_after_chat", false).apply();
         JSObject result = new JSObject();
         result.put("started", true);
         result.put("note", "Hey AURORA wake-word listening is on. Say Hey AURORA to open AURORA hands-free.");
@@ -506,6 +545,7 @@ public class AuroraAssistantPlugin extends Plugin {
     public void stopAssistantService(PluginCall call) {
         Intent intent = new Intent(getContext(), AuroraAssistantService.class);
         intent.setAction(AuroraAssistantService.ACTION_STOP);
+        getContext().getSharedPreferences("aurora_assistant", 0).edit().putBoolean("wake_word_service_enabled", false).putBoolean("resume_wake_word_after_chat", false).apply();
         getContext().startService(intent);
         JSObject result = new JSObject();
         result.put("stopped", true);
@@ -1157,7 +1197,7 @@ public class AuroraAssistantPlugin extends Plugin {
         String rawUrl = call.getString("url");
         String rawName = call.getString("filename", "aurora-media");
         String kind = call.getString("mediaKind", "image");
-        if (rawUrl == null || rawUrl.length() > 2048 || !("image".equals(kind) || "video".equals(kind))) { call.reject("Provide a valid direct media URL."); return; }
+        if (rawUrl == null || rawUrl.length() > 2048 || !("image".equals(kind) || "video".equals(kind) || "document".equals(kind))) { call.reject("Provide a valid direct media URL."); return; }
         try {
             URL parsed = new URL(rawUrl);
             if (!"https".equalsIgnoreCase(parsed.getProtocol())) { call.reject("Only secure HTTPS downloads are supported."); return; }
@@ -1165,7 +1205,8 @@ public class AuroraAssistantPlugin extends Plugin {
             String ext = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1) : "";
             java.util.Set<String> images = new java.util.HashSet<>(java.util.Arrays.asList("jpg", "jpeg", "png", "webp", "gif"));
             java.util.Set<String> videos = new java.util.HashSet<>(java.util.Arrays.asList("mp4", "webm", "mov", "m4v"));
-            if (("image".equals(kind) && !images.contains(ext)) || ("video".equals(kind) && !videos.contains(ext))) { call.reject("This is not a direct downloadable media file. Open the source page and use its official download option if available."); return; }
+            java.util.Set<String> documents = new java.util.HashSet<>(java.util.Arrays.asList("pdf"));
+            if (("image".equals(kind) && !images.contains(ext)) || ("video".equals(kind) && !videos.contains(ext)) || ("document".equals(kind) && !documents.contains(ext))) { call.reject("This is not a direct downloadable media file. Open the source page and use its official download option if available."); return; }
             String filename = rawName.replaceAll("[^A-Za-z0-9._-]", "_");
             if (filename.length() > 90) filename = filename.substring(0, 90);
             if (!filename.contains(".")) filename += "." + ext;
@@ -1572,6 +1613,208 @@ public class AuroraAssistantPlugin extends Plugin {
             }
             call.reject("Android could not open the requested device settings page.", firstError);
         }
+    }
+
+
+    private boolean hasNotificationListenerAccess() {
+        String enabled = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        String expected = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+        if (enabled == null) return false;
+        for (String item : enabled.split(":")) if (expected.equalsIgnoreCase(item)) return true;
+        return false;
+    }
+
+    @PluginMethod
+    public void getSpecialAccessStatus(PluginCall call) {
+        try {
+            android.content.Context context = getContext();
+            boolean modifySettings = Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(context);
+            boolean allFiles = Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
+            android.app.NotificationManager notificationManager =
+                (android.app.NotificationManager) context.getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+            boolean dnd = Build.VERSION.SDK_INT < 23 || (notificationManager != null && notificationManager.isNotificationPolicyAccessGranted());
+            boolean usage = false;
+            if (Build.VERSION.SDK_INT >= 21) {
+                android.app.AppOpsManager appOps = (android.app.AppOpsManager) context.getSystemService(android.content.Context.APP_OPS_SERVICE);
+                if (appOps != null) {
+                    int mode = appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.getPackageName());
+                    usage = mode == android.app.AppOpsManager.MODE_ALLOWED;
+                }
+            }
+            boolean installUnknown = Build.VERSION.SDK_INT < 26 || context.getPackageManager().canRequestPackageInstalls();
+            String enabledAccessibility = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            String expectedAccessibility = context.getPackageName() + "/" + AuroraAccessibilityService.class.getName();
+            boolean accessibility = false;
+            if (enabledAccessibility != null) {
+                for (String item : enabledAccessibility.split(":")) {
+                    if (expectedAccessibility.equalsIgnoreCase(item)) { accessibility = true; break; }
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("modifySettings", modifySettings);
+            result.put("allFiles", allFiles);
+            result.put("doNotDisturb", dnd);
+            result.put("usageAccess", usage);
+            result.put("notificationAccess", hasNotificationListenerAccess());
+            result.put("installUnknownApps", installUnknown);
+            result.put("overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context));
+            result.put("accessibility", accessibility);
+            result.put("androidVersion", Build.VERSION.SDK_INT);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Could not inspect AURORA special access settings.", error);
+        }
+    }
+
+    @PluginMethod
+    public void openSpecialAccessSettings(PluginCall call) {
+        String permission = call.getString("permission", "");
+        Uri packageUri = Uri.parse("package:" + getContext().getPackageName());
+        try {
+            Intent intent;
+            switch (permission) {
+                case "modifySettings":
+                    intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, packageUri);
+                    break;
+                case "allFiles":
+                    intent = Build.VERSION.SDK_INT >= 30
+                        ? new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                    break;
+                case "doNotDisturb":
+                    intent = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+                    break;
+                case "usageAccess":
+                    intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                    break;
+                case "notificationAccess":
+                    intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                    break;
+                case "installUnknownApps":
+                    intent = Build.VERSION.SDK_INT >= 26
+                        ? new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, packageUri)
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                    break;
+                case "overlay":
+                    intent = Build.VERSION.SDK_INT >= 23
+                        ? new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri)
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                    break;
+                case "wifi":
+                    intent = new Intent(Settings.ACTION_WIFI_SETTINGS);
+                    break;
+                case "accessibility":
+                    intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                    break;
+                default:
+                    call.reject("Unsupported Android special-access setting.");
+                    return;
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("opened", true).put("permission", permission).put("userMustConfirm", true));
+        } catch (Exception error) {
+            try {
+                Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(fallback);
+                call.resolve(new JSObject().put("opened", true).put("permission", permission).put("fallback", true).put("userMustConfirm", true));
+            } catch (Exception fallbackError) {
+                call.reject("Could not open the requested Android setting.", fallbackError);
+            }
+        }
+    }
+
+
+    @PluginMethod
+    public void setSystemBrightness(PluginCall call) {
+        int percent = call.getInt("percent", -1);
+        if (percent < 0 || percent > 100) { call.reject("Brightness must be between 0 and 100 percent."); return; }
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(getContext())) {
+            call.reject("Grant Modify system settings before changing screen brightness.");
+            return;
+        }
+        try {
+            int value = Math.round(percent * 255f / 100f);
+            boolean written = Settings.System.putInt(getContext().getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, value);
+            call.resolve(new JSObject().put("changed", written).put("percent", percent).put("value", value));
+        } catch (Exception error) { call.reject("Android could not change screen brightness.", error); }
+    }
+
+    @PluginMethod
+    public void setDoNotDisturb(PluginCall call) {
+        boolean enabled = call.getBoolean("enabled", false);
+        if (Build.VERSION.SDK_INT < 23) { call.resolve(new JSObject().put("changed", false).put("supported", false)); return; }
+        android.app.NotificationManager manager =
+            (android.app.NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+        if (manager == null || !manager.isNotificationPolicyAccessGranted()) {
+            call.reject("Grant Do Not Disturb access in Android Settings before changing this setting.");
+            return;
+        }
+        try {
+            manager.setInterruptionFilter(enabled
+                ? android.app.NotificationManager.INTERRUPTION_FILTER_NONE
+                : android.app.NotificationManager.INTERRUPTION_FILTER_ALL);
+            call.resolve(new JSObject().put("changed", true).put("enabled", enabled));
+        } catch (SecurityException error) { call.reject("Android denied the Do Not Disturb change.", error); }
+    }
+
+    @PluginMethod
+    public void getRecentAppUsage(PluginCall call) {
+        try {
+            android.app.AppOpsManager appOps = (android.app.AppOpsManager) getContext().getSystemService(android.content.Context.APP_OPS_SERVICE);
+            if (appOps == null || appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), getContext().getPackageName()) != android.app.AppOpsManager.MODE_ALLOWED) {
+                call.reject("Grant Usage access before requesting an app-usage summary.");
+                return;
+            }
+            android.app.usage.UsageStatsManager usage =
+                (android.app.usage.UsageStatsManager) getContext().getSystemService(android.content.Context.USAGE_STATS_SERVICE);
+            if (usage == null) { call.reject("Android usage statistics are unavailable."); return; }
+            long end = System.currentTimeMillis();
+            java.util.List<android.app.usage.UsageStats> stats =
+                usage.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, end - 24L * 60L * 60L * 1000L, end);
+            java.util.ArrayList<android.app.usage.UsageStats> ranked = new java.util.ArrayList<>();
+            if (stats != null) for (android.app.usage.UsageStats item : stats) {
+                if (item != null && item.getTotalTimeInForeground() > 0) ranked.add(item);
+            }
+            java.util.Collections.sort(ranked, (a, b) -> Long.compare(b.getTotalTimeInForeground(), a.getTotalTimeInForeground()));
+            JSArray apps = new JSArray();
+            int count = 0;
+            for (android.app.usage.UsageStats item : ranked) {
+                if (count++ >= 10) break;
+                apps.put(new JSObject().put("packageName", item.getPackageName())
+                    .put("foregroundMs", item.getTotalTimeInForeground()).put("lastUsedAt", item.getLastTimeUsed()));
+            }
+            call.resolve(new JSObject().put("apps", apps).put("windowHours", 24).put("readOnly", true));
+        } catch (Exception error) { call.reject("Could not read Android app-usage statistics.", error); }
+    }
+
+    @PluginMethod
+    public void getSharedStorageOverview(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
+            call.reject("Grant All files access before reviewing shared-storage metadata.");
+            return;
+        }
+        try {
+            File root = Environment.getExternalStorageDirectory();
+            File[] entries = root.listFiles();
+            JSArray items = new JSArray();
+            long totalBytes = 0;
+            int count = 0;
+            if (entries != null) {
+                java.util.Arrays.sort(entries, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                for (File entry : entries) {
+                    if (count++ >= 30) break;
+                    long size = entry.isFile() ? entry.length() : 0;
+                    totalBytes += size;
+                    items.put(new JSObject().put("name", entry.getName()).put("directory", entry.isDirectory())
+                        .put("sizeBytes", size).put("modifiedAt", entry.lastModified()));
+                }
+            }
+            call.resolve(new JSObject().put("entries", items).put("count", items.length())
+                .put("topLevelFileBytes", totalBytes).put("metadataOnly", true));
+        } catch (Exception error) { call.reject("Could not inspect shared-storage metadata.", error); }
     }
 
     @PluginMethod

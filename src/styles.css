@@ -1369,3 +1369,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .aurora-pulse-head .aurora-pulse-orb.is-interrupted{animation:auroraPulseInterrupted .65s ease-out 2!important;box-shadow:0 0 0 6px rgba(255,194,115,.14),0 0 30px rgba(255,194,115,.62)!important}
 @keyframes auroraPulseInterrupted{0%,100%{transform:scale(1)}45%{transform:scale(.86);filter:saturate(.7)}}
 @media(prefers-reduced-motion:reduce){.aurora-pulse-head .aurora-pulse-orb.is-interrupted{animation:none!important}}
+
+
+/* AURORA selected logo and keyboard-safe full-screen chat */
+.brand-mark,.auth-symbol{transform:none!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+.brand-mark{width:42px!important;height:42px!important;flex:none!important}
+.brand-mark img,.auth-symbol img{display:block;width:100%;height:100%;object-fit:contain}
+.auth-symbol{width:46px!important;height:46px!important;flex:none!important}
+.auth-symbol img{filter:drop-shadow(0 0 12px rgba(104,210,255,.22))}
+@media(max-width:600px){.brand-mark{width:36px!important;height:36px!important}.auth-symbol{width:40px!important;height:40px!important}}
+.app-shell.chat-mode{height:100dvh!important;min-height:100dvh!important;padding-bottom:0!important;overflow:hidden!important}
+.app-shell.chat-mode .main-layout{height:100%!important;min-height:0!important;max-width:none!important;margin:0!important}
+.app-shell.chat-mode .chat-screen{height:100dvh!important;min-height:100dvh!important;width:100%!important;max-width:none!important;margin:0!important;padding:max(8px,env(safe-area-inset-top)) 9px max(8px,env(safe-area-inset-bottom))!important;overflow:hidden!important;align-items:stretch!important}
+.app-shell.chat-mode .chat-column{height:100%!important;min-height:0!important;max-height:none!important;margin:0!important;overflow:hidden!important}
+.app-shell.chat-mode .messages-area{min-height:0!important;flex:1 1 0!important;overflow-y:auto!important;overscroll-behavior:contain!important}
+.app-shell.chat-mode .chat-composer{flex:0 0 auto!important;margin-bottom:0!important}
+.app-shell.chat-mode .composer-footnote{padding-bottom:max(8px,env(safe-area-inset-bottom))!important}
+.app-shell.chat-mode .desktop-footer,.app-shell.chat-mode .bottom-nav{display:none!important}
+@media(max-width:1000px){.app-shell.chat-mode .chat-screen{padding:max(8px,env(safe-area-inset-top)) 9px max(8px,env(safe-area-inset-bottom))!important}.app-shell.chat-mode .chat-column{height:100%!important;min-height:0!important}}
+@media(max-width:700px){.app-shell.chat-mode .chat-screen{height:100dvh!important;min-height:100dvh!important;padding:max(6px,env(safe-area-inset-top)) 7px max(6px,env(safe-area-inset-bottom))!important}.app-shell.chat-mode .chat-column{height:100%!important;min-height:0!important}.app-shell.chat-mode .messages-area{padding:12px 4px!important}.app-shell.chat-mode .chat-composer{margin:0!important}}

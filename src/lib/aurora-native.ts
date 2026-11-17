@@ -23,6 +23,15 @@ type AuroraNfcPlugin = {
 };
 const AuroraNfc = registerPlugin<AuroraNfcPlugin>("AuroraNfc");
 
+type AuroraResearchBrowserPlugin = {
+  openResearchBrowser(options: { url: string }): Promise<{ opened: boolean; isolated: boolean }>;
+  extractResearchPage(options: { url: string; taskId: string }): Promise<{ started: boolean; isolated: boolean }>;
+  clearResearchData(): Promise<{ started: boolean; isolated: boolean }>;
+  addListener(eventName: "researchPageExtracted", listener: (event: { taskId: string; url: string; title: string; text: string; success: boolean; error?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+};
+const AuroraResearchBrowser = registerPlugin<AuroraResearchBrowserPlugin>("AuroraResearchBrowser");
+
+
 
 export type AuroraNativeStatus = {
   platform: string;
@@ -108,7 +117,7 @@ type AuroraNativePlugin = {
   readClipboardText(): Promise<{ available: boolean; text: string; truncated?: boolean; readOnly: true; notStored?: true; note?: string }>;
   writeClipboardText(options: { text: string }): Promise<{ written: boolean; characters: number; systemClipboard: true }>;
   openMediaSource(options: { url: string }): Promise<{ opened: boolean; userControlsDownload: boolean }>;
-  downloadPublicMedia(options: { url: string; filename: string; mediaKind: "image" | "video" }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string }>;
+  downloadPublicMedia(options: { url: string; filename: string; mediaKind: "image" | "video" | "document" }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string }>;
   pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
   prepareAudioRecording(): Promise<{ cancelled: boolean; recorded?: boolean; contentUri?: string; mimeType?: string; recordingByAurora?: false; userControlledRecorder?: true; audioReadByAurora?: false }>;
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
@@ -129,6 +138,12 @@ type AuroraNativePlugin = {
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
+  getSpecialAccessStatus(): Promise<{ modifySettings: boolean; allFiles: boolean; doNotDisturb: boolean; usageAccess: boolean; notificationAccess: boolean; installUnknownApps: boolean; overlay: boolean; accessibility: boolean; androidVersion: number }>;
+  openSpecialAccessSettings(options: { permission: "modifySettings" | "allFiles" | "doNotDisturb" | "usageAccess" | "notificationAccess" | "installUnknownApps" | "wifi" | "accessibility" }): Promise<{ opened: boolean; permission: string; userMustConfirm: boolean; fallback?: boolean }>;
+  setSystemBrightness(options: { percent: number }): Promise<{ changed: boolean; percent: number; value: number }>;
+  setDoNotDisturb(options: { enabled: boolean }): Promise<{ changed: boolean; enabled?: boolean; supported?: boolean }>;
+  getRecentAppUsage(): Promise<{ apps: Array<{ packageName: string; foregroundMs: number; lastUsedAt: number }>; windowHours: number; readOnly: boolean }>;
+  getSharedStorageOverview(): Promise<{ entries: Array<{ name: string; directory: boolean; sizeBytes: number; modifiedAt: number }>; count: number; topLevelFileBytes: number; metadataOnly: boolean }>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
@@ -236,6 +251,18 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA background service is available only in the Android app.");
     return AuroraNative.stopAssistantService();
   },
+  getSpecialAccessStatus: async () => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { modifySettings: false, allFiles: false, doNotDisturb: false, usageAccess: false, notificationAccess: false, installUnknownApps: false, overlay: false, accessibility: false, androidVersion: 0 };
+    return AuroraNative.getSpecialAccessStatus();
+  },
+  openSpecialAccessSettings: async (permission: "modifySettings" | "allFiles" | "doNotDisturb" | "usageAccess" | "notificationAccess" | "installUnknownApps" | "wifi" | "accessibility") => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android special access settings are available only in the Android app.");
+    return AuroraNative.openSpecialAccessSettings({ permission });
+  },
+  setSystemBrightness: async (percent: number) => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen brightness control is available only in Android."); return AuroraNative.setSystemBrightness({ percent }); },
+  setDoNotDisturb: async (enabled: boolean) => { if (Capacitor.getPlatform() !== "android") throw new Error("Do Not Disturb control is available only in Android."); return AuroraNative.setDoNotDisturb({ enabled }); },
+  getRecentAppUsage: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("App usage summaries are available only in Android."); return AuroraNative.getRecentAppUsage(); },
+  getSharedStorageOverview: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Shared-storage access is available only in Android."); return AuroraNative.getSharedStorageOverview(); },
   openAccessibilitySettings: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Screen Assistant settings are available only in the Android app.");
     return AuroraNative.openAccessibilitySettings();
@@ -248,8 +275,12 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) return { versionCode: 0, versionName: "" };
     return AuroraNative.getBuildInfo();
   },
+  openResearchBrowser: async (url: string) => { if (Capacitor.getPlatform() !== "android") throw new Error("The isolated research browser is available only in the Android app."); return AuroraResearchBrowser.openResearchBrowser({ url }); },
+  extractResearchPage: async (url: string, taskId: string) => { if (Capacitor.getPlatform() !== "android") throw new Error("Isolated page extraction is available only in the Android app."); return AuroraResearchBrowser.extractResearchPage({ url, taskId }); },
+  clearResearchBrowserData: async () => Capacitor.getPlatform() === "android" ? AuroraResearchBrowser.clearResearchData() : { started: true, isolated: true },
+  addResearchPageListener: (callback: (event: { taskId: string; url: string; title: string; text: string; success: boolean; error?: string }) => void) => AuroraResearchBrowser.addListener("researchPageExtracted", callback),
   openMediaSource: async (url: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") { window.open(url, "_blank", "noopener,noreferrer"); return { opened: true, userControlsDownload: true }; } return AuroraNative.openMediaSource({ url }); },
-  downloadPublicMedia: async (url: string, filename: string, mediaKind: "image" | "video") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct downloads through Android Download Manager are available in the Android app."); return AuroraNative.downloadPublicMedia({ url, filename, mediaKind }); },
+  downloadPublicMedia: async (url: string, filename: string, mediaKind: "image" | "video" | "document") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct downloads through Android Download Manager are available in the Android app."); return AuroraNative.downloadPublicMedia({ url, filename, mediaKind }); },
   downloadAndInstallUpdate: async (url: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("In-app APK updates are available only in Android.");
     return AuroraNative.downloadAndInstallUpdate({ url });

@@ -510,6 +510,20 @@ const nfcSource = fs.existsSync(nfcPluginPath) ? fs.readFileSync(nfcPluginPath, 
 for (const marker of ['name = "AuroraNfc"', "enableReaderMode", "writeNdefMessage", "handleOnPause", "stopNfcReader"]) {
   if (!nfcSource.includes(marker)) throw new Error("Foreground NFC plugin is missing: " + marker);
 }
+
+const researchBrowserPluginPath = path.join(javaRoot, "AuroraResearchBrowserPlugin.java");
+const researchBrowserActivityPath = path.join(javaRoot, "AuroraResearchBrowserActivity.java");
+if (!fs.existsSync(researchBrowserPluginPath) || !fs.existsSync(researchBrowserActivityPath)) {
+  throw new Error("Isolated AURORA research browser native components are missing.");
+}
+const researchBrowserPluginSource = fs.readFileSync(researchBrowserPluginPath, "utf8");
+const researchBrowserActivitySource = fs.readFileSync(researchBrowserActivityPath, "utf8");
+for (const marker of ["name = \"AuroraResearchBrowser\"", "openResearchBrowser", "extractResearchPage", "clearResearchData", "RESEARCH_PAGE_RESULT"]) {
+  if (!researchBrowserPluginSource.includes(marker)) throw new Error("Research browser plugin is missing required bridge behavior: " + marker);
+}
+for (const marker of ['setDataDirectorySuffix("aurora_research")', "setAcceptCookie(false)", "setAcceptThirdPartyCookies", "setAllowFileAccess(false)", "shouldInterceptRequest", "WebStorage.getInstance().deleteAllData()"]) {
+  if (!researchBrowserActivitySource.includes(marker)) throw new Error("Isolated research browser is missing required privacy behavior: " + marker);
+}
 if (!manifestText.includes("android.permission.NFC") || !manifestText.includes("FOREGROUND_SERVICE_MEDIA_PROJECTION")) {
   throw new Error("NFC and MediaProjection manifest permissions are missing.");
 }
@@ -650,6 +664,20 @@ const mainActivityEnd = mainActivityStart >= 0 ? manifest.indexOf('</activity>',
 if (mainActivityStart >= 0 && mainActivityEnd > mainActivityStart && !manifest.includes('android:host="login-callback"')) {
   manifest = manifest.slice(0, mainActivityEnd) + callbackIntentFilter + "\\n        " + manifest.slice(mainActivityEnd);
 }
+const researchActivityDeclaration = `        <activity
+            android:name=".AuroraResearchBrowserActivity"
+            android:process=":aurora_research"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
+`;
+if (!manifest.includes('android:name=".AuroraResearchBrowserActivity"')) {
+  manifest = manifest.replace("</application>", researchActivityDeclaration + "    </application>");
+}
+if (!manifest.includes('android:process=":aurora_research"')) {
+  throw new Error("Research browser must run in its isolated Android process.");
+}
 fs.writeFileSync(manifestPath, manifest);
 
 const mainActivity = path.join(javaRoot, "MainActivity.java");
@@ -677,6 +705,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraLocationPlugin.class);
         registerPlugin(AuroraScreenCapturePlugin.class);
         registerPlugin(AuroraNfcPlugin.class);
+        registerPlugin(AuroraResearchBrowserPlugin.class);
         persistAssistantLaunch(getIntent());
         super.onCreate(savedInstanceState);
     }
@@ -709,6 +738,7 @@ if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);
     !verifiedMainActivity.includes("registerPlugin(AuroraLocationPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraScreenCapturePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraNfcPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraResearchBrowserPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
