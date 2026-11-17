@@ -174,15 +174,19 @@ public class AuroraResearchBrowserActivity extends Activity {
     }
 
     private void clearIsolatedData() {
+        try {
+            webView = new WebView(this);
+            webView.clearCache(true);
+            webView.clearHistory();
+            webView.clearFormData();
+            webView.clearSslPreferences();
+        } catch (Exception ignored) {}
         CookieManager cookies = CookieManager.getInstance();
+        cookies.setAcceptCookie(false);
         cookies.removeAllCookies(ignored -> {
             WebStorage.getInstance().deleteAllData();
             if (webView != null) {
-                webView.clearCache(true);
-                webView.clearHistory();
-                webView.clearFormData();
-                webView.clearSslPreferences();
-                webView.destroy();
+                try { webView.clearCache(true); webView.destroy(); } catch (Exception ignoredError) {}
                 webView = null;
             }
             finish();
