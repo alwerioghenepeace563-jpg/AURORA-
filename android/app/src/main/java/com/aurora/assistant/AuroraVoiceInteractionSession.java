@@ -112,7 +112,7 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
         panel.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         status = new TextView(context);
-        status.setText("Your Android assistant is ready.");
+        status.setText("Opening AURORA Pulse…");
         status.setTextColor(Color.rgb(220, 222, 235));
         status.setTextSize(14);
         status.setGravity(Gravity.CENTER);
@@ -121,14 +121,14 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
         panel.addView(status, statusParams);
 
         voiceButton = new Button(context);
-        voiceButton.setText("Start voice input");
+        voiceButton.setText("Use voice input here");
         LinearLayout.LayoutParams voiceParams = new LinearLayout.LayoutParams(-1, -2);
         voiceParams.topMargin = dp(16);
         panel.addView(voiceButton, voiceParams);
         voiceButton.setOnClickListener(v -> startVoiceInput());
 
         Button open = new Button(context);
-        open.setText("Open AURORA");
+        open.setText("Open AURORA app");
         LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, -2);
         openParams.topMargin = dp(8);
         panel.addView(open, openParams);
@@ -181,8 +181,31 @@ public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
 
     @Override public void onShow(Bundle args, int showFlags) {
         super.onShow(args, showFlags);
-        // A system assistant gesture is already an explicit user action: hand off directly to Pulse.
-        openAurora("");
+        // Android's assistant gesture belongs to Pulse, not to the ordinary app launcher.
+        // Start the same Pulse overlay used by the Hey AURORA wake phrase and begin listening.
+        getContext().getSharedPreferences("aurora_assistant", Context.MODE_PRIVATE)
+            .edit().putBoolean("pulse_overlay_shown", false)
+            .putString("pulse_overlay_note", "Opening AURORA Pulse from the Android assistant gesture.")
+            .apply();
+        try {
+            Intent pulse = new Intent(getContext(), AuroraOverlayService.class);
+            pulse.setAction(AuroraOverlayService.ACTION_SHOW);
+            pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
+            ContextCompat.startForegroundService(getContext(), pulse);
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (sessionDestroyed) return;
+                boolean shown = getContext().getSharedPreferences("aurora_assistant", Context.MODE_PRIVATE)
+                    .getBoolean("pulse_overlay_shown", false);
+                if (shown) {
+                    finish();
+                } else {
+                    updateStatus("AURORA Pulse could not open. Allow Display over other apps and Microphone in the AURORA app, then try the assistant gesture again.");
+                }
+            }, 1000);
+        } catch (Exception error) {
+            updateStatus("Android could not start AURORA Pulse. Open the AURORA app and check its assistant permissions.");
+            android.util.Log.e("AURORAVoiceSession", "Could not hand Android assistant launch to Pulse.", error);
+        }
     }
 
     private void openAurora(String transcript) {
