@@ -16,16 +16,22 @@ export function createResearchCoordinator(dependencies = {}) {
     const taskId = String(input.taskId || randomUUID()).slice(0, 100);
     const startedAt = new Date().toISOString();
     const warnings = [];
+    let hasProviderFailure = false;
     const jobs = [];
 
     if (request.mediaTypes.includes("web")) {
       jobs.push(Promise.resolve().then(() => search(request.query)).then(value => ({ kind: "web", value })));
     }
-    const requestedMedia = request.mediaTypes.filter(type => type !== "web");
-    if (requestedMedia.length) {
-      const mediaType = requestedMedia.includes("image") && requestedMedia.includes("video")
-        ? "all" : requestedMedia[0];
-      jobs.push(Promise.resolve().then(() => mediaSearch(request.query, mediaType)).then(value => ({ kind: "media", value })));
+    const requestedMedia = [...new Set(request.mediaTypes.filter(type => type !== "web"))];
+    const mediaJobs = [];
+    if (requestedMedia.includes("image") && requestedMedia.includes("video")) {
+      mediaJobs.push("all");
+      requestedMedia.splice(requestedMedia.indexOf("image"), 1);
+      requestedMedia.splice(requestedMedia.indexOf("video"), 1);
+    }
+    mediaJobs.push(...requestedMedia);
+    for (const mediaType of mediaJobs) {
+      jobs.push(Promise.resolve().then(() => mediaSearch(request.query, mediaType)).then(value => ({ kind: "media", mediaType, value })));
     }
 
     const settled = await Promise.allSettled(jobs);
@@ -33,16 +39,25 @@ export function createResearchCoordinator(dependencies = {}) {
     const mediaItems = [];
     for (const outcome of settled) {
       if (outcome.status === "rejected") {
+        hasProviderFailure = true;
         warnings.push(String(outcome.reason?.message || "A research provider was unavailable.").slice(0, 220));
         continue;
       }
       if (outcome.value.kind === "web") {
         const value = outcome.value.value || {};
         webGroups.push(...(Array.isArray(value.providers) ? value.providers : [value]));
-        if (Array.isArray(value.errors)) warnings.push(...value.errors.slice(0, 3).map(error => String(error).slice(0, 180)));
+        if (Array.isArray(value.errors) && value.errors.length) {
+          hasProviderFailure = true;
+          warnings.push(...value.errors.slice(0, 3).map(error => String(error).slice(0, 180)));
+        }
       } else {
         const value = outcome.value.value || {};
-        mediaItems.push(...(Array.isArray(value.results) ? value.results : []));
+        const foundMedia = Array.isArray(value.results) ? value.results : [];
+        mediaItems.push(...foundMedia.map(item => outcome.value.mediaType === "diagram" ? { ...item, kind: "diagram" } : item));
+        if (Array.isArray(value.errors) && value.errors.length) {
+          hasProviderFailure = true;
+          warnings.push(...value.errors.slice(0, 3).map(error => String(error).slice(0, 180)));
+        }
         if (value.warning) warnings.push(String(value.warning).slice(0, 180));
       }
     }
@@ -54,13 +69,13 @@ export function createResearchCoordinator(dependencies = {}) {
     const verification = assessResearchEvidence(sources);
     if (sources.length) warnings.push("Search snippets are discovery leads; full-page claim verification has not been performed.");
     if (request.mediaTypes.includes("document") && !visual.media.some(item => item.type === "document")) {
-      warnings.push("No supported document preview was found for this query.");
+      { hasProviderFailure = true; warnings.push("No supported document preview was found for this query."); }
     }
     const result = {
       taskId, query: request.query,
       intent: request.intent, mediaTypes: request.mediaTypes,
       freshness: request.freshness,
-      status: sources.length || visual.media.length ? (warnings.length ? "partial" : "complete") : "failed",
+      status: sources.length || visual.media.length ? (hasProviderFailure ? "partial" : "complete") : "failed",
       sources, media: visual.media, extractedContent: web.extractedContent,
       verification, citations: buildResearchCitations(sources),
       warnings: [...new Set(warnings)].slice(0, 10),
