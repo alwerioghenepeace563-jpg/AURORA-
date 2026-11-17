@@ -1891,7 +1891,7 @@ export default function App() {
         return;
       }
       if (kind === "search") {
-        const research = await runAuroraResearch(value, { intent: "deep", mediaTypes: ["web"] });
+        const research = await runAuroraResearch(value, { intent: "deep" });
         if (!Array.isArray(research.sources) || !research.sources.length) throw new Error(research.warnings?.[0] || "AURORA could not find usable sources.");
         const snippets = new Map((research.extractedContent || []).map(item => [item.sourceId, item.text]));
         setToolResult({
