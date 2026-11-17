@@ -23,6 +23,15 @@ type AuroraNfcPlugin = {
 };
 const AuroraNfc = registerPlugin<AuroraNfcPlugin>("AuroraNfc");
 
+type AuroraResearchBrowserPlugin = {
+  openResearchBrowser(options: { url: string }): Promise<{ opened: boolean; isolated: boolean }>;
+  extractResearchPage(options: { url: string; taskId: string }): Promise<{ started: boolean; isolated: boolean }>;
+  clearResearchData(): Promise<{ cleared: boolean; isolated: boolean }>;
+  addListener(eventName: "researchPageExtracted", listener: (event: { taskId: string; url: string; title: string; text: string; success: boolean; error?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+};
+const AuroraResearchBrowser = registerPlugin<AuroraResearchBrowserPlugin>("AuroraResearchBrowser");
+
+
 
 export type AuroraNativeStatus = {
   platform: string;
@@ -266,6 +275,10 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform()) return { versionCode: 0, versionName: "" };
     return AuroraNative.getBuildInfo();
   },
+  openResearchBrowser: async (url: string) => { if (Capacitor.getPlatform() !== "android") throw new Error("The isolated research browser is available only in the Android app."); return AuroraResearchBrowser.openResearchBrowser({ url }); },
+  extractResearchPage: async (url: string, taskId: string) => { if (Capacitor.getPlatform() !== "android") throw new Error("Isolated page extraction is available only in the Android app."); return AuroraResearchBrowser.extractResearchPage({ url, taskId }); },
+  clearResearchBrowserData: async () => Capacitor.getPlatform() === "android" ? AuroraResearchBrowser.clearResearchData() : { cleared: true, isolated: true },
+  addResearchPageListener: (callback: (event: { taskId: string; url: string; title: string; text: string; success: boolean; error?: string }) => void) => AuroraResearchBrowser.addListener("researchPageExtracted", callback),
   openMediaSource: async (url: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") { window.open(url, "_blank", "noopener,noreferrer"); return { opened: true, userControlsDownload: true }; } return AuroraNative.openMediaSource({ url }); },
   downloadPublicMedia: async (url: string, filename: string, mediaKind: "image" | "video") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct downloads through Android Download Manager are available in the Android app."); return AuroraNative.downloadPublicMedia({ url, filename, mediaKind }); },
   downloadAndInstallUpdate: async (url: string) => {
