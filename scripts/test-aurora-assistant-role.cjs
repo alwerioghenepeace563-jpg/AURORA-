@@ -11,7 +11,7 @@ const parity=read("scripts/check-android-feature-parity.mjs");
 const app=read("src/App.jsx");
 assert.match(manifest,/\.AuroraVoiceInteractionService/);
 assert.match(manifest,/android.permission.BIND_VOICE_INTERACTION/);
-assert.doesNotMatch(manifest,/<activity[\\s\\S]*?android\.intent\.action\.ASSIST[\\s\\S]*?<\\/activity>/);
+assert.doesNotMatch(manifest,/android\.intent\.action\.ASSIST/);
 assert.match(manifest,/\.AuroraVoiceInteractionSessionService/);
 assert.match(service,/void onReady\(\)/);
 assert.match(service,/void onShutdown\(\)/);
