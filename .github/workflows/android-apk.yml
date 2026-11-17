@@ -89,7 +89,8 @@ jobs:
           echo "AURORA_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "AURORA_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
       - name: Build debug APK
-        run: "$GRADLE_BIN" -p android assembleDebug --no-daemon
+        run: |
+          "$GRADLE_BIN" -p android assembleDebug --no-daemon
       - name: Verify APK archive
         run: |
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
