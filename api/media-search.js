@@ -1,4 +1,5 @@
 import cors from "../lib/cors.cjs";
+import { searchBingImages } from "./search.js";
 const { applyAuroraCors } = cors;
 const clean = value => String(value||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().slice(0,180);
 const metaValue = value => clean(value && typeof value==="object" ? value.value : value);
@@ -41,6 +42,16 @@ export async function searchAuroraMedia(rawQuery, rawType = "all") {
  if(query.length<2)throw Error("Describe the media you need.");
  const jobs=[];
  if(type!=="document")jobs.push(commonsSearch(query,type==="diagram"?"image":type));
+ if(type==="all"||type==="image"||type==="diagram") {
+  const visualQuery=type==="diagram"?query+" diagram":query;
+  jobs.push(searchBingImages(visualQuery).then(result=>(result.results||[]).map(item=>({
+   id:"bing-image:"+item.image,title:clean(item.title)||"Image result",
+   kind:type==="diagram"?"diagram":"image",mimeType:"image/*",
+   previewUrl:safeUrl(item.image),downloadUrl:safeUrl(item.image),
+   pageUrl:safeUrl(item.url),provider:"Bing Images",
+   license:"Check original source licence",attribution:"See original source page",downloadable:true
+  })).filter(item=>item.previewUrl&&item.downloadUrl&&item.pageUrl)));
+ }
  if(type!=="image"&&type!=="diagram")jobs.push(archiveSearch(query,type));
  const settled=await Promise.allSettled(jobs);
  const results=settled.flatMap(item=>item.status==="fulfilled"?item.value:[]);
