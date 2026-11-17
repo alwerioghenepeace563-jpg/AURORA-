@@ -1,13 +1,19 @@
 import cors from "../lib/cors.cjs";
+import auth from "../lib/supabase-auth.cjs";
 const { applyAuroraCors } = cors;
+const { verifySupabaseUser } = auth;
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Vary", "Origin, Authorization");
 
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST, OPTIONS");
     return res.status(405).json({ error: "Use POST." });
   }
+
+  const authResult = await verifySupabaseUser(req);
+  if (!authResult.ok) return res.status(authResult.status).json({ error: authResult.error, code: "AUTH_REQUIRED" });
 
   const key = process.env.ELEVENLAB_API_KEY || process.env.ELEVENLABS_API_KEY;
   if (!key) return res.status(503).json({ error: "Voice service is not configured.", code: "VOICE_KEY_MISSING" });
@@ -30,6 +36,20 @@ export default async function handler(req, res) {
   };
   // New UI sends the exact voice_id returned by /api/voices. Keep legacy
   // named selections working for older app builds during rollout.
+  const deliveryPresets = {
+    calm: { stability: 0.58, style: 0.22, speed: 0.96 },
+    curious: { stability: 0.48, style: 0.43, speed: 0.97 },
+    excited: { stability: 0.38, style: 0.62, speed: 1.02 },
+    reassuring: { stability: 0.68, style: 0.25, speed: 0.91 },
+    serious: { stability: 0.72, style: 0.18, speed: 0.94 },
+    teaching: { stability: 0.64, style: 0.30, speed: 0.91 }
+  };
+  const deliveryName = typeof body?.delivery === "string" && Object.prototype.hasOwnProperty.call(deliveryPresets, body.delivery) ? body.delivery : "calm";
+  const requestedSpeed = Number(body?.speechRate);
+  const delivery = {
+    ...deliveryPresets[deliveryName],
+    speed: Number.isFinite(requestedSpeed) ? Math.max(0.78, Math.min(1.12, requestedSpeed)) : deliveryPresets[deliveryName].speed
+  };
   const requestedVoiceId = typeof body?.voiceId === "string" ? body.voiceId.trim() : "";
   const voiceId = requestedVoiceId || legacyVoiceIds[voiceName];
   if (!voiceId || voiceId.length > 160 || !/^[A-Za-z0-9_-]+$/.test(voiceId)) {
@@ -43,7 +63,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         text: text.trim(),
         model_id: process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2",
-        voice_settings: { stability: 0.55, similarity_boost: 0.78, style: 0.25, use_speaker_boost: true }
+        voice_settings: { stability: delivery.stability, similarity_boost: 0.78, style: delivery.style, speed: delivery.speed, use_speaker_boost: true }
       }),
       signal: AbortSignal.timeout(18000)
     });

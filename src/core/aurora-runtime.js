@@ -38,6 +38,9 @@ import { connectAuroraApprovalEvents } from "./aurora-approval-event-bridge";
 import { createAuroraContextSessions } from "./aurora-context-sessions";
 import { createAuroraPredictiveIntelligence } from "./aurora-predictive-intelligence";
 import { createAuroraConnectedEcosystem } from "./aurora-connected-ecosystem";
+import { createAuroraDeviceContinuity } from "./aurora-device-continuity";
+import { createAuroraNearbyDeviceAdapter } from "./aurora-nearby-device-adapter";
+import { auroraNearby } from "../lib/aurora-nearby";
 import { createAuroraExperimentalIntelligence } from "./aurora-experimental-intelligence";
 import { createAuroraCertificationLedger } from "./aurora-certification-ledger";
 
@@ -99,6 +102,8 @@ const capabilityIntelligence = createAuroraCapabilityIntelligence(actionEngine);
 const universalSearch = createAuroraUniversalSearch({ maxResults: 20 });
 const extensionRegistry = createAuroraExtensionRegistry({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request) });
 const connectedEcosystem = createAuroraConnectedEcosystem({ getCapabilities: () => actionEngine.listCapabilities(), executeCapability: (request) => actionEngine.execute(request), events: auroraEvents });
+const deviceContinuity = createAuroraDeviceContinuity({ events: auroraEvents });
+const nearbyDeviceTransport = createAuroraNearbyDeviceAdapter({ nativeTransport: auroraNearby, deviceContinuity, events: auroraEvents });
 try {
   connectedEcosystem.registerAdapter("aurora.supabase", {
     async connect() {
@@ -799,6 +804,8 @@ const auroraRuntime = Object.freeze({
   environment: environmentMonitor,
   predictive,
   connectedEcosystem,
+  deviceContinuity,
+  nearbyDeviceTransport,
   experimentalIntelligence,
   certificationLedger,
   context: contextSessions,

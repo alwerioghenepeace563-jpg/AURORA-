@@ -12,6 +12,9 @@ import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(name = "AuroraTranscription")
 public class AuroraTranscriptionPlugin extends Plugin {
+ private static boolean isAllowedAuroraApiHost(String host) {
+  return "aurora-ten-gold.vercel.app".equalsIgnoreCase(host);
+ }
  @PluginMethod public void start(PluginCall call) {
   String title=call.getData().optString("title","Audio recording");
   IntentHelper.start(getContext(),AuroraTranscriptionService.ACTION_START,title,"Preparing transcription…",0);
@@ -33,7 +36,7 @@ public class AuroraTranscriptionPlugin extends Plugin {
   int chunkNumber=call.getData().optInt("chunkNumber",0), totalChunks=call.getData().optInt("totalChunks",0);
   Uri endpointUri=Uri.parse(endpoint);
   if(encoded.isEmpty()||encoded.length()>4000000||!requestId.matches("(?i)[0-9a-f-]{36}")||
-    !"https".equalsIgnoreCase(endpointUri.getScheme())||!"aurora-ten-gold.vercel.app".equalsIgnoreCase(endpointUri.getHost())||!"/api/voicetext-transcribe".equals(endpointUri.getPath())||token.isEmpty()||chunkNumber<1||totalChunks<chunkNumber||
+    !"https".equalsIgnoreCase(endpointUri.getScheme())||!isAllowedAuroraApiHost(endpointUri.getHost())||!"/api/voicetext-transcribe".equals(endpointUri.getPath())||token.isEmpty()||chunkNumber<1||totalChunks<chunkNumber||
     !mimeType.matches("audio/[a-z0-9.+-]+")) { call.reject("A valid signed-in transcription section is required."); return; }
   File folder=new File(getContext().getFilesDir(),"aurora-transcription-queue");
   if(!folder.exists()&&!folder.mkdirs()){call.reject("Could not prepare the private transcription queue.");return;}
@@ -111,7 +114,7 @@ public class AuroraTranscriptionPlugin extends Plugin {
   int totalChunks=call.getData().optInt("totalChunks",0);
   Uri uri=Uri.parse(endpoint);
   if(!requestId.matches("(?i)[0-9a-f-]{36}")||!"https".equalsIgnoreCase(uri.getScheme())||
-    !"aurora-ten-gold.vercel.app".equalsIgnoreCase(uri.getHost())||!"/api/voicetext-transcribe".equals(uri.getPath())||
+    !isAllowedAuroraApiHost(uri.getHost())||!"/api/voicetext-transcribe".equals(uri.getPath())||
     token.isEmpty()||!("audio/mp4".equals(mimeType)||"video/mp4".equals(mimeType))||
     sizeBytes<1||sizeBytes>500L*1024*1024||durationSeconds<=0||totalChunks<1||totalChunks>2000){
    call.reject("Native background processing currently requires an MP4/M4A recording with a valid signed-in session.");return;

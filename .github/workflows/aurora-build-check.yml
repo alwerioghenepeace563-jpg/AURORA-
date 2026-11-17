@@ -2,9 +2,10 @@ name: AURORA Build Check
 
 on:
   push:
-    branches: [main, feature/aurora-pulse-profile-overlay, fix/vercel-hobby-function-limit]
+    branches: [main, feature/aurora-pulse-profile-overlay, feat/aurora-latest-plan-audit-fixes, fix/vercel-hobby-function-limit]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

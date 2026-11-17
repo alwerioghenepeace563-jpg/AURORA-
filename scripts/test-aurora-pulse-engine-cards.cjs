@@ -1,0 +1,13 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+assert.match(app, /function buildPulseEngineCard\(result, query\)/);
+assert.match(app, /aurora_universal_search: "AURORA search results"/);
+assert.match(app, /aurora_data_inventory: "AURORA data overview"/);
+assert.match(app, /const engineCard = buildPulseEngineCard\(liveToolResult, text\)/);
+assert.match(app, /const displayReply = String\(reply\)/);
+assert.match(app, /if \(engineCard \|\| String\(reply\)\.length > 900/);
+assert.match(app, /if \(soundOn\) speak\(String\(reply\)\)/, "spoken output must not read serialized card data");
+assert.match(app, /steps\.slice\(0, 8\)/, "workflow cards must be bounded");
+assert.match(app, /stores\.slice\(0, 4\)/, "metrics cards must be bounded");
+console.log("AURORA Pulse engine-to-card integration source checks passed.");

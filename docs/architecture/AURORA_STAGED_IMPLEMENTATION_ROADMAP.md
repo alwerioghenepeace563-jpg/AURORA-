@@ -762,6 +762,19 @@ The Stage 11 scope is intentionally expanded to include **everything already pla
 **Wave 1 boundary:** This is the common connection and policy layer, not a claim that Google, Microsoft, messaging, cloud-storage or smart-home accounts are already linked. Provider-specific OAuth/API adapters, account linking, external credentials, webhook subscriptions and live end-to-end service checks remain future waves and require explicit user setup. No downloaded connector code or autonomous external actions are enabled.
 
 
+### Wave 2 — Android Nearby Connections and trusted-device handoff (implementation added; native/device verification pending)
+
+- Added the Google Play services Nearby Connections Android dependency and a dedicated Capacitor plugin for foreground-only point-to-point advertising, discovery, connection approval, payload transfer and disconnect.
+- Added Android-version-aware runtime permission requests for legacy Bluetooth/location requirements, Android 12 Bluetooth permissions and Android 13+ nearby Wi-Fi access. Discovery stops when AURORA moves to the background; it does not run a hidden background scanner.
+- Device identity uses a persistent Android Keystore EC signing key. A public-key SHA-256 fingerprint is exchanged, and pairing requires a fresh, time-bounded signed challenge/response proving possession of the matching private key. Private key material is never exported or placed in browser storage.
+- Both phones must display and manually compare the Nearby authentication digits, then approve the connection. AURORA's existing trusted-device service still requires explicit pairing approval and consent before saving a trust record.
+- Handoffs use Nearby's encrypted connection and bounded JSON byte payloads. The current UI supports knowledge-reference metadata (title + source ID), not automatic copying of private file contents or automatic execution of tasks. A receiver gets a review notice; the handoff is not executed.
+- Added a shared runtime adapter, a Devices workspace tab, explicit pairing-code approval, trusted-device listing, local trust revocation, and a consent-gated reference handoff form.
+- The Devices workspace discloses that Google Play services must be available and may collect connection-performance/device diagnostics according to Android Usage & diagnostics settings.
+- Android sync now preserves registration of the Nearby plugin and checks its dependency, manifest permissions, Keystore/signature markers and runtime/UI wiring. Added focused adapter and integration assertions to the core test chain.
+
+**Wave 2 boundary:** This is implemented source code, not yet a verified Android build. Google Play services must be available on both phones. Automated Java/Gradle compilation, GitHub CI, real permission prompts, two-physical-device discovery, matching-code approval, signed pairing, encrypted handoff and revocation behavior still need verification. Both devices should separately approve and save the trust relationship before expecting bidirectional continuity. Revocation currently removes trust on the phone where it is requested and closes its active connection; the other phone's local trust record must also be removed there. No production APK build, deployment, merge or release certification is claimed.
+
 ## Stage 14 — Experimental Intelligence and Final Certification (code checkpoint complete; release certification pending)
 
 **Purpose:** Give AURORA a safe laboratory for testing new intelligence ideas, then certify the release only from verifiable evidence across all 12 capability families. Experimental work must never silently modify the production assistant or bypass its safety controls.

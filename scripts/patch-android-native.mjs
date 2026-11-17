@@ -9,6 +9,7 @@ if (!fs.existsSync(path.join(android, "app/src/main/AndroidManifest.xml"))) {
   throw new Error("Android project is missing. Run 'npx cap add android' first.");
 }
 fs.mkdirSync(javaRoot, { recursive: true });
+const manifestText = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
 
 const files = {
   "AuroraAssistantPlugin.java": `package com.aurora.assistant;
@@ -457,11 +458,60 @@ public class AuroraAccessibilityService extends AccessibilityService {
 
 for (const [name, content] of Object.entries(files)) {
   const target = path.join(javaRoot, name);
-  // Committed native sources are authoritative. Never overwrite an existing
-  // service/plugin during CI: the bootstrap templates are only for first-time
-  // generation and may be older than the maintained implementation.
-  if (fs.existsSync(target)) continue;
+  // The committed native plugin is the source of truth. Never replace it with
+  // this bootstrap template during CI, because that would erase registered
+  // adapters added after the original foundation was generated.
+  if (name === "AuroraAssistantPlugin.java" && fs.existsSync(target)) continue;
   fs.writeFileSync(target, content);
+}
+
+const nearbyPluginPath = path.join(javaRoot, "AuroraNearbyPlugin.java");
+if (!fs.existsSync(nearbyPluginPath)) throw new Error("Nearby Connections native plugin is missing.");
+const nearbyPluginSource = fs.readFileSync(nearbyPluginPath, "utf8");
+for (const marker of [
+  '@CapacitorPlugin(', 'name = "AuroraNearby"', 'void requestNearbyPermissions(PluginCall call)',
+  'void startAdvertising(PluginCall call)', 'void startDiscovery(PluginCall call)',
+  'void acceptConnection(PluginCall call)', 'void verifyPeer(PluginCall call)',
+  'void sendEncrypted(PluginCall call)', 'AndroidKeyStore', 'SHA256withECDSA',
+  'Nearby.getConnectionsClient', 'Strategy.P2P_POINT_TO_POINT'
+]) {
+  if (!nearbyPluginSource.includes(marker)) throw new Error("Nearby Connections plugin is missing required security/transport implementation: " + marker);
+}
+const appGradle = fs.readFileSync(path.join(android, "app/build.gradle"), "utf8");
+if (!appGradle.includes("com.google.android.gms:play-services-nearby:19.5.1")) {
+  throw new Error("Google Play services Nearby dependency is missing.");
+}
+for (const permission of [
+  "android.permission.BLUETOOTH_ADVERTISE", "android.permission.BLUETOOTH_CONNECT",
+  "android.permission.BLUETOOTH_SCAN", "android.permission.NEARBY_WIFI_DEVICES"
+]) {
+  if (!manifestText.includes(permission)) throw new Error("Nearby Connections manifest permission is missing: " + permission);
+}
+
+const locationPluginPath = path.join(javaRoot, "AuroraLocationPlugin.java");
+if (!fs.existsSync(locationPluginPath)) throw new Error("Foreground one-shot Android location plugin is missing.");
+const locationPluginSource = fs.readFileSync(locationPluginPath, "utf8");
+for (const marker of ['@CapacitorPlugin(', 'name = "AuroraLocation"', 'void requestLocationPermission(PluginCall call)', 'void getCurrentLocation(PluginCall call)', 'requestSingleUpdate', 'postDelayed(timeoutRunnable, 15000L)', 'backgroundTracking", false', 'handleOnPause']) {
+  if (!locationPluginSource.includes(marker)) throw new Error("Android one-shot location plugin is missing required behavior: " + marker);
+}
+
+const screenCapturePluginPath = path.join(javaRoot, "AuroraScreenCapturePlugin.java");
+const screenCaptureServicePath = path.join(javaRoot, "AuroraScreenCaptureService.java");
+const screenCaptureSource = fs.existsSync(screenCapturePluginPath) ? fs.readFileSync(screenCapturePluginPath, "utf8") : "";
+const screenCaptureServiceSource = fs.existsSync(screenCaptureServicePath) ? fs.readFileSync(screenCaptureServicePath, "utf8") : "";
+for (const marker of ["createScreenCaptureIntent()", "screenCapturePermissionResult", "clearScreenCapture", "getScreenCaptureStatus"]) {
+  if (!screenCaptureSource.includes(marker)) throw new Error("Consent-gated Android screen capture plugin is missing: " + marker);
+}
+for (const marker of ["FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION", "createVirtualDisplay", "saveOneFrame"]) {
+  if (!screenCaptureServiceSource.includes(marker)) throw new Error("One-frame MediaProjection service is missing: " + marker);
+}
+const nfcPluginPath = path.join(javaRoot, "AuroraNfcPlugin.java");
+const nfcSource = fs.existsSync(nfcPluginPath) ? fs.readFileSync(nfcPluginPath, "utf8") : "";
+for (const marker of ['name = "AuroraNfc"', "enableReaderMode", "writeNdefMessage", "handleOnPause", "stopNfcReader"]) {
+  if (!nfcSource.includes(marker)) throw new Error("Foreground NFC plugin is missing: " + marker);
+}
+if (!manifestText.includes("android.permission.NFC") || !manifestText.includes("FOREGROUND_SERVICE_MEDIA_PROJECTION")) {
+  throw new Error("NFC and MediaProjection manifest permissions are missing.");
 }
 
 const securePluginPath = path.join(javaRoot, "AuroraSecureStoragePlugin.java");
@@ -484,7 +534,7 @@ const requiredNativeMethods = [
   "pickDocument", "prepareSms", "shareText", "searchOnMap", "startMapDirections", "prepareCalendarEvent",
   "searchMedia", "openNotificationAccessSettings", "hasNotificationAccess",
   "readRecentNotifications", "clearRecentNotifications", "getDeviceStatus",
-  "requestContactsPermission", "searchContacts", "openDialer", "hasOverlayPermission", "requestOverlayPermission", "setFlashlight", "startSpeechRecognition", "stopSpeechRecognition", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "getAssistantRoleStatus", "requestAssistantRole", "status"
+  "requestContactsPermission", "searchContacts", "openDialer", "hasOverlayPermission", "requestOverlayPermission", "setFlashlight", "startSpeechRecognition", "stopSpeechRecognition", "requestCameraPermission", "requestMicrophonePermission", "requestNotificationPermission", "startAssistantService", "stopAssistantService", "speakText", "stopTextSpeech", "status"
 ];
 for (const method of requiredNativeMethods) {
   if (!nativePluginSource.includes("void " + method + "(PluginCall call)")) {
@@ -502,7 +552,7 @@ for (const [fileName, required] of [
   const source = fs.readFileSync(filePath, "utf8");
   for (const marker of required) if (!source.includes(marker)) throw new Error(fileName + " is missing required implementation marker: " + marker);
 }
-const manifestText = fs.readFileSync(path.join(android, "app/src/main/AndroidManifest.xml"), "utf8");
+
 if (!manifestText.includes(".AuroraReminderReceiver") || !manifestText.includes("android.permission.RECEIVE_BOOT_COMPLETED")) {
   throw new Error("Reminder receiver or reboot permission is missing from AndroidManifest.xml");
 }
@@ -531,6 +581,8 @@ const manifestPath = path.join(android, "app/src/main/AndroidManifest.xml");
 let manifest = fs.readFileSync(manifestPath, "utf8");
 const permissions = reducedPermissionTest ? [] : [
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />',
+  '<uses-permission android:name="android.permission.NFC" />',
   '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />',
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />',
   '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
@@ -554,6 +606,12 @@ fs.writeFileSync(filePaths, `<?xml version="1.0" encoding="utf-8"?>
 
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraReminderReceiver"')) {
   manifest = manifest.replace("</application>", '        <receiver android:name=".AuroraReminderReceiver" android:enabled="true" android:exported="false"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter></receiver>\n    </application>');
+}
+if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraScreenCaptureService"')) {
+  manifest = manifest.replace("</application>", '        <service android:name=".AuroraScreenCaptureService" android:exported="false" android:foregroundServiceType="mediaProjection" />\n    </application>');
+}
+if (!manifest.includes("android.hardware.nfc")) {
+  manifest = manifest.replace("<application", '<uses-feature android:name="android.hardware.nfc" android:required="false" />\n    <application');
 }
 if (!reducedPermissionTest && !manifest.includes('android:name=".AuroraAssistantService"')) {
   manifest = manifest.replace("</application>", '        <service android:name=".AuroraAssistantService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />\n    </application>');
@@ -600,14 +658,10 @@ const mainActivity = path.join(javaRoot, "MainActivity.java");
 // that registers AuroraNative before BridgeActivity initializes its JS bridge.
 const expectedMainActivity = `package com.aurora.assistant;
 
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private static final String ACTION_OPEN_PULSE = "com.aurora.assistant.OPEN_PULSE";
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AuroraAssistantPlugin.class);
@@ -615,37 +669,25 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraSecureStoragePlugin.class);
         registerPlugin(AuroraReminderPlugin.class);
         registerPlugin(AuroraPredictivePlugin.class);
-        persistAssistantLaunch(getIntent());
+        registerPlugin(AuroraNearbyPlugin.class);
+        registerPlugin(AuroraLocationPlugin.class);
+        registerPlugin(AuroraScreenCapturePlugin.class);
+        registerPlugin(AuroraNfcPlugin.class);
         super.onCreate(savedInstanceState);
     }
-
-    @Override
-    public void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        persistAssistantLaunch(intent);
-    }
-
-    private void persistAssistantLaunch(Intent intent) {
-        if (intent == null) return;
-        String action = intent.getAction();
-        if (Intent.ACTION_ASSIST.equals(action) || ACTION_OPEN_PULSE.equals(action)) {
-            SharedPreferences preferences = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
-            preferences.edit().putBoolean("pulse_open_requested", true).commit();
-        }
-    }
-}`;
+}
+`;
 fs.writeFileSync(mainActivity, expectedMainActivity);
 const verifiedMainActivity = fs.readFileSync(mainActivity, "utf8");
 if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);") ||
-    !verifiedMainActivity.includes("registerPlugin(AuroraTranscriptionPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraSecureStoragePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraReminderPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraTranscriptionPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraPredictivePlugin.class);") ||
-    !verifiedMainActivity.includes("ACTION_OPEN_PULSE") ||
-    !verifiedMainActivity.includes("persistAssistantLaunch(getIntent())") ||
-    !verifiedMainActivity.includes("public void onNewIntent(Intent intent)") ||
-    !verifiedMainActivity.includes("Intent.ACTION_ASSIST.equals(action)") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraNearbyPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraLocationPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraScreenCapturePlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraNfcPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }

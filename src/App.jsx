@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
@@ -11,16 +11,88 @@ import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace"
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
 import IntelligenceEcosystemWorkspace from "./components/IntelligenceEcosystemWorkspace";
+import AndroidAssistantRoleCard from "./components/AndroidAssistantRoleCard";
+import AndroidHardwareFeaturesCard from "./components/AndroidHardwareFeaturesCard";
 import { buildAuroraRoutineInsights } from "./core/aurora-routine-insights";
 import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
+import { AURORA_VOICE_INTELLIGENCE, applySpeechPace, inferSpeechDelivery, isImmediateInterruptionCommand, isLikelySpeechEcho, resolveVoiceFollowUp, splitSpeechIntoChunks } from "./core/aurora-voice-intelligence.js";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
-  SlidersHorizontal, Sparkles, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned
+  SlidersHorizontal, Sparkles, MessageCircle, Search, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned, Maximize2, Minimize2
 } from "lucide-react";
 
+
+function buildPulseEngineCard(result, query) {
+  if (!result || typeof result !== "object") return null;
+  if (result.error) return buildPulseStatusCard(result);
+  const tool = String(result.tool || "");
+  const titleByTool = {
+    aurora_universal_search: "AURORA search results",
+    aurora_knowledge_search: "Related saved knowledge",
+    aurora_capability_discovery: "Available AURORA capabilities",
+    aurora_data_inventory: "AURORA data overview",
+    aurora_reminders: "Your reminders",
+    aurora_routines: "Your scheduled routines",
+    aurora_workflows: "Your saved workflows",
+    aurora_recent_tasks: "Recent AURORA tasks",
+    aurora_task_recovery: "Tasks ready for review"
+  };
+  const steps = Array.isArray(result.steps) ? result.steps : Array.isArray(result.preview?.steps) ? result.preview.steps : [];
+  if (steps.length && /task|workflow|retry|execution/i.test(tool)) {
+    return {
+      type: "flow",
+      title: titleByTool[tool] || "AURORA action workflow",
+      steps: steps.slice(0, 8).map((step, index) => ({
+        title: String(step.label || step.title || step.name || "Step " + (index + 1)).slice(0, 120),
+        text: [step.status, step.description, step.availability].filter(Boolean).map(String).join(" · ").slice(0, 220)
+      }))
+    };
+  }
+  const stores = Array.isArray(result.inventory?.stores) ? result.inventory.stores : Array.isArray(result.report?.stores) ? result.report.stores : [];
+  if (stores.length) {
+    return {
+      type: "metrics",
+      title: titleByTool[tool] || "AURORA data overview",
+      description: "A summary of registered data stores. This does not expose private record contents.",
+      metrics: stores.slice(0, 4).map(store => ({
+        label: String(store.label || store.id || "Data store").slice(0, 48),
+        value: Number.isFinite(Number(store.count)) ? Number(store.count) : "—",
+        detail: String(store.location || "").slice(0, 70)
+      }))
+    };
+  }
+  const arrays = [result.results, result.items, result.reminders, result.routines, result.capabilities, result.tasks, result.extensions, result.consents];
+  const records = arrays.find(value => Array.isArray(value) && value.length) || [];
+  const items = records.slice(0, 8).map(item => {
+    if (typeof item === "string") return item.slice(0, 220);
+    const label = item?.title || item?.label || item?.name || item?.id || "Result";
+    const summary = item?.summary || item?.description || item?.status || item?.type || "";
+    return (String(label) + (summary ? " — " + String(summary) : "")).slice(0, 260);
+  }).filter(Boolean);
+  if (!items.length) return null;
+  const isResearch = /search|knowledge/i.test(tool);
+  const isAction = /capability|extension|task|workflow|reminder|routine/i.test(tool);
+  return {
+    type: isResearch ? "research" : isAction ? "action" : "card",
+    title: titleByTool[tool] || (isResearch ? "Research results" : isAction ? "AURORA actions" : "AURORA tool results"),
+    description: String(result.context || query || "").slice(0, 260),
+    items
+  };
+}
+
+function buildPulseStatusCard(result, fallbackTitle = "AURORA update") {
+  const failed = Boolean(result?.error);
+  const rawTime = result?.updatedAt || result?.fetchedAt || result?.timestamp || result?.checkedAt || null;
+  const parsedTime = rawTime ? new Date(rawTime) : null;
+  const validTime = parsedTime && Number.isFinite(parsedTime.getTime()) ? parsedTime : null;
+  const ageMinutes = validTime ? Math.max(0, Math.round((Date.now() - validTime.getTime()) / 60000)) : null;
+  const freshness = ageMinutes == null ? "Time not supplied by source" : ageMinutes < 1 ? "Updated just now" : ageMinutes < 60 ? "Updated " + ageMinutes + " min ago" : "Updated " + Math.floor(ageMinutes / 60) + " hr ago";
+  const stale = ageMinutes != null && ageMinutes > 15;
+  return { type: "status", status: failed ? "error" : stale ? "stale" : "info", title: failed ? "This request needs attention" : fallbackTitle, description: String(result?.error || result?.context || "AURORA could not verify an update from the source.").slice(0, 420), updatedAt: validTime ? validTime.toLocaleString() : "", freshness };
+}
 
 function makeSpeechFriendly(value) {
   let text = String(value || "");
@@ -61,9 +133,11 @@ function makeSpeechFriendly(value) {
 }
 
 function renderInlineText(text, keyPrefix) {
-  const parts = String(text || "").split(/(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
+  const parts = String(text || "").split(/(!\[[^\]]*\]\(https?:\/\/[^)\s]+\)|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|\x60[^\x60]+\x60|\*[^*]+\*)/g).filter(Boolean);
   return parts.map((part, index) => {
     const key = keyPrefix + "-" + index;
+    const markdownImage = part.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (markdownImage) return <a key={key} className="message-image-card" href={markdownImage[2]} target="_blank" rel="noreferrer"><img src={markdownImage[2]} alt={markdownImage[1] || "AURORA visual reference"} loading="lazy" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.style.display = "none"; event.currentTarget.nextElementSibling?.classList.add("image-fallback"); }}/><span>{markdownImage[1] || "Open visual reference"} <ArrowUpRight size={13}/></span></a>;
     const markdownLink = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (markdownLink) return <a key={key} className="message-inline-link" href={markdownLink[2]} target="_blank" rel="noreferrer">{renderInlineText(markdownLink[1], key + "-label")}</a>;
     if (part.startsWith("**") && part.endsWith("**")) return <strong key={key}>{part.slice(2, -2)}</strong>;
@@ -160,21 +234,44 @@ function FormattedMessage({ content, onChoice }) {
 }
 function StructuredVisual({ data }) {
   const safeColor = (value, fallback) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+  const safeUrl = (value) => {
+    try { const url = new URL(String(value || "")); return url.protocol === "https:" || url.protocol === "http:" ? url.href : ""; }
+    catch { return ""; }
+  };
+  const title = typeof data?.title === "string" ? data.title : "";
+  const description = typeof data?.description === "string" ? data.description : "";
   if (data && data.type === "flow" && Array.isArray(data.steps) && data.steps.length) {
     const steps = data.steps.slice(0, 8);
-    return <div className="aurora-flow-card">{data.title && <div className="aurora-visual-title">{data.title}</div>}{steps.map((step, index) => <div className="aurora-flow-step-wrap" key={index}><div className="aurora-flow-step" style={{ background: safeColor(step.color, "#14233a") }}><div className="aurora-flow-step-title">{String(step.title || "Step " + (index + 1))}</div>{step.text && <div className="aurora-flow-step-text">{String(step.text)}</div>}</div>{index < steps.length - 1 && <div className="aurora-flow-arrow" aria-hidden="true">â†“</div>}</div>)}</div>;
+    return <div className="aurora-flow-card">{title && <div className="aurora-visual-title">{title}</div>}{steps.map((step, index) => <div className="aurora-flow-step-wrap" key={index}><div className="aurora-flow-step" style={{ background: safeColor(step.color, "#14233a") }}><div className="aurora-flow-step-title">{String(step.title || "Step " + (index + 1))}</div>{step.text && <div className="aurora-flow-step-text">{String(step.text)}</div>}</div>{index < steps.length - 1 && <div className="aurora-flow-arrow" aria-hidden="true">↓</div>}</div>)}</div>;
   }
-  if (data && data.type === "card" && typeof data.title === "string") {
-    const items = Array.isArray(data.items) ? data.items.slice(0, 8) : [];
-    const url = typeof data.buttonUrl === "string" && /^https?:\/\//i.test(data.buttonUrl) ? data.buttonUrl : "";
-    return <div className="aurora-info-card"><div className="aurora-info-card-accent"><Sparkles size={16}/></div><div className="aurora-visual-title">{data.title}</div>{data.description && <p className="message-paragraph">{String(data.description)}</p>}{items.length > 0 && <ul className="aurora-info-items">{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : String(item && (item.text || item.title) || "")}</li>)}</ul>}{url && <a className="aurora-card-link" href={url} target="_blank" rel="noreferrer">{String(data.buttonLabel || "Open link")} <span>â†—</span></a>}</div>;
-  }
-  return null;
+  if (!data || !["card", "live", "research", "action", "map", "metrics", "status"].includes(data.type) || !title) return null;
+  const items = Array.isArray(data.items) ? data.items.slice(0, 8) : [];
+  const sources = Array.isArray(data.sources) ? data.sources.slice(0, 5) : [];
+  const actions = Array.isArray(data.actions) ? data.actions.slice(0, 3) : [];
+  const metrics = Array.isArray(data.metrics) ? data.metrics.slice(0, 4) : [];
+  const buttonUrl = safeUrl(data.buttonUrl);
+  const address = typeof data.address === "string" ? data.address.trim() : "";
+  const mapUrl = safeUrl(data.mapUrl) || (address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address) : "");
+  const kindLabel = ({ status: "STATUS UPDATE", live: "LIVE INFORMATION", research: "RESEARCH", action: "QUICK ACTIONS", map: "PLACE & MAP", metrics: "AT A GLANCE", card: "AURORA INSIGHT" })[data.type];
+  return <section className={"aurora-data-card aurora-data-card-" + data.type} aria-label={title}>
+    <div className="aurora-data-card-top"><span className="aurora-data-card-icon">{data.type === "map" ? <MapPinned size={16}/> : data.type === "research" ? <BookOpen size={16}/> : data.type === "live" ? <Activity size={16}/> : data.type === "action" ? <Check size={16}/> : <Sparkles size={16}/>}</span><span className="aurora-data-card-kind">{kindLabel}</span>{data.status === "live" && <span className="aurora-data-live-dot">LIVE</span>}</div>
+    <div className="aurora-visual-title">{title}</div>
+    {description && <p className="message-paragraph">{description}</p>}
+    {data.type === "status" && <div className={"aurora-status-detail aurora-status-" + (data.status === "error" ? "error" : data.status === "stale" ? "stale" : "info")} role="status"><span>{data.status === "error" ? "Needs attention" : data.status === "stale" ? "May be out of date" : "Source status"}</span>{data.freshness && <small>{String(data.freshness)}</small>}</div>}
+    {data.type === "metrics" && metrics.length > 0 && <div className="aurora-metric-grid">{metrics.map((metric, index) => <div className="aurora-metric" key={index}><strong>{String(metric.value ?? "—")}</strong><span>{String(metric.label || "Metric")}</span>{metric.detail && <small>{String(metric.detail)}</small>}</div>)}</div>}
+    {data.type === "map" && <div className="aurora-map-summary"><MapPinned size={17}/><span>{address || "Location details not supplied"}</span></div>}
+    {items.length > 0 && <ul className="aurora-info-items">{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : String(item && (item.text || item.title || item.label) || "")}</li>)}</ul>}
+    {data.type === "research" && sources.length > 0 && <div className="aurora-research-sources"><strong>Sources</strong>{sources.map((source, index) => { const url = safeUrl(source?.url); return <div className="aurora-research-source" key={index}><span>{String(source?.title || source?.name || "Source " + (index + 1))}</span>{url && <a href={url} target="_blank" rel="noreferrer">Open <ArrowUpRight size={12}/></a>}</div>; })}</div>}
+    {data.updatedAt && <div className="aurora-data-updated">Updated: {String(data.updatedAt)}</div>}
+    {mapUrl && data.type === "map" && <a className="aurora-card-link" href={mapUrl} target="_blank" rel="noreferrer">Open in Maps <ArrowUpRight size={13}/></a>}
+    {buttonUrl && <a className="aurora-card-link" href={buttonUrl} target="_blank" rel="noreferrer">{String(data.buttonLabel || "Open link")} <ArrowUpRight size={13}/></a>}
+    {actions.length > 0 && <div className="aurora-action-list">{actions.map((action, index) => { const url = safeUrl(action?.url); return url ? <a className="aurora-action-item" href={url} target="_blank" rel="noreferrer" key={index}><span><strong>{String(action.label || action.title || "Open action")}</strong>{action.description && <small>{String(action.description)}</small>}</span><ArrowUpRight size={15}/></a> : <div className="aurora-action-item is-static" key={index}><span><strong>{String(action.label || action.title || "Action")}</strong>{action.description && <small>{String(action.description)}</small>}</span></div>; })}</div>}
+  </section>;
 }
 function findStructuredBlock(line) {
   const candidate = line.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   if (!candidate.startsWith("{") || !candidate.endsWith("}")) return null;
-  try { const parsed = JSON.parse(candidate); if (parsed && (parsed.type === "flow" || parsed.type === "card")) return parsed; } catch {}
+  try { const parsed = JSON.parse(candidate); if (parsed && ["flow", "card", "live", "research", "action", "map", "metrics", "status"].includes(parsed.type)) return parsed; } catch {}
   return null;
 }
 
@@ -276,25 +373,65 @@ function Orb({ compact = false, speaking = false, duration = 5 }) {
   );
 }
 
-function BottomNav({ active, onNavigate }) {
-  const items = [
+function WorkspaceContextNav({ active, onNavigate }) {
+  const links = [
     { id: "home", label: "Home", Icon: House },
-    { id: "activities", label: "Activities", Icon: CalendarDays },
-    { id: "tools", label: "Tools", Icon: Sparkles },
-    { id: "maps", label: "Maps", Icon: MapPinned },
-    { id: "chat", label: "AURORA", Icon: AudioLines },
-    { id: "pulse", label: "Pulse", Icon: Activity },
+    { id: "tools", label: "Explore", Icon: Sparkles },
     { id: "profile", label: "Profile", Icon: UserRound }
   ];
+  return <nav className="workspace-context-nav" aria-label="Workspace shortcuts">
+    <span className="workspace-context-brand"><Orb compact/><span>AURORA</span></span>
+    <div className="workspace-context-links">
+      {links.map(({ id, label, Icon }) => <button key={id} type="button" className={active === id ? "workspace-context-link is-current" : "workspace-context-link"} onClick={() => onNavigate(id)} aria-current={active === id ? "page" : undefined}>
+        <Icon size={14}/><span>{label}</span>
+      </button>)}
+    </div>
+  </nav>;
+}
+
+function BottomNav({ active, onNavigate }) {
+  const [exploreOpen, setExploreOpen] = useState(false);
+  const items = [
+    { id: "home", label: "Home", Icon: House },
+    { id: "chat", label: "Chat", Icon: AudioLines },
+    { id: "explore", label: "Explore", Icon: Sparkles },
+    { id: "insights", label: "Insights", Icon: Activity },
+    { id: "profile", label: "Profile", Icon: UserRound }
+  ];
+  const shortcuts = [
+    { id: "tools", title: "All tools & workspaces", detail: "Search, study, write and create", Icon: Sparkles },
+    { id: "maps", title: "Maps & places", detail: "Explore places and journeys", Icon: MapPinned },
+    { id: "activities", title: "Daily activities", detail: "Tasks, reminders and calendar", Icon: CalendarDays },
+    { id: "library", title: "Knowledge library", detail: "Your saved notes and knowledge", Icon: BookOpen }
+  ];
+  function chooseExploreRoute(route) {
+    setExploreOpen(false);
+    onNavigate(route);
+  }
   return (
-    <nav className="bottom-nav" aria-label="Main navigation">
-      {items.map(({ id, label, Icon }) => (
-        <button key={id} className={`nav-item ${active === id ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""}`} onClick={() => onNavigate(id)}>
-          <span className="nav-icon"><Icon size={19} strokeWidth={1.8} /></span>
-          <span>{label}</span>
-        </button>
-      ))}
-    </nav>
+    <>
+      {exploreOpen && <button type="button" className="explore-panel-backdrop" aria-label="Close Explore panel" onClick={() => setExploreOpen(false)} />}
+      <nav className="bottom-nav" aria-label="Main navigation">
+        {exploreOpen && <section className="explore-panel" id="aurora-explore-panel" aria-label="Explore AURORA">
+          <div className="explore-panel-heading"><span className="panel-eyebrow">DISCOVER AURORA</span><strong>Where would you like to go?</strong></div>
+          <div className="explore-panel-links">
+            {shortcuts.map(({ id, title, detail, Icon }) => <button type="button" className="explore-panel-link" key={id} onClick={() => chooseExploreRoute(id)}>
+              <span className="explore-panel-icon"><Icon size={17}/></span><span><strong>{title}</strong><small>{detail}</small></span><ChevronRight size={16}/>
+            </button>)}
+          </div>
+        </section>}
+        {items.map(({ id, label, Icon }) => {
+          const route = id === "insights" ? "activities" : id === "explore" ? "tools" : id;
+          const isExplore = id === "explore";
+          const selected = isExplore ? active === "tools" || exploreOpen : active === route;
+          return <button key={id} type="button" className={`nav-item ${selected ? "active" : ""} ${id === "chat" ? "nav-aurora" : ""} ${isExplore ? "nav-explore" : ""}`} onClick={() => isExplore ? setExploreOpen((open) => !open) : (setExploreOpen(false), onNavigate(route))} aria-current={!isExplore && active === route ? "page" : undefined} aria-expanded={isExplore ? exploreOpen : undefined} aria-controls={isExplore ? "aurora-explore-panel" : undefined}>
+            <span className="nav-icon"><Icon size={19} strokeWidth={1.8} /></span>
+            <span>{label}</span>
+            {isExplore && <span className="nav-expand-indicator"><ChevronRight size={10}/></span>}
+          </button>;
+        })}
+      </nav>
+    </>
   );
 }
 
@@ -393,8 +530,11 @@ export default function App() {
     } catch {}
     return [];
   });
+  const recentHomeSessions = useMemo(() => chatSessions.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 3), [chatSessions]);
   const [activeChatId, setActiveChatId] = useState(() => { try { return localStorage.getItem("aurora-active-chat-id") || (JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]")[0]?.id) || (JSON.parse(localStorage.getItem("aurora-chat-history") || "[]").length ? "chat-legacy" : ("chat-" + Date.now())); } catch { return "chat-" + Date.now(); } });
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [chatToolsOpen, setChatToolsOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
   const [messages, setMessages] = useState(() => {
     try {
       const sessions = JSON.parse(localStorage.getItem("aurora-chat-sessions") || "[]");
@@ -410,73 +550,78 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState(() => { try { return localStorage.getItem("aurora-selected-voice") || ""; } catch { return ""; } });
+  const [speechPace, setSpeechPace] = useState(() => { try { return localStorage.getItem("aurora-speech-pace") || "adaptive"; } catch { return "adaptive"; } });
+  const [spokenCaption, setSpokenCaption] = useState("");
   const [availableVoices, setAvailableVoices] = useState([]);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState("");
   const [profile, setProfile] = useState(() => { try { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm", ...JSON.parse(localStorage.getItem("aurora-profile") || "{}") }; } catch { return { name: "", nickname: "", wakeTime: "", sleepTime: "", priorities: "", foodPreferences: "", dietaryRestrictions: "", assistantStyle: "warm" }; } });
   const [profileSaved, setProfileSaved] = useState(false);
+  const homeGreeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening";
+  const homeDisplayName = String(profile.nickname || profile.name || "there").trim() || "there";
   const [pulseOpen, setPulseOpen] = useState(false);
+  const [pulseTranscriptionAutoStart, setPulseTranscriptionAutoStart] = useState(false);
   const [pulseDraft, setPulseDraft] = useState("");
-  const [pulseMessages, setPulseMessages] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("aurora-pulse-session") || "[]");
-      const valid = Array.isArray(saved) ? saved.filter(message => message && ["user", "assistant"].includes(message.role) && typeof message.content === "string" && message.content.trim()).slice(-40) : [];
-      return valid.length ? valid : [{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }];
-    } catch { return [{ role: "assistant", content: "Hey! Iâ€™m AURORA. What would you like help with?" }]; }
-  });
+  const [pulseMessages, setPulseMessages] = useState(() => { try { const saved = JSON.parse(localStorage.getItem("aurora-pulse-messages") || "[]"); return Array.isArray(saved) ? saved.filter(item => item && !item.pending).slice(-60) : []; } catch { return []; } });
   const [pulseBusy, setPulseBusy] = useState(false);
   const [pulseListening, setPulseListening] = useState(false);
+  const [pulseVoiceError, setPulseVoiceError] = useState("");
+  const [pulseInterrupted, setPulseInterrupted] = useState(false);
+  const [bargeInReady, setBargeInReady] = useState(false);
+  const [pulseToolsOpen, setPulseToolsOpen] = useState(false);
+  const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
+  const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
+  const pulseDragRef = useRef(null);
   const pulseRecognitionRef = useRef(null);
   const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
   const pulseInterruptionReleaseRef = useRef(null);
-  const [pulseWeatherCity, setPulseWeatherCity] = useState("Lagos");
-  const [pulseWeather, setPulseWeather] = useState({ temperature: "â€”", condition: "Tap to load current weather", city: "Lagos" });
-  const [pulseWeatherBusy, setPulseWeatherBusy] = useState(false);
-  const pulseWeatherRequestRef = useRef(0);
   const [browserWakeListening, setBrowserWakeListening] = useState(false);
   const browserWakeRecognitionRef = useRef(null);
   useEffect(() => {
     try { localStorage.setItem("aurora-profile", JSON.stringify(profile)); } catch {}
   }, [profile]);
   useEffect(() => {
-    try { localStorage.setItem("aurora-pulse-session", JSON.stringify(pulseMessages.slice(-40))); } catch {}
+    try { localStorage.setItem("aurora-pulse-messages", JSON.stringify(pulseMessages.filter(item => !item.pending).slice(-60))); } catch {}
   }, [pulseMessages]);
   useEffect(() => {
-    const refreshPulseSession = () => {
-      try {
-        const saved = JSON.parse(localStorage.getItem("aurora-pulse-session") || "[]");
-        if (!Array.isArray(saved)) return;
-        const valid = saved.filter(message => message && ["user", "assistant"].includes(message.role) && typeof message.content === "string" && message.content.trim()).slice(-40);
-        if (valid.length) setPulseMessages(valid);
-      } catch {}
-    };
-    window.addEventListener("focus", refreshPulseSession);
-    return () => window.removeEventListener("focus", refreshPulseSession);
-  }, []);
-  async function loadPulseWeather(city = pulseWeatherCity) {
-    const chosen = String(city || "").trim();
-    if (!chosen) return;
-    const requestId = ++pulseWeatherRequestRef.current;
-    setPulseWeatherBusy(true);
-    try {
-      const response = await fetch(auroraApiUrl("/api/weather?city=") + encodeURIComponent(chosen));
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Weather could not be loaded.");
-      const current = data.current || {};
-      const units = data.units || {};
-      if (requestId !== pulseWeatherRequestRef.current) return;
-      setPulseWeather({ temperature: current.temperature == null ? "â€”" : String(current.temperature) + (units.temperature || "Â°C"), condition: current.description || "Conditions unavailable", city: data.location || chosen });
-      setPulseWeatherCity(data.location || chosen);
-    } catch (error) {
-      if (requestId === pulseWeatherRequestRef.current) {
-        setPulseWeather({ temperature: "Unavailable", condition: error?.message || "Try again shortly", city: chosen });
+    if (!pulseOpen || !AuroraNative.isAndroid()) return;
+    let stopped = false;
+    const checkBackgroundTranscriptions = async () => {
+      let keys = [];
+      try { keys = Object.keys(localStorage).filter(key => key.startsWith("aurora-voicetext-job:")); } catch {}
+      for (const key of keys.slice(-5)) {
+        if (stopped) return;
+        let saved;
+        try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch { continue; }
+        if (!saved?.requestId || !saved.nativeBackground) continue;
+        try {
+          const status = await AuroraNative.getNativeRecordingStatus(saved.requestId);
+          const completed = Number(status?.completedChunks || 0);
+          const previous = Number(localStorage.getItem("aurora-pulse-transcription-progress:" + saved.requestId) || 0);
+          if (completed > previous && !status?.successful && !status?.failed) {
+            localStorage.setItem("aurora-pulse-transcription-progress:" + saved.requestId, String(completed));
+            setPulseMessages(items => [...items, { role: "assistant", content: "Transcription update: " + completed + " audio sections have been processed in the background." }]);
+          }
+          if (status?.successful && localStorage.getItem("aurora-pulse-transcription-finished:" + saved.requestId) !== "1") {
+            localStorage.setItem("aurora-pulse-transcription-finished:" + saved.requestId, "1");
+            setPulseMessages(items => [...items, { role: "assistant", content: "Your background transcription is complete. Open the Transcription workspace to review the combined transcript." }]);
+          } else if (status?.failed && localStorage.getItem("aurora-pulse-transcription-failed:" + saved.requestId) !== "1") {
+            localStorage.setItem("aurora-pulse-transcription-failed:" + saved.requestId, "1");
+            const reason = String(status.reason || "");
+            const message = /(401|403|sign.?in|session|expired|unauthori[sz]ed)/i.test(reason)
+              ? "Your transcription needs a fresh AURORA sign-in. Sign in, then reopen Transcription and choose the same recording to resume from its saved sections."
+              : "Background transcription needs attention: " + (reason || "Android reported that the job did not finish.") + " Reopen Transcription and choose the same recording to resume.";
+            setPulseMessages(items => [...items, { role: "assistant", content: message }]);
+          }
+        } catch {}
       }
-    } finally {
-      if (requestId === pulseWeatherRequestRef.current) setPulseWeatherBusy(false);
-    }
-  }
-  useEffect(() => { loadPulseWeather("Lagos"); }, []);
+    };
+    void checkBackgroundTranscriptions();
+    const timer = setInterval(() => { void checkBackgroundTranscriptions(); }, 8000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, [pulseOpen]);
+
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateMessage, setAppUpdateMessage] = useState("Check whether a newer AURORA build is available.");
@@ -487,31 +632,13 @@ export default function App() {
   const [screenReadMessage, setScreenReadMessage] = useState("");
   const [nativeStatus, setNativeStatus] = useState(null);
   const [nativeServiceOn, setNativeServiceOn] = useState(false);
-  const [assistantRoleHeld, setAssistantRoleHeld] = useState(false);
-  const [assistantRoleSupported, setAssistantRoleSupported] = useState(false);
   const [nativeBusy, setNativeBusy] = useState(false);
   const [nativeNotice, setNativeNotice] = useState("");
-  const [deviceDiagnostics, setDeviceDiagnostics] = useState([]);
-  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
-  const [diagnosticsUpdatedAt, setDiagnosticsUpdatedAt] = useState("");
 
   useEffect(() => {
     if (!AuroraNative.isAndroid()) return;
     let stopped = false;
     AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
-    AuroraNative.getAssistantRoleStatus().then((status) => {
-      if (!stopped) { setAssistantRoleSupported(Boolean(status?.supported)); setAssistantRoleHeld(Boolean(status?.held)); }
-    }).catch(() => {});
-    const statusTimer = setInterval(() => {
-      AuroraNative.status().then((status) => {
-        if (!stopped && status) {
-          setNativeStatus(status);
-          setNativeServiceOn(Boolean(status.wakeWordListening));
-          setAssistantRoleSupported(Boolean(status.assistantRoleSupported));
-          setAssistantRoleHeld(Boolean(status.assistantRoleHeld));
-        }
-      }).catch(() => {});
-    }, 5000);
     const pollWakeWord = async () => {
       try {
         const pulseRequest = await AuroraNative.consumePulseOpenRequest();
@@ -522,6 +649,15 @@ export default function App() {
           setNativeNotice("AURORA Pulse opened from the assistant gesture.");
         }
 
+        const sessionQuery = await AuroraNative.consumeAssistantSessionQuery();
+        if (stopped) return;
+        if (sessionQuery?.query) {
+          assistantSessionVoiceReplyRef.current = true;
+          setDraft(sessionQuery.query);
+          setPulseOpen(true);
+          setNativeNotice("Voice input is ready for review. Tap Send when you are happy with the transcript. AURORA will speak its reply aloud.");
+        }
+
         const result = await AuroraNative.consumeWakeWord();
         if (stopped || !result?.detected) return;
         setPulseOpen(true);
@@ -529,7 +665,7 @@ export default function App() {
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
-    return () => { stopped = true; clearInterval(timer); clearInterval(statusTimer); };
+    return () => { stopped = true; clearInterval(timer); };
   }, []);
 
   function toggleBrowserWakeWord() {
@@ -584,51 +720,6 @@ export default function App() {
     }
   }
 
-  async function runDeviceDiagnostics() {
-    if (!AuroraNative.isAndroid() || diagnosticsBusy) return;
-    setDiagnosticsBusy(true);
-    setDeviceDiagnostics([]);
-    const checks = [
-      { id: "bridge", label: "AURORA native bridge", run: () => AuroraNative.status(), pass: (value) => Boolean(value?.nativeBridge), detail: "Native Android connection is responding." },
-      { id: "assistant", label: "Android assistant role", run: () => AuroraNative.getAssistantRoleStatus(), pass: (value) => Boolean(value?.held), detail: "AURORA is selected as the system assistant.", warn: "AURORA is not the selected default assistant yet." },
-      { id: "accessibility", label: "Screen-reading service", run: () => AuroraNative.isAccessibilityEnabled(), pass: (value) => Boolean(value?.enabled), detail: "AURORA accessibility service is enabled.", warn: "Optional: enable AURORA Screen Assistant in Android Accessibility settings." },
-      { id: "network", label: "Network status access", run: () => AuroraNative.getNetworkStatus(), pass: () => true, detail: "Android returned network status successfully." },
-      { id: "storage", label: "Device storage access", run: () => AuroraNative.getStorageStatus(), pass: () => true, detail: "Android returned storage status successfully." }
-    ];
-    try {
-      const results = await Promise.all(checks.map(async (check) => {
-        try {
-          const value = await check.run();
-          const passed = check.pass(value);
-          return { id: check.id, label: check.label, status: passed ? "ready" : "attention", detail: passed ? check.detail : (check.warn || "This capability needs attention.") };
-        } catch (error) {
-          return { id: check.id, label: check.label, status: "unavailable", detail: error?.message || "Android did not return this capability status." };
-        }
-      }));
-      setDeviceDiagnostics(results);
-      setDiagnosticsUpdatedAt(new Date().toLocaleTimeString());
-    } finally {
-      setDiagnosticsBusy(false);
-    }
-  }
-
-  async function requestDefaultAssistant() {
-    if (!AuroraNative.isAndroid() || nativeBusy) return;
-    setNativeBusy(true);
-    try {
-      const result = await AuroraNative.requestAssistantRole();
-      setAssistantRoleSupported(Boolean(result?.supported));
-      setAssistantRoleHeld(Boolean(result?.held));
-      setNativeNotice(result?.held
-        ? "AURORA is now selected as your Android default assistant."
-        : result?.supported
-          ? "Choose AURORA in Android's assistant selection screen to finish setup."
-          : "This Android version does not expose the assistant role request. You can still use AURORA normally.");
-    } catch (error) {
-      setNativeNotice(error?.message || "Could not open Android assistant selection.");
-    } finally { setNativeBusy(false); }
-  }
-
   async function toggleNativeAssistant() {
     if (!AuroraNative.isAndroid() || nativeBusy) return;
     setNativeBusy(true);
@@ -638,12 +729,6 @@ export default function App() {
         setNativeServiceOn(false);
         setNativeNotice("AURORA background listening is stopped.");
       } else {
-        const overlayPermission = await AuroraNative.hasOverlayPermission();
-        if (!overlayPermission?.granted) {
-          await AuroraNative.requestOverlayPermission();
-          setNativeNotice("Allow AURORA to display over other apps, then return and enable Hey AURORA again.");
-          return;
-        }
         await AuroraNative.requestMicrophonePermission();
         const notificationPermission = await AuroraNative.requestNotificationPermission();
         if (!notificationPermission?.granted) {
@@ -767,10 +852,10 @@ export default function App() {
   const cameraVideoRef = useRef(null);
   const liveCameraStreamRef = useRef(null);
   const [tunerOpen, setTunerOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [notice, setNotice] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState(() => auroraRuntime.approvals.listPending());
-  const [activityTab, setActivityTab] = useState("tasks");
+  const [activityTab, setActivityTab] = useState("predictive");
   const [toolKind, setToolKind] = useState("search");
   const [toolScreen, setToolScreen] = useState("home");
   const [toolQuery, setToolQuery] = useState("");
@@ -814,7 +899,19 @@ export default function App() {
   const speechReleaseRef = useRef(null);
   const speechRequestIdRef = useRef(0);
   const nativeTtsListenerRef = useRef(null);
+  const assistantSessionVoiceReplyRef = useRef(false);
   const browserUtteranceRef = useRef(null);
+  const bargeInSessionRef = useRef(false);
+  const bargeInRecognitionRef = useRef(null);
+  const bargeInNativeListenersRef = useRef([]);
+  const bargeInTimerRef = useRef(null);
+  const bargeInPermissionAskedRef = useRef(false);
+  const bargeInCandidateRef = useRef("");
+  const bargeInCandidateTimerRef = useRef(null);
+  const activeSpeechTextRef = useRef("");
+  const lastSpokenTextRef = useRef("");
+  const speechQueueRef = useRef(null);
+  const speechCaptionTimerRef = useRef(null);
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
@@ -822,6 +919,18 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, busy]);
+
+  useEffect(() => {
+    if (!attachmentOpen && !cameraOpen && !tunerOpen) return undefined;
+    const handleOverlayEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (cameraOpen) closeCameraScreen();
+      else if (tunerOpen) setTunerOpen(false);
+      else setAttachmentOpen(false);
+    };
+    window.addEventListener("keydown", handleOverlayEscape);
+    return () => window.removeEventListener("keydown", handleOverlayEscape);
+  }, [attachmentOpen, cameraOpen, tunerOpen]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return undefined;
@@ -868,6 +977,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem("aurora-selected-voice", selectedVoice); } catch {}
   }, [selectedVoice]);
+
+  useEffect(() => {
+    try { localStorage.setItem("aurora-speech-pace", speechPace); } catch {}
+  }, [speechPace]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1121,7 +1234,32 @@ export default function App() {
     }
   }, [authSession, authConfigured, authUrl, authKey, authStorageReady]);
 
+  async function copyAssistantMessage(content) {
+    const text = String(content || "").replace(/\[\[CHOICES:[\s\S]*?\]\]/g, "").trim();
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = text;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand("copy");
+        field.remove();
+        if (!copied) throw new Error("Clipboard access is unavailable.");
+      }
+      setNotice("AURORA's response copied.");
+    } catch {
+      setNotice("Couldn't copy automatically. Select and copy the response text instead.");
+    }
+  }
+
   function navigate(next) {
+    if (next === "explore") next = "tools";
     if (next === "pulse") setPulseOpen(true);
     if (next === "tools") setToolScreen("home");
     if (next === "admin" && (!authVerified || !authSession?.access_token || String(authSession?.user?.email || "").toLowerCase() !== "alwerioghenepeace563@gmail.com")) {
@@ -1150,8 +1288,166 @@ export default function App() {
     return () => { cancelled = true; };
   }, [page, authSession?.access_token]);
 
-  function stopSpokenOutput() {
+  function stopBargeInDetection() {
+    bargeInSessionRef.current = false;
+    setBargeInReady(false);
+    if (bargeInTimerRef.current) { clearTimeout(bargeInTimerRef.current); bargeInTimerRef.current = null; }
+    if (bargeInCandidateTimerRef.current) { clearTimeout(bargeInCandidateTimerRef.current); bargeInCandidateTimerRef.current = null; }
+    bargeInCandidateRef.current = "";
+    try { bargeInRecognitionRef.current?.stop?.(); } catch {}
+    bargeInRecognitionRef.current = null;
+    bargeInNativeListenersRef.current.forEach(handle => { try { void handle?.remove?.(); } catch {} });
+    bargeInNativeListenersRef.current = [];
+    if (AuroraNative.isAndroid()) { try { void auroraNative.stopSpeechRecognition(); } catch {} }
+  }
+
+  function scheduleBargeInRestart(text, requestId) {
+    if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+    if (bargeInTimerRef.current) clearTimeout(bargeInTimerRef.current);
+    bargeInTimerRef.current = setTimeout(() => {
+      bargeInTimerRef.current = null;
+      if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) void startBargeInDetection(text, requestId);
+    }, 420);
+  }
+
+  function acceptBargeIn(transcript, requestId) {
+    const spoken = String(transcript || "").trim();
+    if (!spoken || !bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+    stopBargeInDetection();
+    const previous = lastSpokenTextRef.current;
+    const followUp = resolveVoiceFollowUp(spoken, { lastAnswer: previous });
+    stopSpokenOutput();
+    if (pulseOpen) setPulseInterrupted(true);
+    if (/^(?:stop|stop talking|stop speaking|be quiet|that's enough|thats enough|pause)[.!? ]*$/i.test(spoken)) {
+      setNotice("Okay. I've stopped speaking.");
+      return;
+    }
+    if (/^(?:repeat|repeat that|say that again)[.!? ]*$/i.test(spoken)) {
+      if (previous) void speak(previous);
+      return;
+    }
+    if (followUp?.type === "repeat_last_sentence") {
+      if (followUp.text) void speak(followUp.text);
+      return;
+    }
+    if (followUp?.type === "continue" || followUp?.type === "rephrase" || followUp?.type === "return_to_point" || followUp?.type === "return_to_option") {
+      if (pulseOpen) void sendPulseMessage(followUp.prompt);
+      else void sendMessage(followUp.prompt);
+      return;
+    }
+    if (/^(?:slow down|speak slower)[.!? ]*$/i.test(spoken)) {
+      if (previous) void speak(previous, { slow: true });
+      return;
+    }
+    if (/^(?:wait|hold on|one second)[.!? ]*$/i.test(spoken)) {
+      setNotice("Paused. Go ahead — I'm listening.");
+      if (pulseOpen) void togglePulseMic(); else void toggleMic();
+      return;
+    }
+    if (pulseOpen) void sendPulseMessage(spoken);
+    else void sendMessage(spoken);
+  }
+
+  async function startBargeInDetection(text, requestId) {
+    if (!soundOn || requestId !== speechRequestIdRef.current || auroraRuntime.interactions.isBackground()) return;
+    bargeInSessionRef.current = true;
+    setBargeInReady(true);
+    activeSpeechTextRef.current = String(text || "");
+    if (AuroraNative.isAndroid()) {
+      try {
+        if (!bargeInPermissionAskedRef.current) {
+          bargeInPermissionAskedRef.current = true;
+          const permission = await auroraNative.requestMicrophonePermission();
+          if (!permission?.granted) { stopBargeInDetection(); setNotice("Allow microphone access to interrupt AURORA while it speaks. You can still use the on-screen microphone."); return; }
+        }
+        if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+        bargeInNativeListenersRef.current.forEach(handle => { try { void handle?.remove?.(); } catch {} });
+        bargeInNativeListenersRef.current = [];
+        const resultHandle = await auroraNative.addSpeechResultListener(event => {
+          const transcript = String(event?.transcript || "").trim();
+          if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+          if (isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) { scheduleBargeInRestart(text, requestId); return; }
+          acceptBargeIn(transcript, requestId);
+        });
+        const partialHandle = await auroraNative.addSpeechPartialResultListener(event => {
+          const transcript = String(event?.transcript || "").trim();
+          if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current || !transcript) return;
+          if (isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) return;
+          if (isImmediateInterruptionCommand(transcript)) { acceptBargeIn(transcript, requestId); return; }
+          if (transcript.length < 3) return;
+          if (bargeInCandidateRef.current !== transcript) {
+            bargeInCandidateRef.current = transcript;
+            if (bargeInCandidateTimerRef.current) clearTimeout(bargeInCandidateTimerRef.current);
+            bargeInCandidateTimerRef.current = setTimeout(() => {
+              if (bargeInSessionRef.current && requestId === speechRequestIdRef.current && bargeInCandidateRef.current === transcript) acceptBargeIn(transcript, requestId);
+            }, 650);
+          }
+        });
+        const errorHandle = await auroraNative.addSpeechErrorListener(event => {
+          if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+          const reason = String(event?.message || "");
+          if (/no speech|timeout|recognition cancelled/i.test(reason)) scheduleBargeInRestart(text, requestId);
+          else { stopBargeInDetection(); }
+        });
+        bargeInNativeListenersRef.current = [resultHandle, partialHandle, errorHandle];
+        if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) { stopBargeInDetection(); return; }
+        await auroraNative.startSpeechRecognition();
+      } catch {
+        if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) {
+          // Keep playback available even if the Android recognition service cannot listen concurrently.
+          stopBargeInDetection();
+          setNotice("Hands-free interruption could not start on this device. You can still stop speech or use the microphone button.");
+        }
+      }
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { stopBargeInDetection(); setNotice("This browser cannot listen while AURORA speaks. Use the microphone button to interrupt."); return; }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-GB";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.onresult = event => {
+        for (let index = event.resultIndex || 0; index < event.results.length; index++) {
+          const result = event.results[index];
+          const transcript = String(result?.[0]?.transcript || "").trim();
+          if (!transcript || isLikelySpeechEcho(transcript, activeSpeechTextRef.current)) continue;
+          if (isImmediateInterruptionCommand(transcript) || result.isFinal) { acceptBargeIn(transcript, requestId); return; }
+          if (transcript.length < 3) continue;
+          if (bargeInCandidateRef.current !== transcript) {
+            bargeInCandidateRef.current = transcript;
+            if (bargeInCandidateTimerRef.current) clearTimeout(bargeInCandidateTimerRef.current);
+            bargeInCandidateTimerRef.current = setTimeout(() => {
+              if (bargeInSessionRef.current && requestId === speechRequestIdRef.current && bargeInCandidateRef.current === transcript) acceptBargeIn(transcript, requestId);
+            }, 650);
+          }
+        }
+      };
+      recognition.onerror = event => {
+        if (!bargeInSessionRef.current || requestId !== speechRequestIdRef.current) return;
+        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(String(event?.error || ""))) { stopBargeInDetection(); setNotice("Allow microphone access to interrupt AURORA while it speaks. You can still use the microphone button."); return; }
+        scheduleBargeInRestart(text, requestId);
+      };
+      recognition.onend = () => {
+        if (bargeInRecognitionRef.current === recognition) bargeInRecognitionRef.current = null;
+        if (bargeInSessionRef.current && requestId === speechRequestIdRef.current) scheduleBargeInRestart(text, requestId);
+      };
+      bargeInRecognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      stopBargeInDetection();
+    }
+  }
+
+  function stopSpokenOutput(options = {}) {
     speechRequestIdRef.current += 1;
+    if (!options.preserveQueue) speechQueueRef.current = null;
+    stopBargeInDetection();
+    if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
+    setSpokenCaption("");
     if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
     try { audioRef.current?.pause?.(); if (audioRef.current) { audioRef.current.onended = null; audioRef.current.onerror = null; audioRef.current.src = ""; audioRef.current = null; } } catch {}
     try { window.speechSynthesis?.cancel?.(); } catch {}
@@ -1166,23 +1462,63 @@ export default function App() {
     if (!soundOn) stopSpokenOutput();
   }, [soundOn]);
 
-  async function speak(text) {
-    if (!soundOn || !text) return;
-    stopSpokenOutput();
+  async function speak(text, options = {}) {
+    if ((!soundOn && !options.force) || !text) return;
+    if (pulseOpen) setPulseInterrupted(false);
+    if (!options.chunkPart && !options.assistantSession) {
+      stopSpokenOutput();
+      const fullText = String(text);
+      const chunks = splitSpeechIntoChunks(makeSpeechFriendly(fullText));
+      if (chunks.length > 1) {
+        speechQueueRef.current = { chunks, index: 0, fullText };
+        return speak(chunks[0], { ...options, chunkPart: true, fullText });
+      }
+    }
+    stopSpokenOutput({ preserveQueue: true });
     const requestId = speechRequestIdRef.current;
+    const fullText = String(options.fullText || text);
+    const delivery = applySpeechPace(inferSpeechDelivery(text), speechPace);
+    lastSpokenTextRef.current = fullText;
+    const spokenChunks = splitSpeechIntoChunks(makeSpeechFriendly(text));
+    setSpokenCaption(spokenChunks.join(" "));
+    if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
+    activeSpeechTextRef.current = String(text);
     speechReleaseRef.current = auroraRuntime.interactions.register("voice", stopSpokenOutput);
     const isCurrent = () => requestId === speechRequestIdRef.current && !auroraRuntime.interactions.isBackground();
     const finishSpeech = () => {
       if (requestId !== speechRequestIdRef.current) return;
+      stopBargeInDetection();
       if (speechReleaseRef.current) { speechReleaseRef.current(); speechReleaseRef.current = null; }
       setSpeaking(false);
+      const queue = speechQueueRef.current;
+      if (queue && queue.index + 1 < queue.chunks.length) {
+        queue.index += 1;
+        if (speechCaptionTimerRef.current) { clearTimeout(speechCaptionTimerRef.current); speechCaptionTimerRef.current = null; }
+        const nextChunk = queue.chunks[queue.index];
+        setTimeout(() => {
+          if (speechQueueRef.current === queue) void speak(nextChunk, { chunkPart: true, fullText: queue.fullText });
+        }, 90);
+        return;
+      }
+      speechQueueRef.current = null;
+      if (speechCaptionTimerRef.current) clearTimeout(speechCaptionTimerRef.current);
+      speechCaptionTimerRef.current = setTimeout(() => { setSpokenCaption(""); speechCaptionTimerRef.current = null; }, 2600);
     };
     try {
       setSpeaking(false);
+      if (options.assistantSession && auroraNative.isAndroid()) {
+        try {
+          const sessionResult = await auroraNative.speakAssistantSessionReply(makeSpeechFriendly(text));
+          if (sessionResult?.delivered) {
+            setNotice("AURORA is speaking through the Android assistant voice.");
+            return;
+          }
+        } catch {}
+      }
       const response = await fetch(auroraApiUrl("/api/voice"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice })
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + (authSession?.access_token || "") },
+        body: JSON.stringify({ text: makeSpeechFriendly(text), voiceId: selectedVoice, delivery: delivery.style, speechRate: delivery.rate })
       });
       if (!isCurrent()) return;
       if (!response.ok) {
@@ -1212,6 +1548,7 @@ export default function App() {
       await audio.play();
       if (!isCurrent()) { audio.pause(); URL.revokeObjectURL(url); return; }
       setSpeaking(true);
+      void startBargeInDetection(text, requestId);
     } catch (error) {
       if (!isCurrent()) return;
       // Android devices use their native TTS engine when cloud voice is unavailable.
@@ -1228,10 +1565,11 @@ export default function App() {
           });
           if (!isCurrent()) { await nativeListener?.remove?.(); return; }
           nativeTtsListenerRef.current = nativeListener;
-          const nativeResult = await auroraNative.speakText(makeSpeechFriendly(text));
+          const nativeResult = await auroraNative.speakText(makeSpeechFriendly(text), { rate: options.slow ? 0.82 : delivery.rate, pitch: delivery.pitch });
           if (!isCurrent()) { try { await auroraNative.stopTextSpeech(); } catch {} return; }
           if (nativeResult?.started) {
             setSpeaking(true);
+            void startBargeInDetection(text, requestId);
             setNotice("Cloud voice unavailable. Speaking with your Android system voice.");
             return;
           }
@@ -1248,8 +1586,8 @@ export default function App() {
           window.speechSynthesis.cancel();
           const utterance = new window.SpeechSynthesisUtterance(makeSpeechFriendly(text));
           browserUtteranceRef.current = utterance;
-          utterance.rate = 0.96;
-          utterance.pitch = 0.92;
+          utterance.rate = options.slow ? 0.82 : delivery.rate;
+          utterance.pitch = delivery.pitch;
           const availableVoices = window.speechSynthesis.getVoices();
           const preferredVoice = availableVoices.find((voice) => /female|samantha|victoria|karen|zira|aria|jenny|serena/i.test(voice.name) && /^en/i.test(voice.lang))
             || availableVoices.find((voice) => /^en/i.test(voice.lang));
@@ -1258,6 +1596,7 @@ export default function App() {
           utterance.onerror = () => { browserUtteranceRef.current = null; finishSpeech(); setNotice("Read aloud is unavailable on this device right now."); };
           setSpeaking(true);
           window.speechSynthesis.speak(utterance);
+          void startBargeInDetection(text, requestId);
           setNotice("Cloud voice failed: " + (error?.message || "unknown error") + ". Using this device voice for now.");
           return;
         }
@@ -1277,6 +1616,42 @@ export default function App() {
     setBusy(true);
     setNotice("");
     try {
+      const visualIntent = !attachmentOverride && (/\b(?:show|find|get|pull|bring|display|give me)\b.{0,65}\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b|\b(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\b|\b(?:i was told to draw|i was asked to draw|they asked me to draw|my teacher told me to draw|i have to draw|i need to draw|need to draw|help me draw|how do i draw|draw (?:a|an|the)?\s*(?:diagram|picture|sketch)?\s*(?:of)?|drawing of|sketch of)\b/i.test(text));
+      if (visualIntent) {
+        const visualQuery = text
+          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:i was told to draw|i was asked to draw|they asked me to draw|my teacher told me to draw|i have to draw|i need to draw|need to draw|help me draw|how do i draw|draw)\s+(?:(?:a|an|the)\s+)?(?:(?:diagram|picture|sketch)\s+(?:of\s+)?)?/i, "")
+          .replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:can you\s+)?(?:show|find|get|pull|bring|display|give me|i need|i want|can i see|let me see|draw)\s+/i, "")
+          .replace(/^\s*(?:a|an|the)\s+/i, "")
+          .replace(/^\s*(?:me\s+)?(?:some\s+)?(?:a\s+)?(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\s+(?:of|for)\s+/i, "")
+          .replace(/^\s*(?:some\s+)?(?:pictures?|photos?|images?|diagrams?)\s+(?:of|for)\s+/i, "")
+          .replace(/^\s*(?:a|an|the)\s+/i, "")
+          .replace(/\b(?:pictures?|photos?|images?|diagrams?|visual references?|illustrations?)\b/ig, " ")
+          .replace(/\b(?:please|for me|thanks?|abeg|oo|na)\b/ig, " ")
+          .replace(/\s+/g, " ").trim() || text;
+        let searchData = {};
+        let imageSearchResponse = await fetch(auroraApiUrl("/api/search?type=images&q=" + encodeURIComponent(visualQuery)), { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+        searchData = await imageSearchResponse.json().catch(() => ({}));
+        let results = Array.isArray(searchData.results) ? searchData.results.slice(0, 8) : [];
+        let visualResults = results.filter(item => typeof item.image === "string" && /^https:\/\//i.test(item.image));
+        if (!visualResults.length) {
+          const searchResponse = await fetch(auroraApiUrl("/api/search?q=" + encodeURIComponent(visualQuery)), { method: "GET", headers: { Accept: "application/json" }, cache: "no-store" });
+          const webData = await searchResponse.json().catch(() => ({}));
+          if (!searchResponse.ok && !imageSearchResponse.ok) throw new Error(webData.error || searchData.error || "Visual search could not complete.");
+          results = Array.isArray(webData.results) ? webData.results.slice(0, 5) : [];
+          visualResults = results.filter(item => typeof item.image === "string" && /^https:\/\//i.test(item.image));
+        }
+        const cleanLabel = value => String(value || "Visual reference").replace(/[\[\]()]/g, "").replace(/\s+/g, " ").slice(0, 100);
+        const visualCards = visualResults.slice(0, 4).map(item =>
+          "![" + cleanLabel(item.title) + "](" + item.image + ")\n[Open original source](" + item.url + ")"
+        );
+        const sourceList = results.slice(0, 5).map((item, index) => (index + 1) + ". [" + cleanLabel(item.title) + "](" + item.url + ")" + (item.snippet ? "\n   " + String(item.snippet).slice(0, 220) : "")).join("\n\n");
+        const visualReply = visualCards.length
+          ? "I found these visual references online for **" + visualQuery + "**. These are retrieved images from the linked websites, not AI-generated pictures.\n\n" + visualCards.join("\n\n") + "\n\n**Sources**\n" + sourceList
+          : "I found web pages about **" + visualQuery + "**, but they did not provide a safe, usable image preview. I won't invent one. You can open the original results here:\n\n" + sourceList;
+        setMessages(current => [...current, { role: "assistant", content: visualReply }]);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(visualReply, { force: assistantSessionVoiceReplyRef.current, assistantSession: assistantSessionVoiceReplyRef.current });
+        return;
+      }
       if (!attachmentOverride && /^(?:aurora[, ]*)?(?:review my (?:saved )?routine|review my predictive suggestions|what should i focus on|show predictive suggestions|pause predictive intelligence|resume predictive intelligence|clear predictive history|review my device health|check my device health|show connected predictive sources|snooze latest predictive suggestion|dismiss latest predictive suggestion)$/i.test(text)) {
         const predictive = auroraRuntime.predictive;
         let predictiveReply = "";
@@ -1323,7 +1698,7 @@ export default function App() {
           }
         }
         setMessages(current => [...current, { role: "assistant", content: predictiveReply }]);
-        if (soundOn) speak(predictiveReply);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(predictiveReply, { force: assistantSessionVoiceReplyRef.current, assistantSession: assistantSessionVoiceReplyRef.current });
         return;
       }
       if (!attachmentOverride && /^Search the web for\s+/i.test(text)) {
@@ -1340,7 +1715,7 @@ export default function App() {
           ? "Web results for: " + query + "\\n\\n" + results.map((item, index) => (index + 1) + ". " + item.title + "\\n" + (item.snippet || "Open the source to read more.") + "\\nSource: " + item.url).join("\\n\\n") + "\\n\\nThese are search results, so check the linked sources for full context."
           : "I couldn't find matching results for â€œ" + query + "â€. Try a more specific search.";
         setMessages((current) => [...current, { role: "assistant", content: searchReply }]);
-        if (soundOn) speak(searchReply);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(searchReply, { force: assistantSessionVoiceReplyRef.current, assistantSession: assistantSessionVoiceReplyRef.current });
         return;
       }
       let preferredProvider;
@@ -1350,13 +1725,13 @@ export default function App() {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "main_chat" });
       if (liveToolResult?.error) {
         setMessages((current) => [...current, { role: "assistant", content: liveToolResult.error }]);
-        if (soundOn) speak(liveToolResult.error);
+        if (soundOn || assistantSessionVoiceReplyRef.current) speak(liveToolResult.error, { force: assistantSessionVoiceReplyRef.current, assistantSession: assistantSessionVoiceReplyRef.current });
         return;
       }
       const response = await fetch(auroraApiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile: { ...profile, activeScheduleInstructions }, preferredProvider, toolContext: liveToolResult?.context || "" })
+        body: JSON.stringify({ messages: (() => { const items = nextMessages.slice(-20); if (attachmentOverride && items.length) items[items.length - 1] = { ...items[items.length - 1], ...(attachmentOverride.mimeType?.startsWith("image/") ? { image: attachmentOverride } : { document: attachmentOverride }) }; return items; })(), profile: { ...profile, activeScheduleInstructions }, preferredProvider, toolContext: liveToolResult?.context || "", voiceIntelligence: AURORA_VOICE_INTELLIGENCE })
       });
       const rawResponse = await response.text();
       let data = {};
@@ -1369,10 +1744,11 @@ export default function App() {
       if (!reply) throw new Error("AURORA returned an empty response.");
       if (["groq", "openrouter", "gemini"].includes(data.provider)) { try { localStorage.setItem("aurora-active-ai-provider", data.provider); } catch {} }
       setMessages((current) => [...current, { role: "assistant", content: reply }]);
-      if (soundOn) speak(reply);
+      if (soundOn || assistantSessionVoiceReplyRef.current) speak(reply, { force: assistantSessionVoiceReplyRef.current, assistantSession: assistantSessionVoiceReplyRef.current });
     } catch (error) {
       setNotice(error.message || "Couldn't reach AURORA's AI service. Check the Vercel environment variables.");
     } finally {
+      assistantSessionVoiceReplyRef.current = false;
       setBusy(false);
     }
   }
@@ -1504,25 +1880,81 @@ export default function App() {
 
   async function sendPulseMessage(rawText) {
     const text = String(rawText || "").trim();
+    setPulseInterrupted(false);
     if (!text || pulseBusy) return;
+    const needsExpandedWorkspace = /\b(research|compare|comparison|plan|roadmap|analy[sz]e|break down|step by step|report|summari[sz]e|map|route|itinerary|organize|schedule|dashboard|visuali[sz]e|presentation|deep dive)\b/i.test(text);
+    if (needsExpandedWorkspace) setPulseWorkspaceMode("expanded");
+    const transcriptionStatusIntent = /^(?:hey aurora[, ]*)?(?:check|show|what is)\s+(?:my\s+)?transcription\s+(?:status|progress)[.!?]*$/i.test(text);
+    if (transcriptionStatusIntent) {
+      setPulseDraft("");
+      setPulseBusy(true);
+      setPulseMessages(items => [...items, { role: "user", content: text }, { role: "assistant", content: "Checking your latest transcription job…", pending: true, id: "pulse-transcription-status" }]);
+      try {
+        const keys = Object.keys(localStorage).filter(key => key.startsWith("aurora-voicetext-job:"));
+        const jobs = keys.map(key => { try { return { key, saved: JSON.parse(localStorage.getItem(key) || "null") }; } catch { return null; } }).filter(item => item?.saved?.requestId).slice(-5);
+        if (!jobs.length) throw new Error("I couldn't find a saved transcription job on this device. Open Transcription and choose the same recording to resume or start one.");
+        const reports = [];
+        for (const item of jobs) {
+          const requestId = item.saved.requestId;
+          let cloud = null, native = null;
+          try {
+            const response = await fetch(auroraApiUrl("/api/voicetext-transcribe?requestId=" + encodeURIComponent(requestId)), { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" });
+            cloud = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(cloud.error || "Could not read cloud transcription status.");
+          } catch (error) { cloud = { status: "unavailable", error: error?.message || "Cloud status unavailable" }; }
+          if (item.saved.nativeBackground && AuroraNative.isAndroid()) {
+            try { native = await AuroraNative.getNativeRecordingStatus(requestId); } catch {}
+          }
+          const total = Number(cloud?.totalChunks || 0);
+          const completed = Math.max(Number(cloud?.completedChunks || 0), Number(native?.completedChunks || 0));
+          const state = native?.successful || cloud?.status === "completed" ? "completed" : native?.failed ? "needs attention" : native?.state || cloud?.status || "in progress";
+          reports.push((item.key.split(":")[1] || "Recording") + ": " + (total ? completed + " of " + total + " sections" : state) + " · " + state + (native?.reason ? " · " + native.reason : ""));
+        }
+        const reply = reports.join("\n");
+        setPulseMessages(items => items.map(item => item.id === "pulse-transcription-status" ? { ...item, content: reply, pending: false } : item));
+      } catch (error) {
+        setPulseMessages(items => items.map(item => item.id === "pulse-transcription-status" ? { ...item, content: error?.message || "I couldn't read transcription progress.", pending: false } : item));
+      } finally { setPulseBusy(false); }
+      return;
+    }
+    const transcriptionIntent = /^(?:hey aurora[, ]*)?(?:please\s+)?(?:transcribe|start transcription|open transcription|transcription workspace)(?:\s+(?:this|my|a|the)?\s*(?:recording|audio|video|file))?[.!?]*$/i.test(text);
+    if (transcriptionIntent) {
+      setPulseDraft("");
+      setPulseToolsOpen(false);
+      setPulseOpen(false);
+      setPulseTranscriptionAutoStart(true);
+      setPulseMessages(items => [...items, { role: "assistant", content: "Opening transcription. Choose your audio or video file; AURORA will start processing it automatically after you select it. On supported Android builds, background processing can continue while you leave the workspace. You can ask me to check transcription progress." }]);
+      openTool("creative");
+      return;
+    }
     const searchMatch = text.match(/^(?:hey aurora[, ]*)?(?:search(?: the web)? for|look up on the web)\s+(.+)$/i);
-    if (searchMatch) { setPulseDraft(""); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
+    if (searchMatch) { setPulseDraft(""); setPulseToolsOpen(false); setPulseOpen(false); openTool("search"); setToolQuery(searchMatch[1].trim()); return; }
     const next = [...pulseMessages, { role: "user", content: text }];
-    setPulseMessages(next); setPulseDraft(""); setPulseBusy(true);
+    const pendingId = "pulse-answer-" + Date.now();
+    setPulseMessages([...next, { id: pendingId, role: "assistant", content: "AURORA is thinking…", pending: true }]);
+    setPulseDraft("");
+    setPulseBusy(true);
+    setPulseVoiceError("");
     try {
       const liveToolResult = await auroraRuntime.surfaces.route(text, { surface: "pulse" });
       if (liveToolResult?.error) {
-        setPulseMessages(items => [...items, { role: "assistant", content: liveToolResult.error }]);
+        const statusCard = buildPulseStatusCard(liveToolResult, "AURORA tool status");
+        setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(liveToolResult.error) + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
         return;
       }
-      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "" }) });
+      const response = await fetch(auroraApiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next.slice(-12), profile, toolContext: liveToolResult?.context || "", voiceIntelligence: AURORA_VOICE_INTELLIGENCE }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "AURORA could not respond right now.");
       const reply = data?.reply || data?.message || data?.content || data?.choices?.[0]?.message?.content || "I received that, but no text reply came back.";
-      setPulseMessages(items => [...items, { role: "assistant", content: String(reply) }]);
+      const engineCard = buildPulseEngineCard(liveToolResult, text);
+      const displayReply = String(reply) + (engineCard ? "\n\n" + JSON.stringify(engineCard) : "");
+      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: displayReply, pending: false } : item));
+      if (engineCard || String(reply).length > 900 || /```(?:json)?[\s\S]*?\{[\s\S]*?"type"\s*:\s*"(?:card|flow)"/i.test(String(reply))) setPulseWorkspaceMode("expanded");
       if (soundOn) speak(String(reply));
     } catch (error) {
-      setPulseMessages(items => [...items, { role: "assistant", content: error?.message || "I couldn't connect just now. Please try again." }]);
+      setPulseVoiceError("Connection issue");
+      const statusCard = buildPulseStatusCard({ error: error?.message || "I couldn't connect just now. Please try again." }, "AURORA connection status");
+      setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(error?.message || "I couldn't connect just now. Please try again.") + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
     } finally { setPulseBusy(false); }
   }
 
@@ -1536,16 +1968,17 @@ export default function App() {
   }
 
   async function togglePulseMic() {
-    setPulseMessages(items => [...items, { role: "assistant", content: "AURORA Pulse mic button received your tap. Checking speech recognition…" }]);
+    if (speaking) { stopSpokenOutput(); setPulseInterrupted(true); }
     if (pulseListening) {
       if (auroraNative.isAndroid()) try { await auroraNative.stopSpeechRecognition(); } catch {}
       cleanupPulseSpeech(); return;
     }
     if (pulseBusy) return;
+    setPulseVoiceError("");
     if (auroraNative.isAndroid()) {
       try {
         const permission = await auroraNative.requestMicrophonePermission();
-        if (!permission?.granted) { setPulseMessages(items => [...items, { role: "assistant", content: "Please allow microphone permission in Android Settings, then try again." }]); return; }
+        if (!permission?.granted) { setPulseVoiceError("Microphone permission needed"); setPulseMessages(items => [...items, { role: "assistant", content: "Please allow microphone permission in Android Settings, then try again." }]); return; }
         pulseNativeSpeechListenersRef.current.forEach(handle => handle?.remove?.());
         pulseNativeSpeechListenersRef.current = [];
         const cleanup = () => cleanupPulseSpeech();
@@ -1556,28 +1989,29 @@ export default function App() {
           else setPulseMessages(items => [...items, { role: "assistant", content: "I didn't catch that. Please try again." }]);
         }));
         pulseNativeSpeechListenersRef.current.push(await auroraNative.addSpeechErrorListener(event => {
-          cleanup(); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed: " + (event?.message || "check your phone's speech service") }]);
+          cleanup(); setPulseVoiceError("Microphone error"); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed: " + (event?.message || "check your phone's speech service") }]);
         }));
         pulseNativeSpeechListenersRef.current.push(await auroraNative.addSpeechStatusListener(event => { if (event?.status === "listening") setPulseListening(true); }));
         await auroraNative.startSpeechRecognition(); setPulseListening(true);
       } catch (error) {
-        cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start speech recognition." }]);
+        cleanupPulseSpeech(); setPulseVoiceError("Could not start microphone"); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start speech recognition." }]);
       }
       return;
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition isn't supported here. Please use text input." }]); return; }
+    if (!SpeechRecognition) { setPulseVoiceError("Voice input unavailable"); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition isn't supported here. Please use text input." }]); return; }
     const recognition = new SpeechRecognition();
     recognition.lang = "en-GB"; recognition.interimResults = false; recognition.maxAlternatives = 1;
     recognition.onresult = event => { const spoken = event.results?.[0]?.[0]?.transcript?.trim() || ""; cleanupPulseSpeech(); if (spoken) void sendPulseMessage(spoken); };
-    recognition.onerror = event => { cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed (" + (event?.error || "unknown error") + ")." }]); };
+    recognition.onerror = event => { cleanupPulseSpeech(); setPulseVoiceError("Microphone error"); setPulseMessages(items => [...items, { role: "assistant", content: "Speech recognition failed (" + (event?.error || "unknown error") + ")." }]); };
     pulseInterruptionReleaseRef.current = auroraRuntime.interactions.register("pulse", cleanupPulseSpeech);
     recognition.onend = () => { pulseRecognitionRef.current = null; if (pulseInterruptionReleaseRef.current) { pulseInterruptionReleaseRef.current(); pulseInterruptionReleaseRef.current = null; } setPulseListening(false); };
     pulseRecognitionRef.current = recognition;
-    try { recognition.start(); setPulseListening(true); } catch (error) { cleanupPulseSpeech(); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start microphone." }]); }
+    try { recognition.start(); setPulseListening(true); } catch (error) { cleanupPulseSpeech(); setPulseVoiceError("Could not start microphone"); setPulseMessages(items => [...items, { role: "assistant", content: error instanceof Error ? error.message : "Could not start microphone." }]); }
   }
 
   async function toggleMic() {
+    if (speaking) stopSpokenOutput();
     if (listening) {
       try {
         if (auroraNative.isAndroid()) {
@@ -1841,7 +2275,7 @@ export default function App() {
         </button>
         <div className="topbar-right">
           <div className="connection-pill"><span className="live-dot" /> YOUR AI COMPANION</div>
-          <button className="icon-button top-settings" onClick={() => setShowSettings((v) => !v)} aria-label="Toggle settings"><Settings2 size={19} /></button>
+          <button className="icon-button top-settings" onClick={() => { if (page !== "chat") navigate("chat"); setShowSettings((v) => !v); }} aria-label="Open settings"><Settings2 size={19} /></button>
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
         </div>
@@ -1854,40 +2288,37 @@ export default function App() {
               <div className="home-eyebrow"><span className="eyebrow-line" /> YOUR SPACE. YOUR INTELLIGENCE. <span className="eyebrow-line" /></div>
               <div className="hero-orb"><Orb speaking={speaking} duration={5.5} /></div>
               <div className="home-copy">
-                <p className="welcome-kicker">GOOD TO HAVE YOU HERE</p>
-                <h1>Hello<span>,</span> there.</h1>
-                <p className="hero-subtitle">Your AI, your world.</p>
+                <p className="welcome-kicker">{homeGreeting.toUpperCase()} · YOUR PERSONAL SPACE</p>
+                <h1>{homeGreeting}<span>,</span> {homeDisplayName}.</h1>
+                <p className="hero-subtitle">Your day, ideas and intelligence — together.</p>
                 <div className="availability"><span className="live-dot" /> AURORA IS READY WHEN YOU ARE</div>
               </div>
-              <form className="home-composer glass-panel" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
-                <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => setAttachmentOpen((v) => !v)} aria-expanded={attachmentOpen}><Plus size={20} /></button>
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask AURORA anything..." aria-label="Ask AURORA anything" />
-                <button type="button" className={`composer-tool mic-tool ${listening ? "is-listening" : ""}`} aria-label="Use microphone" onClick={toggleMic}><Mic size={19} /></button>
-                <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send message">{busy ? <span className="mini-loader" /> : <ArrowUp size={20} />}</button>
+              <button type="button" className={"home-talk-button" + (listening ? " is-listening" : "")} onClick={toggleMic}><Mic size={17}/>{listening ? "Listening… tap to stop" : "Talk to AURORA"}</button>
+              <form className="home-composer glass-panel" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
+                <button type="button" className="composer-tool" aria-label="Attach a file" onClick={() => setAttachmentOpen(true)}><Paperclip size={18}/></button>
+                <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask AURORA anything…" aria-label="Ask AURORA anything"/>
+                <button type="button" className={"composer-tool mic-tool" + (listening ? " is-listening" : "")} onClick={toggleMic} aria-label={listening ? "Stop listening" : "Use microphone"}><Mic size={18}/></button>
+                <button className="send-button" type="submit" disabled={!draft.trim() || busy} aria-label="Send to AURORA">{busy ? <span className="mini-loader"/> : <ArrowUp size={20}/>}</button>
               </form>
-
               {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss message"><X size={14} /></button></div>}
-              <div className="suggestion-row">
-                <button onClick={() => sendMessage("Help me plan my day.")}><CalendarDays size={15} /> Plan my day</button>
-                <button onClick={() => sendMessage("Help me think through an idea.")}><Sparkles size={15} /> Explore an idea</button>
-                <button onClick={() => sendMessage("Help me organise my tasks.")}><Check size={15} /> Organise tasks</button>
-              </div>
-              <section aria-label="AURORA app updater" className="glass-panel" style={{ width: "min(610px,100%)", marginTop: 24, padding: "16px 18px", borderRadius: 18, textAlign: "left", display: "grid", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 12, display: "grid", placeItems: "center", background: "rgba(73,155,255,.12)", border: "1px solid rgba(110,231,255,.2)" }}><RotateCcw size={18} /></div>
-                    <div><strong style={{ display: "block", fontSize: 13 }}>AURORA Updater</strong><span style={{ color: "#91a8c3", fontSize: 11 }}>Installed: {installedVersionName}</span></div>
-                  </div>
-                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={14} />} {appUpdateBusy ? "Checkingâ€¦" : "Check for updates"}</button>
+              <section className="home-overview">
+                <div className="home-section-heading"><div><span className="panel-eyebrow">YOUR WORKSPACE</span><h2>Pick up where you left off</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>Open chat <ArrowUpRight size={15}/></button></div>
+                <div className="home-quick-grid">
+                  <button type="button" className="home-quick-card" onClick={() => navigate("chat")}><span className="home-quick-icon violet"><AudioLines size={19}/></span><strong>Chat & think</strong><small>Ask questions, learn and create</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("tools")}><span className="home-quick-icon cyan"><Sparkles size={19}/></span><strong>Tools</strong><small>Research, writing, learning and more</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("activities")}><span className="home-quick-icon blue"><Activity size={19}/></span><strong>Daily insights</strong><small>Predictive intelligence and your day</small></button>
+                  <button type="button" className="home-quick-card" onClick={() => navigate("library")}><span className="home-quick-icon blue"><BookOpen size={19}/></span><strong>Knowledge library</strong><small>Saved notes, sources and knowledge</small></button>
                 </div>
-                <p role="status" style={{ margin: 0, color: "#a9bdd2", fontSize: 12, lineHeight: 1.5 }}>{appUpdateMessage}</p>
-                {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 12, display: "grid", gap: 9 }}>
-                  <strong style={{ fontSize: 13 }}>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
-                  {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 12 }}>{appUpdateInfo.releaseNotes}</p>}
-                  {Capacitor.isNativePlatform()
-                    ? <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>{appUpdateBusy ? "Preparing updateâ€¦" : "Download and install update"} <ArrowUpRight size={15}/></button>
-                    : <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={15}/></a>}
-                </div>}
+                <div className="home-today-panel">
+                  <div className="home-today-heading"><div><span className="panel-eyebrow">TODAY AT A GLANCE</span><h2>Your day, in focus</h2></div><button type="button" className="text-action" onClick={() => navigate("activities")}>Open insights <ArrowUpRight size={14}/></button></div>
+                  <div className="home-today-grid">
+                    <button type="button" className="home-today-stat" onClick={() => { setActivityTab("tasks"); navigate("activities"); }}><span className="home-today-symbol"><Check size={16}/></span><strong>{tasks.filter(item => !item.done).length}</strong><small>Tasks remaining</small></button>
+                    <button type="button" className="home-today-stat" onClick={() => { setActivityTab("reminders"); navigate("activities"); }}><span className="home-today-symbol"><Bell size={16}/></span><strong>{reminders.filter(item => !item.done).length}</strong><small>Active reminders</small></button>
+                    <button type="button" className="home-today-stat" onClick={() => { setActivityTab("calendar"); navigate("activities"); }}><span className="home-today-symbol"><CalendarDays size={16}/></span><strong>{events.filter(item => new Date(item.at).getTime() >= Date.now()).length}</strong><small>Upcoming events</small></button>
+                  </div>
+                </div>
+                <div className="home-section-heading home-recent-heading"><div><span className="panel-eyebrow">RECENT CONVERSATIONS</span><h2>Your recent work</h2></div><button type="button" className="text-action" onClick={() => navigate("chat")}>View all <ArrowUpRight size={15}/></button></div>
+                {recentHomeSessions.length ? <div className="home-recent-list">{recentHomeSessions.map(session => <button type="button" className="home-recent-item" key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); navigate("chat"); }}><span className="home-recent-icon"><MessageCircle size={17}/></span><span><strong>{session.title || "Conversation"}</strong><small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></span><ChevronRight size={17}/></button>)}</div> : <p className="home-recent-empty">Your conversations will appear here when you start chatting.</p>}
               </section>
               <div className="home-footer-note"><ShieldCheck size={13} /> PRIVATE BY DESIGN <span /> BUILT AROUND YOU</div>
             </motion.section>
@@ -1897,20 +2328,30 @@ export default function App() {
             <motion.section key="chat" className="chat-screen" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
               <div className="chat-column">
                 <div className="chat-heading">
-                  <button className="back-button" onClick={() => navigate("home")}><ArrowLeft size={17} /> Home</button>
                   <div className="chat-title-wrap"><span className="mini-orb"><Orb compact speaking={speaking} /></span><div><h1>AURORA <span>CHAT</span></h1><p><span className="live-dot" /> Your assistant is here</p></div></div>
                   <div className="chat-heading-actions">
-                    <button className="icon-button" onClick={() => setHistoryOpen((open) => !open)} aria-label="Chat history" title="Chat history"><History size={18} /></button>
-                    <button className="icon-button" onClick={() => { const id = "chat-" + Date.now(); setActiveChatId(id); setMessages([]); setDraft(""); setHistoryOpen(false); setNotice(""); }} aria-label="New conversation" title="New conversation"><SquarePen size={18} /></button>
+                    <button className={"icon-button chat-tools-toggle " + (chatToolsOpen ? "is-active" : "")} onClick={() => { setChatToolsOpen((open) => !open); setHistoryOpen(false); }} aria-label="Chat workspace shortcuts" aria-expanded={chatToolsOpen} aria-controls="chat-workspace-shortcuts" title="Workspace shortcuts"><Command size={18} /></button>
+                    <button className="icon-button" onClick={() => { setHistoryOpen((open) => !open); setChatToolsOpen(false); }} aria-label="Chat history" title="Chat history"><History size={18} /></button>
+                    <button className="icon-button" onClick={() => { const id = "chat-" + Date.now(); setActiveChatId(id); setMessages([]); setDraft(""); setHistoryOpen(false); setChatToolsOpen(false); setNotice(""); }} aria-label="New conversation" title="New conversation"><SquarePen size={18} /></button>
                   </div>
                 </div>
-                {historyOpen && <div className="chat-history-panel"><div className="chat-history-title"><strong>Previous chats</strong><span>{chatSessions.length} saved</span></div>{chatSessions.length === 0 ? <p className="chat-history-empty">Your conversations will appear here as you chat.</p> : chatSessions.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).map((session) => <button type="button" className={"chat-history-item " + (session.id === activeChatId ? "chat-history-item-active" : "")} key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); setDraft(""); setHistoryOpen(false); setNotice(""); }}>{session.title || "Conversation"}<small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></button>)}</div>}
+                {chatToolsOpen && <section className="chat-workspace-shortcuts" id="chat-workspace-shortcuts" aria-label="AURORA workspace shortcuts">
+                  <div className="chat-workspace-shortcuts-heading"><div><span className="panel-eyebrow">QUICK ACCESS</span><strong>Open a workspace</strong></div><button type="button" className="chat-shortcuts-close" onClick={() => setChatToolsOpen(false)} aria-label="Close workspace shortcuts"><X size={15}/></button></div>
+                  <div className="chat-workspace-shortcuts-grid">
+                    <button type="button" onClick={() => { setChatToolsOpen(false); navigate("tools"); }}><WandSparkles size={17}/><span><strong>All tools</strong><small>Utilities and creative tools</small></span><ChevronRight size={15}/></button>
+                    <button type="button" onClick={() => { setChatToolsOpen(false); navigate("maps"); }}><MapPinned size={17}/><span><strong>Maps & places</strong><small>Explore locations and routes</small></span><ChevronRight size={15}/></button>
+                    <button type="button" onClick={() => { setChatToolsOpen(false); navigate("library"); }}><BookOpen size={17}/><span><strong>Knowledge library</strong><small>Return to saved knowledge</small></span><ChevronRight size={15}/></button>
+                    <button type="button" onClick={() => { setChatToolsOpen(false); navigate("activities"); }}><Activity size={17}/><span><strong>Daily insights</strong><small>Tasks, reminders and activity</small></span><ChevronRight size={15}/></button>
+                  </div>
+                </section>}
+                {historyOpen && <div className="chat-history-panel"><div className="chat-history-title"><strong>Previous chats</strong><span>{chatSessions.length} saved</span></div><label className="chat-history-search"><Search size={15}/><input value={historyQuery} onChange={event => setHistoryQuery(event.target.value)} placeholder="Search conversations..." aria-label="Search previous conversations"/>{historyQuery && <button type="button" onClick={() => setHistoryQuery("")} aria-label="Clear search"><X size={13}/></button>}</label>{chatSessions.length === 0 ? <p className="chat-history-empty">Your conversations will appear here as you chat.</p> : (() => { const query = historyQuery.trim().toLowerCase(); const filtered = chatSessions.filter(session => !query || String(session.title || "").toLowerCase().includes(query) || session.messages?.some(message => String(message.content || "").toLowerCase().includes(query))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)); return filtered.length ? filtered.map(session => <button type="button" className={"chat-history-item " + (session.id === activeChatId ? "chat-history-item-active" : "")} key={session.id} onClick={() => { setActiveChatId(session.id); setMessages(Array.isArray(session.messages) ? session.messages : []); setDraft(""); setHistoryOpen(false); setHistoryQuery(""); setNotice(""); }}>{session.title || "Conversation"}<small>{new Date(session.updatedAt || Date.now()).toLocaleDateString()}</small></button>) : <p className="chat-history-empty">No conversations match “{historyQuery}”.</p>; })()}</div>}
                 <div className="messages-area">
-                  {messages.length === 0 && <div className="empty-chat"><Orb compact /><h2>Let's make something happen.</h2><p>Ask a question, work through an idea, or plan your next move.</p></div>}
+                  {speaking && spokenCaption && <div className="aurora-pulse-live-caption chat-live-caption" role="status" aria-live="polite"><span>AURORA IS SPEAKING</span><p>{spokenCaption}</p></div>}
+                  {messages.length === 0 && <div className="empty-chat"><Orb compact /><span className="empty-chat-kicker">YOUR INTELLIGENT WORKSPACE</span><h2>What shall we work on?</h2><p>Ask a question, explore an idea, share a picture or bring in a document. AURORA can help you work through it.</p><div className="chat-starter-grid"><button type="button" onClick={() => setDraft("Explain a difficult topic to me step by step.")}><GraduationCap size={17}/><span><strong>Help me learn</strong><small>Understand a topic</small></span></button><button type="button" onClick={() => setDraft("Research this topic and show me reliable sources: ")}><Search size={17}/><span><strong>Research something</strong><small>Find information online</small></span></button><button type="button" onClick={() => setAttachmentOpen(true)}><ImageIcon size={17}/><span><strong>Understand an image</strong><small>Share a visual or document</small></span></button></div></div>}
                   {messages.map((message, index) => (
                     <div key={index} className={`message-row ${message.role === "user" ? "message-user" : "message-assistant"}`}>
                       {message.role === "assistant" && <span className="message-avatar"><Sparkles size={15} /></span>}
-                      <div className="message-bubble"><div className="message-label">{message.role === "user" ? "YOU" : "AURORA"}</div>{message.role === "assistant" ? <FormattedMessage content={message.content} onChoice={(choice) => sendMessage(choice)} /> : <p className="message-paragraph">{message.content}</p>}{message.role === "assistant" && <button className="speak-message" onClick={() => speak(message.content.replace(/\[\[CHOICES:[\s\S]*?\]\]/g, ""))}><Volume2 size={14} /> Read aloud</button>}</div>
+                      <div className="message-bubble"><div className="message-label">{message.role === "user" ? "YOU" : "AURORA"}</div>{message.role === "assistant" ? <FormattedMessage content={message.content} onChoice={(choice) => sendMessage(choice)} /> : <p className="message-paragraph">{message.content}</p>}{message.role === "assistant" && <div className="message-actions"><button type="button" className="message-action" onClick={() => copyAssistantMessage(message.content)}><Copy size={13}/> Copy</button><button type="button" className="speak-message" onClick={() => speak(message.content.replace(/\[\[CHOICES:[\s\S]*?\]\]/g, ""))}><Volume2 size={14}/> Read aloud</button></div>}</div>
                     </div>
                   ))}
                   {busy && <div className="message-row message-assistant"><span className="message-avatar"><Sparkles size={15} /></span><div className="message-bubble"><div className="message-label">AURORA</div><div className="typing-indicator"><i /><i /><i /></div></div></div>}
@@ -1930,7 +2371,26 @@ export default function App() {
                 <div className="settings-header"><div><p className="panel-eyebrow">PERSONALISE</p><h2>Assistant settings</h2></div><button className="icon-button settings-close" onClick={() => setShowSettings(false)} aria-label="Close settings"><X size={16} /></button></div>
                 <div className="orb-status-card"><div className="status-orb"><Orb compact speaking={speaking} /></div><div><strong>{speaking ? "Speaking now" : "AURORA is online"}</strong><span>{listening ? "Listening to you" : "Ready to assist"}</span></div><span className="live-dot" /></div>
                 <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} disabled={voicesLoading || availableVoices.length === 0} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="">{voicesLoading ? "Loading voices from ElevenLabs…" : availableVoices.length ? "Choose a voice" : "No voices available"}</option>{availableVoices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}{voice.labels?.accent ? " · " + voice.labels.accent : ""}{voice.labels?.gender ? " · " + voice.labels.gender : ""}</option>)}</select><div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}><button type="button" className="setting-row" style={{ flex: 1, justifyContent: "center", minHeight: "38px" }} disabled={!availableVoices.find((voice) => voice.voice_id === selectedVoice)?.preview_url} onClick={() => { const voice = availableVoices.find((item) => item.voice_id === selectedVoice); if (voice?.preview_url) { const preview = new Audio(voice.preview_url); preview.play().catch(() => setNotice("This voice preview could not be played on this device.")); } }}>Preview selected voice</button><button type="button" className="setting-row" style={{ minHeight: "38px", padding: "0 12px" }} disabled={voicesLoading} onClick={() => { setVoicesError(""); setVoicesLoading(true); fetch(auroraApiUrl("/api/voices"), { cache: "no-store" }).then(async (response) => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || "Could not refresh voices."); return Array.isArray(data.voices) ? data.voices : []; }).then(setAvailableVoices).catch((error) => setVoicesError(error.message || "Could not refresh voices.")).finally(() => setVoicesLoading(false)); }}>Refresh</button></div><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>{voicesError || (availableVoices.length ? "Choose a voice and AURORA will use that exact voice for spoken answers. Your selection is saved on this device." : "AURORA loads voices directly from the ElevenLabs account connected to its server.")}</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
-                <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => { navigate("profile"); setTimeout(() => document.getElementById("aurora-updater")?.scrollIntoView({ behavior: "smooth", block: "center" }), 180); }}><span className="setting-icon"><RotateCcw size={17} /></span><span className="setting-text"><strong>AURORA Updater</strong><small>Check for the latest Android version</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
+                <div className="setting-group"><p className="setting-label">SPEECH DELIVERY</p><label htmlFor="aurora-speech-pace" className="setting-row" style={{ display: "grid", gap: 7, alignItems: "stretch" }}><span className="setting-text"><strong>Speaking pace</strong><small>Adaptive changes pace with the meaning of each answer.</small></span><select id="aurora-speech-pace" value={speechPace} onChange={event => setSpeechPace(event.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 10, color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107,192,255,.3)", font: "inherit" }}><option value="adaptive">Adaptive</option><option value="slower">Slower</option><option value="faster">Faster</option></select></label></div>
+                 <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
+                <div className="setting-group"><p className="setting-label">ANDROID INTEGRATION</p><AndroidAssistantRoleCard /><AndroidHardwareFeaturesCard /></div>
+                <div className="setting-group"><p className="setting-label">APP UPDATES</p>              <section id="aurora-updater-settings" aria-label="AURORA app updater" className="glass-panel" style={{ width: "min(610px,100%)", marginTop: 24, padding: "16px 18px", borderRadius: 18, textAlign: "left", display: "grid", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 12, display: "grid", placeItems: "center", background: "rgba(73,155,255,.12)", border: "1px solid rgba(110,231,255,.2)" }}><RotateCcw size={18} /></div>
+                    <div><strong style={{ display: "block", fontSize: 13 }}>AURORA Updater</strong><span style={{ color: "#91a8c3", fontSize: 11 }}>Installed: {installedVersionName}</span></div>
+                  </div>
+                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={14} />} {appUpdateBusy ? "Checkingâ€¦" : "Check for updates"}</button>
+                </div>
+                <p role="status" style={{ margin: 0, color: "#a9bdd2", fontSize: 12, lineHeight: 1.5 }}>{appUpdateMessage}</p>
+                {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 12, display: "grid", gap: 9 }}>
+                  <strong style={{ fontSize: 13 }}>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
+                  {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 12 }}>{appUpdateInfo.releaseNotes}</p>}
+                  {Capacitor.isNativePlatform()
+                    ? <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>{appUpdateBusy ? "Preparing updateâ€¦" : "Download and install update"} <ArrowUpRight size={15}/></button>
+                    : <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={15}/></a>}
+                </div>}
+              </section></div>
                 <div className="privacy-note"><ShieldCheck size={17} /><div><strong>Your privacy matters</strong><p>Your API keys stay on the server, never in the browser.</p></div></div>
                 <div className="panel-bottom"><span>AURORA INTERFACE</span><span>V 0.2</span></div>
               </aside>}
@@ -1940,13 +2400,19 @@ export default function App() {
 
           {page === "tools" && (
             <motion.section key={toolScreen === "home" ? "tools-home" : "tool-detail-" + toolKind} className={"utility-page aurora-tools-page " + (toolScreen === "detail" ? "aurora-tool-detail-page" : "aurora-tool-home-page")} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .22 }}>
+              <WorkspaceContextNav active="tools" onNavigate={navigate}/>
               {toolScreen === "home" ? <>
                 <div className="tools-page-heading">
-                  <p className="panel-eyebrow"><Sparkles size={13}/> AURORA TOOLKIT</p>
-                  <h1>Tools<span>.</span></h1>
-                  <p className="utility-intro">A space for thinking, creating, learning and getting things done.</p>
+                  <p className="panel-eyebrow"><Sparkles size={13}/> DISCOVER AURORA</p>
+                  <h1>Explore<span>.</span></h1>
+                  <p className="utility-intro">Choose the right workspace for what you want to learn, find, create or get done.</p>
                 </div>
-                <div className="tools-category-heading"><span>01</span><div><h2>Search & create</h2><p>Find answers and turn ideas into something useful.</p></div></div>
+                <div className="tools-category-heading"><span>01</span><div><h2>Explore AURORA</h2><p>Choose a workspace for what you want to accomplish.</p></div></div>
+                <div className="explore-shortcuts">
+                  <button type="button" onClick={() => navigate("activities")}><CalendarDays size={18}/><span><strong>Activities</strong><small>Tasks, reminders and calendar</small></span><ChevronRight size={16}/></button>
+                  <button type="button" onClick={() => navigate("maps")}><MapPinned size={18}/><span><strong>Maps & places</strong><small>Explore locations and plan journeys</small></span><ChevronRight size={16}/></button>
+                  <button type="button" onClick={() => navigate("library")}><BookOpen size={18}/><span><strong>Knowledge library</strong><small>Your saved information and notes</small></span><ChevronRight size={16}/></button>
+                </div>
                 <div className="tool-launch-grid">
                   {[
                     { id: "search", icon: <Sparkles size={21}/>, title: "Web Search", desc: "Explore the web with source links", tint: "cyan" },
@@ -1983,7 +2449,7 @@ export default function App() {
                   </div>
                   <div><p className="panel-eyebrow">AURORA TOOL / WORKSPACE</p><h1>{({search:"Web Search",weather:"Weather",calculator:"Calculator",convert:"Unit Converter",translate:"Translation",writing:"Writing Assistant",study:"Study Assistant",summarize:"Summarizer",quiz:"Quiz Maker",brainstorm:"Idea Studio",image:"Image Understanding"})[toolKind] || "AURORA Tool"}<span>.</span></h1><p>{({search:"Discover information and follow it back to its sources.",weather:"Current conditions and a short forecast for a city or town.",calculator:"Calculate arithmetic expressions without sending them to an AI provider.",convert:"Convert length, mass, volume, time, speed and temperature.",translate:"Carry your meaning across languages, naturally.",writing:"Shape a rough idea into clear, confident writing.",study:"Understand the idea first. Build confidence one step at a time.",summarize:"Turn long material into a clear, useful summary.",quiz:"Build a practice quiz from a topic or source text.",brainstorm:"Explore creative options and turn ideas into next steps.",image:"Upload an image here and ask AURORA to inspect it directly."})[toolKind] || "A dedicated AURORA workspace."}</p></div>
                 </div>
-                {toolKind === "creative" && <CreativeLearningWorkspace authSession={authSession}/>}
+                {toolKind === "creative" && <CreativeLearningWorkspace authSession={authSession} autoStartOnFileSelect={pulseTranscriptionAutoStart} onAutoStartConsumed={() => setPulseTranscriptionAutoStart(false)}/>}
                 <div className={"tool-workspace glass-panel" + (toolKind === "creative" ? " clw-hidden" : "")}>
                   <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",weather:"Weather near you or anywhere",calculator:"Enter a calculation",convert:"Enter a measurement to convert",translate:"Your translation",writing:"Letâ€™s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",weather:"Enter a city or town, for example Benin City or Lagos.",calculator:"Use +, âˆ’, Ã—, Ã·, %, powers and parentheses.",convert:"Use a format such as 12 km to miles or 25 C to F.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
                   <form className="tool-run-form" onSubmit={runTool}>
@@ -2062,7 +2528,7 @@ export default function App() {
 
           {page === "activities" && (
             <motion.section key="activities" className="utility-page aurora-activities-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Activities<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer â€” all saved inside AURORA on this device.</p>
+              <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Insights<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer â€” all saved inside AURORA on this device.</p>
               <div className="activity-summary-row"><div><Check size={16}/><strong>{tasks.filter((t) => !t.done).length}</strong><span>tasks left</span></div><div><Bell size={16}/><strong>{reminders.filter((r) => !r.done).length}</strong><span>reminders</span></div><div><CalendarDays size={16}/><strong>{events.length}</strong><span>events</span></div></div>
               <div className="activity-tabs" role="tablist" aria-label="Activity tools">
                 <button type="button" role="tab" aria-selected={activityTab==="tasks"} className={activityTab==="tasks"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("tasks")}><Check size={16}/>Tasks</button>
@@ -2202,14 +2668,30 @@ export default function App() {
             </motion.section>
           )}
 
+          {page === "library" && (
+            <motion.section key="library" className="utility-page aurora-library-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <div className="library-page-heading"><p className="panel-eyebrow"><BookOpen size={14}/> YOUR PERSONAL KNOWLEDGE</p><h1>Library<span>.</span></h1><p className="utility-intro">Keep your notes, documents, saved sources and useful knowledge together.</p></div>
+              <KnowledgeUniverseWorkspace />
+            </motion.section>
+          )}
           {page === "maps" && <motion.div key="maps" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><MapsWorkspace /></motion.div>}
 
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <WorkspaceContextNav active="profile" onNavigate={navigate}/>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
               <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your in-app AI assistant panel</small></span><span className="pulse-launch-arrow">â†—</span></button>
 
               <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>{profile.nickname || profile.name || "Your profile"}</h2><p>Personal details and preferences</p></div><span className="coming-pill">ON THIS DEVICE</span></div>
+              <section className="profile-hub" aria-label="Profile shortcuts">
+                <div className="profile-hub-heading"><div><p className="panel-eyebrow">YOUR AURORA</p><h2>Manage your space</h2><p>Jump straight to the parts of AURORA you use most.</p></div></div>
+                <div className="profile-hub-grid">
+                  <button type="button" className="profile-hub-action" onClick={() => { navigate("chat"); setShowSettings(true); }}><span className="profile-hub-icon"><Settings2 size={18}/></span><span><strong>Assistant settings</strong><small>Voice, responses and app updater</small></span><ChevronRight size={16}/></button>
+                  <button type="button" className="profile-hub-action" onClick={() => navigate("tools")}><span className="profile-hub-icon"><Sparkles size={18}/></span><span><strong>Explore tools</strong><small>Open AURORA workspaces</small></span><ChevronRight size={16}/></button>
+                  <button type="button" className="profile-hub-action" onClick={() => navigate("activities")}><span className="profile-hub-icon"><Activity size={18}/></span><span><strong>Daily insights</strong><small>Tasks, reminders and plans</small></span><ChevronRight size={16}/></button>
+                  <button type="button" className="profile-hub-action" onClick={() => navigate("library")}><span className="profile-hub-icon"><BookOpen size={18}/></span><span><strong>Knowledge library</strong><small>Return to saved knowledge</small></span><ChevronRight size={16}/></button>
+                </div>
+              </section>
               <form className="profile-form" onSubmit={(event) => { event.preventDefault(); setProfileSaved(true); setTimeout(() => setProfileSaved(false), 2400); }}>
                 <div className="profile-form-heading"><div><h2>Personalise AURORA</h2><p>These details stay saved on this device and help tailor replies when you chat.</p></div></div>
                 <div className="profile-field-grid">
@@ -2224,46 +2706,16 @@ export default function App() {
                 </div>
                 <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved âœ“" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
               </form>
-              <section id="aurora-updater" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
+              <section id="aurora-native-assistant" aria-label="Hey AURORA native assistant" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div><p className="panel-eyebrow">NATIVE ANDROID ASSISTANT</p><h2 style={{ margin: "4px 0" }}>Hey AURORA</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>{nativeStatus?.backgroundServiceFoundation ? "Native assistant foundation detected." : "Background voice service and app launching."}</p></div>
-                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Workingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
-                  {AuroraNative.isAndroid() && assistantRoleSupported && <button type="button" className="outline-action" onClick={requestDefaultAssistant} disabled={nativeBusy || assistantRoleHeld}>{assistantRoleHeld ? "Default assistant active" : "Set as default assistant"}</button>}
+                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Startingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
                   {!AuroraNative.isAndroid() && <button type="button" className="outline-action" onClick={toggleBrowserWakeWord}>{browserWakeListening ? "Stop laptop listening" : "Enable Hey AURORA on laptop"}</button>}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
                   <button type="button" className="outline-action" onClick={() => openNativeApp("com.whatsapp")} disabled={!AuroraNative.isAndroid()}>Open WhatsApp <ArrowUpRight size={15}/></button>
                   {nativeNotice && <span role="status" style={{ color: "#a9bdd2", fontSize: 13 }}>{nativeNotice}</span>}
                 </div>
-                <div style={{ marginTop: 16, padding: 14, borderRadius: 14, border: "1px solid rgba(132,164,199,.2)", background: "rgba(9,20,36,.38)" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div><p className="panel-eyebrow">DEVICE READINESS</p><h3 style={{ margin: "4px 0", color: "#e5f1ff" }}>Assistant health check</h3><p style={{ margin: 0, color: "#9fb3ca", fontSize: 12 }}>Check Android integration without changing permissions or settings.</p></div>
-                    <button type="button" className="outline-action" onClick={runDeviceDiagnostics} disabled={diagnosticsBusy || !AuroraNative.isAndroid()}>{diagnosticsBusy ? "Checking…" : "Run device check"}</button>
-                  </div>
-                  {deviceDiagnostics.length > 0 && <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
-                    {deviceDiagnostics.map((item) => <div key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "9px 10px", borderRadius: 10, background: "rgba(255,255,255,.035)" }}>
-                      <span aria-hidden="true" style={{ color: item.status === "ready" ? "#70dfb0" : item.status === "attention" ? "#f4c875" : "#ff9b9b", fontWeight: 700 }}>{item.status === "ready" ? "✓" : item.status === "attention" ? "!" : "×"}</span>
-                      <div style={{ minWidth: 0 }}><strong style={{ color: "#dceaff", fontSize: 13 }}>{item.label}</strong><p style={{ margin: "3px 0 0", color: "#9fb3ca", fontSize: 12, lineHeight: 1.5 }}>{item.detail}</p></div>
-                    </div>)}
-                    <small style={{ color: "#8098b3" }}>Last checked: {diagnosticsUpdatedAt}. This checks API availability and reported settings; it does not test microphone audio, TTS playback, or real wake-word detection.</small>
-                  </div>}
-                </div>
-                <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><p className="panel-eyebrow">APP MAINTENANCE</p><h2 style={{ margin: "4px 0" }}>AURORA Updater</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>Installed build: {installedVersionName}</p></div>
-                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={15} />} {appUpdateBusy ? "Checkingâ€¦" : "Check for updates"}</button>
-                </div>
-                <p role="status" style={{ color: "#c6d6e8", fontSize: 13, lineHeight: 1.55, margin: "14px 0 8px" }}>{appUpdateMessage}</p>
-                {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 14, display: "grid", gap: 10 }}>
-                  <strong>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
-                  {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 13 }}>{appUpdateInfo.releaseNotes}</p>}
-                  {Capacitor.isNativePlatform() ? (
-                    <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>
-                      {appUpdateBusy ? <span className="mini-loader" /> : <ArrowUpRight size={16} />} {appUpdateBusy ? "Preparing updateâ€¦" : "Download and install update"}
-                    </button>
-                  ) : (
-                    <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={16} /></a>
-                  )}
-                  <small style={{ color: "#94a9bf" }}>Android will ask you to confirm installation. If it reports a package conflict, the installed app and update APK must be signed with the same key.</small>
-                </div>}
               </section>
               <section className="profile-card" style={{ marginTop: 14, display: "block" }}>
                 <p className="panel-eyebrow">ANDROID ACCESSIBILITY</p>
@@ -2285,484 +2737,109 @@ export default function App() {
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>
           {(pulseOpen || page === "pulse") && (
-            <motion.div className={"aurora-pulse-backdrop" + (page === "pulse" ? " aurora-pulse-page-backdrop" : "")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>
-              <motion.section ref={pulsePanelRef} tabIndex={-1} className={"aurora-pulse-panel" + (page === "pulse" ? " aurora-pulse-page-panel" : "")} role="dialog" aria-modal="true" aria-label="AURORA Pulse assistant panel" initial={{ opacity: 0, y: 28, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+            <motion.div className="aurora-pulse-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-label="AURORA Pulse">
+              <motion.section ref={pulsePanelRef} tabIndex={-1} className="aurora-pulse-panel" aria-label="AURORA Pulse assistant" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>
                 <style>{`
-                  .pulse-launch-card{width:100%;display:flex;align-items:center;gap:14px;text-align:left;padding:15px 17px;margin:16px 0 18px;border:1px solid #1f2a44;border-radius:20px;background:linear-gradient(120deg,#0d1322,#111b2d);color:#e8edf7;cursor:pointer}
-                  .pulse-launch-orb,.aurora-pulse-orb{display:block;flex:none;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 42%,#0b3a55 72%,#b79cff 100%);box-shadow:0 0 12px #2dd4e688,0 0 30px #5aa2ff55}
-                  .pulse-launch-orb{width:42px;height:42px}.pulse-launch-copy{display:grid;gap:4px;flex:1}.pulse-launch-copy strong{font-size:14px}.pulse-launch-copy small{font-size:12px;color:#8a96ad}.pulse-launch-arrow{color:#2dd4e6;font-size:22px}
-                  @media (prefers-reduced-motion: reduce){.aurora-pulse-backdrop,.aurora-pulse-panel{animation:none!important;transition:none!important}.aurora-pulse-orb,.pulse-launch-orb{animation:none!important;scroll-behavior:auto!important}}
-                    .aurora-pulse-page-backdrop{background:rgba(3,8,20,.96);padding:0;backdrop-filter:none;align-items:stretch}
-                  .aurora-pulse-page-panel{width:min(100%,980px);height:100%;max-height:100%;min-height:100%;border-radius:0;margin:0;}
-                  .aurora-pulse-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(3,8,20,.62);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
-                  .aurora-pulse-panel{position:relative;width:min(520px,100%);height:min(760px,88vh);min-height:420px;padding:76px 20px 16px;border:1px solid #24456e;border-radius:28px;background:linear-gradient(155deg,#0b1426f7,#080c18fc);box-shadow:0 24px 80px #0009,0 0 32px #277dff33;color:#e8edf7;display:flex;flex-direction:column;gap:8px;overflow:hidden;pointer-events:auto}
-                  .aurora-pulse-head{display:contents!important}.aurora-pulse-brand{display:none!important}.aurora-pulse-close{position:fixed;top:20px;right:22px;z-index:10003;pointer-events:auto}/* Pulse content visibility restored; layout rules follow below. */
-                  /* AURORA_PULSE_CARD_LAYOUT_V2 */
-.aurora-pulse-panel{position:relative!important;isolation:isolate;box-sizing:border-box}
-.aurora-pulse-head{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;flex:none!important;height:54px!important;min-height:54px!important}
-.aurora-pulse-head .aurora-pulse-orb{position:relative!important;top:auto!important;left:auto!important;transform:none!important;width:42px!important;height:42px!important}
-.aurora-pulse-close{position:absolute!important;top:8px!important;right:0!important}
-.aurora-pulse-greeting{position:static!important;flex:none!important;padding:8px 0!important}
-.aurora-pulse-weather{position:static!important;left:auto!important;bottom:auto!important;transform:none!important;width:100%!important;box-sizing:border-box!important;flex:none!important;margin:4px 0!important}
-.aurora-pulse-chips{position:static!important;flex:none!important;margin:4px 0!important}
-.aurora-pulse-chat{position:relative!important;flex:1 1 auto!important;min-height:48px!important;width:100%!important;box-sizing:border-box!important}
-.aurora-pulse-composer{position:relative!important;left:auto!important;bottom:auto!important;transform:none!important;width:100%!important;box-sizing:border-box!important;flex:none!important;margin:4px 0 0!important;padding:9px!important}
-.aurora-pulse-shortcuts{position:static!important;left:auto!important;bottom:auto!important;transform:none!important;width:100%!important;box-sizing:border-box!important;flex:none!important;margin:4px 0 0!important}
-.aurora-pulse-foot{position:static!important;flex:none!important;margin:4px 0 0!important}
-@media(max-width:480px){.aurora-pulse-panel{padding:14px!important;min-height:0!important;height:min(760px,88dvh)!important}.aurora-pulse-head{height:48px!important;min-height:48px!important}.aurora-pulse-head .aurora-pulse-orb{width:40px!important;height:40px!important}.aurora-pulse-shortcuts{gap:4px!important}.aurora-pulse-shortcuts button{height:36px!important;font-size:12px!important}.aurora-pulse-shortcuts button span{font-size:10px!important}}
-                  @keyframes auroraPulseTalking{0%,100%{transform:translateX(-50%) scale(1);filter:hue-rotate(0deg);box-shadow:0 0 12px #2dd4e6,0 0 27px #5aa2ff,0 0 42px #b79cff}25%{transform:translateX(-50%) scale(1.09);filter:hue-rotate(12deg);box-shadow:0 0 18px #2dd4e6,0 0 38px #5aa2ff,0 0 54px #b79cff}50%{transform:translateX(-50%) scale(.96);filter:hue-rotate(-10deg);box-shadow:0 0 15px #b79cff,0 0 34px #2dd4e6,0 0 48px #5aa2ff}75%{transform:translateX(-50%) scale(1.06);filter:hue-rotate(20deg)}}\n                  .aurora-pulse-orb{position:fixed;top:28px;left:50%;transform:translateX(-50%);width:44px;height:44px;z-index:10002;background:radial-gradient(circle at 30% 25%,#fff 0,#8ff3ff 14%,#1aa7c9 36%,#167eff 58%,#7a42ff 78%,#e348ff 100%);box-shadow:0 0 12px #2dd4e6,0 0 27px #5aa2ff,0 0 42px #b79cff;pointer-events:none}
-                  .aurora-pulse-head .aurora-pulse-orb{animation:auroraPulseTalking 2.2s ease-in-out infinite}.aurora-pulse-orb:before{content:"";position:absolute;left:-78px;right:-78px;top:16px;height:12px;background:linear-gradient(90deg,transparent,#2dd4e6,#b79cff,#2dd4e6,transparent);filter:blur(5px);z-index:-1}
-                  .aurora-pulse-weather{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);width:min(490px,78vw);margin:0;padding:12px 18px;border:1px solid #478eff;border-radius:22px;background:linear-gradient(110deg,rgba(23,77,157,.82),rgba(34,44,120,.82));backdrop-filter:blur(20px);box-shadow:0 0 18px #277dff55,0 0 26px #673aff33;pointer-events:auto;color:#edf5ff;text-align:left;cursor:pointer;font:inherit}.aurora-pulse-weather:disabled{opacity:.8}.aurora-pulse-weather-copy{display:flex;flex-direction:column;gap:3px}.aurora-pulse-weather-copy strong{font-size:21px}.aurora-pulse-weather-copy small{font-size:12px;color:#d5e3ff}
-                  .aurora-pulse-weather .aurora-pulse-weather-icon{font-size:30px;color:#ffd23f}.aurora-pulse-weather strong{font-size:21px}.aurora-pulse-weather small{font-size:12px}.aurora-pulse-weather .pulse-weather-note{font-size:12px}
-                  .aurora-pulse-composer{position:fixed;left:50%;bottom:25px;transform:translateX(-50%);width:min(700px,92vw);padding:12px 15px 58px;border:1px solid #3e9eff;border-radius:34px;background:linear-gradient(145deg,rgba(11,40,103,.91),rgba(17,22,79,.91));backdrop-filter:blur(22px);box-shadow:0 0 18px #138dff99,0 0 38px #673aff44;pointer-events:auto}
-                  .aurora-pulse-composer:after{content:none}
-                  .aurora-pulse-composer .aurora-pulse-orb{position:static;transform:none;width:42px;height:42px;flex:none}
-                  .aurora-pulse-composer input{font-size:15px!important;padding:12px 6px!important}
-                  .aurora-pulse-send{width:44px;height:44px;box-shadow:0 0 14px #477bff;font-size:20px}
-                  @media(max-width:480px){.aurora-pulse-orb{top:30px;width:42px;height:42px}.aurora-pulse-weather{bottom:150px;width:82vw}.aurora-pulse-composer{bottom:24px;width:92vw;padding-bottom:56px}.aurora-pulse-composer:after{font-size:10px}}
-                  .aurora-pulse-head{display:block!important;position:static!important;border:0!important;padding:0!important}.aurora-pulse-head .aurora-pulse-orb{position:fixed!important;top:25px!important;left:50%!important;transform:translateX(-50%)!important;width:48px!important;height:48px!important;z-index:10002!important}.aurora-pulse-brand{display:none!important}.aurora-pulse-brand strong{letter-spacing:.18em;font-size:14px;font-weight:600}.aurora-pulse-brand small{display:block;color:#8a96ad;font-size:10px;letter-spacing:.12em;margin-top:4px}.aurora-pulse-close{position:fixed!important;top:18px!important;right:18px!important;z-index:10003!important;border:1px solid #1f2a44;border-radius:50%;width:36px;height:36px;background:#0d1322;color:#e8edf7;font-size:21px;cursor:pointer;pointer-events:auto}
-                  .aurora-pulse-greeting{padding:17px 0 10px}.aurora-pulse-greeting small{color:#2dd4e6;font-size:10px;letter-spacing:.15em}.aurora-pulse-greeting h2{font-size:22px;font-weight:500;margin:6px 0}.aurora-pulse-greeting p{color:#8a96ad;font-size:13px;margin:0;line-height:1.5}
-                  .aurora-pulse-weather{display:flex;align-items:center;gap:12px;border:1px solid #1f2a44;border-radius:18px;padding:13px 15px;background:linear-gradient(110deg,#0d1322,#101b2c);margin:7px 0 12px}.aurora-pulse-weather-icon{font-size:26px;color:#ffd23f}.aurora-pulse-weather strong{display:block;font-size:13px}.aurora-pulse-weather small{color:#8a96ad;font-size:11px}.aurora-pulse-weather .pulse-weather-note{margin-left:auto;color:#8a96ad;font-size:11px}
-                  .aurora-pulse-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 13px}.aurora-pulse-chips button{border:1px solid #1f2a44;border-radius:18px;background:#0d1322;color:#e8edf7;padding:8px 11px;font-size:11px;cursor:pointer}
-                  .aurora-pulse-chat{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:2px 0 12px}.aurora-pulse-message{max-width:90%;padding:11px 13px;border:1px solid #1f2a44;border-radius:16px;background:#0d1322;font-size:13px;line-height:1.5;white-space:pre-wrap}.aurora-pulse-message.user{align-self:flex-end;border-color:#2dd4e655;background:linear-gradient(120deg,#102c39,#171b36)}.aurora-pulse-message.assistant{align-self:flex-start}
-                  .aurora-pulse-composer{display:flex;gap:9px;align-items:center;padding:9px;border:1px solid #2dd4e688;border-radius:24px;background:#0d1322;box-shadow:0 0 18px #2dd4e611}.aurora-pulse-composer input{min-width:0;flex:1;border:0!important;outline:none!important;background:transparent!important;color:#e8edf7!important;padding:9px 4px!important;font-size:13px}.aurora-pulse-composer input::placeholder{color:#8a96ad}.aurora-pulse-send{width:40px;height:40px;border:0;border-radius:50%;background:linear-gradient(135deg,#22c3e6,#7a5cff);color:white;font-size:18px;cursor:pointer}.aurora-pulse-send:disabled{opacity:.5}.aurora-pulse-foot{font-size:10px;color:#8a96ad;text-align:center;margin:10px 0 0}
-                  @media(max-width:480px){.aurora-pulse-backdrop{padding-left:10px;padding-right:10px;padding-bottom:max(10px,env(safe-area-inset-bottom))}.aurora-pulse-panel{height:min(720px,76vh);min-height:390px;border-radius:30px;padding:12px 15px 14px}}
-                  .aurora-pulse-orb.is-listening{animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-speaking{animation:auroraPulseTalking .45s ease-in-out infinite alternate;filter:hue-rotate(20deg)}
-                  .aurora-pulse-shortcuts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(700px,92vw);display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:auto}
-                  .aurora-pulse-shortcuts button{flex:1;min-width:0;height:42px;border:1px solid #315b96;border-radius:24px;background:rgba(9,28,65,.92);color:#e1edff;display:flex;align-items:center;justify-content:center;gap:5px;font-size:15px;white-space:nowrap;cursor:pointer}
-                  .aurora-pulse-shortcuts button span{font-size:12px}
-                  .aurora-pulse-weather{bottom:115px!important}
-                  .aurora-pulse-composer{bottom:68px!important;width:min(700px,92vw)!important;padding:9px!important}
-                  .aurora-pulse-composer input{min-width:0;flex:1}
-                  @media(max-width:480px){.aurora-pulse-shortcuts{bottom:17px;width:92vw;gap:5px}.aurora-pulse-shortcuts button{height:39px;font-size:13px}.aurora-pulse-shortcuts button span{font-size:10px}.aurora-pulse-weather{bottom:112px!important}.aurora-pulse-composer{bottom:63px!important;width:92vw!important}.aurora-pulse-head .aurora-pulse-orb{top:28px!important;width:44px!important;height:44px!important}}
-
-/* AURORA_PULSE_GLASS_FIX_V1 */
-
-/* AURORA_PULSE_COMPACT_GLOW_V1 */
-.aurora-pulse-backdrop {
-  padding: 10px !important;
-  background: rgba(8, 10, 14, .12) !important;
-  backdrop-filter: blur(2px) saturate(80%) !important;
-  -webkit-backdrop-filter: blur(2px) saturate(80%) !important;
-}
-.aurora-pulse-panel {
-  width: min(420px, 100%) !important;
-  height: min(620px, 78vh) !important;
-  padding: 12px !important;
-  gap: 7px !important;
-  border: none !important;
-  border-radius: 28px !important;
-  background: rgba(18, 20, 25, .24) !important;
-  box-shadow:
-    0 0 7px rgba(190, 225, 255, .30),
-    0 0 20px rgba(140, 195, 255, .19),
-    0 0 42px rgba(140, 195, 255, .10),
-    0 16px 45px rgba(0, 0, 0, .13) !important;
-}
-.aurora-pulse-head {
-  flex-basis: 76px !important;
-  height: 76px !important;
-  min-height: 76px !important;
-}
-.aurora-pulse-head .aurora-pulse-orb {
-  width: 68px !important;
-  height: 68px !important;
-  flex-basis: 68px !important;
-  border-radius: 50% !important;
-  box-shadow:
-    0 0 12px rgba(160, 220, 255, .45),
-    0 0 26px rgba(130, 190, 255, .26) !important;
-}
-.aurora-pulse-greeting {
-  padding: 0 0 4px !important;
-}
-.aurora-pulse-weather {
-  border: none !important;
-  border-radius: 16px !important;
-}
-.aurora-pulse-message {
-  border: none !important;
-  border-radius: 16px !important;
-}
-.aurora-pulse-message.user {
-  border: none !important;
-}
-.aurora-pulse-composer {
-  min-height: 58px !important;
-  padding: 12px 14px !important;
-  border: none !important;
-  border-radius: 22px !important;
-  background: rgba(255, 255, 255, .10) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, .07),
-    0 0 18px rgba(175, 215, 255, .08) !important;
-}
-.aurora-pulse-composer input {
-  font-size: 15px !important;
-}
-.aurora-pulse-shortcuts {
-  gap: 5px !important;
-}
-.aurora-pulse-shortcuts button {
-  border: none !important;
-  background: rgba(255, 255, 255, .065) !important;
-}
-@media (max-width: 480px) {
-  .aurora-pulse-backdrop {
-    padding: 8px !important;
-    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
-  }
-  .aurora-pulse-panel {
-    width: 100% !important;
-    height: min(620px, 78dvh) !important;
-    padding: 10px !important;
-    border-radius: 24px !important;
-  }
-  .aurora-pulse-head {
-    flex-basis: 72px !important;
-    height: 72px !important;
-    min-height: 72px !important;
-  }
-  .aurora-pulse-head .aurora-pulse-orb {
-    width: 64px !important;
-    height: 64px !important;
-    flex-basis: 64px !important;
-  }
-}
-/* END AURORA_PULSE_COMPACT_GLOW_V1 */
-
-.aurora-pulse-backdrop {
-  background: rgba(10, 12, 16, 0.22) !important;
-  backdrop-filter: blur(3px) saturate(85%) !important;
-  -webkit-backdrop-filter: blur(3px) saturate(85%) !important;
-  padding: 16px !important;
-}
-.aurora-pulse-panel {
-  box-sizing: border-box !important;
-  width: min(520px, 100%) !important;
-  height: min(760px, 88vh) !important;
-  min-height: 0 !important;
-  padding: 18px !important;
-  gap: 10px !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(255,255,255,.18) !important;
-  border-radius: 26px !important;
-  background: rgba(22, 24, 28, .20) !important;
-  box-shadow: 0 18px 55px rgba(0,0,0,.14) !important;
-  color: rgba(255,255,255,.92) !important;
-}
-.aurora-pulse-head {
-  display: flex !important;
-  position: relative !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex: 0 0 48px !important;
-  height: 48px !important;
-  min-height: 48px !important;
-  padding: 0 !important;
-}
-.aurora-pulse-head .aurora-pulse-orb {
-  position: static !important;
-  inset: auto !important;
-  transform: none !important;
-  flex: 0 0 42px !important;
-  width: 42px !important;
-  height: 42px !important;
-  box-shadow: 0 0 12px rgba(255,255,255,.14) !important;
-}
-.aurora-pulse-head .aurora-pulse-orb::before {
-  content: none !important;
-}
-.aurora-pulse-close {
-  position: absolute !important;
-  top: 4px !important;
-  right: 0 !important;
-  border: 1px solid rgba(255,255,255,.18) !important;
-  background: rgba(255,255,255,.06) !important;
-  color: white !important;
-}
-.aurora-pulse-greeting {
-  flex: 0 0 auto !important;
-  padding: 4px 0 8px !important;
-}
-.aurora-pulse-greeting small {
-  color: rgba(255,255,255,.62) !important;
-}
-.aurora-pulse-greeting p,
-.aurora-pulse-weather-copy small,
-.aurora-pulse-weather .pulse-weather-note {
-  color: rgba(255,255,255,.66) !important;
-}
-.aurora-pulse-weather {
-  position: static !important;
-  transform: none !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  background: rgba(255,255,255,.055) !important;
-  border: 1px solid rgba(255,255,255,.14) !important;
-  box-shadow: none !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-}
-.aurora-pulse-chips {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-.aurora-pulse-chips button {
-  background: rgba(255,255,255,.045) !important;
-  border-color: rgba(255,255,255,.16) !important;
-  color: rgba(255,255,255,.88) !important;
-}
-.aurora-pulse-chat {
-  position: relative !important;
-  flex: 1 1 0 !important;
-  min-height: 40px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  overflow-x: hidden !important;
-}
-.aurora-pulse-message {
-  box-sizing: border-box !important;
-  max-width: 100% !important;
-  background: rgba(255,255,255,.055) !important;
-  border-color: rgba(255,255,255,.12) !important;
-}
-.aurora-pulse-message.user {
-  background: rgba(255,255,255,.09) !important;
-  border-color: rgba(255,255,255,.18) !important;
-}
-.aurora-pulse-composer {
-  position: relative !important;
-  inset: auto !important;
-  transform: none !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  padding: 8px 10px !important;
-  border: 1px solid rgba(255,255,255,.20) !important;
-  border-radius: 20px !important;
-  background: rgba(255,255,255,.065) !important;
-  box-shadow: none !important;
-  backdrop-filter: blur(18px) saturate(85%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(85%) !important;
-}
-.aurora-pulse-composer input {
-  min-width: 0 !important;
-  color: rgba(255,255,255,.94) !important;
-}
-.aurora-pulse-composer input::placeholder {
-  color: rgba(255,255,255,.48) !important;
-}
-.aurora-pulse-send {
-  background: rgba(255,255,255,.13) !important;
-  color: white !important;
-  box-shadow: none !important;
-}
-.aurora-pulse-shortcuts {
-  position: static !important;
-  transform: none !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  gap: 6px !important;
-}
-.aurora-pulse-shortcuts button {
-  min-width: 0 !important;
-  background: rgba(255,255,255,.045) !important;
-  border-color: rgba(255,255,255,.14) !important;
-  color: rgba(255,255,255,.88) !important;
-}
-.aurora-pulse-foot {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  color: rgba(255,255,255,.48) !important;
-}
-@media (max-width: 480px) {
-  .aurora-pulse-backdrop {
-    padding: 10px !important;
-    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
-  }
-  .aurora-pulse-panel {
-    width: 100% !important;
-    height: min(760px, 88dvh) !important;
-    min-height: 0 !important;
-    padding: 14px !important;
-    border-radius: 22px !important;
-  }
-  .aurora-pulse-shortcuts {
-    gap: 4px !important;
-  }
-  .aurora-pulse-shortcuts button {
-    height: 36px !important;
-    font-size: 12px !important;
-  }
-  .aurora-pulse-shortcuts button span {
-    font-size: 10px !important;
-  }
-}
-/* END AURORA_PULSE_GLASS_FIX_V1 */
-
-
-/* AURORA_PULSE_NO_BORDERS_V1 */
-.aurora-pulse-backdrop .aurora-pulse-panel,
-.aurora-pulse-backdrop .aurora-pulse-panel *,
-.aurora-pulse-backdrop .aurora-pulse-panel *::before,
-.aurora-pulse-backdrop .aurora-pulse-panel *::after {
-  border-color: transparent !important;
-  border-style: none !important;
-  outline: none !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-panel {
-  box-shadow:
-    0 0 10px rgba(190, 225, 255, .24),
-    0 0 26px rgba(140, 195, 255, .16),
-    0 16px 45px rgba(0, 0, 0, .12) !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-composer {
-  box-shadow: none !important;
-}
-/* END AURORA_PULSE_NO_BORDERS_V1 */
-
-
-/* AURORA_PULSE_FINAL_COMPACT_LAYOUT_V1 */
-.aurora-pulse-backdrop {
-  padding: 10px !important;
-  padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-panel {
-  box-sizing: border-box !important;
-  width: min(420px, 100%) !important;
-  height: min(620px, 78vh) !important;
-  min-height: 0 !important;
-  max-height: calc(100dvh - 20px - env(safe-area-inset-bottom)) !important;
-  padding: 12px !important;
-  gap: 7px !important;
-  overflow: hidden !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-head {
-  position: relative !important;
-  display: flex !important;
-  flex: 0 0 68px !important;
-  height: 68px !important;
-  min-height: 68px !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-head .aurora-pulse-orb {
-  position: relative !important;
-  top: auto !important;
-  left: auto !important;
-  transform: none !important;
-  width: 56px !important;
-  height: 56px !important;
-  flex: 0 0 56px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-brand {
-  display: none !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-close {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-greeting,
-.aurora-pulse-backdrop .aurora-pulse-weather,
-.aurora-pulse-backdrop .aurora-pulse-chips,
-.aurora-pulse-backdrop .aurora-pulse-composer,
-.aurora-pulse-backdrop .aurora-pulse-shortcuts,
-.aurora-pulse-backdrop .aurora-pulse-foot {
-  position: relative !important;
-  inset: auto !important;
-  transform: none !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-weather {
-  width: 100% !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-chips {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-chat {
-  position: relative !important;
-  flex: 1 1 0 !important;
-  min-height: 32px !important;
-  width: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-composer {
-  left: auto !important;
-  bottom: auto !important;
-  width: 100% !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  padding: 7px 9px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-shortcuts {
-  left: auto !important;
-  bottom: auto !important;
-  width: 100% !important;
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-  gap: 4px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-shortcuts button {
-  min-width: 0 !important;
-  height: 36px !important;
-  padding: 0 3px !important;
-  font-size: 12px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-shortcuts button span {
-  font-size: 10px !important;
-}
-.aurora-pulse-backdrop .aurora-pulse-foot {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-@media (max-width: 480px) {
-  .aurora-pulse-backdrop .aurora-pulse-panel {
-    width: 100% !important;
-    height: min(620px, 78dvh) !important;
-    max-height: calc(100dvh - 20px - env(safe-area-inset-bottom)) !important;
-    padding: 10px !important;
-    border-radius: 24px !important;
-  }
-  .aurora-pulse-backdrop .aurora-pulse-head {
-    flex-basis: 60px !important;
-    height: 60px !important;
-    min-height: 60px !important;
-  }
-  .aurora-pulse-backdrop .aurora-pulse-head .aurora-pulse-orb {
-    width: 50px !important;
-    height: 50px !important;
-    flex-basis: 50px !important;
-  }
-}
-/* END AURORA_PULSE_FINAL_COMPACT_LAYOUT_V1 */
-.aurora-pulse-mic{display:inline-flex;align-items:center;justify-content:center;width:42px;min-width:42px;height:42px;border:1px solid rgba(92,220,255,.28);border-radius:14px;background:rgba(18,32,54,.88);color:#8cecff;cursor:pointer}.aurora-pulse-mic:disabled{opacity:.5}.aurora-pulse-mic.is-listening{box-shadow:0 0 18px rgba(65,220,255,.3);animation:auroraPulseTalking .7s ease-in-out infinite alternate}.aurora-pulse-orb.is-thinking{animation:auroraPulseTalking .7s ease-in-out infinite alternate}
- `}
-</style>
-                <header className="aurora-pulse-head"><span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : "AURORA is ready"} /><div className="aurora-pulse-brand"><strong>AURORA PULSE</strong><small>PERSONAL INTELLIGENCE Â· YOUR AI COMPANION</small></div><button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); if (page === "pulse") setPage("home"); }}>Ã—</button></header>
-                <div className="aurora-pulse-greeting"><small>YOUR ASSISTANT PANEL</small><h2>Hello{profile.nickname || profile.name ? ", " + (profile.nickname || profile.name) : ""}.</h2><p>What can I help you with today?</p></div>
-                <button type="button" className="aurora-pulse-weather" aria-label="Change weather location" onClick={() => { const city = window.prompt("Weather for which city or town?", pulseWeatherCity); if (city && city.trim()) loadPulseWeather(city.trim()); }} disabled={pulseWeatherBusy}><span className="aurora-pulse-weather-icon">â˜€</span><span className="aurora-pulse-weather-copy"><strong>{pulseWeatherBusy ? "Loadingâ€¦" : pulseWeather.temperature}</strong><small>{pulseWeather.condition}</small></span><span className="pulse-weather-note">âŒ– {pulseWeather.city} â€º</span></button>
-                <div className="aurora-pulse-chips">{["Calendar","Tasks","Email"].map((label) => <button type="button" key={label} onClick={() => setPulseDraft("Help me with my " + label.toLowerCase())}>{label}</button>)}</div>
-                <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">{pulseMessages.map((message, index) => <div key={index} className={"aurora-pulse-message " + message.role}>{message.content}</div>)}{pulseBusy && <div className="aurora-pulse-message assistant">AURORA is thinkingâ€¦</div>}</div>
-                <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
-                  <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORAâ€¦" aria-label="Message AURORA Pulse" />
-                  <button className={"aurora-pulse-mic" + (pulseListening ? " is-listening" : "")} type="button" onClick={togglePulseMic} aria-label={pulseListening ? "Stop listening" : "Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18} /></button>
-                  <button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy || !pulseDraft.trim()}>â†‘</button>
-                </form>
-                <div className="aurora-pulse-shortcuts"><button type="button" onClick={() => { const query = pulseDraft.trim().replace(/^search the web for\s*/i, ""); setPulseOpen(false); openTool("search"); setToolQuery(query); }}>âŒ• <span>Search</span></button><button type="button" onClick={() => { setPulseOpen(false); openAttachment("camera"); }}>â–£ <span>Camera</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("writing"); }}>âœŽ <span>Writing</span></button><button type="button" onClick={() => { setPulseOpen(false); openTool("translate"); }}>æ–‡ <span>Translate</span></button><button type="button" onClick={() => { setPulseOpen(false); setAttachmentOpen(true); }}>â€¢â€¢â€¢ <span>More</span></button></div>
-                <p className="aurora-pulse-foot">AURORA Pulse Â· close anytime to return to Profile</p>
+                  .aurora-pulse-backdrop{position:fixed!important;inset:0!important;z-index:9999!important;display:block!important;padding:0!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
+                  .aurora-pulse-panel{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#f5f7ff!important;pointer-events:none!important;isolation:isolate}
+                  .aurora-pulse-panel:before{content:"";position:fixed;inset:5px;border-radius:22px;pointer-events:none;border:1px solid transparent;background:linear-gradient(120deg,#ff5bc8,#55dcff,#b38aff,#ffe18a,#69efc2,#ff5bc8) border-box;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.34;animation:auroraPulseFrame 12s linear infinite}
+                  .aurora-pulse-head{position:fixed!important;top:12px!important;left:50%!important;transform:translateX(-50%)!important;width:min(520px,calc(100vw - 24px))!important;height:76px!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important;z-index:10002!important}
+                  .aurora-pulse-head .aurora-pulse-orb{position:relative!important;inset:auto!important;transform:none!important;width:68px!important;height:68px!important;flex:0 0 68px!important;border-radius:50%!important;background:radial-gradient(circle at 30% 22%,#fff 0,#b9f8ff 12%,#5bdcff 28%,#7c67ff 54%,#ec70e8 76%,#ffe5a5 100%)!important;box-shadow:0 0 16px #71eaffaa,0 0 38px #a47bff88,0 0 70px #ff6bc955!important;pointer-events:none!important;animation:auroraPulseOrb 4.4s ease-in-out infinite!important}
+                  .aurora-pulse-head .aurora-pulse-brand{display:none!important}
+                  .aurora-pulse-tools-toggle,.aurora-pulse-expand-toggle,.aurora-pulse-close{position:absolute!important;top:16px!important;width:40px!important;height:40px!important;display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:14px!important;background:rgba(15,19,31,.22)!important;color:#fff!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important;pointer-events:auto!important;cursor:pointer!important}
+                  .aurora-pulse-tools-toggle{left:0!important}.aurora-pulse-expand-toggle{left:48px!important}.aurora-pulse-close{right:0!important;font-size:22px!important}
+                  .aurora-pulse-conversation{position:fixed!important;top:112px!important;left:50%!important;width:min(540px,calc(100vw - 28px))!important;max-height:calc(100dvh - 132px)!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:14px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;pointer-events:auto!important;overflow:visible!important;will-change:transform}
+                  .aurora-pulse-conversation:before{display:none!important}
+                  .aurora-pulse-drag-handle{position:relative;z-index:1;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;width:100%!important;height:22px!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.46)!important;font-size:10px!important;letter-spacing:.18em!important;cursor:grab!important;touch-action:none!important}
+                  .aurora-pulse-drag-handle:active{cursor:grabbing!important}
+                  .aurora-pulse-tools-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;max-height:220px!important;overflow:auto!important}
+                  .aurora-pulse-tool-card{min-height:68px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:7px!important;padding:10px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:14px!important;background:rgba(255,255,255,.055)!important;color:#f4f7ff!important;text-align:left!important;font-size:11px!important;cursor:pointer!important;box-shadow:inset 0 0 14px rgba(255,255,255,.025),0 0 14px rgba(124,168,255,.07)!important}
+                  .aurora-pulse-tool-card svg{color:#9ceaff!important}
+                  .aurora-pulse-chat{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:11px!important;min-height:110px!important;max-height:min(52dvh,460px)!important;overflow:auto!important;padding:16px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(22,25,40,.42),rgba(11,14,27,.34))!important;backdrop-filter:blur(18px) saturate(125%)!important;-webkit-backdrop-filter:blur(18px) saturate(125%)!important;box-shadow:0 16px 44px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.08)!important;overscroll-behavior:contain}
+                  .aurora-pulse-message{position:relative!important;max-width:92%!important;padding:10px 13px!important;border:1px solid transparent!important;border-radius:15px!important;background:rgba(255,255,255,.065)!important;color:rgba(255,255,255,.94)!important;font-size:13px!important;line-height:1.55!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}
+                  .aurora-pulse-message:after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(125deg,rgba(255,99,204,.44),rgba(93,223,255,.36),rgba(173,130,255,.4));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+                  .aurora-pulse-message.user{align-self:flex-end;background:rgba(74,132,177,.13)!important}
+                  .aurora-pulse-message.assistant{align-self:flex-start}
+                  .aurora-pulse-message.pending{color:#b9eaff!important}
+                  .aurora-pulse-letter{display:inline;opacity:0;animation:auroraPulseLetter .12s ease forwards}
+                  .aurora-pulse-composer{position:relative!important;inset:auto!important;display:flex!important;align-items:center!important;gap:8px!important;width:100%!important;flex:0 0 auto!important;margin:0!important;padding:9px 11px!important;border:1px solid rgba(255,255,255,.17)!important;border-radius:20px!important;background:linear-gradient(135deg,rgba(30,31,48,.52),rgba(13,17,31,.42))!important;backdrop-filter:blur(20px) saturate(130%)!important;-webkit-backdrop-filter:blur(20px) saturate(130%)!important;box-shadow:0 14px 36px rgba(0,0,0,.13),inset 0 1px rgba(255,255,255,.09)!important}
+                  .aurora-pulse-composer input{flex:1!important;min-width:0!important;border:0!important;outline:0!important;background:transparent!important;color:#fff!important;padding:10px 8px!important;font-size:13px!important}
+                  .aurora-pulse-composer input::placeholder{color:rgba(255,255,255,.48)!important}
+                  .aurora-pulse-mic{width:38px!important;min-width:38px!important;height:38px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:12px!important;background:rgba(255,255,255,.06)!important;color:#9ceaff!important}
+                  .aurora-pulse-send{width:38px!important;height:38px!important;border:0!important;border-radius:12px!important;background:linear-gradient(135deg,#50cce8,#8d72f3)!important;color:#fff!important}
+                  .aurora-pulse-empty{padding:20px 10px!important;text-align:center!important;color:rgba(255,255,255,.48)!important;font-size:12px!important;line-height:1.6!important}
+                  @keyframes auroraPulseOrb{0%,100%{filter:hue-rotate(0deg);transform:scale(1)}50%{filter:hue-rotate(32deg);transform:scale(1.07)}}
+                  @keyframes auroraPulseFrame{to{filter:hue-rotate(360deg)}}
+                  @keyframes auroraPulseLetter{to{opacity:1}}
+                  @media(max-width:480px){.aurora-pulse-head{top:8px!important;height:68px!important}.aurora-pulse-head .aurora-pulse-orb{width:60px!important;height:60px!important;flex-basis:60px!important}.aurora-pulse-conversation{top:94px!important;width:calc(100vw - 20px)!important;max-height:calc(100dvh - 112px)!important;gap:12px!important}.aurora-pulse-chat{max-height:48dvh!important;padding:13px!important}.aurora-pulse-tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.aurora-pulse-panel:before{inset:3px}}
+                  .aurora-pulse-conversation.is-expanded{position:fixed!important;inset:92px 10px 10px!important;top:92px!important;left:10px!important;width:auto!important;max-height:none!important;transform:none!important;gap:10px!important;padding:12px!important;border:1px solid rgba(190,185,255,.2)!important;border-radius:24px!important;background:linear-gradient(145deg,rgba(20,25,43,.94),rgba(8,13,27,.93))!important;backdrop-filter:blur(26px) saturate(135%)!important;-webkit-backdrop-filter:blur(26px) saturate(135%)!important;box-shadow:0 22px 70px rgba(0,0,0,.36),inset 0 1px rgba(255,255,255,.07)!important;overflow:hidden!important;will-change:auto!important}
+                  .aurora-pulse-conversation.is-expanded .aurora-pulse-drag-handle{display:none!important}
+                  .aurora-pulse-conversation.is-expanded .aurora-pulse-chat{flex:1 1 0!important;min-height:0!important;max-height:none!important;padding:16px!important;overscroll-behavior:contain!important}
+                  .aurora-pulse-conversation.is-expanded .aurora-pulse-tools-grid{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))!important;max-height:23dvh!important;flex:0 0 auto!important}
+                  .aurora-pulse-expand-toggle{display:grid!important;place-items:center!important}
+                  .aurora-pulse-message .message-rich-content{font-size:14px!important;line-height:1.6!important}
+                  .aurora-pulse-message .message-paragraph,.aurora-pulse-message .message-list li,.aurora-pulse-message .message-quote{font-size:14px!important;line-height:1.65!important;color:rgba(255,255,255,.91)!important}
+                  .aurora-pulse-message .message-heading{font-size:16px!important;line-height:1.35!important;color:#fff!important}
+                  .aurora-pulse-message .message-table-wrap{max-width:100%!important;overflow-x:auto!important}
+                  .aurora-pulse-message .message-table{min-width:100%!important;font-size:12px!important}
+                  .aurora-pulse-message .aurora-info-card,.aurora-pulse-message .aurora-flow-card{margin:9px 0!important;max-width:100%!important}
+                  @media(max-width:480px){.aurora-pulse-expand-toggle{left:46px!important}.aurora-pulse-conversation.is-expanded{inset:84px 7px 8px!important;top:84px!important;left:7px!important;padding:9px!important;border-radius:19px!important}.aurora-pulse-conversation.is-expanded .aurora-pulse-chat{padding:12px!important}.aurora-pulse-message .message-paragraph,.aurora-pulse-message .message-list li{font-size:14px!important}}
+                  @media(prefers-reduced-motion:reduce){.aurora-pulse-panel:before,.aurora-pulse-head .aurora-pulse-orb,.aurora-pulse-letter{animation:none!important;opacity:1!important}}
+                `}</style>
+                <header className="aurora-pulse-head">
+                  <button type="button" className="aurora-pulse-tools-toggle" onClick={() => setPulseToolsOpen(value => !value)} aria-expanded={pulseToolsOpen} aria-label={pulseToolsOpen ? "Hide AURORA tools" : "Show AURORA tools"}><Sparkles size={19}/></button>
+                  <button type="button" className="aurora-pulse-expand-toggle" onClick={() => setPulseWorkspaceMode(value => value === "expanded" ? "conversation" : "expanded")} aria-label={pulseWorkspaceMode === "expanded" ? "Return to conversation view" : "Expand Pulse workspace"} title={pulseWorkspaceMode === "expanded" ? "Collapse workspace" : "Expand workspace"}>{pulseWorkspaceMode === "expanded" ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}</button>
+                  <span className={"aurora-pulse-orb" + (pulseListening ? " is-listening" : pulseBusy ? " is-thinking" : speaking ? " is-speaking" : pulseVoiceError ? " is-error" : pulseInterrupted ? " is-interrupted" : "")} role="img" aria-label={pulseListening ? "AURORA is listening" : pulseBusy ? "AURORA is thinking" : speaking ? "AURORA is speaking" : pulseVoiceError ? "AURORA voice needs attention" : pulseInterrupted ? "AURORA was interrupted and is ready" : "AURORA is ready"} /><span className={"aurora-pulse-voice-status" + (pulseVoiceError ? " is-error" : "")} role="status" aria-live="polite">{pulseListening ? "Listening…" : pulseBusy ? "Thinking…" : speaking ? (bargeInReady ? "Speaking · you can interrupt" : "Speaking…") : pulseVoiceError || (pulseInterrupted ? "Interrupted · ready" : "Ready")}</span>
+                  <button type="button" className="aurora-pulse-close" aria-label="Close AURORA Pulse" onClick={() => { setPulseOpen(false); setPulseToolsOpen(false); setPulseConversationPosition({ x: 0, y: 0 }); if (page === "pulse") setPage("home"); }}>×</button>
+                </header>
+                <section className={"aurora-pulse-conversation" + (pulseWorkspaceMode === "expanded" ? " is-expanded" : "")} style={{ transform: pulseWorkspaceMode === "expanded" ? "none" : "translate(calc(-50% + " + pulseConversationPosition.x + "px), " + pulseConversationPosition.y + "px)" }} onPointerMove={event => {
+                  const drag = pulseDragRef.current;
+                  if (pulseWorkspaceMode === "expanded" || !drag || drag.pointerId !== event.pointerId) return;
+                  const deltaX = event.clientX - drag.startX;
+                  const deltaY = event.clientY - drag.startY;
+                  const minX = 10 - drag.bounds.left;
+                  const maxX = window.innerWidth - 10 - drag.bounds.right;
+                  const minY = 10 - drag.bounds.top;
+                  const maxY = window.innerHeight - 10 - drag.bounds.bottom;
+                  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+                  const nextX = drag.originX + clamp(deltaX, minX, maxX);
+                  const nextY = drag.originY + clamp(deltaY, minY, maxY);
+                  drag.nextX = nextX;
+                  drag.nextY = nextY;
+                  event.currentTarget.style.transform = "translate(calc(-50% + " + nextX + "px), " + nextY + "px)";
+                }} onPointerUp={event => {
+                  const drag = pulseDragRef.current;
+                  if (drag?.pointerId === event.pointerId) {
+                    setPulseConversationPosition({ x: drag.nextX ?? drag.originX, y: drag.nextY ?? drag.originY });
+                    pulseDragRef.current = null;
+                  }
+                }} onPointerCancel={() => { pulseDragRef.current = null; }} onLostPointerCapture={() => { pulseDragRef.current = null; }}>
+                  <button type="button" className="aurora-pulse-drag-handle" aria-label="Move chat panel" onPointerDown={event => {
+                     const bounds = pulsePanelRef.current?.querySelector(".aurora-pulse-conversation")?.getBoundingClientRect();
+                     if (!bounds) return;
+                     pulseDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pulseConversationPosition.x, originY: pulseConversationPosition.y, nextX: pulseConversationPosition.x, nextY: pulseConversationPosition.y, bounds };
+                     event.currentTarget.setPointerCapture(event.pointerId);
+                   }}>••• <span>DRAG CHAT PANEL</span> •••</button>
+                  {pulseToolsOpen && <div className="aurora-pulse-tools-grid">
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("search"); }}><Sparkles size={19}/> Web search</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("calculator"); }}><Calculator size={19}/> Calculator</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("study"); }}><GraduationCap size={19}/> Study</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("writing"); }}><NotebookPen size={19}/> Writing</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openTool("creative"); }}><FileText size={19}/> Transcription</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); openAttachment("camera"); }}><Camera size={19}/> Camera</button>
+                    <button type="button" className="aurora-pulse-tool-card" onClick={() => { setPulseToolsOpen(false); setPulseOpen(false); navigate("tools"); }}><MoreHorizontal size={19}/> More tools</button>
+                  </div>}
+                  <div className="aurora-pulse-chat" aria-live="polite" aria-relevant="additions text">
+                    {speaking && spokenCaption && <div className="aurora-pulse-live-caption" role="status" aria-live="polite"><span>NOW SPEAKING</span><p>{spokenCaption}</p></div>}
+                    {pulseMessages.length === 0 && <div className="aurora-pulse-empty">Your AURORA conversation starts here.<br/>Ask anything or use the microphone.</div>}
+                    {pulseMessages.map((message, index) => <div key={message.id || index} className={"aurora-pulse-message " + message.role + (message.pending ? " pending" : "")}>{message.role === "assistant" && !message.pending ? <FormattedMessage content={String(message.content || "")} onChoice={choice => { void sendPulseMessage(choice); }}/> : message.content}</div>)}
+                  </div>
+                  <form className="aurora-pulse-composer" onSubmit={async event => { event.preventDefault(); await sendPulseMessage(pulseDraft); }}>
+                    <input value={pulseDraft} onChange={event => setPulseDraft(event.target.value)} placeholder="Message AURORA…" aria-label="Message AURORA Pulse" />
+                    <button className={"aurora-pulse-mic" + (pulseListening ? " is-listening" : "")} type="button" onClick={togglePulseMic} aria-label={pulseListening ? "Stop listening" : "Speak to AURORA Pulse"} disabled={pulseBusy}><Mic size={18}/></button>
+                    <button className="aurora-pulse-send" type="submit" aria-label="Send message" disabled={pulseBusy || !pulseDraft.trim()}>↑</button>
+                  </form>
+                </section>
               </motion.section>
             </motion.div>
           )}
@@ -2794,7 +2871,7 @@ export default function App() {
       <AnimatePresence>
         {attachmentOpen && (
           <motion.div className="aurora-menu-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAttachmentOpen(false)}>
-            <motion.div className="aurora-attachment-menu" role="dialog" aria-label="AURORA attachments" initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} onClick={(event) => event.stopPropagation()}>
+            <motion.div className="aurora-attachment-menu" role="dialog" aria-modal="true" aria-label="AURORA attachments" initial={{ opacity: 0, y: 12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: .98 }} onClick={(event) => event.stopPropagation()}>
               <div className="aurora-menu-heading"><span className="aurora-menu-mark"><Plus size={17} /></span><div><strong>AURORA tools</strong><small>Choose what you want to add</small></div><button type="button" onClick={() => setAttachmentOpen(false)} aria-label="Close attachment menu"><X size={17} /></button></div>
               <button type="button" className="aurora-tool-option aurora-tool-hub-option" onClick={() => { setAttachmentOpen(false); navigate("tools"); }}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Open Tools Workspace</strong><small>Dedicated interfaces for every tool</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("camera")}><span className="aurora-tool-icon"><Camera size={21} /></span><span><strong>Camera</strong><small>Take a new photo</small></span><ChevronRight size={16} /></button>

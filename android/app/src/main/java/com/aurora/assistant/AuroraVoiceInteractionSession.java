@@ -1,34 +1,218 @@
 package com.aurora.assistant;
 
+import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import java.lang.ref.WeakReference;
+import java.util.Locale;
 import android.service.voice.VoiceInteractionSession;
+import android.view.Gravity;
 import android.view.View;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import androidx.core.content.ContextCompat;
 
+/** User-initiated assistant voice capture. Transcript is handed to AURORA for review, not auto-submitted. */
 public class AuroraVoiceInteractionSession extends VoiceInteractionSession {
-    private static final String ACTION_OPEN_PULSE = "com.aurora.assistant.OPEN_PULSE";
+    private SpeechRecognizer recognizer;
+    private TextView status;
+    private Button voiceButton;
+    private TextToSpeech replyTts;
+    private boolean replyTtsReady = false;
+    private boolean sessionDestroyed = false;
+    private static WeakReference<AuroraVoiceInteractionSession> activeSession = new WeakReference<>(null);
 
-    public AuroraVoiceInteractionSession(android.content.Context context) {
+    public AuroraVoiceInteractionSession(Context context) {
         super(context);
+        activeSession = new WeakReference<>(this);
+        replyTts = new TextToSpeech(context, result -> {
+            if (sessionDestroyed) return;
+            if (result != TextToSpeech.SUCCESS) {
+                updateStatus("Android assistant speech is unavailable. AURORA will use its app voice fallback.");
+                return;
+            }
+            replyTtsReady = true;
+            int language = replyTts.setLanguage(Locale.UK);
+            if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
+                replyTts.setLanguage(Locale.getDefault());
+            }
+            replyTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String id) { updateStatus("AURORA is speaking…"); }
+                @Override public void onDone(String id) { updateStatus("Reply complete. You can continue in AURORA."); }
+                @Override public void onError(String id) { updateStatus("Android could not play the assistant reply."); }
+            });
+        });
     }
 
-    @Override
-    public View onCreateContentView() {
-        return new View(getContext());
+    interface SpeechHandoffCallback {
+        void onResult(boolean delivered);
     }
 
-    @Override
-    public void onShow(Bundle args, int showFlags) {
-        super.onShow(args, showFlags);
-        getContext().getSharedPreferences("aurora_assistant", android.content.Context.MODE_PRIVATE)
-            .edit().putBoolean("pulse_open_requested", true).commit();
-        Intent intent = new Intent(getContext(), MainActivity.class);
-        intent.setAction(ACTION_OPEN_PULSE);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    /** Delivers an app-generated answer and reports the real TTS start result on the main thread. */
+    public static void speakAssistantReply(String text, SpeechHandoffCallback callback) {
+        if (callback == null) return;
+        String reply = text == null ? "" : text.trim();
+        if (reply.isEmpty()) {
+            callback.onResult(false);
+            return;
+        }
+        new Handler(Looper.getMainLooper()).post(() -> {
+            AuroraVoiceInteractionSession session = activeSession.get();
+            boolean delivered = session != null && !session.sessionDestroyed
+                && session.replyTtsReady && session.replyTts != null
+                && session.speakReply(reply);
+            callback.onResult(delivered);
+        });
+    }
+
+    private boolean speakReply(String text) {
+        if (sessionDestroyed || !replyTtsReady || replyTts == null || text == null || text.trim().isEmpty()) return false;
+        String safeText = text.length() > 5000 ? text.substring(0, 5000) : text;
+        int result = replyTts.speak(safeText, TextToSpeech.QUEUE_FLUSH, null,
+            "aurora-session-" + java.util.UUID.randomUUID().toString());
+        if (result == TextToSpeech.ERROR) {
+            updateStatus("Android could not start the assistant reply. AURORA will use its app voice fallback.");
+            return false;
+        }
+        updateStatus("AURORA is speaking…");
+        return true;
+    }
+
+    @Override public View onCreateContentView() {
+        Context context = getContext();
+        LinearLayout panel = new LinearLayout(context);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER_HORIZONTAL);
+        int pad = dp(22);
+        panel.setPadding(pad, pad, pad, pad);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.rgb(19, 20, 32));
+        bg.setCornerRadius(dp(24));
+        panel.setBackground(bg);
+
+        TextView title = new TextView(context);
+        title.setText("AURORA");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(22);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, new LinearLayout.LayoutParams(-1, -2));
+
+        status = new TextView(context);
+        status.setText("Your Android assistant is ready.");
+        status.setTextColor(Color.rgb(220, 222, 235));
+        status.setTextSize(14);
+        status.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
+        statusParams.topMargin = dp(10);
+        panel.addView(status, statusParams);
+
+        voiceButton = new Button(context);
+        voiceButton.setText("Start voice input");
+        LinearLayout.LayoutParams voiceParams = new LinearLayout.LayoutParams(-1, -2);
+        voiceParams.topMargin = dp(16);
+        panel.addView(voiceButton, voiceParams);
+        voiceButton.setOnClickListener(v -> startVoiceInput());
+
+        Button open = new Button(context);
+        open.setText("Open AURORA");
+        LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, -2);
+        openParams.topMargin = dp(8);
+        panel.addView(open, openParams);
+        open.setOnClickListener(v -> openAurora(null));
+        return panel;
+    }
+
+    private void startVoiceInput() {
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            if (status != null) status.setText("Enable microphone permission in AURORA first, then try voice input again.");
+            return;
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+            if (status != null) status.setText("Android speech recognition is unavailable on this device.");
+            return;
+        }
+        stopRecognizer();
         try {
-            startAssistantActivity(intent);
-        } finally {
-            finish();
+            recognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
+            recognizer.setRecognitionListener(new RecognitionListener() {
+                @Override public void onReadyForSpeech(Bundle params) { updateStatus("Listening…"); }
+                @Override public void onBeginningOfSpeech() { updateStatus("Listening…"); }
+                @Override public void onRmsChanged(float rmsdB) {}
+                @Override public void onBufferReceived(byte[] buffer) {}
+                @Override public void onEndOfSpeech() { updateStatus("Processing speech…"); }
+                @Override public void onError(int error) { updateStatus("Voice input stopped. You can try again."); stopRecognizer(); }
+                @Override public void onResults(Bundle results) {
+                    java.util.ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    String transcript = matches == null || matches.isEmpty() ? "" : matches.get(0).trim();
+                    stopRecognizer();
+                    if (transcript.isEmpty()) { updateStatus("No words were recognized. Try again."); return; }
+                    getContext().getSharedPreferences("aurora_assistant", Context.MODE_PRIVATE)
+                        .edit().putString("assistant_session_query", transcript).apply();
+                    updateStatus("Transcript ready. Opening AURORA for your review.");
+                    openAurora(transcript);
+                }
+                @Override public void onPartialResults(Bundle partialResults) {}
+                @Override public void onEvent(int eventType, Bundle params) {}
+            });
+            Intent request = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            request.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-GB");
+            request.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            recognizer.startListening(request);
+        } catch (Exception error) {
+            stopRecognizer();
+            updateStatus("Could not start Android voice input.");
         }
     }
+
+    @Override public void onShow(Bundle args, int showFlags) {
+        super.onShow(args, showFlags);
+        // A system assistant gesture is already an explicit user action: hand off directly to Pulse.
+        openAurora("");
+    }
+
+    private void openAurora(String transcript) {
+        Intent intent = new Intent(getContext(), MainActivity.class);
+        intent.setAction("com.aurora.assistant.OPEN_PULSE");
+        if (transcript != null && !transcript.trim().isEmpty()) intent.putExtra("aurora_assistant_query", transcript);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        getContext().startActivity(intent);
+        if (transcript == null || transcript.trim().isEmpty()) finish();
+    }
+
+    private void updateStatus(String text) {
+        if (status != null) status.post(() -> status.setText(text));
+    }
+
+    private void stopRecognizer() {
+        if (recognizer != null) {
+            try { recognizer.cancel(); } catch (Exception ignored) {}
+            try { recognizer.destroy(); } catch (Exception ignored) {}
+            recognizer = null;
+        }
+    }
+
+    @Override public void onHide() { stopRecognizer(); super.onHide(); }
+    @Override public void onDestroy() {
+        stopRecognizer();
+        sessionDestroyed = true;
+        if (activeSession.get() == this) activeSession.clear();
+        if (replyTts != null) { try { replyTts.stop(); replyTts.shutdown(); } catch (Exception ignored) {} replyTts = null; }
+        super.onDestroy();
+    }
+    private int dp(int value) { return (int) (value * getContext().getResources().getDisplayMetrics().density + 0.5f); }
 }

@@ -121,51 +121,13 @@ function parseGoogleNews(xml) {
   }
   return items;
 }
-function extractArticleImage(html, baseUrl) {
-  const patterns = [
-    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["'][^>]*>/i,
-    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["'][^>]*>/i,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["'][^>]*>/i
-  ];
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (!match?.[1]) continue;
-    try {
-      const imageUrl = new URL(decodeHtml(match[1]), baseUrl);
-      if (imageUrl.protocol === "https:" && !/^(localhost|127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)/.test(imageUrl.hostname)) return imageUrl.href;
-    } catch {}
-  }
-  return "";
-}
-async function attachArticleImages(results) {
-  return Promise.all(results.map(async (item) => {
-    try {
-      const articleUrl = new URL(item.url);
-      if (articleUrl.protocol !== "https:" || /(^|\\.)(localhost|local|internal)$/.test(articleUrl.hostname)) return item;
-      const response = await fetch(articleUrl.href, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; AURORAReader/1.0)", "Accept": "text/html,application/xhtml+xml" },
-        redirect: "follow",
-        signal: AbortSignal.timeout(2800)
-      });
-      if (!response.ok) return item;
-      const finalUrl = new URL(response.url);
-      if (finalUrl.protocol !== "https:") return item;
-      const html = (await response.text()).slice(0, 450000);
-      const image = extractArticleImage(html, finalUrl.href);
-      return image ? { ...item, image } : item;
-    } catch {
-      return item;
-    }
-  }));
-}
 async function parseGoogleNewsSearch(query) {
   const url = "https://news.google.com/rss/search?q=" + encodeURIComponent(query) + "&hl=en-NG&gl=NG&ceid=NG:en";
   const response = await fetch(url, {headers:{"Accept":"application/rss+xml, application/xml, text/xml"},signal:AbortSignal.timeout(6500)});
   if (!response.ok) throw new Error("Google News HTTP " + response.status);
   const results = parseGoogleNews(await response.text());
   if (!results.length) throw new Error("Google News returned no parseable results");
-  return attachArticleImages(results);
+  return results;
 }
 async function parseWikipedia(query) {
   const url = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(query)+"&srlimit=6&format=json&origin=*";
@@ -177,6 +139,49 @@ async function parseWikipedia(query) {
     url: "https://en.wikipedia.org/wiki/"+encodeURIComponent(item.title.replace(/ /g, "_")),
     snippet: stripTags(item.snippet || "")
   }));
+}
+
+function decodeBingValue(value = "") {
+  return String(value).replace(/\\u0026/gi, "&").replace(/\\u003d/gi, "=")
+    .replace(/\\u002f/gi, "/").replace(/\\u003a/gi, ":")
+    .replace(/\\\//g, "/").replace(/&amp;/g, "&").trim();
+}
+function parseBingImages(html) {
+  const results = [];
+  const imagePattern = /"murl"\s*:\s*"([^"]+)"/g;
+  let match;
+  while ((match = imagePattern.exec(html)) && results.length < 16) {
+    const context = html.slice(Math.max(0, match.index - 1800), Math.min(html.length, match.index + 4200));
+    const image = decodeBingValue(match[1]);
+    const titleMatch = context.match(/"t"\s*:\s*"([^"]*)"/);
+    const pageMatch = context.match(/"purl"\s*:\s*"([^"]*)"/);
+    const descriptionMatch = context.match(/"desc"\s*:\s*"([^"]*)"/);
+    const title = stripTags(decodeBingValue(titleMatch?.[1] || "Visual reference"));
+    try {
+      const imageUrl = new URL(image);
+      const sourceUrl = pageMatch?.[1] ? new URL(decodeBingValue(pageMatch[1])) : imageUrl;
+      if (imageUrl.protocol !== "https:" || sourceUrl.protocol !== "https:" || !title ||
+          /(^|\.)(localhost|local|internal)$/i.test(imageUrl.hostname) ||
+          /(^|\.)(localhost|local|internal)$/i.test(sourceUrl.hostname)) continue;
+      if (!results.some(item => item.image === imageUrl.href)) results.push({
+        title: title.slice(0, 140), image: imageUrl.href, url: sourceUrl.href,
+        snippet: stripTags(decodeBingValue(descriptionMatch?.[1] || "Retrieved from Bing Images")).slice(0, 220)
+      });
+    } catch {}
+  }
+  return results;
+}
+async function searchBingImages(query) {
+  const url = "https://www.bing.com/images/search?q=" + encodeURIComponent(query) + "&form=HDRSC3";
+  const response = await fetch(url, {
+    headers: {"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml"},
+    signal: AbortSignal.timeout(6500)
+  });
+  if (!response.ok) throw new Error("Bing Images HTTP " + response.status);
+  const html = (await response.text()).slice(0, 1800000);
+  const results = parseBingImages(html);
+  if (!results.length) throw new Error("Bing Images returned no parseable image previews");
+  return {query,source:"Bing Images",results:results.slice(0,8)};
 }
 
 export async function searchAuroraWeb(rawQuery) {
@@ -249,7 +254,7 @@ export async function searchAuroraWeb(rawQuery) {
 }
 
 export default async function handler(req, res) {
-  if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
+  if (applyAuroraCors(req, res, "GET, POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   if (req.method !== "GET" && req.method !== "POST") {
@@ -257,6 +262,17 @@ export default async function handler(req, res) {
     return res.status(405).json({error:"Use GET or POST."});
   }
   let query = req.method === "GET" ? req.query?.q : req.body?.query;
+  const wantsImages = req.method === "GET" && req.query?.type === "images";
+  if (wantsImages) {
+    if (typeof query !== "string" || query.trim().length < 2) return res.status(400).json({error:"Enter an image search query."});
+    try {
+      const result = await searchBingImages(query.trim().slice(0, 200));
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("AURORA image search failed:", String(error?.message || error));
+      return res.status(502).json({error:"Image search is temporarily unavailable. Try again shortly."});
+    }
+  }
   if (typeof query !== "string") query = "";
   query = query.trim().slice(0, 240);
   if (query.length < 2) return res.status(400).json({error:"Enter a search query."});
@@ -292,7 +308,7 @@ export default async function handler(req, res) {
     if (!response.ok) throw new Error(provider.name+" HTTP "+response.status);
     const results = provider.parse(await response.text());
     if (!results.length) throw new Error(provider.name+" returned no parseable results");
-    return {query,results:await attachArticleImages(results),source:provider.name};
+    return {query,results,source:provider.name};
   });
   const webResult = await attemptGroup(webAttempts);
   if (webResult) return res.status(200).json(webResult);

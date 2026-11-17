@@ -1,5 +1,29 @@
 import { registerPlugin, Capacitor } from "@capacitor/core";
 
+type AuroraLocationPlugin = {
+  requestLocationPermission(): Promise<{ granted: boolean }>;
+  getCurrentLocation(): Promise<{ latitude: number; longitude: number; accuracyMeters: number; provider: string; timestamp: number; ageMs: number; fresh: boolean; precision: "fine" | "coarse"; backgroundTracking: false; source: "one_shot_location_update" }>;
+};
+const AuroraLocation = registerPlugin<AuroraLocationPlugin>("AuroraLocation");
+
+type AuroraScreenCapturePlugin = {
+  requestScreenCapture(): Promise<{ started: boolean; consentGranted: boolean; scope?: string; backgroundCapture?: boolean }>;
+  getScreenCaptureStatus(): Promise<{ captured: boolean; capturing: boolean; capturedAt: number; bytes: number; error?: string; scope: string; backgroundCapture: false }>;
+  getLatestScreenCapture(): Promise<{ mimeType: string; base64: string; bytes: number }>;
+  clearScreenCapture(): Promise<{ cleared: boolean }>;
+};
+const AuroraScreenCapture = registerPlugin<AuroraScreenCapturePlugin>("AuroraScreenCapture");
+type AuroraNfcPlugin = {
+  getNfcStatus(): Promise<{ available: boolean; enabled: boolean; readerActive: boolean; foregroundOnly: true }>;
+  startNfcReader(): Promise<{ started: boolean; writeArmed: boolean; foregroundOnly: true }>;
+  armNfcTextWrite(options: { text: string }): Promise<{ started: boolean; writeArmed: boolean; foregroundOnly: true }>;
+  stopNfcReader(): Promise<{ stopped: boolean }>;
+  addListener(eventName: "nfcTagDiscovered", listener: (event: { uid: string; technologies: string[]; textRecords?: string[]; readOnlyMetadata: true; readError?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: "nfcWriteResult", listener: (event: { uid: string; written: boolean; error?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+};
+const AuroraNfc = registerPlugin<AuroraNfcPlugin>("AuroraNfc");
+
+
 export type AuroraNativeStatus = {
   platform: string;
   nativeBridge: boolean;
@@ -7,8 +31,6 @@ export type AuroraNativeStatus = {
   wakeWordEnabled: boolean;
   wakeWordListening: boolean;
   liveRealtimeVoiceEnabled: boolean;
-  assistantRoleSupported?: boolean;
-  assistantRoleHeld?: boolean;
 };
 
 type AuroraTranscriptionPlugin = {
@@ -38,14 +60,19 @@ const AuroraPredictive = registerPlugin<AuroraPredictivePlugin>("AuroraPredictiv
 type AuroraNativePlugin = {
   startSpeechRecognition(): Promise<{ started: boolean }>;
   stopSpeechRecognition(): Promise<{ stopped: boolean }>;
-  speakText(options: { text: string }): Promise<{ started: boolean; engine: string }>;
+  speakText(options: { text: string; rate?: number; pitch?: number }): Promise<{ started: boolean; engine: string }>;
+  speakAssistantSessionReply(options: { text: string }): Promise<{ delivered: boolean }>;
   stopTextSpeech(): Promise<{ stopped: boolean }>;
   addListener(eventName: "ttsStatus", listenerFunc: (event: { status: "started" | "done" | "error" }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechResult", listenerFunc: (event: { transcript: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: "speechPartialResult", listenerFunc: (event: { transcript: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechError", listenerFunc: (event: { code: number; message: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: "speechStatus", listenerFunc: (event: { status: string }) => void): Promise<{ remove: () => Promise<void> }>;
   requestMicrophonePermission(): Promise<{ granted: boolean }>;
   requestNotificationPermission(): Promise<{ granted: boolean }>;
+  consumeAssistantSessionQuery(): Promise<{ query: string }>;
+  getAssistantRoleStatus(): Promise<{ available: boolean; selected: boolean; requiresUserAction: boolean; serviceReady: boolean }>;
+  openAssistantRoleSettings(): Promise<{ opened: boolean; userMustConfirm: boolean; fallback?: boolean }>;
   hasOverlayPermission(): Promise<{ granted: boolean }>;
   requestOverlayPermission(): Promise<{ opened: boolean; granted: boolean }>;
   showOverlay(): Promise<{ requested: boolean; shown: boolean; note?: string }>;
@@ -87,7 +114,7 @@ type AuroraNativePlugin = {
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
   shareSelectedFile(options: { contentUri: string; mimeType: string }): Promise<{ opened: boolean; requiresUserDestination: boolean; fileSentByAurora: false }>;
   downloadMedia(options: { url: string; filename: string; mimeType: string; confirmed: boolean }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string; managedByAndroid: true; notificationVisible: true }>;
-  pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string }>;
+  pickDocument(): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; text?: string; textIncluded?: boolean; note?: string; providerAuthority?: string; providerBacked?: boolean; persistedReadGrant?: boolean; documentId?: string }>;
   openNotificationAccessSettings(): Promise<{ opened: boolean }>;
   hasNotificationAccess(): Promise<{ granted: boolean }>;
   readRecentNotifications(): Promise<{ items: string; localOnly: boolean; limit: number }>;
@@ -102,8 +129,6 @@ type AuroraNativePlugin = {
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
-  getAssistantRoleStatus(): Promise<{ supported: boolean; held: boolean }>;
-  requestAssistantRole(): Promise<{ supported: boolean; held: boolean; cancelled?: boolean }>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
@@ -155,8 +180,20 @@ export const auroraNative = {
   clearTranscriptionSession: async () => { if (Capacitor.getPlatform() !== "android") return { cleared: true }; return AuroraTranscription.clearSession(); },
   status: async (): Promise<AuroraNativeStatus | null> =>
     Capacitor.isNativePlatform() ? AuroraNative.status() : null,
-  getAssistantRoleStatus: async () => Capacitor.isNativePlatform() ? AuroraNative.getAssistantRoleStatus() : { supported: false, held: false },
-  requestAssistantRole: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Default assistant selection is available only in the Android app."); return AuroraNative.requestAssistantRole(); },
+
+  requestScreenCapture: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen capture is available only in the Android app."); return AuroraScreenCapture.requestScreenCapture(); },
+  getLatestScreenCapture: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen capture is available only in Android."); return AuroraScreenCapture.getLatestScreenCapture(); },
+  getScreenCaptureStatus: async () => { if (Capacitor.getPlatform() !== "android") return { captured: false, capturing: false, capturedAt: 0, bytes: 0, error: "", scope: "one_frame", backgroundCapture: false as const }; return AuroraScreenCapture.getScreenCaptureStatus(); },
+  clearScreenCapture: async () => Capacitor.getPlatform() === "android" ? AuroraScreenCapture.clearScreenCapture() : { cleared: true },
+  getNfcStatus: async () => Capacitor.getPlatform() === "android" ? AuroraNfc.getNfcStatus() : { available: false, enabled: false, readerActive: false, foregroundOnly: true as const },
+  startNfcReader: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("NFC is available only in the Android app."); return AuroraNfc.startNfcReader(); },
+  armNfcTextWrite: async (text: string) => { if (Capacitor.getPlatform() !== "android") throw new Error("NFC writing is available only in the Android app."); return AuroraNfc.armNfcTextWrite({ text }); },
+  stopNfcReader: async () => Capacitor.getPlatform() === "android" ? AuroraNfc.stopNfcReader() : { stopped: true },
+  addNfcTagListener: async (listener: (event: { uid: string; technologies: string[]; textRecords?: string[]; readOnlyMetadata: true; readError?: string }) => void) => AuroraNfc.addListener("nfcTagDiscovered", listener),
+  addNfcWriteResultListener: async (listener: (event: { uid: string; written: boolean; error?: string }) => void) => AuroraNfc.addListener("nfcWriteResult", listener),
+  consumeAssistantSessionQuery: async () => Capacitor.getPlatform() === "android" ? AuroraNative.consumeAssistantSessionQuery() : { query: "" },
+  getAssistantRoleStatus: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { available: false, selected: false, requiresUserAction: true, serviceReady: false }; return AuroraNative.getAssistantRoleStatus(); },
+  openAssistantRoleSettings: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android assistant-role setup is available only in the Android app."); return AuroraNative.openAssistantRoleSettings(); },
   hasOverlayPermission: async () => {
     if (!Capacitor.isNativePlatform()) return { granted: false };
     return AuroraNative.hasOverlayPermission();
@@ -182,9 +219,11 @@ export const auroraNative = {
   startSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.startSpeechRecognition(); },
   stopSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.stopSpeechRecognition(); },
   addSpeechResultListener: (callback: (event: { transcript: string }) => void) => AuroraNative.addListener("speechResult", callback),
+  addSpeechPartialResultListener: (callback: (event: { transcript: string }) => void) => AuroraNative.addListener("speechPartialResult", callback),
   addSpeechErrorListener: (callback: (event: { code: number; message: string }) => void) => AuroraNative.addListener("speechError", callback),
   addSpeechStatusListener: (callback: (event: { status: string }) => void) => AuroraNative.addListener("speechStatus", callback),
-  speakText: async (text: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native text-to-speech is available only in the Android app."); return AuroraNative.speakText({ text }); },
+  speakText: async (text: string, settings: { rate?: number; pitch?: number } = {}) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Native text-to-speech is available only in the Android app."); return AuroraNative.speakText({ text, ...settings }); },
+  speakAssistantSessionReply: async (text: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { delivered: false }; return AuroraNative.speakAssistantSessionReply({ text }); },
   stopTextSpeech: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { stopped: true }; return AuroraNative.stopTextSpeech(); },
   addTtsStatusListener: (callback: (event: { status: "started" | "done" | "error" }) => void) => AuroraNative.addListener("ttsStatus", callback),
   consumeWakeWord: async () => { if (!Capacitor.isNativePlatform()) return { detected: false }; return AuroraNative.consumeWakeWord(); },
@@ -249,8 +288,8 @@ export const auroraNative = {
   searchOnMap: async (query: string) => { if (!Capacitor.isNativePlatform()) throw new Error("Map search handoff is available only in Android."); return AuroraNative.searchOnMap({ query }); },
   startMapDirections: async (destination: string, mode = "driving") => { if (!Capacitor.isNativePlatform()) throw new Error("Map directions handoff is available only in Android."); return AuroraNative.startMapDirections({ destination, mode }); },
   requestCalendarReadPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestCalendarReadPermission(); },
-  requestLocationPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestLocationPermission(); },
-  getCurrentLocation: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Device location is available only in the Android app."); return AuroraNative.getCurrentLocation(); },
+  requestLocationPermission: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { granted: false }; return AuroraLocation.requestLocationPermission(); },
+  getCurrentLocation: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Device location is available only in the Android app."); return AuroraLocation.getCurrentLocation(); },
   searchCalendarEvents: async (query = "") => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar search is available only in the Android app."); return AuroraNative.searchCalendarEvents({ query }); },
   prepareCalendarEvent: async (event: { title: string; beginTime: number; endTime: number; description?: string; location?: string }) => { if (!Capacitor.isNativePlatform()) throw new Error("Calendar handoff is available only in Android."); return AuroraNative.prepareCalendarEvent(event); },
   exportTextDocument: async (options: { content: string; filename: string; mimeType: "text/plain" | "text/markdown" | "text/csv" | "application/json" }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Document export requires Android."); return AuroraNative.exportTextDocument(options); },
@@ -264,6 +303,7 @@ export const auroraNative = {
   shareSelectedFile: async (options: { contentUri: string; mimeType: string }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("File sharing is available only in Android."); return AuroraNative.shareSelectedFile(options); },
   downloadMedia: async (options: { url: string; filename: string; mimeType: string; confirmed: boolean }) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct media downloads require the AURORA Android app."); return AuroraNative.downloadMedia(options); },
   pickDocument: async () => { if (!Capacitor.isNativePlatform()) throw new Error("File picking is available only in the Android app."); return AuroraNative.pickDocument(); },
+  pickCloudDocument: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Android cloud document providers are available only in the Android app."); return AuroraNative.pickDocument(); },
   openNotificationAccessSettings: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification access settings are available only in Android."); return AuroraNative.openNotificationAccessSettings(); },
   hasNotificationAccess: async () => Capacitor.isNativePlatform() ? AuroraNative.hasNotificationAccess() : { granted: false },
   readRecentNotifications: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Notification intelligence is available only in Android."); return AuroraNative.readRecentNotifications(); },
@@ -281,8 +321,7 @@ export const auroraNative = {
   },
 };
 
-// Keep web requests same-origin on the website, but route server API calls to Vercel
-// when the UI is bundled inside the native Android application.
+// Keep web requests same-origin on the website, and route native Android API calls to the production API.
 export const auroraApiUrl = (path: string): string => {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return Capacitor.isNativePlatform() ? `https://aurora-ten-gold.vercel.app${normalized}` : normalized;

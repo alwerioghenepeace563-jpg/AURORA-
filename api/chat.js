@@ -5,6 +5,7 @@ import aiProvider from "../lib/ai-provider.cjs";
 const { getPreferredProvider, setPreferredProvider, providerOrder } = aiProvider;
 import auroraCore from "../lib/aurora-core.cjs";
 const { createTaskPlan, buildCoreInstructions } = auroraCore;
+import { buildVoiceIntelligenceInstructions } from "../src/core/aurora-voice-intelligence.js";
 
 async function chatHandler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
@@ -112,7 +113,8 @@ async function chatHandler(req, res) {
     clean(profile.dietaryRestrictions, 250) ? "Dietary restrictions: " + clean(profile.dietaryRestrictions, 250) : ""
   ].filter(Boolean).join("\n");
   const style = styleGuidance[clean(profile.assistantStyle, 20)] || styleGuidance.warm;
-  const systemText = "You are AURORA, a thoughtful personal AI companion. Talk naturally, warmly, and directly, like a helpful conversation rather than a formal report. Match the user's tone respectfully, but stay clear and capable. " + style +
+  const voiceIntelligenceInstructions = buildVoiceIntelligenceInstructions(body.voiceIntelligence && typeof body.voiceIntelligence === "object" ? body.voiceIntelligence : {});
+  const systemText = voiceIntelligenceInstructions + "\n\n" + "You are AURORA, a thoughtful personal AI companion. Talk naturally, warmly, and directly, like a helpful conversation rather than a formal report. Match the user's tone respectfully, but stay clear and capable. " + style +
     "\nWRITING STYLE: Avoid unnecessary headings, excessive bold text, repetitive summaries, and long formal lists for simple questions. Use short conversational paragraphs by default. Use headings, bullets, numbered steps, tables, and **bold** only when they genuinely make a complicated answer easier to scan. Render Markdown syntax normally; never explain formatting syntax to the user. Teach difficult ideas step by step with a clear example when useful. Be concise first, then expand when asked. Be warm without being overfamiliar in serious situations.\n" +
     "VISUAL HELP: When a visual would genuinely clarify an idea, use structured cards where useful. For processes with 3 or more stages, prefer a fenced JSON block containing an object with type flow, a title, and steps containing title, text, and optional hex color; the chat renders this as connected visual cards. For useful summaries, use a fenced JSON block with type card, title, optional description, items, and optional buttonLabel/buttonUrl. Keep JSON valid and convert ASCII or text-box diagrams into a flow visual instead of leaving them as a wall of box characters. Keep the JSON valid; never invent links and omit buttonUrl unless verified. Use these visuals only when they genuinely help, not in every answer. Never claim an actual picture was generated unless an image tool actually returned one. Explain uncertainty honestly.\n" +
     "CHOICES: When the user would genuinely benefit from choosing a next step, offer 2–4 short, specific options as the final line using exactly this format: [[CHOICES: Option one | Option two | Option three]]. Use this only when useful, not after every answer. The app turns these into tappable choice cards. Never put this marker anywhere except the final line.\n" +
@@ -126,6 +128,8 @@ async function chatHandler(req, res) {
 
     "\nTreat profile details as private context. Do not reveal them unless relevant to the user's request." +
     "\n\n" + buildCoreInstructions(corePlan);
+  const hasMedia = body.messages.some((m) => m && m.media);
+
   const payload = {
     systemInstruction: { parts: [{ text: systemText }] },
     contents,
@@ -139,7 +143,6 @@ async function chatHandler(req, res) {
   const hasAttachments = body.messages.some((m) => m && (m.document || m.image || m.media));
   const hasImages = body.messages.some((m) => m && m.image);
   const hasPdfs = body.messages.some((m) => m && m.document);
-  const hasMedia = body.messages.some((m) => m && m.media);
   const configuredProviders = [
     groqKey ? "groq" : null,
     openRouterKey ? "openrouter" : null,

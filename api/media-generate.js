@@ -1,16 +1,22 @@
 import cors from "../lib/cors.cjs";
+import auth from "../lib/supabase-auth.cjs";
 const { applyAuroraCors } = cors;
+const { verifySupabaseUser } = auth;
 
 const ASPECT_RATIOS = new Set(["1:1", "16:9", "9:16", "4:3", "3:4"]);
 
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Vary", "Origin, Authorization");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST, OPTIONS");
     return res.status(405).json({ error: "Use POST." });
   }
+
+  const authResult = await verifySupabaseUser(req);
+  if (!authResult.ok) return res.status(authResult.status).json({ error: authResult.error, code: "AUTH_REQUIRED" });
 
   let body = req.body;
   if (typeof body === "string") {

@@ -102,6 +102,9 @@ public class AuroraTranscriptionWorker extends Worker {
             android.util.Log.w("AuroraTranscriptionWorker", error.getMessage());
             source.delete();
             return Result.failure(new Data.Builder().putString("reason", error.getMessage()).build());
+        } catch (AuthExpiredUploadException error) {
+            android.util.Log.w("AuroraTranscriptionWorker", "Sign-in is required to resume background transcription", error);
+            return Result.failure(new Data.Builder().putString("reason", error.getMessage()).putInt("completed_chunks", checkpointsCompleted(requestId)).build());
         } catch (RetryableUploadException error) {
             return Result.retry();
         } catch (Exception error) {
@@ -168,6 +171,7 @@ public class AuroraTranscriptionWorker extends Worker {
             InputStream response = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
             String responseText = readText(response);
             if (status >= 200 && status < 300) return;
+            if (status == 401 || status == 403) throw new AuthExpiredUploadException("Sign-in expired or is no longer valid (HTTP " + status + "). Reopen AURORA while signed in to resume from the last saved section.");
             if (status == 408 || status == 425 || status == 429 || status >= 500) throw new RetryableUploadException();
             throw new IllegalStateException("VoiceText rejected section " + chunkNumber + " (" + status + "): " + responseText);
         } finally { connection.disconnect(); }
@@ -199,6 +203,13 @@ public class AuroraTranscriptionWorker extends Worker {
             while ((line = reader.readLine()) != null) result.append(line);
             return result.toString();
         }
+    }
+    private int checkpointsCompleted(String requestId) {
+        return getApplicationContext().getSharedPreferences("aurora_transcription_progress", Context.MODE_PRIVATE).getInt(requestId, 0);
+    }
+
+    private static final class AuthExpiredUploadException extends Exception {
+        AuthExpiredUploadException(String message) { super(message); }
     }
     private static final class RetryableUploadException extends Exception {}
 }
