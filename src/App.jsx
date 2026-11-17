@@ -160,7 +160,7 @@ function FormattedMessage({ content, onChoice }) {
     if (found.length >= 3) {
       inferredFlow = { type: "flow", title: visibleLines[flowTitleIndex].replace(/^#+\s*/, "").trim(), steps: found.map((stage, index) => {
         const nextIndex = found[index + 1] ? found[index + 1].index : visibleLines.length;
-        const description = visibleLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\s*[â†“â†˜→]+\s*$/.test(line.trim()) && !/^\s*Feel free to click/i.test(line.trim())).join(" ").trim();
+        const description = visibleLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\s*[↓↖→]+\s*$/.test(line.trim()) && !/^\s*Feel free to click/i.test(line.trim())).join(" ").trim();
         return { title: stage.name, text: description, color: ["#142d46", "#183747", "#20334b", "#153b36"][index] };
       }) };
       flowStart = flowTitleIndex;
@@ -320,7 +320,7 @@ function parseQuizPayload(raw) {
 }
 
 function convertMeasurement(input) {
-  const match = String(input || "").trim().match(/^(-?\d+(?:\.\d+)?)\s*([a-zA-ZÂ°/]+)\s+(?:to|in|into)\s+([a-zA-ZÂ°/]+)$/i);
+  const match = String(input || "").trim().match(/^(-?\d+(?:\.\d+)?)\s*([a-zA-Z°/]+)\s+(?:to|in|into)\s+([a-zA-Z°/]+)$/i);
   if (!match) throw new Error("Use this format: 12 km to miles, 25 C to F, or 500 g to kg.");
   const value = Number(match[1]), from = match[2].toLowerCase(), to = match[3].toLowerCase();
   const groups = [
@@ -330,10 +330,10 @@ function convertMeasurement(input) {
     { s:1, sec:1, second:1, seconds:1, min:60, minute:60, minutes:60, h:3600, hr:3600, hour:3600, hours:3600, day:86400, days:86400 },
     { "m/s":1, "km/h":1/3.6, mph:.44704 }
   ];
-  const temp = ["c","Â°c","celsius","f","Â°f","fahrenheit","k","kelvin"];
+  const temp = ["c","°c","celsius","f","°f","fahrenheit","k","kelvin"];
   if (temp.includes(from) && temp.includes(to)) {
-    const celsius = ["f","Â°f","fahrenheit"].includes(from) ? (value-32)*5/9 : ["k","kelvin"].includes(from) ? value-273.15 : value;
-    const converted = ["f","Â°f","fahrenheit"].includes(to) ? celsius*9/5+32 : ["k","kelvin"].includes(to) ? celsius+273.15 : celsius;
+    const celsius = ["f","°f","fahrenheit"].includes(from) ? (value-32)*5/9 : ["k","kelvin"].includes(from) ? value-273.15 : value;
+    const converted = ["f","°f","fahrenheit"].includes(to) ? celsius*9/5+32 : ["k","kelvin"].includes(to) ? celsius+273.15 : celsius;
     return value+" "+match[2]+" = "+Number(converted.toFixed(6))+" "+match[3];
   }
   for (const group of groups) {
@@ -1856,10 +1856,10 @@ export default function App() {
         const forecast = Array.isArray(data.forecast) ? data.forecast : [];
         const lines = [
           "Weather for " + (data.location || value),
-          "Now: " + (current.temperature ?? "—") + (units.temperature || "Â°C") + " · feels like " + (current.apparentTemperature ?? "—") + (units.temperature || "Â°C"),
+          "Now: " + (current.temperature ?? "—") + (units.temperature || "°C") + " · feels like " + (current.apparentTemperature ?? "—") + (units.temperature || "°C"),
           "Conditions: " + (current.description || "Conditions unavailable"),
           "Humidity: " + (current.humidity ?? "—") + "% · Wind: " + (current.windSpeed ?? "—") + " " + (units.wind || "km/h"),
-          ...forecast.map(day => day.date + ": " + day.description + ", high " + day.high + (units.temperature || "Â°C") + ", low " + day.low + (units.temperature || "Â°C") + ", rain chance " + (day.rainChance ?? "—") + "%")
+          ...forecast.map(day => day.date + ": " + day.description + ", high " + day.high + (units.temperature || "°C") + ", low " + day.low + (units.temperature || "°C") + ", rain chance " + (day.rainChance ?? "—") + "%")
         ];
         setToolResult({ kind, query: value, reply: lines.join("\n") });
         return;
