@@ -34,9 +34,18 @@ console.log("AURORA assistant-role tests passed: lifecycle state, Android role h
 const roleCard = read("src/components/AndroidAssistantRoleCard.jsx");
 assert.match(bridge,/getAssistantRoleStatus: async/);
 assert.match(bridge,/openAssistantRoleSettings: async/);
-assert.match(roleCard,/Choose AURORA/);
+assert.match(roleCard,/Make AURORA your Android assistant/);
+assert.match(roleCard,/Default assistant/);
+assert.match(roleCard,/Choose/);
 assert.match(roleCard,/Refresh status/);
-assert.match(roleCard,/Android may not support this role on every device/);
+assert.match(roleCard,/Pulse overlay/);
+assert.match(roleCard,/Hey AURORA wake phrase/);
+assert.match(roleCard,/requestOverlayPermission/);
+assert.match(roleCard,/requestMicrophonePermission/);
+assert.match(roleCard,/requestNotificationPermission/);
+assert.match(roleCard,/startAssistantService/);
+assert.match(roleCard,/stopAssistantService/);
+assert.match(roleCard,/Android controls the final assistant choice and permission grants/);
 assert.match(app,/AndroidAssistantRoleCard/);
 
 const voiceMetadata = read("android/app/src/main/res/xml/aurora_voice_interaction_service.xml");
