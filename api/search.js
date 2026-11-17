@@ -171,7 +171,7 @@ function parseBingImages(html) {
   }
   return results;
 }
-async function searchBingImages(query) {
+export async function searchBingImages(query) {
   const url = "https://www.bing.com/images/search?q=" + encodeURIComponent(query) + "&form=HDRSC3";
   const response = await fetch(url, {
     headers: {"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36","Accept":"text/html,application/xhtml+xml"},
