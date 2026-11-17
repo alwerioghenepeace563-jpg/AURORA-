@@ -37,7 +37,7 @@ async function researchAction(action, accessToken, body = {}) {
 export async function createAuroraResearchTask(query, options = {}, accessToken) {
   const inferred = inferResearchIntent(query, options);
   const data = await researchAction("create-task", accessToken, inferred);
-  return data.task;
+  return { ...data.task, workerWake: data.workerWake || "not_configured" };
 }
 export async function getAuroraResearchTask(taskId, accessToken) {
   if (!accessToken) throw new Error("Sign in to check this research task.");
