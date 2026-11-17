@@ -13,6 +13,7 @@ import PredictiveDashboard from "./components/PredictiveDashboard";
 import IntelligenceEcosystemWorkspace from "./components/IntelligenceEcosystemWorkspace";
 import AndroidAssistantRoleCard from "./components/AndroidAssistantRoleCard";
 import AndroidHardwareFeaturesCard from "./components/AndroidHardwareFeaturesCard";
+import AndroidSpecialAccessCard from "./components/AndroidSpecialAccessCard";
 import { buildAuroraRoutineInsights } from "./core/aurora-routine-insights";
 import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
 import { AURORA_VOICE_INTELLIGENCE, applySpeechPace, inferSpeechDelivery, isImmediateInterruptionCommand, isLikelySpeechEcho, resolveVoiceFollowUp, splitSpeechIntoChunks } from "./core/aurora-voice-intelligence.js";
@@ -112,18 +113,18 @@ function makeSpeechFriendly(value) {
       if (power === "3") return base + " cubed";
       return base + " raised to the power of " + power;
     })
-    .replace(/([A-Za-z0-9]+)Â²/g, "$1 squared")
-    .replace(/([A-Za-z0-9]+)Â³/g, "$1 cubed")
+    .replace(/([A-Za-z0-9]+)²/g, "$1 squared")
+    .replace(/([A-Za-z0-9]+)³/g, "$1 cubed")
     .replace(/([A-Za-z0-9]+)â´/g, "$1 to the fourth power")
     .replace(/([A-Za-z0-9]+)âµ/g, "$1 to the fifth power")
-    .replace(/\s*[Ã—Â·]\s*/g, " times ")
-    .replace(/\s*Ã·\s*/g, " divided by ")
+    .replace(/\s*[×·]\s*/g, " times ")
+    .replace(/\s*÷\s*/g, " divided by ")
     .replace(/\s*([=])\s*/g, " equals ")
-    .replace(/\s*âˆš\s*(\d+(?:\.\d+)?)/g, " the square root of $1")
-    .replace(/\s*â†’\s*/g, " leads to ")
-    .replace(/\s*â‰¤\s*/g, " is less than or equal to ")
-    .replace(/\s*â‰¥\s*/g, " is greater than or equal to ")
-    .replace(/\s*â‰ \s*/g, " is not equal to ")
+    .replace(/\s*√\s*(\d+(?:\.\d+)?)/g, " the square root of $1")
+    .replace(/\s*→\s*/g, " leads to ")
+    .replace(/\s*≤\s*/g, " is less than or equal to ")
+    .replace(/\s*≥\s*/g, " is greater than or equal to ")
+    .replace(/\s*≠\s*/g, " is not equal to ")
     .replace(/\s*\*\s*/g, " times ")
     .replace(/\s*\n\s*/g, ". ")
     .replace(/[*_#|]/g, " ")
@@ -159,7 +160,7 @@ function FormattedMessage({ content, onChoice }) {
     if (found.length >= 3) {
       inferredFlow = { type: "flow", title: visibleLines[flowTitleIndex].replace(/^#+\s*/, "").trim(), steps: found.map((stage, index) => {
         const nextIndex = found[index + 1] ? found[index + 1].index : visibleLines.length;
-        const description = visibleLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\s*[â†“â†˜â†’]+\s*$/.test(line.trim()) && !/^\s*Feel free to click/i.test(line.trim())).join(" ").trim();
+        const description = visibleLines.slice(stage.index + 1, nextIndex).filter((line) => line.trim() && !/^\s*[â†“â†˜→]+\s*$/.test(line.trim()) && !/^\s*Feel free to click/i.test(line.trim())).join(" ").trim();
         return { title: stage.name, text: description, color: ["#142d46", "#183747", "#20334b", "#153b36"][index] };
       }) };
       flowStart = flowTitleIndex;
@@ -230,7 +231,7 @@ function FormattedMessage({ content, onChoice }) {
   });
   if (inCode) flushCode();
   flushList(); flushTable();
-  return <div className="message-rich-content">{blocks}{choices.length > 0 && <div className="message-choice-group" aria-label="Suggested replies">{choices.map((choice, index) => <button type="button" className="message-choice" key={choice + index} onClick={() => onChoice(choice)}>{choice}<span>â†—</span></button>)}</div>}</div>;
+  return <div className="message-rich-content">{blocks}{choices.length > 0 && <div className="message-choice-group" aria-label="Suggested replies">{choices.map((choice, index) => <button type="button" className="message-choice" key={choice + index} onClick={() => onChoice(choice)}>{choice}<span>↗</span></button>)}</div>}</div>;
 }
 function StructuredVisual({ data }) {
   const safeColor = (value, fallback) => typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
@@ -276,8 +277,8 @@ function findStructuredBlock(line) {
 }
 
 function evaluateArithmetic(expression) {
-  const source = String(expression || "").replace(/,/g, "").replace(/Ã—/g, "*").replace(/Ã·/g, "/").replace(/âˆ’/g, "-").trim();
-  if (!source || source.length > 120 || !/^[0-9+*/().%\s^-]+$/.test(source)) throw new Error("Use numbers and basic operators (+, âˆ’, Ã—, Ã·, %, ^, parentheses).");
+  const source = String(expression || "").replace(/,/g, "").replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").trim();
+  if (!source || source.length > 120 || !/^[0-9+*/().%\s^-]+$/.test(source)) throw new Error("Use numbers and basic operators (+, −, ×, ÷, %, ^, parentheses).");
   let index = 0;
   const skip = () => { while (index < source.length && /\s/.test(source[index])) index++; };
   function primary() {
@@ -518,7 +519,7 @@ export default function App() {
   const [adminError, setAdminError] = useState("");
   const [executorPrompt, setExecutorPrompt] = useState("");
   const [executorBusy, setExecutorBusy] = useState(false);
-  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try â€œrun system diagnosticsâ€, â€œtest live AI providersâ€, â€œopen tools workspaceâ€, or â€œopen custom schedulesâ€." }]);
+  const [executorLog, setExecutorLog] = useState([{ role: "system", text: "Executor ready. Try “run system diagnostics”, “test live AI providers”, “open tools workspace”, or “open custom schedules”." }]);
   const [providerTests, setProviderTests] = useState(null);
   const [draft, setDraft] = useState("");
   const [chatSessions, setChatSessions] = useState(() => {
@@ -712,7 +713,7 @@ export default function App() {
       browserWakeRecognitionRef.current = recognition;
       recognition.start();
       setBrowserWakeListening(true);
-      setNativeNotice("Laptop is listening for â€œHey AURORAâ€. Keep this tab open and microphone permission enabled.");
+      setNativeNotice("Laptop is listening for “Hey AURORA”. Keep this tab open and microphone permission enabled.");
     } catch {
       setBrowserWakeListening(false);
       browserWakeRecognitionRef.current = null;
@@ -737,7 +738,7 @@ export default function App() {
         }
         const result = await AuroraNative.startAssistantService();
         setNativeServiceOn(Boolean(result?.started));
-        setNativeNotice(result?.note || "Hey AURORA listening is on. Say â€œHey AURORAâ€ to start hands-free chat.");
+        setNativeNotice(result?.note || "Hey AURORA listening is on. Say “Hey AURORA” to start hands-free chat.");
       }
     } catch (error) { setNativeNotice(error?.message || "Could not start the native assistant."); }
     finally { setNativeBusy(false); }
@@ -751,7 +752,7 @@ export default function App() {
   }
 
   async function openNativeApp(packageName) {
-    try { await AuroraNative.openApp({ packageName }); setNativeNotice("Opening appâ€¦"); }
+    try { await AuroraNative.openApp({ packageName }); setNativeNotice("Opening app…"); }
     catch (error) { setNativeNotice(error?.message || "That app could not be opened."); }
   }
 
@@ -761,7 +762,7 @@ export default function App() {
       return;
     }
     setScreenReadBusy(true);
-    setScreenReadMessage("Checking Android screen-reading permissionâ€¦");
+    setScreenReadMessage("Checking Android screen-reading permission…");
     try {
       const status = await AuroraNative.isAccessibilityEnabled();
       if (!status?.enabled) {
@@ -790,7 +791,7 @@ export default function App() {
   }
   async function checkForAppUpdate() {
     setAppUpdateBusy(true);
-    setAppUpdateMessage("Checking the update serverâ€¦");
+    setAppUpdateMessage("Checking the update server…");
     try {
       let currentVersionCode = installedVersionCode;
       let currentVersionName = installedVersionName;
@@ -826,11 +827,11 @@ export default function App() {
       return;
     }
     setAppUpdateBusy(true);
-    setAppUpdateMessage("Downloading the verified AURORA updateâ€¦");
+    setAppUpdateMessage("Downloading the verified AURORA update…");
     try {
       const downloaded = await AuroraNative.downloadAndInstallUpdate(appUpdateInfo.apkUrl);
       if (!downloaded?.downloaded) throw new Error("AURORA could not finish downloading the update.");
-      setAppUpdateMessage("Download complete. Preparing Android's installerâ€¦");
+      setAppUpdateMessage("Download complete. Preparing Android's installer…");
       const result = await AuroraNative.installDownloadedUpdate();
       if (result?.needsInstallPermission) {
         setAppUpdateMessage("Allow AURORA to install updates on the next Android screen, return here, then tap Install update again.");
@@ -1115,7 +1116,7 @@ export default function App() {
       return;
     }
     try {
-      // Android OAuth must return through the app deep link, not Supabaseâ€™s default Site URL (Vercel).
+      // Android OAuth must return through the app deep link, not Supabase’s default Site URL (Vercel).
       const redirectTo = Capacitor.isNativePlatform() ? "com.aurora.assistant://login-callback" : window.location.origin;
       window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
     } catch { setAuthMessage("Could not start " + provider + " sign-in. Please try again."); }
@@ -1198,41 +1199,89 @@ export default function App() {
       return;
     }
     let cancelled = false;
-    fetch(authUrl + "/auth/v1/user", {
-      headers: { apikey: authKey, Authorization: "Bearer " + authSession.access_token },
-      cache: "no-store"
-    }).then(async (response) => {
-      if (!response.ok) throw new Error("Session is no longer valid.");
-      return response.json();
-    }).then(async (user) => {
+
+    const refreshSession = async (session) => {
+      if (!session?.refresh_token) return null;
+      const response = await fetch(authUrl + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: authKey },
+        body: JSON.stringify({ refresh_token: session.refresh_token }),
+        cache: "no-store"
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 400 || response.status === 401) return null;
+      if (!response.ok || !data.access_token) throw new Error(data.error_description || data.msg || "Session refresh is temporarily unavailable.");
+      return { ...session, ...data, expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600) };
+    };
+
+    const verifySession = async (session, allowRefresh) => {
+      const response = await fetch(authUrl + "/auth/v1/user", {
+        headers: { apikey: authKey, Authorization: "Bearer " + session.access_token },
+        cache: "no-store"
+      });
+      if (response.status === 401 && allowRefresh && session.refresh_token) {
+        const refreshed = await refreshSession(session);
+        if (!refreshed) {
+          if (!cancelled) handleSignOut();
+          return;
+        }
+        await persistAuroraAuthSession(refreshed);
+        if (cancelled) return;
+        setAuthSession(refreshed);
+        await verifySession(refreshed, false);
+        return;
+      }
+      if (response.status === 401) {
+        if (!cancelled) handleSignOut();
+        return;
+      }
+      if (!response.ok) {
+        if (!cancelled) {
+          // Keep the cached session through temporary network/server failures.
+          // Admin API routes independently validate the bearer token and allowlist.
+          setAuthVerified(Boolean(session.user?.email));
+          setAuthMessage("AURORA could not reach the authentication service. Your saved session has been kept; try again when connected.");
+        }
+        return;
+      }
+      const user = await response.json();
       if (cancelled) return;
-      const verifiedSession = { ...authSession, user };
+      const verifiedSession = { ...session, user };
       await persistAuroraAuthSession(verifiedSession);
       if (cancelled) return;
       setAuthSession(verifiedSession);
       setAuthVerified(true);
-    }).catch(() => {
-      if (!cancelled) handleSignOut();
-    });
-    return () => { cancelled = true; };
-  }, [authSession?.access_token, authConfigured, authUrl, authKey, authStorageReady]);
+      setAuthMessage("");
+    };
 
-  useEffect(() => {
-    if (!authStorageReady || !authSession?.access_token || !authConfigured) return;
-    if (authSession.expires_at && authSession.expires_at < Math.floor(Date.now()/1000) + 60 && authSession.refresh_token) {
-      fetch(authUrl + "/auth/v1/token?grant_type=refresh_token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: authKey },
-        body: JSON.stringify({ refresh_token: authSession.refresh_token })
-      }).then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.access_token) throw new Error("Session expired");
-        const session = { ...authSession, ...data, expires_at: data.expires_at || Math.floor(Date.now()/1000)+(data.expires_in || 3600) };
-        await persistAuroraAuthSession(session);
-        setAuthSession(session);
-      }).catch(() => handleSignOut());
-    }
-  }, [authSession, authConfigured, authUrl, authKey, authStorageReady]);
+    const runVerification = async () => {
+      let session = authSession;
+      try {
+        // Refresh close-to-expiry sessions before validating them. This avoids
+        // racing the verification request against a separate refresh effect.
+        if (session.expires_at && session.expires_at < Math.floor(Date.now() / 1000) + 90 && session.refresh_token) {
+          const refreshed = await refreshSession(session);
+          if (!refreshed) {
+            if (!cancelled) handleSignOut();
+            return;
+          }
+          session = refreshed;
+          await persistAuroraAuthSession(session);
+          if (cancelled) return;
+          setAuthSession(session);
+        }
+        await verifySession(session, true);
+      } catch {
+        if (!cancelled) {
+          setAuthVerified(Boolean(session.user?.email));
+          setAuthMessage("Authentication is temporarily unreachable. AURORA kept your saved session instead of sending you back to login.");
+        }
+      }
+    };
+
+    void runVerification();
+    return () => { cancelled = true; };
+  }, [authSession?.access_token, authSession?.expires_at, authSession?.refresh_token, authConfigured, authUrl, authKey, authStorageReady]);
 
   async function copyAssistantMessage(content) {
     const text = String(content || "").replace(/\[\[CHOICES:[\s\S]*?\]\]/g, "").trim();
@@ -1713,7 +1762,7 @@ export default function App() {
         const results = Array.isArray(searchData.results) ? searchData.results : [];
         const searchReply = results.length
           ? "Web results for: " + query + "\\n\\n" + results.map((item, index) => (index + 1) + ". " + item.title + "\\n" + (item.snippet || "Open the source to read more.") + "\\nSource: " + item.url).join("\\n\\n") + "\\n\\nThese are search results, so check the linked sources for full context."
-          : "I couldn't find matching results for â€œ" + query + "â€. Try a more specific search.";
+          : "I couldn't find matching results for “" + query + "”. Try a more specific search.";
         setMessages((current) => [...current, { role: "assistant", content: searchReply }]);
         if (soundOn || assistantSessionVoiceReplyRef.current) speak(searchReply, { force: assistantSessionVoiceReplyRef.current, assistantSession: assistantSessionVoiceReplyRef.current });
         return;
@@ -1807,10 +1856,10 @@ export default function App() {
         const forecast = Array.isArray(data.forecast) ? data.forecast : [];
         const lines = [
           "Weather for " + (data.location || value),
-          "Now: " + (current.temperature ?? "â€”") + (units.temperature || "Â°C") + " Â· feels like " + (current.apparentTemperature ?? "â€”") + (units.temperature || "Â°C"),
+          "Now: " + (current.temperature ?? "—") + (units.temperature || "Â°C") + " · feels like " + (current.apparentTemperature ?? "—") + (units.temperature || "Â°C"),
           "Conditions: " + (current.description || "Conditions unavailable"),
-          "Humidity: " + (current.humidity ?? "â€”") + "% Â· Wind: " + (current.windSpeed ?? "â€”") + " " + (units.wind || "km/h"),
-          ...forecast.map(day => day.date + ": " + day.description + ", high " + day.high + (units.temperature || "Â°C") + ", low " + day.low + (units.temperature || "Â°C") + ", rain chance " + (day.rainChance ?? "â€”") + "%")
+          "Humidity: " + (current.humidity ?? "—") + "% · Wind: " + (current.windSpeed ?? "—") + " " + (units.wind || "km/h"),
+          ...forecast.map(day => day.date + ": " + day.description + ", high " + day.high + (units.temperature || "Â°C") + ", low " + day.low + (units.temperature || "Â°C") + ", rain chance " + (day.rainChance ?? "—") + "%")
         ];
         setToolResult({ kind, query: value, reply: lines.join("\n") });
         return;
@@ -2061,12 +2110,12 @@ export default function App() {
           setNotice("Android speech recognition: " + (event?.message || "could not hear speech") + ". Check that a speech service is enabled on your phone.");
         }));
         nativeSpeechListenersRef.current.push(await auroraNative.addSpeechStatusListener((event) => {
-          if (event?.status === "listening") setNotice("Listeningâ€¦ speak now.");
-          if (event?.status === "processing") setNotice("Processing your speechâ€¦");
+          if (event?.status === "listening") setNotice("Listening… speak now.");
+          if (event?.status === "processing") setNotice("Processing your speech…");
         }));
         await auroraNative.startSpeechRecognition();
         setListening(true);
-        setNotice("Listeningâ€¦ speak now.");
+        setNotice("Listening… speak now.");
       } catch (error) {
         if (mainInterruptionReleaseRef.current) { mainInterruptionReleaseRef.current(); mainInterruptionReleaseRef.current = null; }
         nativeSpeechListenersRef.current.forEach((handle) => handle?.remove?.());
@@ -2156,7 +2205,7 @@ export default function App() {
         return;
       }
       setDraft((current) => (current.trim() ? current + "\\n\\n" : "") + "Please help me analyse this attached file: " + file.name + "\\n\\n--- FILE CONTENT ---\\n" + contents.slice(0, 12000));
-      setNotice("Attached â€œ" + file.name + "â€. Review the message and tap send when you're ready.");
+      setNotice("Attached “" + file.name + "”. Review the message and tap send when you're ready.");
     } catch {
       setNotice("I couldn't read that file. Please try a text, Markdown, CSV or JSON file.");
     }
@@ -2219,7 +2268,7 @@ export default function App() {
         <div className="auth-layout">
           <aside className="auth-showcase">
             <div className="auth-showcase-top">
-              <span className="auth-symbol"><span /></span>
+              <span className="auth-symbol"><img src="/aurora-logo.svg" alt="" /></span>
               <span className="auth-wordmark">AURORA<span>.</span></span>
             </div>
             <div className="auth-showcase-copy">
@@ -2265,12 +2314,12 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={"app-shell" + (page === "chat" ? " chat-mode" : "")}>
       <div className="ambient ambient-left" />
       <div className="ambient ambient-right" />
-      <header className="topbar">
+      {page !== "chat" && <header className="topbar">
         <button className="brand-lockup" onClick={() => navigate("home")} aria-label="AURORA home">
-          <span className="brand-mark"><span /></span>
+          <span className="brand-mark"><img src="/aurora-logo.svg" alt="" /></span>
           <span className="brand-name">AURORA<span className="brand-dot">.</span><small>PERSONAL INTELLIGENCE</small></span>
         </button>
         <div className="topbar-right">
@@ -2279,7 +2328,7 @@ export default function App() {
           {authVerified && String(authSession?.user?.email || "").toLowerCase() === "alwerioghenepeace563@gmail.com" && <button className="auth-signout-button" onClick={() => navigate("admin")} aria-label="Open Admin"><ShieldCheck size={15}/><span>Admin</span></button>}
           {authVerified && <button className="auth-signout-button" onClick={handleSignOut} title={"Signed in as " + (authSession?.user?.email || "your account")} aria-label="Sign out"><UserRound size={15}/><span>Sign out</span></button>}
         </div>
-      </header>
+      </header>}
 
       <main className={`main-layout page-${page}`}>
         <AnimatePresence mode="wait">
@@ -2373,21 +2422,21 @@ export default function App() {
                 <div className="setting-group"><p className="setting-label">VOICE EXPERIENCE</p><button className="setting-row" onClick={() => setSoundOn((v) => !v)}><span className="setting-icon"><Volume2 size={17} /></span><span className="setting-text"><strong>Voice responses</strong><small>Spoken answers from AURORA</small></span><span className={`toggle ${soundOn ? "toggle-on" : ""}`}><i /></span></button><div style={{ margin: "10px 0 12px", padding: "12px", border: "1px solid rgba(107, 192, 255, 0.18)", borderRadius: "14px", background: "rgba(20, 48, 75, 0.28)" }}><label htmlFor="aurora-voice-choice" className="setting-label" style={{ display: "block", marginBottom: "8px" }}>AURORA VOICE</label><select id="aurora-voice-choice" value={selectedVoice} onChange={(event) => setSelectedVoice(event.target.value)} disabled={voicesLoading || availableVoices.length === 0} style={{ width: "100%", padding: "11px 12px", color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107, 192, 255, 0.3)", borderRadius: "10px", font: "inherit" }}><option value="">{voicesLoading ? "Loading voices from ElevenLabs…" : availableVoices.length ? "Choose a voice" : "No voices available"}</option>{availableVoices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}{voice.labels?.accent ? " · " + voice.labels.accent : ""}{voice.labels?.gender ? " · " + voice.labels.gender : ""}</option>)}</select><div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}><button type="button" className="setting-row" style={{ flex: 1, justifyContent: "center", minHeight: "38px" }} disabled={!availableVoices.find((voice) => voice.voice_id === selectedVoice)?.preview_url} onClick={() => { const voice = availableVoices.find((item) => item.voice_id === selectedVoice); if (voice?.preview_url) { const preview = new Audio(voice.preview_url); preview.play().catch(() => setNotice("This voice preview could not be played on this device.")); } }}>Preview selected voice</button><button type="button" className="setting-row" style={{ minHeight: "38px", padding: "0 12px" }} disabled={voicesLoading} onClick={() => { setVoicesError(""); setVoicesLoading(true); fetch(auroraApiUrl("/api/voices"), { cache: "no-store" }).then(async (response) => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || "Could not refresh voices."); return Array.isArray(data.voices) ? data.voices : []; }).then(setAvailableVoices).catch((error) => setVoicesError(error.message || "Could not refresh voices.")).finally(() => setVoicesLoading(false)); }}>Refresh</button></div><small style={{ display: "block", marginTop: "7px", color: "#9fb7ca", lineHeight: 1.5 }}>{voicesError || (availableVoices.length ? "Choose a voice and AURORA will use that exact voice for spoken answers. Your selection is saved on this device." : "AURORA loads voices directly from the ElevenLabs account connected to its server.")}</small></div><button className="setting-row" onClick={toggleMic}><span className="setting-icon"><Mic size={17} /></span><span className="setting-text"><strong>Voice input</strong><small>{listening ? "Tap to stop listening" : "Speak instead of typing"}</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
                 <div className="setting-group"><p className="setting-label">SPEECH DELIVERY</p><label htmlFor="aurora-speech-pace" className="setting-row" style={{ display: "grid", gap: 7, alignItems: "stretch" }}><span className="setting-text"><strong>Speaking pace</strong><small>Adaptive changes pace with the meaning of each answer.</small></span><select id="aurora-speech-pace" value={speechPace} onChange={event => setSpeechPace(event.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 10, color: "#eaf7ff", background: "#101e30", border: "1px solid rgba(107,192,255,.3)", font: "inherit" }}><option value="adaptive">Adaptive</option><option value="slower">Slower</option><option value="faster">Faster</option></select></label></div>
                  <div className="setting-group"><p className="setting-label">QUICK ACCESS</p><button className="setting-row" onClick={() => navigate("activities")}><span className="setting-icon"><CalendarDays size={17} /></span><span className="setting-text"><strong>Daily activities</strong><small>Tasks, notes and plans</small></span><ChevronRight size={16} className="setting-chevron" /></button><button className="setting-row" onClick={() => navigate("profile")}><span className="setting-icon"><UserRound size={17} /></span><span className="setting-text"><strong>Your profile</strong><small>Personalise your experience</small></span><ChevronRight size={16} className="setting-chevron" /></button></div>
-                <div className="setting-group"><p className="setting-label">ANDROID INTEGRATION</p><AndroidAssistantRoleCard /><AndroidHardwareFeaturesCard /></div>
+                <div className="setting-group"><p className="setting-label">ANDROID INTEGRATION</p><AndroidAssistantRoleCard /><AndroidSpecialAccessCard /><AndroidHardwareFeaturesCard /></div>
                 <div className="setting-group"><p className="setting-label">APP UPDATES</p>              <section id="aurora-updater-settings" aria-label="AURORA app updater" className="glass-panel" style={{ width: "min(610px,100%)", marginTop: 24, padding: "16px 18px", borderRadius: 18, textAlign: "left", display: "grid", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                     <div style={{ width: 38, height: 38, borderRadius: 12, display: "grid", placeItems: "center", background: "rgba(73,155,255,.12)", border: "1px solid rgba(110,231,255,.2)" }}><RotateCcw size={18} /></div>
                     <div><strong style={{ display: "block", fontSize: 13 }}>AURORA Updater</strong><span style={{ color: "#91a8c3", fontSize: 11 }}>Installed: {installedVersionName}</span></div>
                   </div>
-                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={14} />} {appUpdateBusy ? "Checkingâ€¦" : "Check for updates"}</button>
+                  <button type="button" className="outline-action" disabled={appUpdateBusy} onClick={checkForAppUpdate}>{appUpdateBusy ? <span className="mini-loader" /> : <RotateCcw size={14} />} {appUpdateBusy ? "Checking…" : "Check for updates"}</button>
                 </div>
                 <p role="status" style={{ margin: 0, color: "#a9bdd2", fontSize: 12, lineHeight: 1.5 }}>{appUpdateMessage}</p>
                 {appUpdateInfo && Number(appUpdateInfo.versionCode) > installedVersionCode && <div style={{ border: "1px solid rgba(95,185,255,.28)", background: "rgba(34,120,190,.09)", borderRadius: 12, padding: 12, display: "grid", gap: 9 }}>
                   <strong style={{ fontSize: 13 }}>{appUpdateInfo.versionName || ("Build " + appUpdateInfo.versionCode)} is ready</strong>
                   {appUpdateInfo.releaseNotes && <p style={{ margin: 0, color: "#a9bdd2", fontSize: 12 }}>{appUpdateInfo.releaseNotes}</p>}
                   {Capacitor.isNativePlatform()
-                    ? <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>{appUpdateBusy ? "Preparing updateâ€¦" : "Download and install update"} <ArrowUpRight size={15}/></button>
+                    ? <button type="button" className="primary-action" onClick={installAppUpdate} disabled={appUpdateBusy}>{appUpdateBusy ? "Preparing update…" : "Download and install update"} <ArrowUpRight size={15}/></button>
                     : <a className="primary-action" href={appUpdateInfo.apkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", textAlign: "center" }}>Get AURORA update <ArrowUpRight size={15}/></a>}
                 </div>}
               </section></div>
@@ -2431,7 +2480,7 @@ export default function App() {
                 <div className="tool-launch-grid">
                   <button type="button" className="tool-launch-card tool-tint-blue" onClick={() => openAttachment("files")}><span className="tool-launch-icon"><FileText size={21}/></span><span className="tool-launch-copy"><strong>Document Reader</strong><small>Summarise and ask questions about files</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
                   <button type="button" className="tool-launch-card tool-tint-pink" onClick={() => openTool("image")}><span className="tool-launch-icon"><ImageIcon size={21}/></span><span className="tool-launch-copy"><strong>Image Understanding</strong><small>Choose an image and ask AURORA about it</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
-                  <button type="button" className="tool-launch-card tool-tint-cyan" onClick={readCurrentAndroidScreen} disabled={screenReadBusy}><span className="tool-launch-icon"><Eye size={21}/></span><span className="tool-launch-copy"><strong>{screenReadBusy ? "Reading screenâ€¦" : "Read Screen"}</strong><small>Read visible Android app text with your permission</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
+                  <button type="button" className="tool-launch-card tool-tint-cyan" onClick={readCurrentAndroidScreen} disabled={screenReadBusy}><span className="tool-launch-icon"><Eye size={21}/></span><span className="tool-launch-copy"><strong>{screenReadBusy ? "Reading screen…" : "Read Screen"}</strong><small>Read visible Android app text with your permission</small></span><span className="tool-card-arrow"><ArrowUpRight size={17}/></span></button>
                   {screenReadMessage && <div className="tools-note glass-panel" role="status"><span className="tools-note-icon"><Eye size={17}/></span><div><strong>Android Screen Reader</strong><p>{screenReadMessage}</p>{screenReadText && <><textarea aria-label="Captured screen text" readOnly value={screenReadText} rows={6} style={{width:"100%",marginTop:8,resize:"vertical"}}/><button type="button" className="primary-action" style={{marginTop:10}} onClick={() => { setPage("chat"); sendMessage("Please read and explain the text captured from my current Android screen. Clearly summarise what it says and help me with it.\n\nSCREEN TEXT:\n" + screenReadText); }}>Ask AURORA about this screen <ArrowUpRight size={16}/></button></>}</div></div>}
                 </div>
                 <div className="tools-category-heading"><span>03</span><div><h2>Create & practise</h2><p>Turn a topic into a useful result in one step.</p></div></div>
@@ -2451,22 +2500,22 @@ export default function App() {
                 </div>
                 {toolKind === "creative" && <CreativeLearningWorkspace authSession={authSession} autoStartOnFileSelect={pulseTranscriptionAutoStart} onAutoStartConsumed={() => setPulseTranscriptionAutoStart(false)}/>}
                 <div className={"tool-workspace glass-panel" + (toolKind === "creative" ? " clw-hidden" : "")}>
-                  <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",weather:"Weather near you or anywhere",calculator:"Enter a calculation",convert:"Enter a measurement to convert",translate:"Your translation",writing:"Letâ€™s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",weather:"Enter a city or town, for example Benin City or Lagos.",calculator:"Use +, âˆ’, Ã—, Ã·, %, powers and parentheses.",convert:"Use a format such as 12 km to miles or 25 C to F.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
+                  <div className="tool-workspace-header"><span className="tool-workspace-symbol">{toolKind === "search" ? <Sparkles size={19}/> : toolKind === "translate" ? <Languages size={19}/> : toolKind === "writing" ? <NotebookPen size={19}/> : <GraduationCap size={19}/>}</span><div><h2>{({search:"What are we looking for?",weather:"Weather near you or anywhere",calculator:"Enter a calculation",convert:"Enter a measurement to convert",translate:"Your translation",writing:"Let’s work on your writing",study:"What would you like to learn?",summarize:"What should we summarize?",quiz:"What should your quiz cover?",brainstorm:"What are we creating today?",image:"What do you want to understand?"})[toolKind] || "What would you like to do?"}</h2><p>{({search:"Try a question, topic, or something you want to verify.",weather:"Enter a city or town, for example Benin City or Lagos.",calculator:"Use +, −, ×, ÷, %, powers and parentheses.",convert:"Use a format such as 12 km to miles or 25 C to F.",translate:"Choose the language, then enter the text below.",writing:"Pick a writing task and add your draft or brief.",study:"Choose a subject and enter a topic or question.",summarize:"Paste an article, notes, or long text to condense.",quiz:"Enter a topic or paste notes to turn into questions.",brainstorm:"Describe your goal, project, or problem.",image:"Attach an image above, then ask what you want AURORA to inspect."})[toolKind] || "Enter your request below."}</p></div></div>
                   <form className="tool-run-form" onSubmit={runTool}>
-                    {["search", "weather"].includes(toolKind) ? <label className="tool-field"><span>{toolKind === "weather" ? "City or town" : "Search the web"}</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder={toolKind === "weather" ? "e.g. Benin City" : "e.g. Latest UNIBEN admission updatesâ€¦"} required/></label> : <>
+                    {["search", "weather"].includes(toolKind) ? <label className="tool-field"><span>{toolKind === "weather" ? "City or town" : "Search the web"}</span><input value={toolQuery} onChange={(e) => setToolQuery(e.target.value)} placeholder={toolKind === "weather" ? "e.g. Benin City" : "e.g. Latest UNIBEN admission updates…"} required/></label> : <>
                       {toolKind === "translate" && <div className="tool-language-row"><label className="tool-field"><span>From</span><select value={toolSourceLanguage} onChange={(e) => setToolSourceLanguage(e.target.value)}>{["Auto-detect","English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label><button type="button" className="tool-swap-languages" aria-label="Swap source and target languages" onClick={() => { if (toolSourceLanguage === "Auto-detect") { setNotice("Choose a source language first to swap languages."); return; } setToolSourceLanguage(toolLanguage); setToolLanguage(toolSourceLanguage); setToolResult(null); setNotice("Languages swapped. Translate again to refresh the result."); }}><ArrowLeftRight size={17}/></button><label className="tool-field"><span>To</span><select value={toolLanguage} onChange={(e) => setToolLanguage(e.target.value)}>{["English","Nigerian Pidgin","Yoruba","Igbo","Hausa","French","Spanish","Portuguese","Arabic","Chinese (Simplified)","Japanese","German"].map((language) => <option key={language}>{language}</option>)}</select></label></div>}
                       {toolKind === "writing" && <label className="tool-field"><span>What should I do?</span><select value={toolMode} onChange={(e) => setToolMode(e.target.value)}>{["Improve and polish","Draft from my brief","Proofread grammar","Summarise","Make it formal","Make it simpler","Create an outline"].map((mode) => <option key={mode}>{mode}</option>)}</select></label>}
                       {toolKind === "study" && <label className="tool-field"><span>Choose a subject</span><select value={toolSubject} onChange={(e) => setToolSubject(e.target.value)}>{["General","Mathematics","English","Biology","Chemistry","Physics","Agricultural Science","Geography","Civic Education","Computer Science"].map((subject) => <option key={subject}>{subject}</option>)}</select></label>}
                       {toolKind === "image" && <div className="tool-image-upload"><label className="tool-image-pick"><ImageIcon size={18}/><span>{toolImage ? "Choose a different image" : "Upload an image"}</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={onToolImageSelected}/></label>{toolImagePreview && <div className="tool-image-preview"><img src={toolImagePreview} alt="Selected image preview"/><button type="button" onClick={() => {setToolImage(null);setToolImagePreview("");}}>Remove image</button></div>}</div>}
-                      <label className="tool-field"><span>{({study:"Topic or question",writing:"Your text or brief",summarize:"Text to summarize",quiz:"Topic or source text",brainstorm:"Idea or challenge",image:"What should I look for? (optional if an image is attached)",calculator:"Expression",convert:"Measurement (e.g. 12 km to miles)"})[toolKind] || "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={({study:"Tell me what you want to understandâ€¦",writing:"Paste a draft or describe what you needâ€¦",summarize:"Paste the text you want summarizedâ€¦",quiz:"e.g. Cell biology, photosynthesis, or paste your notesâ€¦",brainstorm:"e.g. Help me plan a school project or name a brandâ€¦",image:"Ask about objects, text, details, or what is happening in the imageâ€¦",calculator:"e.g. (24 + 16) / 4",convert:"e.g. 12 km to miles"})[toolKind] || "Paste the text you want translatedâ€¦"} required={toolKind !== "image"}/></label>
+                      <label className="tool-field"><span>{({study:"Topic or question",writing:"Your text or brief",summarize:"Text to summarize",quiz:"Topic or source text",brainstorm:"Idea or challenge",image:"What should I look for? (optional if an image is attached)",calculator:"Expression",convert:"Measurement (e.g. 12 km to miles)"})[toolKind] || "Text to translate"}</span><textarea value={toolText} onChange={(e) => setToolText(e.target.value)} rows={6} placeholder={({study:"Tell me what you want to understand…",writing:"Paste a draft or describe what you need…",summarize:"Paste the text you want summarized…",quiz:"e.g. Cell biology, photosynthesis, or paste your notes…",brainstorm:"e.g. Help me plan a school project or name a brand…",image:"Ask about objects, text, details, or what is happening in the image…",calculator:"e.g. (24 + 16) / 4",convert:"e.g. 12 km to miles"})[toolKind] || "Paste the text you want translated…"} required={toolKind !== "image"}/></label>
                     </>}
-                    <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Workingâ€¦</> : <><Sparkles size={16}/> {({search:"Search the web",weather:"Check weather",calculator:"Calculate",convert:"Convert units",translate:"Translate text",writing:"Improve my writing",study:"Start learning",summarize:"Summarize text",quiz:"Create my quiz",brainstorm:"Generate ideas",image:"Analyse image"})[toolKind] || "Run tool"}</>}</button>
+                    <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> {({search:"Search the web",weather:"Check weather",calculator:"Calculate",convert:"Convert units",translate:"Translate text",writing:"Improve my writing",study:"Start learning",summarize:"Summarize text",quiz:"Create my quiz",brainstorm:"Generate ideas",image:"Analyse image"})[toolKind] || "Run tool"}</>}</button>
                   </form>
-                  {!toolResult && !toolBusy && <div className="tool-quick-prompts"><span>QUICK START</span><div>{(toolKind === "search" ? ["Latest news in Nigeria","UNIBEN admission updates","Explain how AI works"] : toolKind === "weather" ? ["Benin City","Lagos","Abuja"] : toolKind === "calculator" ? ["125 * 8 + 45","(24 + 16) / 4","2^10"] : toolKind === "convert" ? ["12 km to miles","25 C to F","500 g to kg"] : toolKind === "translate" ? ["Good morning, how are you?","Thank you for your help.","I will be there soon."] : toolKind === "writing" ? ["Write a professional email","Improve my introduction","Create a clear outline"] : ["Explain this topic step by step","Give me a worked example","Help me revise for an exam"]).map((prompt) => <button type="button" key={prompt} onClick={() => { if (toolKind === "search" || toolKind === "weather") setToolQuery(prompt); else setToolText(prompt); setNotice(""); }}>{prompt}<span>â†—</span></button>)}</div></div>}
+                  {!toolResult && !toolBusy && <div className="tool-quick-prompts"><span>QUICK START</span><div>{(toolKind === "search" ? ["Latest news in Nigeria","UNIBEN admission updates","Explain how AI works"] : toolKind === "weather" ? ["Benin City","Lagos","Abuja"] : toolKind === "calculator" ? ["125 * 8 + 45","(24 + 16) / 4","2^10"] : toolKind === "convert" ? ["12 km to miles","25 C to F","500 g to kg"] : toolKind === "translate" ? ["Good morning, how are you?","Thank you for your help.","I will be there soon."] : toolKind === "writing" ? ["Write a professional email","Improve my introduction","Create a clear outline"] : ["Explain this topic step by step","Give me a worked example","Help me revise for an exam"]).map((prompt) => <button type="button" key={prompt} onClick={() => { if (toolKind === "search" || toolKind === "weather") setToolQuery(prompt); else setToolText(prompt); setNotice(""); }}>{prompt}<span>↗</span></button>)}</div></div>}
                   {notice && <div className="tool-notice" role="status">{notice}</div>}
-                  {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your requestâ€¦</span></div>}
+                  {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
                   {toolResult && <div className="tool-result-panel"><div className="tool-result-heading"><div><span className="panel-eyebrow">YOUR RESULT</span><h3>{({search:"Search results",weather:"Current weather and forecast",translate:"Translation",writing:"Your writing",study:"Study session",summarize:"Your summary",quiz:"Your quiz",brainstorm:"Your ideas",image:"Image guidance"})[toolResult.kind] || "Tool result"}</h3></div><div className="tool-result-actions"><button type="button" className="outline-action" onClick={async () => { const text = toolResult.reply || (toolResult.results || []).map((item) => [item.title, item.snippet, item.url].filter(Boolean).join("\n")).join("\n\n"); try { if (!text || !navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(text); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}>Copy result</button>{toolResult.reply && <button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={14}/> Read aloud</button>}</div></div>
-                    {toolResult.kind === "search" ? <div className={/\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || "") ? "tool-search-results tool-news-feed" : "tool-search-results"}><div className="tool-search-summary"><span>{toolResult.results?.length || 0} stories for â€œ{toolResult.query}â€</span><small>Live search Â· {toolResult.source || "Web search"}</small></div>{(toolResult.results || []).map((item, index) => { const newsMode = /\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || ""); const host = (() => { try { return new URL(item.url).hostname.replace(/^www\./,""); } catch { return "Source"; } })(); const headline = (item.title || "").replace(/\s+-\s+[^-]+$/, ""); const category = /fuel|petrol|naira|econom|business|refinery|price/i.test(headline) ? "Economy & business" : /army|kidnap|security|attack|police|crash|military/i.test(headline) ? "Security" : /football|super eagles|goal|league|sports/i.test(headline) ? "Sports" : /election|president|government|minister|senate|politic/i.test(headline) ? "Politics" : "Top story"; return <article className={newsMode ? "tool-search-result tool-news-story" : "tool-search-result"} key={item.url || index}>{newsMode && <a className="tool-news-image" href={item.url} target="_blank" rel="noreferrer" aria-label={"Read "+headline}><span className="tool-news-image-placeholder"><Sparkles size={22}/><small>AURORA NEWS</small></span>{item.image && <img src={item.image} alt="" loading="lazy" referrerPolicy="no-referrer" onLoad={(e)=>{const fallback=e.currentTarget.parentElement?.querySelector(".tool-news-image-placeholder");if(fallback)fallback.style.display="none";}} onError={(e)=>{e.currentTarget.style.display="none";}}/>}</a>}<div className="tool-news-copy"><h4><a href={item.url} target="_blank" rel="noreferrer">{headline || item.url}</a></h4>{newsMode && <span className="tool-news-category">{category}</span>}{item.snippet && <p>{item.snippet}</p>}<a className="tool-search-url" href={item.url} target="_blank" rel="noreferrer">{host} â†—</a></div></article>;})}{!toolResult.results?.length && <p>No readable results came back. Try a more specific search.</p>}<div className="tool-news-more"><strong>More stories worth knowing</strong><p>Open any headline to read the full report from its publisher.</p><div>{["Politics & government","Fuel prices & cost of living","Security updates","Education & admissions","Football & entertainment"].map(topic=><button type="button" key={topic} onClick={()=>{setToolQuery(topic+" in Nigeria");setToolResult(null);setNotice("Topic added to the search field. Tap Search the web to load these results.");}}>{topic} <span>â†—</span></button>)}</div></div></div> : toolResult.kind === "quiz" && toolResult.quizData ? <div className="cbt-practice" style={{ display: "grid", gap: 16 }}>
+                    {toolResult.kind === "search" ? <div className={/\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || "") ? "tool-search-results tool-news-feed" : "tool-search-results"}><div className="tool-search-summary"><span>{toolResult.results?.length || 0} stories for “{toolResult.query}”</span><small>Live search · {toolResult.source || "Web search"}</small></div>{(toolResult.results || []).map((item, index) => { const newsMode = /\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || ""); const host = (() => { try { return new URL(item.url).hostname.replace(/^www\./,""); } catch { return "Source"; } })(); const headline = (item.title || "").replace(/\s+-\s+[^-]+$/, ""); const category = /fuel|petrol|naira|econom|business|refinery|price/i.test(headline) ? "Economy & business" : /army|kidnap|security|attack|police|crash|military/i.test(headline) ? "Security" : /football|super eagles|goal|league|sports/i.test(headline) ? "Sports" : /election|president|government|minister|senate|politic/i.test(headline) ? "Politics" : "Top story"; return <article className={newsMode ? "tool-search-result tool-news-story" : "tool-search-result"} key={item.url || index}>{newsMode && <a className="tool-news-image" href={item.url} target="_blank" rel="noreferrer" aria-label={"Read "+headline}><span className="tool-news-image-placeholder"><Sparkles size={22}/><small>AURORA NEWS</small></span>{item.image && <img src={item.image} alt="" loading="lazy" referrerPolicy="no-referrer" onLoad={(e)=>{const fallback=e.currentTarget.parentElement?.querySelector(".tool-news-image-placeholder");if(fallback)fallback.style.display="none";}} onError={(e)=>{e.currentTarget.style.display="none";}}/>}</a>}<div className="tool-news-copy"><h4><a href={item.url} target="_blank" rel="noreferrer">{headline || item.url}</a></h4>{newsMode && <span className="tool-news-category">{category}</span>}{item.snippet && <p>{item.snippet}</p>}<a className="tool-search-url" href={item.url} target="_blank" rel="noreferrer">{host} ↗</a></div></article>;})}{!toolResult.results?.length && <p>No readable results came back. Try a more specific search.</p>}<div className="tool-news-more"><strong>More stories worth knowing</strong><p>Open any headline to read the full report from its publisher.</p><div>{["Politics & government","Fuel prices & cost of living","Security updates","Education & admissions","Football & entertainment"].map(topic=><button type="button" key={topic} onClick={()=>{setToolQuery(topic+" in Nigeria");setToolResult(null);setNotice("Topic added to the search field. Tap Search the web to load these results.");}}>{topic} <span>↗</span></button>)}</div></div></div> : toolResult.kind === "quiz" && toolResult.quizData ? <div className="cbt-practice" style={{ display: "grid", gap: 16 }}>
                     {!quizFinished ? (() => {
                       const quiz = toolResult.quizData;
                       const question = quiz.questions[quizIndex];
@@ -2507,7 +2556,7 @@ export default function App() {
                           const correct = chosen === question.answerIndex;
                           return <div key={index} style={{ padding: 15, borderRadius: 14, border: "1px solid " + (correct ? "rgba(74,222,128,.25)" : "rgba(251,113,133,.25)"), background: "rgba(7,18,36,.45)", display: "grid", gap: 8 }}>
                             <strong style={{ fontSize: 14 }}>Q{index + 1}. {question.question}</strong>
-                            <p style={{ margin: 0, color: correct ? "#86efac" : "#fda4af", fontSize: 13 }}>Your answer: {question.options[chosen] || "Not answered"} {correct ? "â€” Correct" : "â€” Incorrect"}</p>
+                            <p style={{ margin: 0, color: correct ? "#86efac" : "#fda4af", fontSize: 13 }}>Your answer: {question.options[chosen] || "Not answered"} {correct ? "— Correct" : "— Incorrect"}</p>
                             {!correct && <p style={{ margin: 0, color: "#9bdcff", fontSize: 13 }}>Correct answer: {question.options[question.answerIndex]}</p>}
                             {question.explanation && <p style={{ margin: 0, color: "#b7c9dd", fontSize: 13, lineHeight: 1.55 }}>{question.explanation}</p>}
                           </div>;
@@ -2528,7 +2577,7 @@ export default function App() {
 
           {page === "activities" && (
             <motion.section key="activities" className="utility-page aurora-activities-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-              <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Insights<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer â€” all saved inside AURORA on this device.</p>
+              <p className="panel-eyebrow">YOUR DAY, IN FOCUS</p><h1>Insights<span>.</span></h1><p className="utility-intro">Tasks, notes, reminders, calendar and focus timer — all saved inside AURORA on this device.</p>
               <div className="activity-summary-row"><div><Check size={16}/><strong>{tasks.filter((t) => !t.done).length}</strong><span>tasks left</span></div><div><Bell size={16}/><strong>{reminders.filter((r) => !r.done).length}</strong><span>reminders</span></div><div><CalendarDays size={16}/><strong>{events.length}</strong><span>events</span></div></div>
               <div className="activity-tabs" role="tablist" aria-label="Activity tools">
                 <button type="button" role="tab" aria-selected={activityTab==="tasks"} className={activityTab==="tasks"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("tasks")}><Check size={16}/>Tasks</button>
@@ -2548,7 +2597,7 @@ export default function App() {
               {activityTab === "notes" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>Notes & ideas</h2><p>Quick thoughts and things to remember.</p></div></div><form className="activity-note-form" onSubmit={e=>{e.preventDefault();if(!noteTitle.trim()&&!noteBody.trim())return;setNotes(old=>[{id:Date.now(),title:noteTitle.trim()||"Untitled note",body:noteBody.trim(),updatedAt:new Date().toISOString()},...old]);setNoteTitle("");setNoteBody("");}}><input value={noteTitle} onChange={e=>setNoteTitle(e.target.value)} placeholder="Note title (optional)"/><textarea value={noteBody} onChange={e=>setNoteBody(e.target.value)} placeholder="Write your note here..." rows={4}/><button className="primary-action" type="submit"><Plus size={16}/> Save note</button></form><div className="activity-note-grid">{notes.map(note=><article className="activity-note-card" key={note.id}><button className="record-delete" type="button" onClick={()=>setNotes(old=>old.filter(n=>n.id!==note.id))} aria-label="Delete note"><Trash2 size={15}/></button><h3>{note.title}</h3><p>{note.body}</p><small>{new Date(note.updatedAt).toLocaleString()}</small></article>)}{notes.length===0&&<p className="activity-muted">Your saved notes will appear here.</p>}</div></div>}
               {activityTab === "reminders" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>Reminders</h2><p>Alerts run while AURORA is open. Browser notifications depend on permission.</p></div></div><form className="activity-note-form" onSubmit={async e=>{e.preventDefault();if(!reminderTitle.trim()||!reminderAt)return;if(new Date(reminderAt).getTime()<=Date.now()){setNotice("Choose a reminder time in the future.");return;}if("Notification" in window && Notification.permission==="default"){try{await Notification.requestPermission();}catch{}}setReminders(old=>[{id:Date.now(),title:reminderTitle.trim(),at:new Date(reminderAt).toISOString(),done:false,notified:false},...old].sort((a,b)=>new Date(a.at)-new Date(b.at)));setReminderTitle("");setReminderAt("");}}><input value={reminderTitle} onChange={e=>setReminderTitle(e.target.value)} placeholder="What should AURORA remind you?"/><label className="activity-date-field"><span>Date and time</span><input type="datetime-local" value={reminderAt} onChange={e=>setReminderAt(e.target.value)} required/></label><button className="primary-action" type="submit"><Bell size={16}/> Set reminder</button></form><div className="activity-record-list">{reminders.map(reminder=><div className={"activity-record "+(reminder.done?"activity-record-done":"")} key={reminder.id}><span className="record-main"><strong>{reminder.title}</strong><small>{new Date(reminder.at).toLocaleString()}</small></span><button type="button" className="record-check" onClick={()=>setReminders(old=>old.map(r=>r.id===reminder.id?{...r,done:!r.done}:r))} aria-label="Mark reminder done">{reminder.done?<Check size={14}/>:null}</button><button type="button" className="record-delete" onClick={()=>setReminders(old=>old.filter(r=>r.id!==reminder.id))} aria-label="Delete reminder"><Trash2 size={15}/></button></div>)}{reminders.length===0&&<p className="activity-muted">No reminders yet.</p>}</div></div>}
               {activityTab === "calendar" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>My calendar</h2><p>Keep upcoming plans together in AURORA.</p></div></div><form className="activity-note-form" onSubmit={e=>{e.preventDefault();if(!eventTitle.trim()||!eventAt)return;if(new Date(eventAt).getTime()<=Date.now()){setNotice("Choose an event time in the future.");return;}setEvents(old=>[{id:Date.now(),title:eventTitle.trim(),at:new Date(eventAt).toISOString()},...old].sort((a,b)=>new Date(a.at)-new Date(b.at)));setEventTitle("");setEventAt("");}}><input value={eventTitle} onChange={e=>setEventTitle(e.target.value)} placeholder="Event name"/><label className="activity-date-field"><span>Date and time</span><input type="datetime-local" value={eventAt} onChange={e=>setEventAt(e.target.value)} required/></label><button className="primary-action" type="submit"><Plus size={16}/> Add event</button></form><div className="activity-record-list">{events.map(event=><div className="activity-record" key={event.id}><span className="record-main"><strong>{event.title}</strong><small>{new Date(event.at).toLocaleString()}</small></span><button type="button" className="record-delete" onClick={()=>setEvents(old=>old.filter(item=>item.id!==event.id))} aria-label="Delete event"><Trash2 size={15}/></button></div>)}{events.length===0&&<p className="activity-muted">No events yet. Add one above.</p>}</div></div>}
-              {activityTab === "schedules" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>Custom schedules</h2><p>Temporarily change how AURORA responds, then return to normal automatically.</p></div><span className="coming-pill">{schedules.filter(item => item.status === "active").length} ACTIVE</span></div><form className="activity-note-form" onSubmit={(e)=>{e.preventDefault();if(!scheduleTitle.trim()||!scheduleInstruction.trim()||!scheduleStart||!scheduleEnd)return;const startAt=new Date(scheduleStart);const endAt=new Date(scheduleEnd);if(Number.isNaN(startAt.getTime())||Number.isNaN(endAt.getTime())||startAt.getTime()<=Date.now()||endAt.getTime()<=startAt.getTime()){setNotice("Choose a future start time and an end time after it.");return;}setSchedules(old=>[{id:Date.now(),title:scheduleTitle.trim(),instruction:scheduleInstruction.trim(),startAt:startAt.toISOString(),endAt:endAt.toISOString(),status:"scheduled"},...old].sort((a,b)=>new Date(a.startAt)-new Date(b.startAt)));setScheduleTitle("");setScheduleInstruction("");setScheduleStart("");setScheduleEnd("");setNotice("Custom schedule saved.");}}><label className="timer-label-field"><span>Schedule name</span><input value={scheduleTitle} onChange={e=>setScheduleTitle(e.target.value)} placeholder="e.g. Study focus" maxLength={80} required/></label><label className="timer-label-field"><span>What should AURORA do differently?</span><textarea value={scheduleInstruction} onChange={e=>setScheduleInstruction(e.target.value)} placeholder="e.g. Keep answers focused on chemistry revision, use step-by-step explanations, and avoid unrelated suggestions." maxLength={600} rows={3} required/></label><label className="activity-date-field"><span>Start date and time</span><input type="datetime-local" value={scheduleStart} onChange={e=>setScheduleStart(e.target.value)} required/></label><label className="activity-date-field"><span>End date and time (auto-reset)</span><input type="datetime-local" value={scheduleEnd} onChange={e=>setScheduleEnd(e.target.value)} required/></label><button className="primary-action" type="submit"><CalendarClock size={16}/> Save schedule</button></form><p className="activity-muted">Schedules apply as temporary instructions to AURORA chat responses only. They are saved on this device and evaluated while the app is open or when it is reopened; they cannot control external apps or guarantee background alerts when closed.</p><div className="activity-record-list">{schedules.map(item=><div className="activity-record" key={item.id}><span className="record-main"><strong>{item.title}</strong><small>{new Date(item.startAt).toLocaleString()} â†’ {new Date(item.endAt).toLocaleString()}</small><small>{item.instruction}</small><small className="schedule-status">{item.status==="active"?"â— ACTIVE":item.status==="completed"?"âœ“ COMPLETED":item.status==="cancelled"?"CANCELLED":"â—· SCHEDULED"}</small></span>{item.status!=="completed"&&item.status!=="cancelled"&&<button type="button" className="record-delete" onClick={()=>setSchedules(old=>old.map(schedule=>schedule.id===item.id?{...schedule,status:"cancelled"}:schedule))} aria-label="Cancel schedule"><X size={15}/></button>}</div>)}{schedules.length===0&&<p className="activity-muted">No custom schedules yet. Create one above.</p>}</div></div>}
+              {activityTab === "schedules" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>Custom schedules</h2><p>Temporarily change how AURORA responds, then return to normal automatically.</p></div><span className="coming-pill">{schedules.filter(item => item.status === "active").length} ACTIVE</span></div><form className="activity-note-form" onSubmit={(e)=>{e.preventDefault();if(!scheduleTitle.trim()||!scheduleInstruction.trim()||!scheduleStart||!scheduleEnd)return;const startAt=new Date(scheduleStart);const endAt=new Date(scheduleEnd);if(Number.isNaN(startAt.getTime())||Number.isNaN(endAt.getTime())||startAt.getTime()<=Date.now()||endAt.getTime()<=startAt.getTime()){setNotice("Choose a future start time and an end time after it.");return;}setSchedules(old=>[{id:Date.now(),title:scheduleTitle.trim(),instruction:scheduleInstruction.trim(),startAt:startAt.toISOString(),endAt:endAt.toISOString(),status:"scheduled"},...old].sort((a,b)=>new Date(a.startAt)-new Date(b.startAt)));setScheduleTitle("");setScheduleInstruction("");setScheduleStart("");setScheduleEnd("");setNotice("Custom schedule saved.");}}><label className="timer-label-field"><span>Schedule name</span><input value={scheduleTitle} onChange={e=>setScheduleTitle(e.target.value)} placeholder="e.g. Study focus" maxLength={80} required/></label><label className="timer-label-field"><span>What should AURORA do differently?</span><textarea value={scheduleInstruction} onChange={e=>setScheduleInstruction(e.target.value)} placeholder="e.g. Keep answers focused on chemistry revision, use step-by-step explanations, and avoid unrelated suggestions." maxLength={600} rows={3} required/></label><label className="activity-date-field"><span>Start date and time</span><input type="datetime-local" value={scheduleStart} onChange={e=>setScheduleStart(e.target.value)} required/></label><label className="activity-date-field"><span>End date and time (auto-reset)</span><input type="datetime-local" value={scheduleEnd} onChange={e=>setScheduleEnd(e.target.value)} required/></label><button className="primary-action" type="submit"><CalendarClock size={16}/> Save schedule</button></form><p className="activity-muted">Schedules apply as temporary instructions to AURORA chat responses only. They are saved on this device and evaluated while the app is open or when it is reopened; they cannot control external apps or guarantee background alerts when closed.</p><div className="activity-record-list">{schedules.map(item=><div className="activity-record" key={item.id}><span className="record-main"><strong>{item.title}</strong><small>{new Date(item.startAt).toLocaleString()} → {new Date(item.endAt).toLocaleString()}</small><small>{item.instruction}</small><small className="schedule-status">{item.status==="active"?"â— ACTIVE":item.status==="completed"?"✓ COMPLETED":item.status==="cancelled"?"CANCELLED":"â—· SCHEDULED"}</small></span>{item.status!=="completed"&&item.status!=="cancelled"&&<button type="button" className="record-delete" onClick={()=>setSchedules(old=>old.map(schedule=>schedule.id===item.id?{...schedule,status:"cancelled"}:schedule))} aria-label="Cancel schedule"><X size={15}/></button>}</div>)}{schedules.length===0&&<p className="activity-muted">No custom schedules yet. Create one above.</p>}</div></div>}
               {activityTab === "timer" && <div className="activity-tool-panel activity-timer-panel"><div className="activity-panel-title"><div><h2>Focus timer</h2><p>For study sessions, breaks and everyday tasks.</p></div></div><div className="timer-display"><span>{String(Math.floor(timerSecondsLeft/60)).padStart(2,"0")}:{String(timerSecondsLeft%60).padStart(2,"0")}</span><small>{timerRunning?"COUNTDOWN IN PROGRESS":timerSecondsLeft===0?"READY WHEN YOU ARE":"PAUSED"}</small></div><label className="timer-label-field"><span>Timer name</span><input value={timerLabel} onChange={e=>setTimerLabel(e.target.value)} disabled={timerRunning}/></label><label className="timer-label-field"><span>Duration (minutes)</span><input type="number" min="1" max="180" value={timerMinutes} disabled={timerRunning||timerSecondsLeft>0} onChange={e=>setTimerMinutes(e.target.value)}/></label><div className="timer-presets">{[5,10,15,25,45].map(n=><button type="button" key={n} onClick={()=>{setTimerMinutes(String(n));setTimerSecondsLeft(0);setTimerRunning(false);}} disabled={timerRunning}>{n} min</button>)}</div><div className="timer-actions">{timerRunning?<button type="button" className="primary-action" onClick={()=>setTimerRunning(false)}><Pause size={16}/> Pause</button>:timerSecondsLeft>0?<button type="button" className="primary-action" onClick={()=>setTimerRunning(true)}><Play size={16}/> Resume</button>:<button type="button" className="primary-action" onClick={()=>{setTimerSecondsLeft(Math.max(1,Math.min(180,Number(timerMinutes)||10))*60);setTimerRunning(true);}}><Play size={16}/> Start timer</button>}<button type="button" className="outline-action" onClick={()=>{setTimerRunning(false);setTimerSecondsLeft(0);}}>Reset</button></div><p className="activity-muted">Keep AURORA open for the countdown. Background alarms need native Android notification support.</p></div>}
               <div className="utility-orb"><Orb compact/><div><strong>Plan your next step</strong><p>AURORA can help organise your day.</p><button className="outline-action" onClick={()=>sendMessage("Help me plan my day using my saved tasks, reminders and events.")}>Plan with AURORA <ArrowUp size={15}/></button></div></div>
             </motion.section>
@@ -2561,8 +2610,8 @@ export default function App() {
                 <div><p className="panel-eyebrow"><span className="admin-live-dot" /> AURORA // ROOT ACCESS</p><h1>Command<span> Centre.</span></h1><p className="utility-intro">System intelligence, provider telemetry and controlled app execution.</p></div>
                 <div className="admin-orbit-mark"><div className="admin-orbit-ring" /><div className="admin-orbit-core"><Sparkles size={24}/></div></div>
               </div>
-              <div className="admin-session-strip"><div className="admin-session-icon"><ShieldCheck size={20}/></div><div><strong>Administrator session verified</strong><small>{authSession?.user?.email || "Verified administrator"} Â· private control channel</small></div><span className="admin-status-chip">{adminLoading ? "CHECKING" : adminError ? "ATTENTION" : "SECURE"}</span></div>
-              {adminLoading && <div className="admin-panel"><p>Establishing secure telemetry linkâ€¦</p></div>}
+              <div className="admin-session-strip"><div className="admin-session-icon"><ShieldCheck size={20}/></div><div><strong>Administrator session verified</strong><small>{authSession?.user?.email || "Verified administrator"} · private control channel</small></div><span className="admin-status-chip">{adminLoading ? "CHECKING" : adminError ? "ATTENTION" : "SECURE"}</span></div>
+              {adminLoading && <div className="admin-panel"><p>Establishing secure telemetry link…</p></div>}
               {adminError && <div className="admin-panel admin-error-panel"><h2>Telemetry link failed</h2><p>{adminError}</p><button className="primary-action" type="button" onClick={() => { setAdminData(null); setPage("home"); setTimeout(() => setPage("admin"), 0); }}>Reconnect <RotateCcw size={15}/></button></div>}
               {adminData && !adminLoading && <>
                 {(() => {
@@ -2582,8 +2631,8 @@ export default function App() {
                         <p className="admin-chart-note">{providerTests ? "Live status reflects the last test run. A successful test is a point-in-time check, not a quota guarantee." : "This chart reports key presence only. Ask the Executor to test live AI providers for a real connectivity check."}</p>
                       </div>
                       <div className="admin-panel admin-chart-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">02 / ROUTING</span><h2>Provider matrix</h2></div><Activity size={17}/></div>
-                        <div className="admin-bars">{providers.map(([provider, configured], index) => { const test = providerTests?.[provider]; const healthy = test?.status === "online"; const label = test ? (test.status === "online" ? "Live Â· " + test.latencyMs + " ms" : test.status === "missing" ? "Key missing" : "Test failed") : (configured ? "Configured Â· not tested" : "Unavailable"); const width = test ? (healthy ? "100%" : test.status === "missing" ? "5%" : "38%") : (configured ? "72%" : "5%"); return <div className="admin-bar-row" key={provider}><div><span>{providerName(provider)}</span><strong className={test && !healthy ? "admin-test-warning" : ""}>{label}</strong></div><div className="admin-bar-track"><span className={healthy || (!test && configured) ? "is-configured" : ""} style={{ width, animationDelay: (index * 100) + "ms" }} /></div></div>; })}</div>
-                        <div className="admin-route-flow"><span>REQUEST</span><i>â†’</i><span>PRIMARY AI</span><i>â†’</i><span>FALLBACK</span></div>
+                        <div className="admin-bars">{providers.map(([provider, configured], index) => { const test = providerTests?.[provider]; const healthy = test?.status === "online"; const label = test ? (test.status === "online" ? "Live · " + test.latencyMs + " ms" : test.status === "missing" ? "Key missing" : "Test failed") : (configured ? "Configured · not tested" : "Unavailable"); const width = test ? (healthy ? "100%" : test.status === "missing" ? "5%" : "38%") : (configured ? "72%" : "5%"); return <div className="admin-bar-row" key={provider}><div><span>{providerName(provider)}</span><strong className={test && !healthy ? "admin-test-warning" : ""}>{label}</strong></div><div className="admin-bar-track"><span className={healthy || (!test && configured) ? "is-configured" : ""} style={{ width, animationDelay: (index * 100) + "ms" }} /></div></div>; })}</div>
+                        <div className="admin-route-flow"><span>REQUEST</span><i>→</i><span>PRIMARY AI</span><i>→</i><span>FALLBACK</span></div>
                       </div>
                     </div>
                     <div className="admin-panel"><div className="admin-panel-head"><div><span className="admin-section-kicker">03 / LIVE CONFIGURATION</span><h2>System services</h2></div><button className="admin-refresh-button" type="button" onClick={() => { setAdminData(null); setPage("home"); setTimeout(() => setPage("admin"), 0); }}><RotateCcw size={14}/> Refresh</button></div>
@@ -2613,7 +2662,7 @@ export default function App() {
                         if (!response.ok) throw new Error(data.error || "Live provider test could not complete.");
                         setProviderTests(data.providers || {});
                         const label = (name) => name === "openrouter" ? "OpenRouter" : name === "groq" ? "Groq" : "Gemini";
-                        const report = Object.entries(data.providers || {}).map(([name, result]) => "- **" + label(name) + ":** " + String(result.status || "unknown").replace(/_/g, " ").toUpperCase() + (Number.isFinite(result.latencyMs) ? " Â· " + result.latencyMs + " ms" : "") + (result.message ? " â€” " + result.message : "")).join("\n");
+                        const report = Object.entries(data.providers || {}).map(([name, result]) => "- **" + label(name) + ":** " + String(result.status || "unknown").replace(/_/g, " ").toUpperCase() + (Number.isFinite(result.latencyMs) ? " · " + result.latencyMs + " ms" : "") + (result.message ? " — " + result.message : "")).join("\n");
                         setExecutorLog((items) => [...items, { role: "assistant", text: "## Live Provider Test\n\n**Status:** Completed\n\n### Results\n" + (report || "- No provider results were returned.") + "\n\n### Note\nThis test sent a tiny request to configured providers and may use a small amount of API quota." }]);
                       } else if (/(run|start|check|refresh|inspect|diagnos).*(diagnostic|system|provider|status|health)|^(diagnostics|provider status|system status|check ai)$/i.test(command)) {
                         const response = await fetch(auroraApiUrl("/api/admin"), { headers: { Authorization: "Bearer " + (authSession?.access_token || "") }, cache: "no-store" });
@@ -2658,7 +2707,7 @@ export default function App() {
                       setExecutorLog((items) => [...items, { role: "assistant", text: "Execution stopped: " + (error.message || "Unknown error") }]);
                     } finally { setExecutorBusy(false); }
                   }}>
-                    <input value={executorPrompt} onChange={(event) => setExecutorPrompt(event.target.value)} placeholder="Try: run system diagnostics or open tools workspaceâ€¦" aria-label="AI Executor command" maxLength={1200} />
+                    <input value={executorPrompt} onChange={(event) => setExecutorPrompt(event.target.value)} placeholder="Try: run system diagnostics or open tools workspace…" aria-label="AI Executor command" maxLength={1200} />
                     <button type="submit" disabled={executorBusy || !executorPrompt.trim()}>{executorBusy ? <RotateCcw size={17} className="admin-spinning"/> : <ArrowUpRight size={17}/>}<span>{executorBusy ? "Working" : "Execute"}</span></button>
                   </form>
                   <div className="admin-executor-foot"><span><LockKeyhole size={13}/> Admin session required</span><span>Only verified actions are executed</span></div>
@@ -2680,7 +2729,7 @@ export default function App() {
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <WorkspaceContextNav active="profile" onNavigate={navigate}/>
               <p className="panel-eyebrow">MADE TO WORK WITH YOU</p><h1>Your space<span>.</span></h1><p className="utility-intro">Your AURORA experience will grow around your preferences.</p>
-              <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your in-app AI assistant panel</small></span><span className="pulse-launch-arrow">â†—</span></button>
+              <button type="button" className="pulse-launch-card" onClick={() => setPulseOpen(true)}><span className="pulse-launch-orb" /><span className="pulse-launch-copy"><strong>Open AURORA Pulse</strong><small>Your in-app AI assistant panel</small></span><span className="pulse-launch-arrow">↗</span></button>
 
               <div className="profile-card"><div className="profile-avatar"><UserRound size={30} /></div><div><h2>{profile.nickname || profile.name || "Your profile"}</h2><p>Personal details and preferences</p></div><span className="coming-pill">ON THIS DEVICE</span></div>
               <section className="profile-hub" aria-label="Profile shortcuts">
@@ -2702,14 +2751,14 @@ export default function App() {
                   <label className="profile-field profile-field-wide"><span>Daily priorities</span><textarea value={profile.priorities} onChange={(e) => setProfile((p) => ({ ...p, priorities: e.target.value }))} placeholder="School, projects, reminders, goals..." rows={2} /></label>
                   <label className="profile-field profile-field-wide"><span>Food preferences (optional)</span><input value={profile.foodPreferences} onChange={(e) => setProfile((p) => ({ ...p, foodPreferences: e.target.value }))} placeholder="Foods you enjoy or prefer to avoid" /></label>
                   <label className="profile-field profile-field-wide"><span>Dietary restrictions (optional)</span><input value={profile.dietaryRestrictions} onChange={(e) => setProfile((p) => ({ ...p, dietaryRestrictions: e.target.value }))} placeholder="Allergies or dietary needs, if any" /></label>
-                  <label className="profile-field profile-field-wide"><span>How should AURORA communicate?</span><select value={profile.assistantStyle} onChange={(e) => setProfile((p) => ({ ...p, assistantStyle: e.target.value }))}><option value="warm">Friendly â€” warm and encouraging</option><option value="strict">Strict â€” firm and focused</option><option value="concise">Short and direct</option><option value="teacher">Teacher â€” detailed step-by-step</option><option value="calm">Calm and structured</option></select></label>
+                  <label className="profile-field profile-field-wide"><span>How should AURORA communicate?</span><select value={profile.assistantStyle} onChange={(e) => setProfile((p) => ({ ...p, assistantStyle: e.target.value }))}><option value="warm">Friendly — warm and encouraging</option><option value="strict">Strict — firm and focused</option><option value="concise">Short and direct</option><option value="teacher">Teacher — detailed step-by-step</option><option value="calm">Calm and structured</option></select></label>
                 </div>
-                <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved âœ“" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
+                <div className="profile-form-actions"><span role="status">{profileSaved ? "Preferences saved ✓" : "Changes save automatically on this device."}</span><button className="primary-action" type="submit">Save preferences <Check size={16} /></button></div>
               </form>
               <section id="aurora-native-assistant" aria-label="Hey AURORA native assistant" className="profile-card" style={{ marginTop: 18, display: "block", scrollMarginTop: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <div><p className="panel-eyebrow">NATIVE ANDROID ASSISTANT</p><h2 style={{ margin: "4px 0" }}>Hey AURORA</h2><p style={{ margin: 0, color: "#9fb3ca", fontSize: 13 }}>{nativeStatus?.backgroundServiceFoundation ? "Native assistant foundation detected." : "Background voice service and app launching."}</p></div>
-                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Startingâ€¦" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
+                  <button type="button" className="outline-action" onClick={toggleNativeAssistant} disabled={nativeBusy || !AuroraNative.isAndroid()}>{nativeBusy ? "Starting…" : nativeServiceOn ? "Stop service" : "Start Hey AURORA"}</button>
                   {!AuroraNative.isAndroid() && <button type="button" className="outline-action" onClick={toggleBrowserWakeWord}>{browserWakeListening ? "Stop laptop listening" : "Enable Hey AURORA on laptop"}</button>}
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
@@ -2720,9 +2769,9 @@ export default function App() {
               <section className="profile-card" style={{ marginTop: 14, display: "block" }}>
                 <p className="panel-eyebrow">ANDROID ACCESSIBILITY</p>
                 <h2 style={{ margin: "4px 0 8px" }}>Screen Reading</h2>
-                <p style={{ color: "#9fb3ca", fontSize: 13, lineHeight: 1.6, margin: "0 0 12px" }}>To let AURORA read text from another app, enable â€œAURORA Screen Assistantâ€ in Android Accessibility settings. Return here and tap Read Screen again. AURORA only sends captured text to AI when you choose to ask about it.</p>
+                <p style={{ color: "#9fb3ca", fontSize: 13, lineHeight: 1.6, margin: "0 0 12px" }}>To let AURORA read text from another app, enable “AURORA Screen Assistant” in Android Accessibility settings. Return here and tap Read Screen again. AURORA only sends captured text to AI when you choose to ask about it. If Android 13 or newer shows “Restricted setting”, open AURORA App info, use the three-dot menu to choose “Allow restricted settings”, then return to Accessibility settings. Android controls this security step; AURORA cannot bypass it.</p>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button type="button" className="outline-action" onClick={readCurrentAndroidScreen} disabled={screenReadBusy}>{screenReadBusy ? "Reading screenâ€¦" : "Read current screen"} <Eye size={15}/></button>
+                  <button type="button" className="outline-action" onClick={readCurrentAndroidScreen} disabled={screenReadBusy}>{screenReadBusy ? "Reading screen…" : "Read current screen"} <Eye size={15}/></button>
                   <button type="button" className="outline-action" onClick={() => AuroraNative.openAccessibilitySettings().catch((error) => setScreenReadMessage(error?.message || "Could not open Accessibility settings."))} disabled={!AuroraNative.isAndroid()}>Accessibility settings <ArrowUpRight size={15}/></button>
                 </div>
                 {screenReadMessage && <p role="status" style={{ color: "#b9d9ec", fontSize: 12, lineHeight: 1.6, margin: "12px 0 0" }}>{screenReadMessage}</p>}
@@ -2877,7 +2926,7 @@ export default function App() {
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("camera")}><span className="aurora-tool-icon"><Camera size={21} /></span><span><strong>Camera</strong><small>Take a new photo</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("gallery")}><span className="aurora-tool-icon"><ImageIcon size={21} /></span><span><strong>Gallery</strong><small>Choose photos from your device</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openAttachment("files")}><span className="aurora-tool-icon"><Paperclip size={21} /></span><span><strong>Files</strong><small>Add a supported document</small></span><ChevronRight size={16} /></button>
-              <button type="button" className="aurora-tool-option aurora-tuner-option" onClick={() => openAttachment("tuner")}><span className="aurora-tool-icon"><SlidersHorizontal size={21} /></span><span><strong>AI Tuner</strong><small>Choose AURORAâ€™s personality</small></span><ChevronRight size={16} /></button>
+              <button type="button" className="aurora-tool-option aurora-tuner-option" onClick={() => openAttachment("tuner")}><span className="aurora-tool-icon"><SlidersHorizontal size={21} /></span><span><strong>AI Tuner</strong><small>Choose AURORA’s personality</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openTool("search")}><span className="aurora-tool-icon"><Sparkles size={21} /></span><span><strong>Web Search</strong><small>Find current information with sources</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openTool("translate")}><span className="aurora-tool-icon"><WandSparkles size={21} /></span><span><strong>Translate</strong><small>Translate text into another language</small></span><ChevronRight size={16} /></button>
               <button type="button" className="aurora-tool-option" onClick={() => openTool("writing")}><span className="aurora-tool-icon"><NotebookPen size={21} /></span><span><strong>Writing Assistant</strong><small>Draft, rewrite or summarise text</small></span><ChevronRight size={16} /></button>
@@ -2889,7 +2938,7 @@ export default function App() {
         {cameraOpen && (
           <motion.div className="aurora-camera-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeCameraScreen}>
             <motion.section className="aurora-camera-screen" role="dialog" aria-modal="true" aria-label="AURORA camera" initial={{ opacity: 0, scale: .98, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} onClick={(event) => event.stopPropagation()}>
-              <header className="aurora-camera-header"><button type="button" onClick={closeCameraScreen} aria-label="Close camera"><ArrowLeft size={20}/></button><div><strong>AURORA CAMERA</strong><small>CAPTURE â€¢ REVIEW â€¢ CONTINUE</small></div><span className="camera-live-pill"><i/> {capturedPhoto ? "PHOTO READY" : "CAMERA"}</span></header>
+              <header className="aurora-camera-header"><button type="button" onClick={closeCameraScreen} aria-label="Close camera"><ArrowLeft size={20}/></button><div><strong>AURORA CAMERA</strong><small>CAPTURE • REVIEW • CONTINUE</small></div><span className="camera-live-pill"><i/> {capturedPhoto ? "PHOTO READY" : "CAMERA"}</span></header>
               <div className="aurora-camera-view">{capturedPhoto ? <img src={capturedPhoto} alt="Captured preview"/> : <><video ref={cameraVideoRef} autoPlay playsInline muted/><div className="camera-crosshair camera-crosshair-a"/><div className="camera-crosshair camera-crosshair-b"/><span className="camera-view-label">AURORA / OPTICAL INPUT</span>{cameraError && <div className="camera-error"><Camera size={24}/><p>{cameraError}</p><button type="button" onClick={openCameraScreen}>Try camera again</button></div>}</>}</div>
               <div className="aurora-camera-controls">{capturedPhoto ? <><button type="button" className="camera-secondary-action" onClick={retakeCameraPhoto}><RotateCcw size={17}/> Retake</button><button type="button" className="camera-confirm-action" onClick={useCameraPhoto}><Check size={18}/> Use photo</button></> : <><span className="camera-control-hint">Hold steady for a clear image</span><button type="button" className="camera-shutter" onClick={captureCameraPhoto} aria-label="Take photo"><span/></button><span className="camera-control-hint">REAR CAMERA</span></>}</div>
             </motion.section>
@@ -2898,7 +2947,7 @@ export default function App() {
         {tunerOpen && (
           <motion.div className="aurora-menu-backdrop tuner-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setTunerOpen(false)}>
             <motion.div className="aurora-tuner-panel" role="dialog" aria-modal="true" aria-label="AURORA AI Tuner" initial={{ opacity: 0, y: 16, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} onClick={(event) => event.stopPropagation()}>
-              <div className="aurora-menu-heading"><span className="aurora-menu-mark"><SlidersHorizontal size={18} /></span><div><strong>AI Tuner</strong><small>Set AURORAâ€™s response style</small></div><button type="button" onClick={() => setTunerOpen(false)} aria-label="Close AI tuner"><X size={17} /></button></div>
+              <div className="aurora-menu-heading"><span className="aurora-menu-mark"><SlidersHorizontal size={18} /></span><div><strong>AI Tuner</strong><small>Set AURORA’s response style</small></div><button type="button" onClick={() => setTunerOpen(false)} aria-label="Close AI tuner"><X size={17} /></button></div>
               <div className="tuner-options">{personalityOptions.map(({ id, title, description, Icon }) => <button type="button" key={id} className={profile.assistantStyle === id ? "tuner-choice tuner-choice-active" : "tuner-choice"} onClick={() => { setProfile((p) => ({ ...p, assistantStyle: id })); setTunerOpen(false); setNotice("AURORA style changed to " + title + "."); }}><span className="aurora-tool-icon"><Icon size={19} /></span><span><strong>{title}</strong><small>{description}</small></span><span className="tuner-radio">{profile.assistantStyle === id ? <Check size={13} /> : null}</span></button>)}</div>
               <p className="aurora-menu-footnote">Your choice is saved on this device.</p>
             </motion.div>
@@ -2907,8 +2956,8 @@ export default function App() {
       </AnimatePresence>,
       document.body
       )}
-      <BottomNav active={page} onNavigate={navigate} />
-      <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>
+      {page !== "chat" && <BottomNav active={page} onNavigate={navigate} />}
+      {page !== "chat" && <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>}
     </div>
   );
 }
