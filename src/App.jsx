@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
 import { auroraSecureStorage } from "./lib/aurora-secure-storage";
 import { auroraRuntime } from "./core/aurora-runtime";
@@ -437,6 +438,28 @@ function BottomNav({ active, onNavigate }) {
 }
 
 export default function App() {
+  // Keep external web destinations inside AURORA's native in-app browser surface.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handleExternalLink = (event) => {
+      const anchor = event.target?.closest?.("a[href]");
+      if (!anchor) return;
+      const rawHref = anchor.getAttribute("href") || "";
+      if (!/^https?:\\/\\//i.test(rawHref)) return;
+      let destination;
+      try { destination = new URL(rawHref, window.location.href); } catch { return; }
+      const isExternal = destination.origin !== window.location.origin;
+      if (!isExternal && anchor.target !== "_blank") return;
+      event.preventDefault();
+      event.stopPropagation();
+      void Browser.open({ url: destination.href, presentationStyle: "popover" }).catch(() => {
+        // Preserve access if the in-app browser cannot be opened on this device.
+        window.location.assign(destination.href);
+      });
+    };
+    document.addEventListener("click", handleExternalLink, true);
+    return () => document.removeEventListener("click", handleExternalLink, true);
+  }, []);
   const [authMode, setAuthMode] = useState("signin");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -1118,7 +1141,9 @@ export default function App() {
     try {
       // Android OAuth must return through the app deep link, not Supabase’s default Site URL (Vercel).
       const redirectTo = Capacitor.isNativePlatform() ? "com.aurora.assistant://login-callback" : window.location.origin;
-      window.location.href = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
+      const authorizationUrl = authUrl + "/auth/v1/authorize?provider=" + encodeURIComponent(provider) + "&redirect_to=" + encodeURIComponent(redirectTo) + "&apikey=" + encodeURIComponent(authKey);
+      if (Capacitor.isNativePlatform()) await Browser.open({ url: authorizationUrl, presentationStyle: "popover" });
+      else window.location.href = authorizationUrl;
     } catch { setAuthMessage("Could not start " + provider + " sign-in. Please try again."); }
   }
 
@@ -1176,7 +1201,7 @@ export default function App() {
     // Keep web sign-in working, and receive Android's registered custom-scheme callback.
     void consumeAuthCallback(window.location.href);
     if (Capacitor.isNativePlatform()) {
-      CapacitorApp.addListener("appUrlOpen", ({ url }) => { void consumeAuthCallback(url); })
+      CapacitorApp.addListener("appUrlOpen", ({ url }) => { void Browser.close().catch(() => {}); void consumeAuthCallback(url); })
         .then((listener) => {
           if (cancelled) void listener.remove();
           else appUrlListener = listener;
