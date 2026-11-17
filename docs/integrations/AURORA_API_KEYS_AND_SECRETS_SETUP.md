@@ -36,7 +36,21 @@ At least one provider key is required for cloud AI chat. For resilience, configu
 
 Use the same project URL and anon/publishable key in both pairs. Do not use a service-role key here. Cloud memory sync also requires the aurora_memories table and owner-scoped RLS policies; environment variables alone do not create the schema or policies.
 
-### C. Voice output
+### C. Durable AURORA Research Engine worker
+Set these on the main AURORA Vercel project as server-only variables:
+
+| Variable | Requirement | Purpose |
+|---|---|---|
+| AURORA_RESEARCH_WORKER_URL | Required to wake the Supabase worker immediately | Supabase Edge Function URL for aurora-research-worker |
+| AURORA_RESEARCH_WORKER_TOKEN | Required for worker authentication | Shared random server-to-server secret; must match the Supabase Edge Function secret |
+
+Set these as Supabase Edge Function secrets:
+- `AURORA_RESEARCH_API_URL` — AURORA API base URL, for example `https://aurora-ten-gold.vercel.app`.
+- `AURORA_RESEARCH_WORKER_TOKEN` — the exact same random secret configured in AURORA's Vercel environment.
+
+The Supabase Edge Function uses its server-only `SUPABASE_SERVICE_ROLE_KEY` internally to claim and update queue rows. Never copy that key into AURORA's Vercel variables, browser bundle, Android app, or GitHub. Apply `supabase/migrations/202611170001_aurora_research_queue.sql`, deploy `supabase/functions/aurora-research-worker`, and configure the one-minute Supabase Cron/Vault schedule described in `docs/architecture/AURORA_RESEARCH_ENGINE.md` before relying on background execution.
+
+### D. Voice output
 | Variable | Requirement | Purpose |
 |---|---|---|
 | ELEVENLABS_API_KEY | Optional | ElevenLabs text-to-speech and voice list |
@@ -49,7 +63,7 @@ Use the same project URL and anon/publishable key in both pairs. Do not use a se
 
 The code also accepts the legacy typo ELEVENLAB_API_KEY; use ELEVENLABS_API_KEY for new setup. Browser speech fallback does not require ElevenLabs.
 
-### D. AURORA ↔ VoiceText private bridge
+### E. AURORA ↔ VoiceText private bridge
 Set these on the main AURORA Vercel project:
 
 | Variable | Requirement | Purpose |
