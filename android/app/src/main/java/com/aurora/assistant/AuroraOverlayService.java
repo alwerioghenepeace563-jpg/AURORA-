@@ -130,6 +130,32 @@ public class AuroraOverlayService extends Service {
         sendBroadcast(status);
     }
 
+
+    private int getBottomSystemInset() {
+        if (panelView == null || Build.VERSION.SDK_INT < 23) return 0;
+        try {
+            WindowInsets insets = panelView.getRootWindowInsets();
+            if (insets == null) return 0;
+            if (Build.VERSION.SDK_INT >= 30) return insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
+            return insets.getSystemWindowInsetBottom();
+        } catch (Exception ignored) { return 0; }
+    }
+
+    private void updatePanelLayout(boolean collapsed) {
+        if (windowManager == null || panelView == null || !panelAttached) return;
+        try {
+            WindowManager.LayoutParams params = (WindowManager.LayoutParams) panelView.getLayoutParams();
+            params.width = dp(340);
+            params.height = dp(collapsed ? 82 : 300);
+            params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            params.y = getBottomSystemInset();
+            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
+            windowManager.updateViewLayout(panelView, params);
+        } catch (Exception error) {
+            android.util.Log.w("AURORAOverlay", "Could not update Pulse panel dock position.", error);
+        }
+    }
+
     private void showOverlay(boolean autoListen) {
         if (attached && orbAttached && panelAttached && orbView != null && panelView != null) {
             if (autoListen) {
@@ -176,10 +202,11 @@ public class AuroraOverlayService extends Service {
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
             panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
             panel.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
-            panel.y = dp(20);
+            panel.y = 0;
             panel.setTitle("AURORA Pulse glass chat and tools");
             windowManager.addView(panelView, panel);
             panelAttached = true;
+            panelView.post(() -> updatePanelLayout(false));
             panelView.setVisibility(View.GONE);
             attached = true;
             reportOverlayStatus(true, autoListen ? "Wake phrase detected; opening Pulse voice conversation." : "AURORA Pulse orb attached; glass chat and tools open on demand.");
@@ -292,7 +319,8 @@ public class AuroraOverlayService extends Service {
     }
 
     public class OverlayBridge {
-        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
+        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) { updatePanelLayout(false); panelView.setVisibility(View.VISIBLE); panelView.evaluateJavascript("setCollapsed(false)", null); } }); }
+        @JavascriptInterface public void setPanelCollapsed(boolean collapsed) { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> updatePanelLayout(collapsed)); }
         @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { stopPulseSpeech(); if (panelView != null) panelView.setVisibility(View.GONE); }); }
         @JavascriptInterface public String startVoiceInput() { return startPulseSpeech(); }
         @JavascriptInterface public void stopVoiceInput() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> stopPulseSpeech()); }
