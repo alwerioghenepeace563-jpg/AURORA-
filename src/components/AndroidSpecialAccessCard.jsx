@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Bell, Check, ChevronRight, FileKey, FolderOpen, Gauge, Moon, Settings2, ShieldCheck, Wifi } from "lucide-react";
+import { Activity, Bell, Check, ChevronRight, FileKey, FolderOpen, Moon, Settings2, ShieldCheck, Wifi } from "lucide-react";
 import { auroraNative } from "../lib/aurora-native";
 
 const ACCESS_ROWS = [
