@@ -32,7 +32,7 @@ export default function AndroidAssistantRoleCard() {
     } finally {
       setBusy(false);
     }
-  }, [message]);
+  }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
