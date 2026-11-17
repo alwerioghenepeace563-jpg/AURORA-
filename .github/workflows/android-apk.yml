@@ -81,7 +81,7 @@ jobs:
           python3 - <<'PY'
           import base64, os, re, sys
           raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"]
-          value = re.sub(r"\\s+", "", raw).strip("\\\"'")
+          value = re.sub(r"\s+", "", raw).strip(chr(34) + chr(39))
           if value.startswith("data:") and "," in value:
               value = value.split(",", 1)[1]
           value = value.replace("-", "+").replace("_", "/")
