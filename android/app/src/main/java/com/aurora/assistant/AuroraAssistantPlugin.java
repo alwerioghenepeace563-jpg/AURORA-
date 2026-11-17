@@ -310,7 +310,7 @@ public class AuroraAssistantPlugin extends Plugin {
 
     private boolean pauseWakeWordForChatSpeech() {
         android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
-        if (!prefs.getBoolean("wake_word_service_enabled", false)) return false;
+        if (!prefs.getBoolean("wake_word_service_enabled", false) && !prefs.getBoolean("wake_word_listening", false)) return false;
         prefs.edit().putBoolean("resume_wake_word_after_chat", true).apply();
         Intent stop = new Intent(getContext(), AuroraAssistantService.class);
         stop.setAction(AuroraAssistantService.ACTION_STOP);
