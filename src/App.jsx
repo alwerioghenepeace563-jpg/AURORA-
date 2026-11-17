@@ -5,6 +5,7 @@ import { Browser } from "@capacitor/browser";
 import { auroraNative as AuroraNative, auroraApiUrl } from "./lib/aurora-native";
 import { auroraSecureStorage } from "./lib/aurora-secure-storage";
 import { auroraRuntime } from "./core/aurora-runtime";
+import { runAuroraResearch } from "./research/research-client.js";
 import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
@@ -1890,10 +1891,15 @@ export default function App() {
         return;
       }
       if (kind === "search") {
-        const response = await fetch(auroraApiUrl("/api/search"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: value }) });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Web search could not complete.");
-        setToolResult({ kind, query: value, source: data.source || "Web search", results: Array.isArray(data.results) ? data.results : [] });
+        const research = await runAuroraResearch(value, { intent: "deep", mediaTypes: ["web"] });
+        if (!Array.isArray(research.sources) || !research.sources.length) throw new Error(research.warnings?.[0] || "AURORA could not find usable sources.");
+        const snippets = new Map((research.extractedContent || []).map(item => [item.sourceId, item.text]));
+        setToolResult({
+          kind, query: value, source: "AURORA Research",
+          results: research.sources.map(source => ({ title: source.title, url: source.url, snippet: snippets.get(source.sourceId) || "", provider: source.provider })),
+          media: research.media || [], citations: research.citations || [],
+          warnings: research.warnings || [], verification: research.verification || null
+        });
         return;
       }
       const prompts = {
