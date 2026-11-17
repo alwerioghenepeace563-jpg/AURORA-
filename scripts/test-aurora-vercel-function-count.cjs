@@ -21,8 +21,8 @@ assert.equal(rewriteMap.get("/api/public-config"), "/api/meta?handler=public-con
 const admin = fs.readFileSync("api/admin.js", "utf8");
 assert.match(admin, /\.\.\/lib\/vercel-handlers\/admin-code\.js/);
 assert.match(admin, /\.\.\/lib\/vercel-handlers\/admin-execute\.js/);
-assert.match(admin, /handler === "code"/);
-assert.match(admin, /handler === "execute"/);
+assert.match(admin, /action === "code"/);
+assert.match(admin, /action === "execute"/);
 
 for (const name of ["admin-code.js", "admin-execute.js", "models.js", "public-config.js"]) {
   assert.ok(!fs.existsSync(path.join(apiRoot, name)), `Duplicate API entrypoint still exists: ${name}`);
