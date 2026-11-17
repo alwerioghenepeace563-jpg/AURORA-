@@ -30,7 +30,13 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.aurora
+            // Use the persistent AURORA identity whenever CI has restored it.
+            // For PR/verification builds without signing secrets, leave the
+            // Android plugin's generated debug signing config in place.
+            def auroraDebugKey = file("${System.getProperty('user.home')}/.android/debug.keystore")
+            if (auroraDebugKey.exists()) {
+                signingConfig signingConfigs.aurora
+            }
         }
         release {
             minifyEnabled false
