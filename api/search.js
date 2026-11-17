@@ -344,7 +344,7 @@ function safeResearchSnapshot(input = {}) {
     media: (Array.isArray(source.media) ? source.media : []).slice(0, 20).map(item => pick(item, ["mediaId","type","title","previewUrl","originalUrl","sourceUrl","provider","license","attribution","retrievedAt"])),
     extractedContent: (Array.isArray(source.extractedContent) ? source.extractedContent : []).slice(0, 24).map(item => ({ sourceId: String(item?.sourceId || "").slice(0, 120), text: String(item?.text || "").slice(0, 650), type: String(item?.type || "snippet").slice(0, 40) })),
     citations: (Array.isArray(source.citations) ? source.citations : []).slice(0, 24).map(item => pick(item, ["number","sourceId","title","url","domain"])),
-    verification: source.verification && typeof source.verification === "object" ? pick(source.verification, ["level","independentDomainCount","providerCount","corroborationEstablished","conflicts","note"]) : null,
+    verification: source.verification && typeof source.verification === "object" ? pick(source.verification, ["level","diversityLevel","sourceCount","independentDomainCount","providerCount","corroborationEstablished","conflicts","note"]) : null,
     warnings: (Array.isArray(source.warnings) ? source.warnings : []).slice(0, 10).map(item => String(item).slice(0, 220)),
     startedAt: source.startedAt || null,
     completedAt: source.completedAt || null
