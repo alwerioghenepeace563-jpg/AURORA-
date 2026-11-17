@@ -451,6 +451,10 @@ export default async function handler(req, res) {
     return res.status(405).json({error:"Use GET or POST."});
   }
 
+  let requestBody = req.body;
+  if (typeof requestBody === "string") {
+    try { requestBody = JSON.parse(requestBody); } catch { requestBody = null; }
+  }
   const requestAction = req.method === "GET" ? String(req.query?.action || "") : String(requestBody?.action || "");
   if (["task-status","task-list","library-list"].includes(requestAction)) {
     return handleResearchCloudAction(req, res, requestAction, requestBody || {});
@@ -459,10 +463,6 @@ export default async function handler(req, res) {
     return handleResearchCloudAction(req, res, requestAction, requestBody || {});
   }
 
-  let requestBody = req.body;
-  if (typeof requestBody === "string") {
-    try { requestBody = JSON.parse(requestBody); } catch { requestBody = null; }
-  }
   if (req.method === "POST" && requestBody?.research === true) {
     const queryText = typeof requestBody.query === "string" ? requestBody.query.trim().slice(0, 240) : "";
     if (queryText.length < 2) return res.status(400).json({ error: "Enter a research query." });
