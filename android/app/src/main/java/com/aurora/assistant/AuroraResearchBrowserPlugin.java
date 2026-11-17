@@ -97,7 +97,7 @@ public class AuroraResearchBrowserPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         JSObject result = new JSObject();
-        result.put("cleared", true);
+        result.put("started", true);
         result.put("isolated", true);
         call.resolve(result);
     }
