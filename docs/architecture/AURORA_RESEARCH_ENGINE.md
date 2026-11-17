@@ -14,7 +14,7 @@
 2. The Search tool and Pulse's explicit Search shortcut use `POST /api/search` with `research: true`.
 3. `runAuroraResearch` classifies the request, starts web and media discovery concurrently, normalizes records, builds citations and labels evidence quality.
 4. On Android, the Search tool can fall back to a dedicated research WebView if the server request fails.
-5. Source links open in the isolated AURORA research browser. Video previews use an in-app video element; Android image/video downloads use the existing native Download Manager adapter.
+5. Source links open in the isolated AURORA research browser. Video previews use an in-app video element; Android image/video/PDF downloads use the native Download Manager adapter.
 
 ## Module boundaries
 
