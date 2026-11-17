@@ -1213,6 +1213,11 @@ public class AuroraAssistantPlugin extends Plugin {
                     if (nameIndex >= 0 && cursor.getString(nameIndex) != null) displayName = cursor.getString(nameIndex);
                 }
             }
+            boolean persistedReadGrant = false;
+            try {
+                getContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                persistedReadGrant = true;
+            } catch (SecurityException ignored) {}
             JSObject result = new JSObject();
             result.put("cancelled", false);
             result.put("name", displayName);
