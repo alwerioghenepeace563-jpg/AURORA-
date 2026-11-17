@@ -650,6 +650,17 @@ const mainActivityEnd = mainActivityStart >= 0 ? manifest.indexOf('</activity>',
 if (mainActivityStart >= 0 && mainActivityEnd > mainActivityStart && !manifest.includes('android:host="login-callback"')) {
   manifest = manifest.slice(0, mainActivityEnd) + callbackIntentFilter + "\\n        " + manifest.slice(mainActivityEnd);
 }
+const researchActivityDeclaration = `        <activity
+            android:name=".AuroraResearchBrowserActivity"
+            android:process=":aurora_research"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
+`;
+if (!manifest.includes('android:name=".AuroraResearchBrowserActivity"')) {
+  manifest = manifest.replace("</application>", researchActivityDeclaration + "    </application>");
+}
 fs.writeFileSync(manifestPath, manifest);
 
 const mainActivity = path.join(javaRoot, "MainActivity.java");
@@ -677,6 +688,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraLocationPlugin.class);
         registerPlugin(AuroraScreenCapturePlugin.class);
         registerPlugin(AuroraNfcPlugin.class);
+        registerPlugin(AuroraResearchBrowserPlugin.class);
         persistAssistantLaunch(getIntent());
         super.onCreate(savedInstanceState);
     }
@@ -709,6 +721,7 @@ if (!verifiedMainActivity.includes("registerPlugin(AuroraAssistantPlugin.class);
     !verifiedMainActivity.includes("registerPlugin(AuroraLocationPlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraScreenCapturePlugin.class);") ||
     !verifiedMainActivity.includes("registerPlugin(AuroraNfcPlugin.class);") ||
+    !verifiedMainActivity.includes("registerPlugin(AuroraResearchBrowserPlugin.class);") ||
     !verifiedMainActivity.includes("public void onCreate(Bundle savedInstanceState)")) {
   throw new Error("AuroraNative plugin registration verification failed.");
 }
