@@ -7,6 +7,8 @@ on:
       - 'api/**'
       - 'src/**'
       - 'supabase/**'
+      - 'docs/integrations/**'
+      - 'docs/architecture/**'
       - 'scripts/**'
       - 'package.json'
       - '.github/workflows/**'
