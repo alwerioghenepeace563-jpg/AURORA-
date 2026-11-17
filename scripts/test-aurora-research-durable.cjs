@@ -10,6 +10,7 @@ const api = read("api/search.js");
 const client = read("src/research/research-client.js");
 const app = read("src/App.jsx");
 const env = read(".env.example");
+const envGuide = read("docs/integrations/AURORA_API_KEYS_AND_SECRETS_SETUP.md");
 const workflow = read(".github/workflows/aurora-android-compile.yml");
 
 assert.match(migration, /create table if not exists public\.aurora_research_tasks/);
@@ -50,6 +51,8 @@ assert.match(app, /Background tasks/);
 assert.match(app, /refreshBackgroundResearch/);
 assert.match(env, /AURORA_RESEARCH_WORKER_TOKEN=/);
 assert.match(env, /AURORA_RESEARCH_WORKER_URL=/);
+assert.match(envGuide, /AURORA_RESEARCH_WORKER_URL/);
+assert.match(envGuide, /AURORA_RESEARCH_WORKER_TOKEN/);
 assert.match(workflow, /npm run test:aurora-research/);
 
 console.log("AURORA durable research queue, worker, owner isolation, saved library and UI contracts passed.");
