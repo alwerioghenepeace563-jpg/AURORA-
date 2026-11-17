@@ -52,6 +52,7 @@ public class AuroraOverlayService extends Service {
     private boolean orbAttached = false;
     private SpeechRecognizer pulseSpeechRecognizer;
     private boolean pulseSpeechActive = false;
+    private boolean pulseResumeWakeWordAfterSpeech = false;
 
     private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
     private int overlayType() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE; }
@@ -241,13 +242,45 @@ public class AuroraOverlayService extends Service {
         windowManager = null;
     }
 
-    private void stopPulseSpeech() {
+
+    private boolean pauseWakeWordForPulseSpeech() {
+        android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
+        if (!prefs.getBoolean("wake_word_service_enabled", false)) return false;
+        pulseResumeWakeWordAfterSpeech = true;
+        prefs.edit().putBoolean("resume_wake_word_after_pulse", true).apply();
+        Intent stop = new Intent(this, AuroraAssistantService.class);
+        stop.setAction(AuroraAssistantService.ACTION_STOP);
+        try { startService(stop); return true; }
+        catch (Exception error) {
+            pulseResumeWakeWordAfterSpeech = false;
+            prefs.edit().putBoolean("resume_wake_word_after_pulse", false).apply();
+            android.util.Log.w("AURORAOverlay", "Could not pause Hey AURORA before Pulse speech.", error);
+            return false;
+        }
+    }
+
+    private void resumeWakeWordAfterPulseSpeech() {
+        android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
+        if (!pulseResumeWakeWordAfterSpeech && !prefs.getBoolean("resume_wake_word_after_pulse", false)) return;
+        pulseResumeWakeWordAfterSpeech = false;
+        prefs.edit().putBoolean("resume_wake_word_after_pulse", false).putBoolean("wake_word_service_enabled", true).apply();
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+        Intent start = new Intent(this, AuroraAssistantService.class);
+        start.setAction(AuroraAssistantService.ACTION_START);
+        try { androidx.core.content.ContextCompat.startForegroundService(this, start); }
+        catch (Exception error) { android.util.Log.w("AURORAOverlay", "Could not resume Hey AURORA after Pulse speech.", error); }
+    }
+
+    private void stopPulseSpeech() { stopPulseSpeech(true); }
+
+    private void stopPulseSpeech(boolean resumeWakeWord) {
         pulseSpeechActive = false;
         if (pulseSpeechRecognizer != null) {
             try { pulseSpeechRecognizer.cancel(); } catch (Exception ignored) {}
             try { pulseSpeechRecognizer.destroy(); } catch (Exception ignored) {}
             pulseSpeechRecognizer = null;
         }
+        if (resumeWakeWord) resumeWakeWordAfterPulseSpeech();
     }
 
     private String pulseVoiceResult(boolean started, String message) {
@@ -268,8 +301,9 @@ public class AuroraOverlayService extends Service {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             return pulseVoiceResult(false, "Android speech recognition is not available on this phone.");
         }
-        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-          stopPulseSpeech();
+        boolean resumeWakeWord = pauseWakeWordForPulseSpeech();
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+          stopPulseSpeech(false);
           try {
             pulseSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
             pulseSpeechActive = true;
@@ -283,6 +317,7 @@ public class AuroraOverlayService extends Service {
                     pulseSpeechActive = false;
                     if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Speech recognition stopped. Please try again.')", null));
                     stopPulseSpeechRecognizerOnly();
+                    resumeWakeWordAfterPulseSpeech();
                 }
                 @Override public void onResults(Bundle results) {
                     ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -291,6 +326,7 @@ public class AuroraOverlayService extends Service {
                     String encoded = JSONObject.quote(transcript);
                     if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechResult(" + encoded + ")", null));
                     stopPulseSpeechRecognizerOnly();
+                    resumeWakeWordAfterPulseSpeech();
                 }
                 @Override public void onPartialResults(Bundle partialResults) {}
                 @Override public void onEvent(int eventType, Bundle params) {}
@@ -306,8 +342,9 @@ public class AuroraOverlayService extends Service {
             pulseSpeechActive = false;
             stopPulseSpeechRecognizerOnly();
             if (panelView != null) panelView.post(() -> panelView.evaluateJavascript("onPulseSpeechError('Android could not start speech recognition. Check microphone permission and try again.')", null));
+            resumeWakeWordAfterPulseSpeech();
           }
-        });
+        }, resumeWakeWord ? 450 : 0);
         return pulseVoiceResult(true, "Listening. Speak now.");
     }
 
