@@ -29,6 +29,7 @@ import java.io.ByteArrayInputStream;
 
 public class AuroraResearchBrowserActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private static boolean researchProfileConfigured = false;
     private WebView webView;
     private String mode = "browse";
     private String taskId = "";
@@ -46,7 +47,16 @@ public class AuroraResearchBrowserActivity extends Activity {
             finishExtraction(false, requestedUrl, "", "Isolated research browsing requires Android 9 or later.");
             return;
         }
-        WebView.setDataDirectorySuffix("aurora_research");
+        try {
+            configureResearchProfile();
+        } catch (Exception error) {
+            super.onCreate(savedInstanceState);
+            mode = getIntent() == null ? "extract" : getIntent().getStringExtra("mode");
+            taskId = getIntent() == null ? "" : getIntent().getStringExtra("taskId");
+            requestedUrl = getIntent() == null ? "" : getIntent().getStringExtra("url");
+            finishExtraction(false, requestedUrl, "", "The isolated research profile could not be initialized.");
+            return;
+        }
         super.onCreate(savedInstanceState);
         mode = getIntent() == null ? "browse" : getIntent().getStringExtra("mode");
         if (mode == null) mode = "browse";
@@ -71,6 +81,14 @@ public class AuroraResearchBrowserActivity extends Activity {
         buildBrowser();
         if ("extract".equals(mode)) handler.postDelayed(timeout, 18000L);
         webView.loadUrl(requestedUrl);
+    }
+
+
+    private static synchronized void configureResearchProfile() {
+        if (!researchProfileConfigured) {
+            WebView.setDataDirectorySuffix("aurora_research");
+            researchProfileConfigured = true;
+        }
     }
 
     private void buildBrowser() {
