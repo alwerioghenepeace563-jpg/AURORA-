@@ -13,7 +13,7 @@ export async function runAuroraResearch(query, options = {}) {
   const request = {
     query: String(query || "").trim().slice(0, 240),
     intent: options.intent || "quick",
-    mediaTypes: Array.isArray(options.mediaTypes) ? options.mediaTypes : ["web"],
+    mediaTypes: Array.isArray(options.mediaTypes) ? options.mediaTypes : undefined,
     freshness: options.freshness || "any"
   };
   if (request.query.length < 2) throw new Error("Enter a research query.");
