@@ -1614,6 +1614,111 @@ public class AuroraAssistantPlugin extends Plugin {
         }
     }
 
+
+    private boolean hasNotificationListenerAccess() {
+        String enabled = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+        String expected = getContext().getPackageName() + "/" + AuroraNotificationListenerService.class.getName();
+        if (enabled == null) return false;
+        for (String item : enabled.split(":")) if (expected.equalsIgnoreCase(item)) return true;
+        return false;
+    }
+
+    @PluginMethod
+    public void getSpecialAccessStatus(PluginCall call) {
+        try {
+            android.content.Context context = getContext();
+            boolean modifySettings = Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(context);
+            boolean allFiles = Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
+            android.app.NotificationManager notificationManager =
+                (android.app.NotificationManager) context.getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+            boolean dnd = Build.VERSION.SDK_INT < 23 || (notificationManager != null && notificationManager.isNotificationPolicyAccessGranted());
+            boolean usage = false;
+            if (Build.VERSION.SDK_INT >= 21) {
+                android.app.AppOpsManager appOps = (android.app.AppOpsManager) context.getSystemService(android.content.Context.APP_OPS_SERVICE);
+                if (appOps != null) {
+                    int mode = appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.getPackageName());
+                    usage = mode == android.app.AppOpsManager.MODE_ALLOWED;
+                }
+            }
+            boolean installUnknown = Build.VERSION.SDK_INT < 26 || context.getPackageManager().canRequestPackageInstalls();
+            String enabledAccessibility = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            String expectedAccessibility = context.getPackageName() + "/" + AuroraAccessibilityService.class.getName();
+            boolean accessibility = false;
+            if (enabledAccessibility != null) {
+                for (String item : enabledAccessibility.split(":")) {
+                    if (expectedAccessibility.equalsIgnoreCase(item)) { accessibility = true; break; }
+                }
+            }
+            JSObject result = new JSObject();
+            result.put("modifySettings", modifySettings);
+            result.put("allFiles", allFiles);
+            result.put("doNotDisturb", dnd);
+            result.put("usageAccess", usage);
+            result.put("notificationAccess", hasNotificationListenerAccess());
+            result.put("installUnknownApps", installUnknown);
+            result.put("overlay", Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context));
+            result.put("accessibility", accessibility);
+            result.put("androidVersion", Build.VERSION.SDK_INT);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Could not inspect AURORA special access settings.", error);
+        }
+    }
+
+    @PluginMethod
+    public void openSpecialAccessSettings(PluginCall call) {
+        String permission = call.getString("permission", "");
+        Uri packageUri = Uri.parse("package:" + getContext().getPackageName());
+        try {
+            Intent intent;
+            switch (permission) {
+                case "modifySettings":
+                    intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, packageUri);
+                    break;
+                case "allFiles":
+                    intent = Build.VERSION.SDK_INT >= 30
+                        ? new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                    break;
+                case "doNotDisturb":
+                    intent = new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
+                    break;
+                case "usageAccess":
+                    intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                    break;
+                case "notificationAccess":
+                    intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                    break;
+                case "installUnknownApps":
+                    intent = Build.VERSION.SDK_INT >= 26
+                        ? new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, packageUri)
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                    break;
+                case "wifi":
+                    intent = new Intent(Settings.ACTION_WIFI_SETTINGS);
+                    break;
+                case "accessibility":
+                    intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                    break;
+                default:
+                    call.reject("Unsupported Android special-access setting.");
+                    return;
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("opened", true).put("permission", permission).put("userMustConfirm", true));
+        } catch (Exception error) {
+            try {
+                Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(fallback);
+                call.resolve(new JSObject().put("opened", true).put("permission", permission).put("fallback", true).put("userMustConfirm", true));
+            } catch (Exception fallbackError) {
+                call.reject("Could not open the requested Android setting.", fallbackError);
+            }
+        }
+    }
+
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
