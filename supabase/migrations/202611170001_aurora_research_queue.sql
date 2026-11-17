@@ -36,10 +36,12 @@ create policy "Users can create their own AURORA research tasks"
 drop policy if exists "Users can cancel their own AURORA research tasks" on public.aurora_research_tasks;
 create policy "Users can cancel their own AURORA research tasks"
   on public.aurora_research_tasks for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using (auth.uid() = user_id and status in ('queued','running'))
+  with check (auth.uid() = user_id and status = 'cancelled');
 revoke all on public.aurora_research_tasks from anon;
-grant select, insert, update on public.aurora_research_tasks to authenticated;
+grant select, insert on public.aurora_research_tasks to authenticated;
+grant update (status, error, completed_at, lease_expires_at, updated_at)
+  on public.aurora_research_tasks to authenticated;
 
 -- Atomic claim: multiple worker invocations cannot claim the same task.
 create or replace function public.claim_aurora_research_task()
