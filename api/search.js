@@ -253,6 +253,45 @@ export async function searchAuroraWeb(rawQuery) {
   throw new Error("All search providers failed: " + errors.join("; ").slice(0, 300));
 }
 
+
+export async function searchAuroraWebMulti(rawQuery) {
+  const query = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 240) : "";
+  if (query.length < 2) throw new Error("Search query is too short.");
+  const providers = [
+    { name: "DuckDuckGo", url: "https://html.duckduckgo.com/html/?q=" + encodeURIComponent(query), parse: parseDuck },
+    { name: "DuckDuckGo Lite", url: "https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(query), parse: parseDuckLite },
+    { name: "Bing", url: "https://www.bing.com/search?q=" + encodeURIComponent(query), parse: parseBing },
+    { name: "Wikipedia", run: () => parseWikipedia(query) }
+  ];
+  if (/\b(news|headlines|breaking|latest|current|today|recent)\b/i.test(query)) {
+    providers.push({ name: "Google News", run: () => parseGoogleNewsSearch(query) });
+  }
+  const settled = await Promise.allSettled(providers.map(async provider => {
+    let results;
+    if (provider.run) results = await provider.run();
+    else {
+      const response = await fetch(provider.url, {
+        headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36", "Accept": "text/html,application/xhtml+xml" },
+        signal: AbortSignal.timeout(5200)
+      });
+      if (!response.ok) throw new Error(provider.name + " HTTP " + response.status);
+      results = provider.parse(await response.text());
+    }
+    if (!Array.isArray(results) || !results.length) throw new Error(provider.name + " returned no parseable results");
+    return { source: provider.name, results: results.slice(0, 5) };
+  }));
+  const groups = [];
+  const errors = [];
+  for (let index = 0; index < settled.length; index++) {
+    const item = settled[index];
+    if (item.status === "fulfilled") groups.push(item.value);
+    else errors.push(String(item.reason?.message || providers[index].name + " failed").slice(0, 180));
+  }
+  const results = groups.flatMap(group => group.results.map(item => ({ ...item, provider: group.source })));
+  if (!results.length) throw new Error("All research search providers failed: " + errors.join("; ").slice(0, 300));
+  return { query, source: "AURORA multi-source search", providers: groups, results: results.slice(0, 16), errors };
+}
+
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "GET, POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
@@ -261,7 +300,25 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "GET, POST");
     return res.status(405).json({error:"Use GET or POST."});
   }
-  let query = req.method === "GET" ? req.query?.q : req.body?.query;
+
+  let requestBody = req.body;
+  if (typeof requestBody === "string") {
+    try { requestBody = JSON.parse(requestBody); } catch { requestBody = null; }
+  }
+  if (req.method === "POST" && requestBody?.research === true) {
+    const queryText = typeof requestBody.query === "string" ? requestBody.query.trim().slice(0, 240) : "";
+    if (queryText.length < 2) return res.status(400).json({ error: "Enter a research query." });
+    try {
+      const { runAuroraResearch } = await import("../src/research/research-coordinator.js");
+      const result = await runAuroraResearch({ ...requestBody, query: queryText });
+      return res.status(result.status === "failed" ? 502 : 200).json(result);
+    } catch (error) {
+      console.error("AURORA research task failed:", String(error?.message || error));
+      return res.status(502).json({ error: "AURORA research is temporarily unavailable. Try again shortly." });
+    }
+  }
+
+  let query = req.method === "GET" ? req.query?.q : requestBody?.query;
   const wantsImages = req.method === "GET" && req.query?.type === "images";
   if (wantsImages) {
     if (typeof query !== "string" || query.trim().length < 2) return res.status(400).json({error:"Enter an image search query."});
