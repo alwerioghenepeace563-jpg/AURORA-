@@ -155,7 +155,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           ACTUAL="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          EXPECTED="4cd87f5d48916b350a15aaa011b82e2fc819a1e1ce75a206a3c2b4c1a04f1c27"
+          EXPECTED="8cfe8f94aafec120857cec2b5c545011a3a63278e190591d0646a4c888a6fe2a"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::AURORA signing certificate mismatch against the new key. Refusing to publish this APK."
             exit 1
