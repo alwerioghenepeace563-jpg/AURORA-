@@ -2,6 +2,7 @@ import { auroraApiUrl, auroraNative } from "../lib/aurora-native";
 import { createResearchCache } from "./research-cache";
 import { extractPublicPageInIsolatedBrowser } from "./browser-engine";
 import { buildResearchContext } from "./citation-engine";
+import { inferResearchIntent } from "./intent-engine";
 
 const sessionCache = createResearchCache({ ttlMs: 45000, maxEntries: 6 });
 
@@ -10,11 +11,10 @@ function deviceTaskId() {
 }
 
 export async function runAuroraResearch(query, options = {}) {
+  const inferred = inferResearchIntent(String(query || "").trim().slice(0, 240), options);
   const request = {
-    query: String(query || "").trim().slice(0, 240),
-    intent: options.intent || "quick",
-    mediaTypes: Array.isArray(options.mediaTypes) ? options.mediaTypes : undefined,
-    freshness: options.freshness || "any"
+    ...inferred,
+    freshness: options.freshness || inferred.freshness
   };
   if (request.query.length < 2) throw new Error("Enter a research query.");
   const cached = sessionCache.get(request);
