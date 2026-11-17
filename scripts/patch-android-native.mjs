@@ -510,6 +510,24 @@ const nfcSource = fs.existsSync(nfcPluginPath) ? fs.readFileSync(nfcPluginPath, 
 for (const marker of ['name = "AuroraNfc"', "enableReaderMode", "writeNdefMessage", "handleOnPause", "stopNfcReader"]) {
   if (!nfcSource.includes(marker)) throw new Error("Foreground NFC plugin is missing: " + marker);
 }
+
+const researchBrowserPluginPath = path.join(javaRoot, "AuroraResearchBrowserPlugin.java");
+const researchBrowserActivityPath = path.join(javaRoot, "AuroraResearchBrowserActivity.java");
+if (!fs.existsSync(researchBrowserPluginPath) || !fs.existsSync(researchBrowserActivityPath)) {
+  throw new Error("Isolated AURORA research browser native components are missing.");
+}
+const researchBrowserPluginSource = fs.readFileSync(researchBrowserPluginPath, "utf8");
+const researchBrowserActivitySource = fs.readFileSync(researchBrowserActivityPath, "utf8");
+for (const marker of ["name = \"AuroraResearchBrowser\"", "openResearchBrowser", "extractResearchPage", "clearResearchData", "RESEARCH_PAGE_RESULT"]) {
+  if (!researchBrowserPluginSource.includes(marker)) throw new Error("Research browser plugin is missing required bridge behavior: " + marker);
+}
+for (const marker of ['setDataDirectorySuffix("aurora_research")', "setAcceptCookie(false)", "setAcceptThirdPartyCookies", "setAllowFileAccess(false)", "shouldInterceptRequest", "WebStorage.getInstance().deleteAllData()"]) {
+  if (!researchBrowserActivitySource.includes(marker)) throw new Error("Isolated research browser is missing required privacy behavior: " + marker);
+}
+if (!manifest.includes('android:process=":aurora_research"')) {
+  throw new Error("Research browser must run in its isolated Android process.");
+}
+
 if (!manifestText.includes("android.permission.NFC") || !manifestText.includes("FOREGROUND_SERVICE_MEDIA_PROJECTION")) {
   throw new Error("NFC and MediaProjection manifest permissions are missing.");
 }
