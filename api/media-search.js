@@ -17,8 +17,9 @@ async function commonsSearch(query,type) {
  }).filter(Boolean);
 }
 async function archiveSearch(query,type) {
- if(type==="image")return [];
- const r=await fetch("https://archive.org/advancedsearch.php?q="+encodeURIComponent(query+" AND mediatype:movies")+"&fl[]=identifier,title,mediatype&rows=8&page=1&output=json",{headers:{"Accept":"application/json"},signal:AbortSignal.timeout(9000)});
+ if(type==="image"||type==="diagram")return [];
+ const archiveType=type==="document"?"texts":"movies";
+ const r=await fetch("https://archive.org/advancedsearch.php?q="+encodeURIComponent(query+" AND mediatype:"+archiveType)+"&fl[]=identifier,title,mediatype&rows=8&page=1&output=json",{headers:{"Accept":"application/json"},signal:AbortSignal.timeout(9000)});
  if(!r.ok)throw Error("Internet Archive search failed");
  const docs=(await r.json())?.response?.docs||[];
  const items=await Promise.all(docs.slice(0,6).map(async doc=>{
@@ -26,22 +27,42 @@ async function archiveSearch(query,type) {
   try{
    const mr=await fetch("https://archive.org/metadata/"+encodeURIComponent(id),{headers:{"Accept":"application/json"},signal:AbortSignal.timeout(7000)});if(!mr.ok)return null;
    const meta=await mr.json(),files=Array.isArray(meta.files)?meta.files:[];
-   const file=files.find(x=>/\.(mp4|webm|mov)$/i.test(String(x.name||""))&&!String(x.source||"").includes("derivative"));if(!file)return null;
+   const file=files.find(x=>type==="document"?/\.pdf$/i.test(String(x.name||"")):/\.(mp4|webm|mov)$/i.test(String(x.name||""))&&!String(x.source||"").includes("derivative"));if(!file)return null;
    const downloadUrl=safeUrl("https://archive.org/download/"+encodeURIComponent(id)+"/"+file.name.split("/").map(encodeURIComponent).join("/"));if(!downloadUrl)return null;
-   return {id:"archive:"+id,title:clean(doc.title)||id,kind:"video",mimeType:/\.webm$/i.test(file.name)?"video/webm":"video/mp4",previewUrl:"https://archive.org/services/img/"+encodeURIComponent(id),downloadUrl,pageUrl:"https://archive.org/details/"+encodeURIComponent(id),provider:"Internet Archive",license:clean(meta.metadata?.licenseurl||meta.metadata?.rights||"Check item rights and usage terms"),licenseUrl:safeUrl(meta.metadata?.licenseurl||""),attribution:clean(meta.metadata?.creator||"See item details"),downloadable:true};
+   return {id:"archive:"+id,title:clean(doc.title)||id,kind:type==="document"?"document":"video",mimeType:type==="document"?"application/pdf":/\.webm$/i.test(file.name)?"video/webm":"video/mp4",previewUrl:"https://archive.org/services/img/"+encodeURIComponent(id),downloadUrl,pageUrl:"https://archive.org/details/"+encodeURIComponent(id),provider:"Internet Archive",license:clean(meta.metadata?.licenseurl||meta.metadata?.rights||"Check item rights and usage terms"),licenseUrl:safeUrl(meta.metadata?.licenseurl||""),attribution:clean(meta.metadata?.creator||"See item details"),downloadable:true};
   }catch{return null;}
  }));
  return items.filter(Boolean);
 }
+
+export async function searchAuroraMedia(rawQuery, rawType = "all") {
+ const query=typeof rawQuery==="string"?rawQuery.trim().slice(0,140):"";
+ const type=["all","image","video","document","diagram"].includes(rawType)?rawType:"all";
+ if(query.length<2)throw Error("Describe the media you need.");
+ const jobs=[];
+ if(type!=="document")jobs.push(commonsSearch(query,type==="diagram"?"image":type));
+ if(type!=="image"&&type!=="diagram")jobs.push(archiveSearch(query,type));
+ const settled=await Promise.allSettled(jobs);
+ const results=settled.flatMap(item=>item.status==="fulfilled"?item.value:[]);
+ const seen=new Set();
+ const unique=results.filter(item=>{if(seen.has(item.downloadUrl))return false;seen.add(item.downloadUrl);return true;}).slice(0,20);
+ const errors=settled.filter(item=>item.status==="rejected").map(item=>String(item.reason?.message||"Media provider unavailable").slice(0,160));
+ return {query,type,source:"Wikimedia Commons and Internet Archive",results:unique,errors,
+   rightsNotice:"Check each item's licence, attribution and usage terms before reusing or publishing it. AURORA does not bypass restrictions."};
+}
+
 export default async function handler(req,res) {
  if(applyAuroraCors(req,res,"GET, OPTIONS"))return;
  res.setHeader("Cache-Control","no-store");res.setHeader("Content-Type","application/json; charset=utf-8");
  if(req.method!=="GET"){res.setHeader("Allow","GET, OPTIONS");return res.status(405).json({error:"Use GET."});}
- const query=typeof req.query?.q==="string"?req.query.q.trim().slice(0,140):"",type=["all","image","video"].includes(req.query?.type)?req.query.type:"all";
- if(query.length<2)return res.status(400).json({error:"Describe the image or video you need."});
- const jobs=[commonsSearch(query,type)];if(type!=="image")jobs.push(archiveSearch(query,type));
- const settled=await Promise.allSettled(jobs),results=settled.flatMap(x=>x.status==="fulfilled"?x.value:[]);
- const seen=new Set(),unique=results.filter(x=>{if(seen.has(x.downloadUrl))return false;seen.add(x.downloadUrl);return true;}).slice(0,20);
- if(!unique.length)return res.status(502).json({error:"No directly downloadable matching files were found. Try another description or open an official provider browser."});
- return res.status(200).json({query,type,source:"Wikimedia Commons and Internet Archive",results:unique,rightsNotice:"Check each item's licence, attribution and usage terms before reusing or publishing it. AURORA does not bypass restrictions."});
+ const query=typeof req.query?.q==="string"?req.query.q.trim().slice(0,140):"",type=["all","image","video","document","diagram"].includes(req.query?.type)?req.query.type:"all";
+ if(query.length<2)return res.status(400).json({error:"Describe the image, video, diagram or document you need."});
+ try {
+  const result=await searchAuroraMedia(query,type);
+  if(!result.results.length)return res.status(502).json({error:"No matching public media was found. Try another description or open an official provider browser."});
+  return res.status(200).json(result);
+ } catch(error) {
+  console.error("AURORA media discovery failed:",String(error?.message||error));
+  return res.status(502).json({error:"Media discovery is temporarily unavailable."});
+ }
 }
