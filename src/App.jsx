@@ -445,7 +445,7 @@ export default function App() {
       const anchor = event.target?.closest?.("a[href]");
       if (!anchor) return;
       const rawHref = anchor.getAttribute("href") || "";
-      if (!/^https?:\\/\\//i.test(rawHref)) return;
+      if (!/^https?:\/\//i.test(rawHref)) return;
       let destination;
       try { destination = new URL(rawHref, window.location.href); } catch { return; }
       const isExternal = destination.origin !== window.location.origin;
