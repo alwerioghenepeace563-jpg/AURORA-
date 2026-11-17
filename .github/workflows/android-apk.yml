@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - feature/aurora-complete-experience
     paths:
       - "src/**"
       - "public/**"
@@ -23,7 +24,7 @@ permissions:
 
 jobs:
   build-apk:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/aurora-complete-experience' }}
     runs-on: ubuntu-24.04
     env:
       HAS_AURORA_DEBUG_KEYSTORE: ${{ secrets.AURORA_DEBUG_KEYSTORE_BASE64 != '' }}
@@ -166,7 +167,7 @@ jobs:
           fi
           echo "AURORA signing certificate verified."
       - name: Publish update to Lively Updates
-        if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' && env.HAS_LIVELY_UPDATES_TOKEN == 'true' }}
+        if: ${{ github.ref == 'refs/heads/main' && env.HAS_AURORA_DEBUG_KEYSTORE == 'true' && env.HAS_LIVELY_UPDATES_TOKEN == 'true' }}
         env:
           LIVELY_UPDATES_TOKEN: ${{ secrets.AURORA_LIVELY_PUBLISHER }}
         run: |
