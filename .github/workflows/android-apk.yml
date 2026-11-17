@@ -79,17 +79,17 @@ jobs:
         run: |
           mkdir -p "$HOME/.android"
           python3 - <<'PY'
-          import base64, os, re, sys
-          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].strip().lstrip("\ufeff")
+          import base64, os, re, sys, unicodedata
+          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].lstrip("\\ufeff")
           # Accept plain/URL-safe Base64, data URLs, quoted values, and certutil
-          # output that includes BEGIN/END lines plus command metadata.
+          # output. Ignore invisible Unicode formatting characters sometimes
+          # introduced by copy/paste, but never discard visible payload symbols.
           if raw.startswith("data:") and "," in raw:
               raw = raw.split(",", 1)[1]
-          raw = raw
           raw = raw.strip().strip(chr(34) + chr(39))
+          raw = "".join(ch for ch in raw if not ch.isspace() and unicodedata.category(ch) != "Cf")
           candidates = []
-          compact = re.sub(r"\s+", "", raw)
-          compact = compact.replace("-", "+").replace("_", "/")
+          compact = raw.replace("-", "+").replace("_", "/")
           candidates.append(compact)
           payload_lines = []
           for line in raw.splitlines():
@@ -105,6 +105,8 @@ jobs:
           decoded = None
           for value in candidates:
               value = value.rstrip("=")
+              if len(value) % 4 == 1:
+                  continue
               value += "=" * (-len(value) % 4)
               try:
                   decoded = base64.b64decode(value, validate=True)
@@ -113,9 +115,10 @@ jobs:
               except Exception:
                   pass
           if not decoded:
-              # Diagnostics reveal only format metadata, never secret contents.
-              invalid = sum(1 for ch in raw if not (ch.isalnum() or ch in "+/=_-\r\n\t " or ch in chr(34) + chr(39)))
-              print(f"::error::Signing secret could not be decoded. Length={len(raw)}, lines={len(raw.splitlines())}, base64_chars={sum(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=_-' for ch in raw)}, unsupported_chars={invalid}. Secret contents were not logged.")
+              compact_len = len(re.sub(r"\\s+", "", raw))
+              unsupported = [(i, f"U+{ord(ch):04X}") for i, ch in enumerate(raw) if ch not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=_-"]
+              detail = ",".join(f"position={i}:{code}" for i, code in unsupported[:5]) or "none"
+              print(f"::error::Signing secret format is invalid. Length={len(raw)}, compact_length={compact_len}, compact_length_mod4={compact_len % 4}, unsupported_character_metadata={detail}. Secret contents were not logged.")
               sys.exit(1)
           with open(os.path.expanduser("~/.android/debug.keystore"), "wb") as key:
               key.write(decoded)
