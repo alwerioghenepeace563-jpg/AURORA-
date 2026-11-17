@@ -15,5 +15,5 @@ assert.match(app, /Open in Maps/);
 assert.match(css, /\.aurora-data-card\{/);
 assert.match(css, /\.aurora-metric-grid\{/);
 assert.match(css, /\.aurora-action-list\{/);
-assert.match(pkg.scripts["test:core"], /test-aurora-pulse-visual-cards\.cjs/);
+assert.match(pkg.scripts["test:aurora-vercel-function-count"], /test-aurora-pulse-visual-cards\.cjs/);
 console.log("AURORA Pulse visual-card framework source checks passed.");
