@@ -64,7 +64,7 @@
     "@types/node": "^22.15.30",
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^5.8.3",
-    "vite": "^6.4.1",
+    "vite": "^6.4.6",
     "@capacitor/cli": "^7.4.3"
   },
   "type": "module"
