@@ -80,15 +80,15 @@ jobs:
           mkdir -p "$HOME/.android"
           python3 - <<'PY'
           import base64, os, re, sys
-          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].strip().lstrip("\\ufeff")
+          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].strip().lstrip("\ufeff")
           # Accept plain/URL-safe Base64, data URLs, quoted values, and certutil
           # output that includes BEGIN/END lines plus command metadata.
           if raw.startswith("data:") and "," in raw:
               raw = raw.split(",", 1)[1]
-          raw = raw.replace("\\r\\n", "\\n").replace("\\n", "\\n")
+          raw = raw
           raw = raw.strip().strip(chr(34) + chr(39))
           candidates = []
-          compact = re.sub(r"\\s+", "", raw)
+          compact = re.sub(r"\s+", "", raw)
           compact = compact.replace("-", "+").replace("_", "/")
           candidates.append(compact)
           payload_lines = []
@@ -114,7 +114,7 @@ jobs:
                   pass
           if not decoded:
               # Diagnostics reveal only format metadata, never secret contents.
-              invalid = sum(1 for ch in raw if not (ch.isalnum() or ch in "+/=_-\\r\\n\\t " or ch in chr(34) + chr(39)))
+              invalid = sum(1 for ch in raw if not (ch.isalnum() or ch in "+/=_-\r\n\t " or ch in chr(34) + chr(39)))
               print(f"::error::Signing secret could not be decoded. Length={len(raw)}, lines={len(raw.splitlines())}, base64_chars={sum(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=_-' for ch in raw)}, unsupported_chars={invalid}. Secret contents were not logged.")
               sys.exit(1)
           with open(os.path.expanduser("~/.android/debug.keystore"), "wb") as key:
