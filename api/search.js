@@ -382,21 +382,25 @@ async function handleResearchCloudAction(req, res, action, body = {}) {
 
       const workerUrl = String(process.env.AURORA_RESEARCH_WORKER_URL || "").trim();
       const workerToken = String(process.env.AURORA_RESEARCH_WORKER_TOKEN || "").trim();
+      let workerWake = "not_configured";
       if (workerUrl && workerToken) {
         try {
-          await fetch(workerUrl, {
+          const wake = await fetch(workerUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", "x-aurora-worker-token": workerToken },
             body: JSON.stringify({ source: "task-created" }),
             signal: AbortSignal.timeout(30000)
           });
+          workerWake = wake.ok ? "requested" : "failed";
+          if (!wake.ok) console.warn("AURORA research worker wake returned HTTP", wake.status);
           const refreshed = await researchUserRest(req, "/rest/v1/aurora_research_tasks?select=" + taskFields + "&id=eq." + encodeURIComponent(task.id) + "&limit=1", { method: "GET" });
-          if (refreshed?.[0]) return res.status(202).json({ task: refreshed[0] });
+          if (refreshed?.[0]) return res.status(202).json({ task: refreshed[0], workerWake });
         } catch (wakeError) {
+          workerWake = "failed";
           console.warn("AURORA research task queued; immediate worker wake was unavailable:", wakeError?.message || "Worker wake failed");
         }
       }
-      return res.status(202).json({ task });
+      return res.status(202).json({ task, workerWake });
     }
 
     if (action === "cancel-task") {
