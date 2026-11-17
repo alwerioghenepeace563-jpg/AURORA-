@@ -7,7 +7,7 @@ assert.match(app, /const \[pulseVoiceError, setPulseVoiceError\] = useState\(""\
 assert.match(app, /pulseListening \? "Listening…"/);
 assert.match(app, /pulseBusy \? "Thinking…"/);
 assert.match(app, /speaking \? \(bargeInReady \? "Speaking · you can interrupt" : "Speaking…"/);
-assert.match(app, /pulseVoiceError \|\| "Ready"/);
+assert.match(app, /pulseVoiceError \|\| \(pulseInterrupted \? "Interrupted · ready" : "Ready"\)/);
 assert.match(app, /className=\{"aurora-pulse-voice-status"/);
 assert.match(app, /role="status" aria-live="polite"/);
 assert.match(app, /pulseVoiceError \? " is-error" : ""/);
@@ -17,7 +17,7 @@ assert.match(app, /setPulseVoiceError\("Could not start microphone"\)/);
 assert.match(app, /setPulseVoiceError\("Connection issue"\)/);
 assert.match(app, /auroraNative\.startSpeechRecognition\(\)/);
 assert.match(app, /window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/);
-assert.match(app, /await auroraNative\.speakText\(makeSpeechFriendly\(text\)\)/);
+assert.match(app, /await auroraNative\.speakText\(makeSpeechFriendly\(text\), \{ rate: options\.slow \? 0\.82 : delivery\.rate, pitch: delivery\.pitch \}\)/);
 assert.match(css, /\.aurora-pulse-voice-status/);
 assert.match(css, /\.aurora-pulse-voice-status\.is-error/);
 assert.match(css, /\.aurora-pulse-head \.aurora-pulse-orb\.is-listening/);
