@@ -12,7 +12,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
-import android.webkit.SafeBrowsingResponse;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -39,9 +38,15 @@ public class AuroraResearchBrowserActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            WebView.setDataDirectorySuffix("aurora_research");
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            super.onCreate(savedInstanceState);
+            mode = getIntent() == null ? "extract" : getIntent().getStringExtra("mode");
+            taskId = getIntent() == null ? "" : getIntent().getStringExtra("taskId");
+            requestedUrl = getIntent() == null ? "" : getIntent().getStringExtra("url");
+            finishExtraction(false, requestedUrl, "", "Isolated research browsing requires Android 9 or later.");
+            return;
         }
+        WebView.setDataDirectorySuffix("aurora_research");
         super.onCreate(savedInstanceState);
         mode = getIntent() == null ? "browse" : getIntent().getStringExtra("mode");
         if (mode == null) mode = "browse";
@@ -115,6 +120,15 @@ public class AuroraResearchBrowserActivity extends Activity {
                 return !isAllowedUrl(request.getUrl().toString());
             }
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String resourceUrl = request == null ? "" : request.getUrl().toString();
+                String host = request == null ? null : request.getUrl().getHost();
+                if (!isAllowedUrl(resourceUrl) || !isPublicHost(host)) {
+                    return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+            @Override
             public void onPageFinished(WebView view, String url) {
                 if ("extract".equals(mode)) extractPage();
             }
@@ -174,6 +188,23 @@ public class AuroraResearchBrowserActivity extends Activity {
             finish();
         });
         handler.postDelayed(this::finish, 2500L);
+    }
+
+
+    private boolean isPublicHost(String host) {
+        if (host == null || host.trim().isEmpty()) return false;
+        try {
+            java.net.InetAddress[] addresses = java.net.InetAddress.getAllByName(host);
+            if (addresses == null || addresses.length == 0) return false;
+            for (java.net.InetAddress address : addresses) {
+                if (address.isAnyLocalAddress() || address.isLoopbackAddress() ||
+                    address.isLinkLocalAddress() || address.isSiteLocalAddress() ||
+                    address.isMulticastAddress()) return false;
+            }
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private boolean isAllowedUrl(String value) {
