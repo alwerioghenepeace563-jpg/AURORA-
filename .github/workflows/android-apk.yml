@@ -80,23 +80,42 @@ jobs:
           mkdir -p "$HOME/.android"
           python3 - <<'PY'
           import base64, os, re, sys
-          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].strip()
-          # Accept plain Base64, URL-safe Base64, data URLs, and PEM-style
-          # wrappers produced by Windows certutil -encode. Never print secret data.
+          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].strip().lstrip("\ufeff")
+          # Accept plain/URL-safe Base64, data URLs, quoted values, and certutil
+          # output that includes BEGIN/END lines plus command metadata.
           if raw.startswith("data:") and "," in raw:
               raw = raw.split(",", 1)[1]
-          lines = [line.strip() for line in raw.splitlines() if line.strip()]
-          lines = [line for line in lines if not line.startswith("-----BEGIN ") and not line.startswith("-----END ")]
-          value = re.sub(r"\s+", "", "".join(lines)).strip(chr(34) + chr(39))
-          value = value.replace("-", "+").replace("_", "/")
-          value += "=" * (-len(value) % 4)
-          try:
-              decoded = base64.b64decode(value, validate=True)
-          except Exception:
-              print("::error::Signing secret is present but is not valid Base64 after removing common Windows certutil PEM wrappers. The secret value was not printed.")
-              sys.exit(1)
+          raw = raw
+          raw = raw.strip().strip(chr(34) + chr(39))
+          candidates = []
+          compact = re.sub(r"\s+", "", raw)
+          compact = compact.replace("-", "+").replace("_", "/")
+          candidates.append(compact)
+          payload_lines = []
+          for line in raw.splitlines():
+              line = line.strip().strip(chr(34) + chr(39))
+              if not line or line.startswith("-----") or line.lower().startswith(("certutil:", "input length", "output length")):
+                  continue
+              if re.fullmatch(r"[A-Za-z0-9+/=_-]+", line):
+                  payload_lines.append(line)
+          if payload_lines:
+              filtered = "".join(payload_lines).replace("-", "+").replace("_", "/")
+              if filtered not in candidates:
+                  candidates.append(filtered)
+          decoded = None
+          for value in candidates:
+              value = value.rstrip("=")
+              value += "=" * (-len(value) % 4)
+              try:
+                  decoded = base64.b64decode(value, validate=True)
+                  if decoded:
+                      break
+              except Exception:
+                  pass
           if not decoded:
-              print("::error::Signing secret decoded to an empty file.")
+              # Diagnostics reveal only format metadata, never secret contents.
+              invalid = sum(1 for ch in raw if not (ch.isalnum() or ch in "+/=_-\r\n\t " or ch in chr(34) + chr(39)))
+              print(f"::error::Signing secret could not be decoded. Length={len(raw)}, lines={len(raw.splitlines())}, base64_chars={sum(ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=_-' for ch in raw)}, unsupported_chars={invalid}. Secret contents were not logged.")
               sys.exit(1)
           with open(os.path.expanduser("~/.android/debug.keystore"), "wb") as key:
               key.write(decoded)
