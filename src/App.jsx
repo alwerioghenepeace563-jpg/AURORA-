@@ -2281,7 +2281,7 @@ export default function App() {
           </aside>
           <main className="auth-panel">
             <section className="auth-card">
-              <div className="auth-mobile-brand"><span className="auth-symbol"><span /></span><span className="auth-wordmark">AURORA<span>.</span></span></div>
+              <div className="auth-mobile-brand"><span className="auth-symbol"><img src="/aurora-logo.svg" alt="" /></span><span className="auth-wordmark">AURORA<span>.</span></span></div>
               <div className="auth-heading">
                 <p className="auth-overline">{authMode === "signup" ? "CREATE YOUR SPACE" : "WELCOME BACK"}</p>
                 <h2>{authMode === "signup" ? "Your next chapter starts here." : "Good to have you back."}</h2>
