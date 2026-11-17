@@ -3,6 +3,18 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.aurora.assistant"
     compileSdk rootProject.ext.compileSdkVersion
+
+    // AURORA's long-lived signing identity. CI supplies the password through
+    // GitHub Actions secrets; no signing material is stored in this repository.
+    signingConfigs {
+        aurora {
+            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword System.getenv("AURORA_KEYSTORE_PASSWORD") ?: "android"
+            keyAlias "aurora-release"
+            keyPassword System.getenv("AURORA_KEYSTORE_PASSWORD") ?: "android"
+        }
+    }
+
     defaultConfig {
         applicationId "com.aurora.assistant"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -17,8 +29,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.aurora
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.aurora
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -54,6 +70,3 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
-
-
-

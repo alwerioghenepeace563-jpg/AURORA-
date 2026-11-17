@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       HAS_AURORA_DEBUG_KEYSTORE: ${{ secrets.AURORA_DEBUG_KEYSTORE_BASE64 != '' }}
+      HAS_AURORA_KEY_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD != '' }}
       HAS_LIVELY_UPDATES_TOKEN: ${{ secrets.AURORA_LIVELY_PUBLISHER != '' }}
     steps:
       - name: Check out source
@@ -76,6 +77,7 @@ jobs:
         if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE == 'true' }}
         env:
           AURORA_DEBUG_KEYSTORE_BASE64: ${{ secrets.AURORA_DEBUG_KEYSTORE_BASE64 }}
+          AURORA_KEYSTORE_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD }}
         run: |
           mkdir -p "$HOME/.android"
           python3 - <<'PY'
@@ -125,6 +127,8 @@ jobs:
           print(f"Decoded signing keystore file ({len(decoded)} bytes); secret contents were not logged.")
           PY
           chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass "$AURORA_KEYSTORE_PASSWORD" -alias aurora-release >/dev/null
+          echo "New AURORA signing keystore and alias verified."
       - name: Set Android app version
         run: |
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
@@ -134,6 +138,8 @@ jobs:
           echo "AURORA_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "AURORA_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
       - name: Build debug APK
+        env:
+          AURORA_KEYSTORE_PASSWORD: ${{ secrets.AURORA_KEYSTORE_PASSWORD }}
         run: |
           "$GRADLE_BIN" -p android assembleDebug --no-daemon
       - name: Verify APK archive
@@ -149,7 +155,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           ACTUAL="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          EXPECTED="20b1446e73429b7b7304eba80b2d8d320d2e42f7e35c72153fc67b0a1bf83c7d"
+          EXPECTED="8cfe8f94aafec120857cec2b5c545011a3a63278e190591d0646a4c888a6fe2a"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::AURORA signing certificate mismatch against the new key. Refusing to publish this APK."
             exit 1
@@ -181,9 +187,9 @@ jobs:
           git add aurora/AURORA.apk aurora/version.json
           git commit -m "Publish AURORA Android ${AURORA_VERSION_NAME}"
           git push origin HEAD:main
-      - name: Warn if existing updater credentials are missing
-        if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE != 'true' || env.HAS_LIVELY_UPDATES_TOKEN != 'true' }}
-        run: echo "::warning::The established AURORA_DEBUG_KEYSTORE_BASE64 and AURORA_LIVELY_PUBLISHER secrets are needed to publish an installable update signed with the existing key."
+      - name: Warn if new signing or updater credentials are missing
+        if: ${{ env.HAS_AURORA_DEBUG_KEYSTORE != 'true' || env.HAS_AURORA_KEY_PASSWORD != 'true' || env.HAS_LIVELY_UPDATES_TOKEN != 'true' }}
+        run: echo "::warning::AURORA_DEBUG_KEYSTORE_BASE64, AURORA_KEYSTORE_PASSWORD, and AURORA_LIVELY_PUBLISHER are required for a fully signed and published AURORA APK."
       - name: Upload APK
         uses: actions/upload-artifact@v5
         with:
