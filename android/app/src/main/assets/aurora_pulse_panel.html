@@ -87,7 +87,7 @@ function setCollapsed(value){const collapsed=!!value;document.querySelector(".sh
         const raw = window.AuroraOverlay.getInstalledApps();
         apps = JSON.parse(String(raw || '[]'));
       } catch {
-        return { handled: true, reply: 'I could not read the phoneÃ¢â‚¬â„¢s installed-app list. Please try again.' };
+        return { handled: true, reply: 'I could not read the phone’s installed-app list. Please try again.' };
       }
 
       if (!Array.isArray(apps)) apps = [];
@@ -158,7 +158,7 @@ function setCollapsed(value){const collapsed=!!value;document.querySelector(".sh
       if (/^(here|my location|where i am|outside|today|now)$/i.test(city)) city = '';
       city = city.replace(/\b(today|tomorrow|right now|now)\b.*$/i, '').trim();
       if (!city) {
-        throw new Error('Please name a city or town for the weather report, for example: Ã¢â‚¬Å“Weather in Benin City.Ã¢â‚¬Â Pulse does not yet share the main appÃ¢â‚¬â„¢s GPS-location tool.');
+        throw new Error('Please name a city or town for the weather report, for example: “Weather in Benin City.” Pulse does not yet share the main app’s GPS-location tool.');
       }
       const response = await fetch(apiBase + '/api/weather?city=' + encodeURIComponent(city));
       const data = await response.json().catch(() => ({}));
@@ -171,7 +171,7 @@ function setCollapsed(value){const collapsed=!!value;document.querySelector(".sh
       const match = userText.match(/\b(?:directions to|route to|navigate to|how do i get to|take me to|map of|where is)\s+(.+?)(?:\s+(?:today|tomorrow|this morning|this afternoon|tonight|now|later|next week)\b|[?.!,]|$)/i);
       const destination = match && match[1] ? match[1].trim() : '';
       if (/\b(where am i|my current location|current location|my position)\b/i.test(userText)) {
-        throw new Error('Pulse does not yet have the main appÃ¢â‚¬â„¢s GPS-location bridge. You can still open Google Maps and use its location permission.');
+        throw new Error('Pulse does not yet have the main app’s GPS-location bridge. You can still open Google Maps and use its location permission.');
       }
       const mapUrl = destination
         ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(destination)
