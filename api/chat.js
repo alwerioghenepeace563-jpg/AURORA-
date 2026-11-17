@@ -1,5 +1,5 @@
 import cors from "../lib/cors.cjs";
-import { searchAuroraWeb } from "./search.js";
+import { runAuroraResearch } from "../src/research/research-coordinator.js";
 const { applyAuroraCors } = cors;
 import aiProvider from "../lib/ai-provider.cjs";
 const { getPreferredProvider, setPreferredProvider, providerOrder } = aiProvider;
@@ -86,18 +86,9 @@ async function chatHandler(req, res) {
     const hasUserAttachments = body.messages.some(message => message?.image || message?.document);
 
     if (asksForLiveInfo && !hasUserAttachments && searchText.length >= 2) {
-      const searchResult = await searchAuroraWeb(searchText);
-      const rows = Array.isArray(searchResult?.results) ? searchResult.results.slice(0, 5) : [];
-      if (rows.length) {
-        liveSearchContext = [
-          "Search query: " + searchText,
-          "Search source: " + String(searchResult.source || "web search"),
-          ...rows.map((item, index) =>
-            String(index + 1) + ". " + String(item.title || "Untitled").slice(0, 220) +
-            "\nURL: " + String(item.url || "").slice(0, 500) +
-            "\nSnippet: " + String(item.snippet || "").slice(0, 700)
-          )
-        ].join("\n\n").slice(0, 6500);
+      const researchResult = await runAuroraResearch({ query: searchText, intent: "deep", mediaTypes: ["web"] });
+      if (Array.isArray(researchResult?.sources) && researchResult.sources.length) {
+        liveSearchContext = String(researchResult.context || "").slice(0, 8500);
       }
     }
   } catch (searchError) {
