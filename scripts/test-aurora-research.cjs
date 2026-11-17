@@ -43,6 +43,7 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
   assert.equal(result.status, "complete");
   assert.equal(result.sources.length, 1);
   assert.equal(result.verification.level, "discovery_only");
+  assert.equal(result.verification.diversityLevel, "single_source_discovery");
   assert.match(result.context, /https:\/\/example\.com\/article/);
 
   const partialRun = createResearchCoordinator({
