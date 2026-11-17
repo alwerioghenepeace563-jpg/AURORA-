@@ -9,6 +9,7 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
   const { inferResearchIntent } = await import("../src/research/intent-engine.js");
   const { normalizeWebSources } = await import("../src/research/result-normalizer.js");
   const { createResearchCoordinator } = await import("../src/research/research-coordinator.js");
+  const { createResearchCache } = await import("../src/research/research-cache.js");
 
   const intent = inferResearchIntent("Find the latest diagrams and videos about solar energy");
   assert.equal(intent.intent, "visual");
@@ -16,6 +17,13 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
   assert.ok(intent.mediaTypes.includes("diagram"));
   assert.ok(intent.mediaTypes.includes("video"));
   assert.equal(inferResearchIntent("show me a PDF report", { mediaTypes: ["document"] }).mediaTypes[0], "document");
+
+  const cache = createResearchCache({ ttlMs: 5000, maxEntries: 2 });
+  const cacheKey = { query: "solar", intent: "quick", mediaTypes: ["web"] };
+  cache.set(cacheKey, { status: "complete" });
+  assert.equal(cache.get(cacheKey).status, "complete");
+  cache.clear();
+  assert.equal(cache.size(), 0);
 
   const normalized = normalizeWebSources([{ source: "Test Search", results: [
     { title: "A result", url: "https://example.com/article", snippet: "Evidence snippet" },
