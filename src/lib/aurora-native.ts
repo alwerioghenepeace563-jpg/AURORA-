@@ -280,7 +280,7 @@ export const auroraNative = {
   clearResearchBrowserData: async () => Capacitor.getPlatform() === "android" ? AuroraResearchBrowser.clearResearchData() : { started: true, isolated: true },
   addResearchPageListener: (callback: (event: { taskId: string; url: string; title: string; text: string; success: boolean; error?: string }) => void) => AuroraResearchBrowser.addListener("researchPageExtracted", callback),
   openMediaSource: async (url: string) => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") { window.open(url, "_blank", "noopener,noreferrer"); return { opened: true, userControlsDownload: true }; } return AuroraNative.openMediaSource({ url }); },
-  downloadPublicMedia: async (url: string, filename: string, mediaKind: "image" | "video") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct downloads through Android Download Manager are available in the Android app."); return AuroraNative.downloadPublicMedia({ url, filename, mediaKind }); },
+  downloadPublicMedia: async (url: string, filename: string, mediaKind: "image" | "video" | "document") => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Direct downloads through Android Download Manager are available in the Android app."); return AuroraNative.downloadPublicMedia({ url, filename, mediaKind }); },
   downloadAndInstallUpdate: async (url: string) => {
     if (!Capacitor.isNativePlatform()) throw new Error("In-app APK updates are available only in Android.");
     return AuroraNative.downloadAndInstallUpdate({ url });
