@@ -50,7 +50,7 @@
     "test:aurora-stage8-voice-intelligence": "node scripts/test-aurora-stage8-voice-intelligence.cjs",
     "test:aurora-location-plugin": "node scripts/test-aurora-location-plugin.cjs",
     "test:aurora-assistant-role": "node scripts/test-aurora-assistant-role.cjs",
-    "test:aurora-research": "node scripts/test-aurora-research.cjs"
+    "test:aurora-research": "node scripts/test-aurora-research.cjs && node scripts/test-aurora-research-durable.cjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
