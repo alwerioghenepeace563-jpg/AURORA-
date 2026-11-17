@@ -1719,6 +1719,98 @@ public class AuroraAssistantPlugin extends Plugin {
         }
     }
 
+
+    @PluginMethod
+    public void setSystemBrightness(PluginCall call) {
+        int percent = call.getInt("percent", -1);
+        if (percent < 0 || percent > 100) { call.reject("Brightness must be between 0 and 100 percent."); return; }
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(getContext())) {
+            call.reject("Grant Modify system settings before changing screen brightness.");
+            return;
+        }
+        try {
+            int value = Math.round(percent * 255f / 100f);
+            boolean written = Settings.System.putInt(getContext().getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, value);
+            call.resolve(new JSObject().put("changed", written).put("percent", percent).put("value", value));
+        } catch (Exception error) { call.reject("Android could not change screen brightness.", error); }
+    }
+
+    @PluginMethod
+    public void setDoNotDisturb(PluginCall call) {
+        boolean enabled = call.getBoolean("enabled", false);
+        if (Build.VERSION.SDK_INT < 23) { call.resolve(new JSObject().put("changed", false).put("supported", false)); return; }
+        android.app.NotificationManager manager =
+            (android.app.NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+        if (manager == null || !manager.isNotificationPolicyAccessGranted()) {
+            call.reject("Grant Do Not Disturb access in Android Settings before changing this setting.");
+            return;
+        }
+        try {
+            manager.setInterruptionFilter(enabled
+                ? android.app.NotificationManager.INTERRUPTION_FILTER_NONE
+                : android.app.NotificationManager.INTERRUPTION_FILTER_ALL);
+            call.resolve(new JSObject().put("changed", true).put("enabled", enabled));
+        } catch (SecurityException error) { call.reject("Android denied the Do Not Disturb change.", error); }
+    }
+
+    @PluginMethod
+    public void getRecentAppUsage(PluginCall call) {
+        try {
+            android.app.AppOpsManager appOps = (android.app.AppOpsManager) getContext().getSystemService(android.content.Context.APP_OPS_SERVICE);
+            if (appOps == null || appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), getContext().getPackageName()) != android.app.AppOpsManager.MODE_ALLOWED) {
+                call.reject("Grant Usage access before requesting an app-usage summary.");
+                return;
+            }
+            android.app.usage.UsageStatsManager usage =
+                (android.app.usage.UsageStatsManager) getContext().getSystemService(android.content.Context.USAGE_STATS_SERVICE);
+            if (usage == null) { call.reject("Android usage statistics are unavailable."); return; }
+            long end = System.currentTimeMillis();
+            java.util.List<android.app.usage.UsageStats> stats =
+                usage.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, end - 24L * 60L * 60L * 1000L, end);
+            java.util.ArrayList<android.app.usage.UsageStats> ranked = new java.util.ArrayList<>();
+            if (stats != null) for (android.app.usage.UsageStats item : stats) {
+                if (item != null && item.getTotalTimeInForeground() > 0) ranked.add(item);
+            }
+            java.util.Collections.sort(ranked, (a, b) -> Long.compare(b.getTotalTimeInForeground(), a.getTotalTimeInForeground()));
+            JSArray apps = new JSArray();
+            int count = 0;
+            for (android.app.usage.UsageStats item : ranked) {
+                if (count++ >= 10) break;
+                apps.put(new JSObject().put("packageName", item.getPackageName())
+                    .put("foregroundMs", item.getTotalTimeInForeground()).put("lastUsedAt", item.getLastTimeUsed()));
+            }
+            call.resolve(new JSObject().put("apps", apps).put("windowHours", 24).put("readOnly", true));
+        } catch (Exception error) { call.reject("Could not read Android app-usage statistics.", error); }
+    }
+
+    @PluginMethod
+    public void getSharedStorageOverview(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
+            call.reject("Grant All files access before reviewing shared-storage metadata.");
+            return;
+        }
+        try {
+            File root = Environment.getExternalStorageDirectory();
+            File[] entries = root.listFiles();
+            JSArray items = new JSArray();
+            long totalBytes = 0;
+            int count = 0;
+            if (entries != null) {
+                java.util.Arrays.sort(entries, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+                for (File entry : entries) {
+                    if (count++ >= 30) break;
+                    long size = entry.isFile() ? entry.length() : 0;
+                    totalBytes += size;
+                    items.put(new JSObject().put("name", entry.getName()).put("directory", entry.isDirectory())
+                        .put("sizeBytes", size).put("modifiedAt", entry.lastModified()));
+                }
+            }
+            call.resolve(new JSObject().put("entries", items).put("count", items.length())
+                .put("topLevelFileBytes", totalBytes).put("metadataOnly", true));
+        } catch (Exception error) { call.reject("Could not inspect shared-storage metadata.", error); }
+    }
+
     @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
