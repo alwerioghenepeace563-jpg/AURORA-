@@ -356,7 +356,7 @@ public class AuroraOverlayService extends Service {
     }
 
     public class OverlayBridge {
-        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) { updatePanelLayout(false); panelView.setVisibility(View.VISIBLE); panelView.evaluateJavascript("setCollapsed(false)", null); } }); }
+        @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) { panelView.setVisibility(View.VISIBLE); panelView.post(() -> updatePanelLayout(false)); panelView.evaluateJavascript("setCollapsed(false)", null); } }); }
         @JavascriptInterface public void setPanelCollapsed(boolean collapsed) { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> updatePanelLayout(collapsed)); }
         @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { stopPulseSpeech(); if (panelView != null) panelView.setVisibility(View.GONE); }); }
         @JavascriptInterface public String startVoiceInput() { return startPulseSpeech(); }
