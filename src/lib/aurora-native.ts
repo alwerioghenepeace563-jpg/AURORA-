@@ -117,7 +117,7 @@ type AuroraNativePlugin = {
   readClipboardText(): Promise<{ available: boolean; text: string; truncated?: boolean; readOnly: true; notStored?: true; note?: string }>;
   writeClipboardText(options: { text: string }): Promise<{ written: boolean; characters: number; systemClipboard: true }>;
   openMediaSource(options: { url: string }): Promise<{ opened: boolean; userControlsDownload: boolean }>;
-  downloadPublicMedia(options: { url: string; filename: string; mediaKind: "image" | "video" }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string }>;
+  downloadPublicMedia(options: { url: string; filename: string; mediaKind: "image" | "video" | "document" }): Promise<{ queued: boolean; downloadId: number; filename: string; destination: string }>;
   pickMedia(options: { mediaType: "image" | "video" | "audio" }): Promise<{ cancelled: boolean; name?: string; mimeType?: string; contentUri?: string; readOnlySelection?: true; contentLoaded?: false }>;
   prepareAudioRecording(): Promise<{ cancelled: boolean; recorded?: boolean; contentUri?: string; mimeType?: string; recordingByAurora?: false; userControlledRecorder?: true; audioReadByAurora?: false }>;
   capturePhoto(): Promise<{ cancelled: boolean; mimeType?: "image/jpeg"; thumbnailBase64?: string; thumbnailOnly?: true; fullResolutionSaved?: false; requiresUserCapture?: true }>;
