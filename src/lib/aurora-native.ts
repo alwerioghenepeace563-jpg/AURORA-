@@ -129,6 +129,8 @@ type AuroraNativePlugin = {
 
   openApp(options: { packageName: string }): Promise<{ opened: boolean; packageName: string }>;
   status(): Promise<AuroraNativeStatus>;
+  getSpecialAccessStatus(): Promise<{ modifySettings: boolean; allFiles: boolean; doNotDisturb: boolean; usageAccess: boolean; notificationAccess: boolean; installUnknownApps: boolean; overlay: boolean; accessibility: boolean; androidVersion: number }>;
+  openSpecialAccessSettings(options: { permission: "modifySettings" | "allFiles" | "doNotDisturb" | "usageAccess" | "notificationAccess" | "installUnknownApps" | "wifi" | "accessibility" }): Promise<{ opened: boolean; permission: string; userMustConfirm: boolean; fallback?: boolean }>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
@@ -235,6 +237,14 @@ export const auroraNative = {
   stopAssistantService: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("AURORA background service is available only in the Android app.");
     return AuroraNative.stopAssistantService();
+  },
+  getSpecialAccessStatus: async () => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { modifySettings: false, allFiles: false, doNotDisturb: false, usageAccess: false, notificationAccess: false, installUnknownApps: false, overlay: false, accessibility: false, androidVersion: 0 };
+    return AuroraNative.getSpecialAccessStatus();
+  },
+  openSpecialAccessSettings: async (permission: "modifySettings" | "allFiles" | "doNotDisturb" | "usageAccess" | "notificationAccess" | "installUnknownApps" | "wifi" | "accessibility") => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android special access settings are available only in the Android app.");
+    return AuroraNative.openSpecialAccessSettings({ permission });
   },
   openAccessibilitySettings: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Screen Assistant settings are available only in the Android app.");
