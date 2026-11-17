@@ -1694,6 +1694,11 @@ public class AuroraAssistantPlugin extends Plugin {
                         ? new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, packageUri)
                         : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
                     break;
+                case "overlay":
+                    intent = Build.VERSION.SDK_INT >= 23
+                        ? new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri)
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri);
+                    break;
                 case "wifi":
                     intent = new Intent(Settings.ACTION_WIFI_SETTINGS);
                     break;
