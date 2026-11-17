@@ -1,6 +1,6 @@
 const LIVE_PATTERN = /\b(latest|current|today|right now|recent|this week|news|headlines|breaking|as of now|price today|search online|look up online)\b/i;
 const IMAGE_PATTERN = /\b(image|images|photo|photos|picture|pictures|visual reference|illustration)\b/i;
-const DIAGRAM_PATTERN = /\b(diagram|chart|infographic|schematic|flowchart)\b/i;
+const DIAGRAM_PATTERN = /\b(diagrams?|charts?|infographics?|schematics?|flowcharts?)\b/i;
 const VIDEO_PATTERN = /\b(video|videos|clip|clips|footage|watch)\b/i;
 const DOCUMENT_PATTERN = /\b(pdf|document|documents|paper|papers|report|reports|manual|ebook)\b/i;
 
