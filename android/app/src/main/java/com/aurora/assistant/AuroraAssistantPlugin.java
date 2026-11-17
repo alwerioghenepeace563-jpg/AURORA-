@@ -1197,7 +1197,7 @@ public class AuroraAssistantPlugin extends Plugin {
         String rawUrl = call.getString("url");
         String rawName = call.getString("filename", "aurora-media");
         String kind = call.getString("mediaKind", "image");
-        if (rawUrl == null || rawUrl.length() > 2048 || !("image".equals(kind) || "video".equals(kind))) { call.reject("Provide a valid direct media URL."); return; }
+        if (rawUrl == null || rawUrl.length() > 2048 || !("image".equals(kind) || "video".equals(kind) || "document".equals(kind))) { call.reject("Provide a valid direct media URL."); return; }
         try {
             URL parsed = new URL(rawUrl);
             if (!"https".equalsIgnoreCase(parsed.getProtocol())) { call.reject("Only secure HTTPS downloads are supported."); return; }
@@ -1205,7 +1205,8 @@ public class AuroraAssistantPlugin extends Plugin {
             String ext = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1) : "";
             java.util.Set<String> images = new java.util.HashSet<>(java.util.Arrays.asList("jpg", "jpeg", "png", "webp", "gif"));
             java.util.Set<String> videos = new java.util.HashSet<>(java.util.Arrays.asList("mp4", "webm", "mov", "m4v"));
-            if (("image".equals(kind) && !images.contains(ext)) || ("video".equals(kind) && !videos.contains(ext))) { call.reject("This is not a direct downloadable media file. Open the source page and use its official download option if available."); return; }
+            java.util.Set<String> documents = new java.util.HashSet<>(java.util.Arrays.asList("pdf"));
+            if (("image".equals(kind) && !images.contains(ext)) || ("video".equals(kind) && !videos.contains(ext)) || ("document".equals(kind) && !documents.contains(ext))) { call.reject("This is not a direct downloadable media file. Open the source page and use its official download option if available."); return; }
             String filename = rawName.replaceAll("[^A-Za-z0-9._-]", "_");
             if (filename.length() > 90) filename = filename.substring(0, 90);
             if (!filename.contains(".")) filename += "." + ext;
