@@ -147,7 +147,7 @@ public class AuroraOverlayService extends Service {
         try {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) panelView.getLayoutParams();
             params.width = dp(340);
-            params.height = dp(collapsed ? 82 : 300);
+            params.height = dp(collapsed ? 82 : 440);
             params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
             params.y = getBottomSystemInset();
             params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
@@ -199,7 +199,7 @@ public class AuroraOverlayService extends Service {
                     }
                 });
             }
-            WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(300), overlayType(),
+            WindowManager.LayoutParams panel = new WindowManager.LayoutParams(dp(340), dp(440), overlayType(),
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
             panel.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
             panel.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
