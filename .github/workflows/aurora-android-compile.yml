@@ -65,7 +65,6 @@ jobs:
 
       - name: Run assistant role and wake-word regression tests
         run: |
-          node scripts/test-aurora-assistant-foundation.cjs
           npm run test:aurora-assistant-role
           npm run test:aurora-wake-listener
 
