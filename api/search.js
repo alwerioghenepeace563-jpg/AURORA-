@@ -1,5 +1,9 @@
 import cors from "../lib/cors.cjs";
+import auth from "../lib/supabase-auth.cjs";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { inferResearchIntent } from "../src/research/intent-engine.js";
 const { applyAuroraCors } = cors;
+const { verifySupabaseUser } = auth;
 function decodeHtml(value = "") {
   return value
     .replace(/&amp;/g, "&").replace(/&quot;/g, '"')
@@ -292,6 +296,152 @@ export async function searchAuroraWebMulti(rawQuery) {
   return { query, source: "AURORA multi-source search", providers: groups, results: results.slice(0, 16), errors };
 }
 
+
+function timingSafeTokenMatch(a, b) { try { return timingSafeEqual(Buffer.from(a), Buffer.from(b)); } catch { return false; } }
+function researchSupabaseConfig() {
+  const url = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_API || "")
+    .trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
+  const key = String(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "").trim();
+  return { url, key };
+}
+function bearerToken(req) {
+  const match = String(req?.headers?.authorization || "").match(/^Bearer\s+(.+)$/i);
+  return match?.[1] || "";
+}
+async function researchUserRest(req, path, init = {}) {
+  const { url, key } = researchSupabaseConfig();
+  if (!url || !key) throw new Error("AURORA cloud research is not configured.");
+  const response = await fetch(url + path, {
+    ...init,
+    headers: {
+      apikey: key,
+      Authorization: "Bearer " + bearerToken(req),
+      "Content-Type": "application/json",
+      ...(init.headers || {})
+    },
+    signal: init.signal || AbortSignal.timeout(12000)
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    const error = new Error("Supabase research storage returned HTTP " + response.status + ". " + detail.slice(0, 180));
+    error.status = response.status;
+    throw error;
+  }
+  if (response.status === 204) return null;
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+function safeResearchSnapshot(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const pick = (item, fields) => Object.fromEntries(fields.filter(key => item?.[key] != null).map(key => [key, item[key]]));
+  return {
+    taskId: String(source.taskId || "").slice(0, 100),
+    query: String(source.query || "").slice(0, 240),
+    intent: String(source.intent || "quick").slice(0, 20),
+    status: ["complete","completed","partial","failed"].includes(source.status) ? source.status : "complete",
+    mediaTypes: Array.isArray(source.mediaTypes) ? source.mediaTypes.slice(0, 5) : ["web"],
+    sources: (Array.isArray(source.sources) ? source.sources : []).slice(0, 24).map(item => pick(item, ["sourceId","title","url","domain","publisher","provider","retrievedAt","sourceType","trustAssessment"])),
+    media: (Array.isArray(source.media) ? source.media : []).slice(0, 20).map(item => pick(item, ["mediaId","type","title","previewUrl","originalUrl","sourceUrl","provider","license","attribution","retrievedAt"])),
+    extractedContent: (Array.isArray(source.extractedContent) ? source.extractedContent : []).slice(0, 24).map(item => ({ sourceId: String(item?.sourceId || "").slice(0, 120), text: String(item?.text || "").slice(0, 650), type: String(item?.type || "snippet").slice(0, 40) })),
+    citations: (Array.isArray(source.citations) ? source.citations : []).slice(0, 24).map(item => pick(item, ["number","sourceId","title","url","domain"])),
+    verification: source.verification && typeof source.verification === "object" ? pick(source.verification, ["level","independentDomainCount","providerCount","corroborationEstablished","conflicts","note"]) : null,
+    warnings: (Array.isArray(source.warnings) ? source.warnings : []).slice(0, 10).map(item => String(item).slice(0, 220)),
+    startedAt: source.startedAt || null,
+    completedAt: source.completedAt || null
+  };
+}
+async function handleResearchCloudAction(req, res, action, body = {}) {
+  const verified = await verifySupabaseUser(req);
+  if (!verified.ok) return res.status(verified.status).json({ error: verified.error });
+  const ownerId = verified.user.id;
+  const id = String(req.query?.taskId || body.taskId || body.id || "");
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const taskFields = "id,query,request,status,result,error,attempts,max_attempts,created_at,updated_at,started_at,completed_at";
+
+  try {
+    if (action === "task-status" || action === "task-list") {
+      if (action === "task-status" && !uuidPattern.test(id)) return res.status(400).json({ error: "A valid research task ID is required." });
+      const path = action === "task-status"
+        ? "/rest/v1/aurora_research_tasks?select=" + taskFields + "&id=eq." + encodeURIComponent(id) + "&limit=1"
+        : "/rest/v1/aurora_research_tasks?select=" + taskFields + "&order=created_at.desc&limit=20";
+      const rows = await researchUserRest(req, path, { method: "GET" });
+      if (action === "task-status" && !rows?.length) return res.status(404).json({ error: "Research task not found." });
+      return res.status(200).json(action === "task-status" ? { task: rows[0] } : { tasks: rows || [] });
+    }
+
+    if (action === "create-task") {
+      const request = inferResearchIntent(body.query, body);
+      if (request.query.length < 2) return res.status(400).json({ error: "Enter a research query." });
+      const rows = await researchUserRest(req, "/rest/v1/aurora_research_tasks", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ user_id: ownerId, query: request.query, request })
+      });
+      const task = Array.isArray(rows) ? rows[0] : null;
+      if (!task?.id) return res.status(502).json({ error: "AURORA could not create the background research task." });
+
+      const workerUrl = String(process.env.AURORA_RESEARCH_WORKER_URL || "").trim();
+      const workerToken = String(process.env.AURORA_RESEARCH_WORKER_TOKEN || "").trim();
+      if (workerUrl && workerToken) {
+        try {
+          await fetch(workerUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-aurora-worker-token": workerToken },
+            body: JSON.stringify({ source: "task-created" }),
+            signal: AbortSignal.timeout(30000)
+          });
+          const refreshed = await researchUserRest(req, "/rest/v1/aurora_research_tasks?select=" + taskFields + "&id=eq." + encodeURIComponent(task.id) + "&limit=1", { method: "GET" });
+          if (refreshed?.[0]) return res.status(202).json({ task: refreshed[0] });
+        } catch (wakeError) {
+          console.warn("AURORA research task queued; immediate worker wake was unavailable:", wakeError?.message || "Worker wake failed");
+        }
+      }
+      return res.status(202).json({ task });
+    }
+
+    if (action === "cancel-task") {
+      if (!uuidPattern.test(id)) return res.status(400).json({ error: "A valid research task ID is required." });
+      const rows = await researchUserRest(req, "/rest/v1/aurora_research_tasks?id=eq." + encodeURIComponent(id) + "&status=in.(queued,running)", {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ status: "cancelled", error: "Cancelled by the user.", completed_at: new Date().toISOString(), lease_expires_at: null, updated_at: new Date().toISOString() })
+      });
+      return res.status(200).json({ cancelled: Boolean(rows?.length), task: rows?.[0] || null });
+    }
+
+    if (action === "library-list") {
+      const rows = await researchUserRest(req, "/rest/v1/aurora_research_saved?select=id,title,query,result,tags,created_at,updated_at&order=created_at.desc&limit=40", { method: "GET" });
+      return res.status(200).json({ items: rows || [] });
+    }
+
+    if (action === "save-research") {
+      const result = safeResearchSnapshot(body.result);
+      if (result.query.length < 2 || !result.sources.length) return res.status(400).json({ error: "Save a completed research result with at least one source." });
+      const title = String(body.title || result.query).trim().slice(0, 160) || result.query;
+      const savedId = uuidPattern.test(String(body.id || "")) ? String(body.id) : randomUUID();
+      const tags = [...new Set((Array.isArray(body.tags) ? body.tags : []).map(tag => String(tag).trim().slice(0, 32).toLowerCase()).filter(Boolean))].slice(0, 8);
+      if (JSON.stringify(result).length > 280000) return res.status(413).json({ error: "This research result is too large to save. Save a smaller result." });
+      const rows = await researchUserRest(req, "/rest/v1/aurora_research_saved?on_conflict=user_id,id", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ id: savedId, user_id: ownerId, title, query: result.query, result, tags, updated_at: new Date().toISOString() })
+      });
+      return res.status(201).json({ item: Array.isArray(rows) ? rows[0] : null });
+    }
+
+    if (action === "delete-research") {
+      if (!uuidPattern.test(id)) return res.status(400).json({ error: "A valid saved research ID is required." });
+      await researchUserRest(req, "/rest/v1/aurora_research_saved?id=eq." + encodeURIComponent(id), { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      return res.status(200).json({ deleted: true, id });
+    }
+  } catch (error) {
+    const status = Number(error?.status) || 502;
+    console.error("AURORA research cloud action failed:", error?.message || "Unknown error");
+    return res.status(status).json({ error: status === 404 ? "Research storage is not ready. Apply the AURORA research migration first." : "AURORA could not complete this cloud research action." });
+  }
+  return res.status(400).json({ error: "Unknown AURORA research action." });
+}
+
 export default async function handler(req, res) {
   if (applyAuroraCors(req, res, "GET, POST, OPTIONS")) return;
   res.setHeader("Cache-Control", "no-store");
@@ -301,6 +451,14 @@ export default async function handler(req, res) {
     return res.status(405).json({error:"Use GET or POST."});
   }
 
+  const requestAction = req.method === "GET" ? String(req.query?.action || "") : String(requestBody?.action || "");
+  if (["task-status","task-list","library-list"].includes(requestAction)) {
+    return handleResearchCloudAction(req, res, requestAction, requestBody || {});
+  }
+  if (req.method === "POST" && ["create-task","cancel-task","save-research","delete-research"].includes(requestAction)) {
+    return handleResearchCloudAction(req, res, requestAction, requestBody || {});
+  }
+
   let requestBody = req.body;
   if (typeof requestBody === "string") {
     try { requestBody = JSON.parse(requestBody); } catch { requestBody = null; }
@@ -308,6 +466,13 @@ export default async function handler(req, res) {
   if (req.method === "POST" && requestBody?.research === true) {
     const queryText = typeof requestBody.query === "string" ? requestBody.query.trim().slice(0, 240) : "";
     if (queryText.length < 2) return res.status(400).json({ error: "Enter a research query." });
+    if (requestBody.taskWorker === true) {
+      const expected = String(process.env.AURORA_RESEARCH_WORKER_TOKEN || "");
+      const supplied = String(req.headers["x-aurora-research-worker-token"] || "");
+      if (!expected || supplied.length !== expected.length || !timingSafeTokenMatch(supplied, expected)) {
+        return res.status(401).json({ error: "Research worker authorization failed." });
+      }
+    }
     try {
       const { runAuroraResearch } = await import("../src/research/research-coordinator.js");
       const result = await runAuroraResearch({ ...requestBody, query: queryText });
