@@ -135,13 +135,13 @@ function setCollapsed(value){const collapsed=!!value;document.querySelector(".sh
     const apiBase = 'https://aurora-ten-gold.vercel.app';
     const userText = String(text || '').trim();
 
-    const searchMatch = /\b(search (?:the web )?for|look up|find online|search online|latest news|news today|what's happening in|what is happening in)\b/i.test(userText);
+    const searchMatch = /\b(search (?:the web )?for|look up|find online|search online|latest news|news today|what's happening in|what is happening in|images? of|photos? of|pictures? of|videos? of|diagrams? of|find (?:a )?(?:pdf|document))\b/i.test(userText);
     if (searchMatch) {
       const query = userText.replace(/^\s*(?:aurora[, ]*)?(?:please\s+)?(?:search (?:the web )?for|look up|find online|search online)\s*/i, '').trim() || userText;
       const response = await fetch(apiBase + '/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, research: true, intent: 'deep', mediaTypes: ['web'] })
+        body: JSON.stringify({ query, research: true, intent: 'deep' })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'AURORA research failed.');
