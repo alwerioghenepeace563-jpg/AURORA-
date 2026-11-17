@@ -6,7 +6,7 @@ assert.match(app, /const \[pulseVoiceError, setPulseVoiceError\] = useState\(""\
 
 assert.match(app, /pulseListening \? "Listening…"/);
 assert.match(app, /pulseBusy \? "Thinking…"/);
-assert.match(app, /speaking \? "Speaking…"/);
+assert.match(app, /speaking \? \(bargeInReady \? "Speaking · you can interrupt" : "Speaking…"/);
 assert.match(app, /pulseVoiceError \|\| "Ready"/);
 assert.match(app, /className=\{"aurora-pulse-voice-status"/);
 assert.match(app, /role="status" aria-live="polite"/);
