@@ -131,6 +131,10 @@ type AuroraNativePlugin = {
   status(): Promise<AuroraNativeStatus>;
   getSpecialAccessStatus(): Promise<{ modifySettings: boolean; allFiles: boolean; doNotDisturb: boolean; usageAccess: boolean; notificationAccess: boolean; installUnknownApps: boolean; overlay: boolean; accessibility: boolean; androidVersion: number }>;
   openSpecialAccessSettings(options: { permission: "modifySettings" | "allFiles" | "doNotDisturb" | "usageAccess" | "notificationAccess" | "installUnknownApps" | "wifi" | "accessibility" }): Promise<{ opened: boolean; permission: string; userMustConfirm: boolean; fallback?: boolean }>;
+  setSystemBrightness(options: { percent: number }): Promise<{ changed: boolean; percent: number; value: number }>;
+  setDoNotDisturb(options: { enabled: boolean }): Promise<{ changed: boolean; enabled?: boolean; supported?: boolean }>;
+  getRecentAppUsage(): Promise<{ apps: Array<{ packageName: string; foregroundMs: number; lastUsedAt: number }>; windowHours: number; readOnly: boolean }>;
+  getSharedStorageOverview(): Promise<{ entries: Array<{ name: string; directory: boolean; sizeBytes: number; modifiedAt: number }>; count: number; topLevelFileBytes: number; metadataOnly: boolean }>;
   openAccessibilitySettings(): Promise<{ opened: boolean }>;
   readScreen(): Promise<{ text: string }>;
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>;
@@ -246,6 +250,10 @@ export const auroraNative = {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android special access settings are available only in the Android app.");
     return AuroraNative.openSpecialAccessSettings({ permission });
   },
+  setSystemBrightness: async (percent: number) => { if (Capacitor.getPlatform() !== "android") throw new Error("Screen brightness control is available only in Android."); return AuroraNative.setSystemBrightness({ percent }); },
+  setDoNotDisturb: async (enabled: boolean) => { if (Capacitor.getPlatform() !== "android") throw new Error("Do Not Disturb control is available only in Android."); return AuroraNative.setDoNotDisturb({ enabled }); },
+  getRecentAppUsage: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("App usage summaries are available only in Android."); return AuroraNative.getRecentAppUsage(); },
+  getSharedStorageOverview: async () => { if (Capacitor.getPlatform() !== "android") throw new Error("Shared-storage access is available only in Android."); return AuroraNative.getSharedStorageOverview(); },
   openAccessibilitySettings: async () => {
     if (!Capacitor.isNativePlatform()) throw new Error("Screen Assistant settings are available only in the Android app.");
     return AuroraNative.openAccessibilitySettings();
