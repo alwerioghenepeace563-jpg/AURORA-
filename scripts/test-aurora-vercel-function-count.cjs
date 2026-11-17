@@ -1,6 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-import assert from "node:assert/strict";
+const fs = require("node:fs");
+const path = require("node:path");
+const assert = require("node:assert/strict");
 
 const apiRoot = path.resolve("api");
 const countJs = (dir) => fs.readdirSync(dir, { withFileTypes: true }).reduce((total, entry) => {
