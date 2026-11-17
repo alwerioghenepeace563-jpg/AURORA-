@@ -7,7 +7,7 @@ import { auroraSecureStorage } from "./lib/aurora-secure-storage";
 import { auroraRuntime } from "./core/aurora-runtime";
 import {
   runAuroraResearch, createAuroraResearchTask, getAuroraResearchTask, cancelAuroraResearchTask,
-  saveAuroraResearchResult, listAuroraSavedResearch, deleteAuroraSavedResearch
+  saveAuroraResearchResult, listAuroraSavedResearch, listAuroraResearchTasks, deleteAuroraSavedResearch
 } from "./research/research-client.js";
 import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
@@ -915,6 +915,7 @@ export default function App() {
   const [toolBusy, setToolBusy] = useState(false);
   const [researchLibraryOpen, setResearchLibraryOpen] = useState(false);
   const [researchSavedItems, setResearchSavedItems] = useState([]);
+  const [researchTaskItems, setResearchTaskItems] = useState([]);
   const [researchLibraryBusy, setResearchLibraryBusy] = useState(false);
   const [tasks, setTasks] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-tasks") || "[]"); } catch { return []; } });
   const [notes, setNotes] = useState(() => { try { return JSON.parse(localStorage.getItem("aurora-notes") || "[]"); } catch { return []; } });
@@ -1978,8 +1979,12 @@ export default function App() {
     setResearchLibraryOpen(true);
     setResearchLibraryBusy(true);
     try {
-      const items = await listAuroraSavedResearch(authSession?.access_token);
+      const [items, tasks] = await Promise.all([
+        listAuroraSavedResearch(authSession?.access_token),
+        authSession?.access_token ? listAuroraResearchTasks(authSession.access_token).catch(() => []) : Promise.resolve([])
+      ]);
       setResearchSavedItems(items);
+      setResearchTaskItems(tasks);
     } catch (error) {
       setNotice(error?.message || "Could not load saved research.");
     } finally {
@@ -2655,19 +2660,30 @@ export default function App() {
                     </>}
                     <button className="primary-action tool-run-button" type="submit" disabled={toolBusy}>{toolBusy ? <><span className="mini-loader"/> Working…</> : <><Sparkles size={16}/> {({search:"Search the web",weather:"Check weather",calculator:"Calculate",convert:"Convert units",translate:"Translate text",writing:"Improve my writing",study:"Start learning",summarize:"Summarize text",quiz:"Create my quiz",brainstorm:"Generate ideas",image:"Analyse image"})[toolKind] || "Run tool"}</>}</button>
                   </form>
+                  {toolKind === "search" && <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}><button type="button" className="outline-action" onClick={openResearchLibrary}><History size={14}/> Research library</button></div>}
+                  {researchLibraryOpen && toolKind === "search" && <section style={{margin:"12px 0",padding:14,border:"1px solid rgba(130,170,220,.22)",borderRadius:16,background:"rgba(9,20,39,.48)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:10}}><strong>Research library</strong><div style={{display:"flex",gap:6}}><button type="button" className="outline-action" onClick={openResearchLibrary}>Refresh</button><button type="button" className="outline-action" onClick={()=>setResearchLibraryOpen(false)}>Close</button></div></div>
+                    {researchLibraryBusy ? <p>Loading your research…</p> : <>
+                      {researchTaskItems.length > 0 && <div style={{display:"grid",gap:8,marginBottom:12}}>
+                        <strong style={{fontSize:12}}>Background tasks</strong>
+                        {researchTaskItems.map(task=><article key={task.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:10,borderRadius:12,background:"rgba(255,255,255,.04)"}}>
+                          <div style={{minWidth:0}}><strong style={{display:"block",fontSize:12,overflowWrap:"anywhere"}}>{task.query}</strong><small style={{color:"#9fb2cf"}}>{task.status} · {task.attempts || 0}/{task.max_attempts || 3} attempts</small></div>
+                          <div style={{display:"flex",gap:6,flexShrink:0}}><button type="button" className="outline-action" onClick={()=>{if(task.result)setToolResult(buildResearchToolResult(task.result,task.query));else setToolResult({kind:"search",query:task.query,status:task.status,taskId:task.id,researchTask:task,results:[],media:[],warnings:[task.error || "Research is still processing."]});setResearchLibraryOpen(false);}}>Open</button></div>
+                        </article>)}
+                      </div>}
+                      <div style={{display:"grid",gap:8}}>
+                        <strong style={{fontSize:12}}>Saved research</strong>
+                        {!researchSavedItems.length ? <p>No saved research yet. Save a result to keep it here.</p> : researchSavedItems.map(item=><article key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:10,borderRadius:12,background:"rgba(255,255,255,.04)"}}>
+                          <div style={{minWidth:0}}><strong style={{display:"block",fontSize:12,overflowWrap:"anywhere"}}>{item.title || item.query}</strong><small style={{color:"#9fb2cf"}}>{item.query} · {(item.result?.sources || []).length} sources</small></div>
+                          <div style={{display:"flex",gap:6,flexShrink:0}}><button type="button" className="outline-action" onClick={()=>openSavedResearch(item)}>Open</button><button type="button" className="outline-action" onClick={()=>removeSavedResearch(item)} aria-label="Delete saved research"><Trash2 size={13}/></button></div>
+                        </article>)}
+                      </div>
+                    </>}
+                  </section>}
                   {!toolResult && !toolBusy && <div className="tool-quick-prompts"><span>QUICK START</span><div>{(toolKind === "search" ? ["Latest news in Nigeria","UNIBEN admission updates","Explain how AI works"] : toolKind === "weather" ? ["Benin City","Lagos","Abuja"] : toolKind === "calculator" ? ["125 * 8 + 45","(24 + 16) / 4","2^10"] : toolKind === "convert" ? ["12 km to miles","25 C to F","500 g to kg"] : toolKind === "translate" ? ["Good morning, how are you?","Thank you for your help.","I will be there soon."] : toolKind === "writing" ? ["Write a professional email","Improve my introduction","Create a clear outline"] : ["Explain this topic step by step","Give me a worked example","Help me revise for an exam"]).map((prompt) => <button type="button" key={prompt} onClick={() => { if (toolKind === "search" || toolKind === "weather") setToolQuery(prompt); else setToolText(prompt); setNotice(""); }}>{prompt}<span>↗</span></button>)}</div></div>}
                   {notice && <div className="tool-notice" role="status">{notice}</div>}
                   {toolBusy && <div className="tool-loading"><span className="mini-loader"/><span>AURORA is working on your request…</span></div>}
                   {toolResult && <div className="tool-result-panel"><div className="tool-result-heading"><div><span className="panel-eyebrow">YOUR RESULT</span><h3>{({search:"Search results",weather:"Current weather and forecast",translate:"Translation",writing:"Your writing",study:"Study session",summarize:"Your summary",quiz:"Your quiz",brainstorm:"Your ideas",image:"Image guidance"})[toolResult.kind] || "Tool result"}</h3></div><div className="tool-result-actions"><button type="button" className="outline-action" onClick={async () => { const text = toolResult.reply || (toolResult.results || []).map((item) => [item.title, item.snippet, item.url].filter(Boolean).join("\n")).join("\n\n"); try { if (!text || !navigator.clipboard?.writeText) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(text); setNotice("Result copied."); } catch { setNotice("Copy is unavailable in this browser."); } }}>Copy result</button>{toolResult.reply && <button type="button" className="outline-action" onClick={() => speak(toolResult.reply)}><Volume2 size={14}/> Read aloud</button>}{toolResult.kind === "search" && toolResult.researchResult && <button type="button" className="outline-action" onClick={saveCurrentResearch}>Save research</button>}{toolResult.kind === "search" && <button type="button" className="outline-action" onClick={openResearchLibrary}>Saved research</button>}</div></div>
-                    {researchLibraryOpen && <section style={{margin:"0 0 16px",padding:14,border:"1px solid rgba(130,170,220,.22)",borderRadius:16,background:"rgba(9,20,39,.48)"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:10}}><strong>Research library</strong><button type="button" className="outline-action" onClick={()=>setResearchLibraryOpen(false)}>Close</button></div>
-                      {researchLibraryBusy ? <p>Loading your saved research…</p> : !researchSavedItems.length ? <p>No saved research yet. Save a result to keep it here.</p> : <div style={{display:"grid",gap:8}}>
-                        {researchSavedItems.map(item=><article key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:10,borderRadius:12,background:"rgba(255,255,255,.04)"}}>
-                          <div style={{minWidth:0}}><strong style={{display:"block",fontSize:12,overflowWrap:"anywhere"}}>{item.title || item.query}</strong><small style={{color:"#9fb2cf"}}>{item.query} · {(item.result?.sources || []).length} sources</small></div>
-                          <div style={{display:"flex",gap:6,flexShrink:0}}><button type="button" className="outline-action" onClick={()=>openSavedResearch(item)}>Open</button><button type="button" className="outline-action" onClick={()=>removeSavedResearch(item)} aria-label="Delete saved research"><Trash2 size={13}/></button></div>
-                        </article>)}
-                      </div>}
-                    </section>}
                     {toolResult.kind === "search" ? <div className={/\b(news|headlines|latest|breaking|updates)\b/i.test(toolResult.query || "") ? "tool-search-results tool-news-feed" : "tool-search-results"}>
                       {toolResult.taskId && ["queued","running"].includes(toolResult.status) && <div style={{padding:14,borderRadius:14,background:"rgba(45,212,230,.08)",border:"1px solid rgba(45,212,230,.2)",marginBottom:12}}><strong>Background research {toolResult.status === "running" ? "in progress" : "queued"}</strong><p style={{margin:"5px 0 10px",fontSize:12,color:"#b8c8df"}}>AURORA keeps this task in your account so it can continue after you leave this screen. Refresh to check for results.</p><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button type="button" className="outline-action" onClick={refreshBackgroundResearch}>Refresh status</button><button type="button" className="outline-action" onClick={stopBackgroundResearch}>Cancel task</button></div></div>}{toolResult.status === "failed" && <p>Research failed: {(toolResult.warnings || [])[0] || "No result was returned."}</p>}<div className="tool-search-summary"><span>{toolResult.results?.length || 0} sources for “{toolResult.query}”</span><small>{toolResult.taskId ? "Background research" : "Live research"} · {toolResult.source || "AURORA Research"}</small></div>
                       {(toolResult.results || []).map((item, index) => {
