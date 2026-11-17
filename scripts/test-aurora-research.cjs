@@ -68,8 +68,10 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
   const patcher = read("scripts/patch-android-native.mjs");
 
   assert.match(searchApi, /searchAuroraWebMulti/);
+  assert.match(searchApi, /export async function searchBingImages/);
   assert.match(searchApi, /requestBody\?\.research === true/);
   assert.match(mediaApi, /searchAuroraMedia/);
+  assert.match(mediaApi, /searchBingImages/);
   assert.match(mediaApi, /"document","diagram"/);
   assert.match(chatApi, /runAuroraResearch/);
   assert.match(pulse, /research: true/);
