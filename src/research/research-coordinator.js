@@ -68,8 +68,16 @@ export function createResearchCoordinator(dependencies = {}) {
     const sources = [...web.sources, ...visual.sources];
     const verification = assessResearchEvidence(sources);
     if (sources.length) warnings.push("Search snippets are discovery leads; full-page claim verification has not been performed.");
-    if (request.mediaTypes.includes("document") && !visual.media.some(item => item.type === "document")) {
-      { hasProviderFailure = true; warnings.push("No supported document preview was found for this query."); }
+    const missingMediaLabels = {
+      image: "image previews", video: "video previews",
+      diagram: "diagram previews", document: "document previews"
+    };
+    for (const mediaType of request.mediaTypes.filter(type => type !== "web")) {
+      const matches = visual.media.some(item => item.type === mediaType || (mediaType === "image" && item.type === "diagram"));
+      if (!matches) {
+        hasProviderFailure = true;
+        warnings.push("No supported " + (missingMediaLabels[mediaType] || "media results") + " were found for this query.");
+      }
     }
     const result = {
       taskId, query: request.query,
