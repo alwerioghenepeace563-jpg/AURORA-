@@ -2270,7 +2270,16 @@ export default function App() {
       <div className="ambient ambient-right" />
       <header className="topbar">
         <button className="brand-lockup" onClick={() => navigate("home")} aria-label="AURORA home">
-          <span className="brand-mark"><span /></span>
+          <svg className="brand-mark-svg" viewBox="0 0 108 108" role="img" aria-label="AURORA orbital A logo">
+            <circle cx="54" cy="54" r="47" fill="#10102D" stroke="#5A35D8" strokeWidth="2.5"/>
+            <path d="M10 58 C23 94 76 101 97 59" fill="none" stroke="#12D7F4" strokeWidth="2.2"/>
+            <path d="M25 77 L49 29 Q53 20 58 30 L83 77" fill="none" stroke="#B94CFF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M25 77 L49 29 Q53 20 58 30 L83 77" fill="none" stroke="#24DDFB" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12 63 C30 80 71 81 96 43" fill="none" stroke="#F5B94B" strokeWidth="3.5" strokeLinecap="round"/>
+            <path d="M53 45 L56 52 L63 55 L56 58 L53 65 L50 58 L43 55 L50 52Z" fill="#FFFFFF"/>
+            <path d="M82 23 L84 28 L89 30 L84 32 L82 37 L80 32 L75 30 L80 28Z" fill="#28DDF5"/>
+            <path d="M25 37 L27 41 L31 43 L27 45 L25 49 L23 45 L19 43 L23 41Z" fill="#F8C45A"/>
+          </svg>
           <span className="brand-name">AURORA<span className="brand-dot">.</span><small>PERSONAL INTELLIGENCE</small></span>
         </button>
         <div className="topbar-right">
