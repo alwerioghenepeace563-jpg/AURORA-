@@ -524,10 +524,6 @@ for (const marker of ["name = \"AuroraResearchBrowser\"", "openResearchBrowser",
 for (const marker of ['setDataDirectorySuffix("aurora_research")', "setAcceptCookie(false)", "setAcceptThirdPartyCookies", "setAllowFileAccess(false)", "shouldInterceptRequest", "WebStorage.getInstance().deleteAllData()"]) {
   if (!researchBrowserActivitySource.includes(marker)) throw new Error("Isolated research browser is missing required privacy behavior: " + marker);
 }
-if (!manifest.includes('android:process=":aurora_research"')) {
-  throw new Error("Research browser must run in its isolated Android process.");
-}
-
 if (!manifestText.includes("android.permission.NFC") || !manifestText.includes("FOREGROUND_SERVICE_MEDIA_PROJECTION")) {
   throw new Error("NFC and MediaProjection manifest permissions are missing.");
 }
@@ -678,6 +674,9 @@ const researchActivityDeclaration = `        <activity
 `;
 if (!manifest.includes('android:name=".AuroraResearchBrowserActivity"')) {
   manifest = manifest.replace("</application>", researchActivityDeclaration + "    </application>");
+}
+if (!manifest.includes('android:process=":aurora_research"')) {
+  throw new Error("Research browser must run in its isolated Android process.");
 }
 fs.writeFileSync(manifestPath, manifest);
 
