@@ -63,3 +63,9 @@ export async function runAuroraResearch(query, options = {}) {
 export function clearAuroraResearchSessionCache() {
   sessionCache.clear();
 }
+
+export async function clearAuroraResearchData() {
+  sessionCache.clear();
+  if (auroraNative.isAndroid()) return auroraNative.clearResearchBrowserData();
+  return { started: true, isolated: true };
+}
