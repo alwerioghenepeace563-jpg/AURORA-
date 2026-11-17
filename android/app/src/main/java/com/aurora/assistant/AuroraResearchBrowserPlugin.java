@@ -42,6 +42,10 @@ public class AuroraResearchBrowserPlugin extends Plugin {
 
     @PluginMethod
     public void openResearchBrowser(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            call.reject("The isolated research browser requires Android 9 or later.");
+            return;
+        }
         String url = call.getString("url", "");
         if (!isAllowedUrl(url)) {
             call.reject("Only public HTTPS pages can be opened in the isolated AURORA research browser.");
@@ -60,6 +64,10 @@ public class AuroraResearchBrowserPlugin extends Plugin {
 
     @PluginMethod
     public void extractResearchPage(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            call.reject("The isolated research browser requires Android 9 or later.");
+            return;
+        }
         String url = call.getString("url", "");
         String taskId = call.getString("taskId", "");
         if (!isAllowedUrl(url) || taskId.trim().isEmpty() || taskId.length() > 100) {
@@ -80,6 +88,10 @@ public class AuroraResearchBrowserPlugin extends Plugin {
 
     @PluginMethod
     public void clearResearchData(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            call.reject("The isolated research browser requires Android 9 or later.");
+            return;
+        }
         Intent intent = new Intent(getContext(), AuroraResearchBrowserActivity.class);
         intent.putExtra("mode", "clear");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
