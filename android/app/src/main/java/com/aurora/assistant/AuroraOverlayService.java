@@ -245,7 +245,7 @@ public class AuroraOverlayService extends Service {
 
     private boolean pauseWakeWordForPulseSpeech() {
         android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
-        if (!prefs.getBoolean("wake_word_service_enabled", false)) return false;
+        if (!prefs.getBoolean("wake_word_service_enabled", false) && !prefs.getBoolean("wake_word_listening", false)) return false;
         pulseResumeWakeWordAfterSpeech = true;
         prefs.edit().putBoolean("resume_wake_word_after_pulse", true).apply();
         Intent stop = new Intent(this, AuroraAssistantService.class);
