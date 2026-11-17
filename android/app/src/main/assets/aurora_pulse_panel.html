@@ -141,16 +141,14 @@ function setCollapsed(value){const collapsed=!!value;document.querySelector(".sh
       const response = await fetch(apiBase + '/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, research: true, intent: 'deep', mediaTypes: ['web'] })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'AURORA web search failed.');
-      const results = Array.isArray(data.results) ? data.results.slice(0, 5) : [];
-      return 'Tool: web_search. Query: ' + query + '; source: ' + (data.source || 'web search') +
-        '\n' + results.map((item, index) =>
-          (index + 1) + '. ' + (item.title || 'Untitled result') +
-          '\n' + (item.snippet || '') + '\nURL: ' + (item.url || '')
-        ).join('\n\n');
+      if (!response.ok) throw new Error(data.error || 'AURORA research failed.');
+      if (typeof data.context === 'string' && data.context.trim()) return data.context;
+      const results = Array.isArray(data.sources) ? data.sources.slice(0, 8) : [];
+      return 'Tool: web_research. Query: ' + query + '; status: ' + (data.status || 'partial') +
+        '\n' + results.map((item, index) => (index + 1) + '. ' + (item.title || 'Untitled result') + '\nURL: ' + (item.url || '')).join('\n\n');
     }
 
     const weatherMatch = /\b(weather|forecast|temperature outside|is it raining|will it rain|rain today)\b/i.test(userText);
