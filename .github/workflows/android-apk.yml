@@ -80,16 +80,20 @@ jobs:
           mkdir -p "$HOME/.android"
           python3 - <<'PY'
           import base64, os, re, sys
-          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"]
-          value = re.sub(r"\s+", "", raw).strip(chr(34) + chr(39))
-          if value.startswith("data:") and "," in value:
-              value = value.split(",", 1)[1]
+          raw = os.environ["AURORA_DEBUG_KEYSTORE_BASE64"].strip()
+          # Accept plain Base64, URL-safe Base64, data URLs, and PEM-style
+          # wrappers produced by Windows certutil -encode. Never print secret data.
+          if raw.startswith("data:") and "," in raw:
+              raw = raw.split(",", 1)[1]
+          lines = [line.strip() for line in raw.splitlines() if line.strip()]
+          lines = [line for line in lines if not line.startswith("-----BEGIN ") and not line.startswith("-----END ")]
+          value = re.sub(r"\s+", "", "".join(lines)).strip(chr(34) + chr(39))
           value = value.replace("-", "+").replace("_", "/")
           value += "=" * (-len(value) % 4)
           try:
               decoded = base64.b64decode(value, validate=True)
           except Exception:
-              print("::error::Signing secret is present but is not valid standard or URL-safe Base64. Check how the original keystore was encoded; the secret value was not printed.")
+              print("::error::Signing secret is present but is not valid Base64 after removing common Windows certutil PEM wrappers. The secret value was not printed.")
               sys.exit(1)
           if not decoded:
               print("::error::Signing secret decoded to an empty file.")
