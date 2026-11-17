@@ -307,15 +307,48 @@ public class AuroraAssistantPlugin extends Plugin {
         }
     }
 
+
+    private boolean pauseWakeWordForChatSpeech() {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
+        if (!prefs.getBoolean("wake_word_service_enabled", false)) return false;
+        prefs.edit().putBoolean("resume_wake_word_after_chat", true).apply();
+        Intent stop = new Intent(getContext(), AuroraAssistantService.class);
+        stop.setAction(AuroraAssistantService.ACTION_STOP);
+        try { getContext().startService(stop); return true; }
+        catch (Exception error) {
+            prefs.edit().putBoolean("resume_wake_word_after_chat", false).apply();
+            android.util.Log.w("AURORA", "Could not pause wake-word service before chat speech.", error);
+            return false;
+        }
+    }
+
+    private void resumeWakeWordAfterChatSpeech() {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
+        if (!prefs.getBoolean("resume_wake_word_after_chat", false)) return;
+        prefs.edit().putBoolean("resume_wake_word_after_chat", false).apply();
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+        Intent start = new Intent(getContext(), AuroraAssistantService.class);
+        start.setAction(AuroraAssistantService.ACTION_START);
+        try { androidx.core.content.ContextCompat.startForegroundService(getContext(), start); }
+        catch (Exception error) { android.util.Log.w("AURORA", "Could not resume Hey AURORA after chat speech.", error); }
+    }
+
     @PluginMethod
     public void startSpeechRecognition(PluginCall call) {
         if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             call.reject("Grant microphone permission first.");
             return;
         }
-        getActivity().runOnUiThread(() -> {
+        final boolean resumeWakeWord = pauseWakeWordForChatSpeech();
+        if (getActivity() == null) {
+            if (resumeWakeWord) resumeWakeWordAfterChatSpeech();
+            call.reject("AURORA is not attached to an active screen. Reopen the app and try the microphone again.");
+            return;
+        }
+        getActivity().runOnUiThread(() -> new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             try {
                 if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+                    if (resumeWakeWord) resumeWakeWordAfterChatSpeech();
                     call.reject("Android speech recognition is unavailable. Install or enable a speech recognition service, then try again.");
                     return;
                 }
@@ -333,12 +366,14 @@ public class AuroraAssistantPlugin extends Plugin {
                     @Override public void onError(int error) {
                         JSObject errorEvent = new JSObject(); errorEvent.put("code", error); errorEvent.put("message", speechErrorMessage(error)); notifyListeners("speechError", errorEvent);
                         cleanupSpeechRecognizer();
+                        resumeWakeWordAfterChatSpeech();
                     }
                     @Override public void onResults(Bundle results) {
                         java.util.ArrayList<String> matches = results == null ? null : results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                         String transcript = matches == null || matches.isEmpty() ? "" : matches.get(0);
                         notifyListeners("speechResult", speechPayload("transcript", transcript));
                         cleanupSpeechRecognizer();
+                        resumeWakeWordAfterChatSpeech();
                     }
                     @Override public void onPartialResults(Bundle partialResults) {
                         java.util.ArrayList<String> matches = partialResults == null ? null : partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -353,19 +388,22 @@ public class AuroraAssistantPlugin extends Plugin {
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-GB");
                 intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
                 intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getContext().getPackageName());
                 speechRecognizer.startListening(intent);
                 call.resolve(speechPayload("started", true));
             } catch (Exception e) {
                 cleanupSpeechRecognizer();
+                resumeWakeWordAfterChatSpeech();
                 call.reject("Could not start Android speech recognition: " + (e.getMessage() == null ? "unknown error" : e.getMessage()));
             }
-        });
+        }, resumeWakeWord ? 450 : 0));
     }
 
     @PluginMethod
     public void stopSpeechRecognition(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             cleanupSpeechRecognizer();
+            resumeWakeWordAfterChatSpeech();
             call.resolve(speechPayload("stopped", true));
         });
     }
@@ -496,6 +534,7 @@ public class AuroraAssistantPlugin extends Plugin {
         Intent intent = new Intent(getContext(), AuroraAssistantService.class);
         intent.setAction(AuroraAssistantService.ACTION_START);
         androidx.core.content.ContextCompat.startForegroundService(getContext(), intent);
+        getContext().getSharedPreferences("aurora_assistant", 0).edit().putBoolean("wake_word_service_enabled", true).putBoolean("resume_wake_word_after_chat", false).apply();
         JSObject result = new JSObject();
         result.put("started", true);
         result.put("note", "Hey AURORA wake-word listening is on. Say Hey AURORA to open AURORA hands-free.");
@@ -506,6 +545,7 @@ public class AuroraAssistantPlugin extends Plugin {
     public void stopAssistantService(PluginCall call) {
         Intent intent = new Intent(getContext(), AuroraAssistantService.class);
         intent.setAction(AuroraAssistantService.ACTION_STOP);
+        getContext().getSharedPreferences("aurora_assistant", 0).edit().putBoolean("wake_word_service_enabled", false).putBoolean("resume_wake_word_after_chat", false).apply();
         getContext().startService(intent);
         JSObject result = new JSObject();
         result.put("stopped", true);
