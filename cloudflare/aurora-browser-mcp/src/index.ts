@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { createMcpAgent } from "@cloudflare/playwright-mcp";
 
 interface Env {
-  BROWSER: Browser;
+  BROWSER: any;
   AURORA_MCP_TOKEN: string;
 }
 
