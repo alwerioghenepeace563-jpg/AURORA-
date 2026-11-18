@@ -60,11 +60,27 @@ async function main() {
     assert.equal(calls, 4, "Expected initialize, initialized notification, tools/list and tools/call.");
     assert.ok(getAuroraMcpStatus().some(item => item.id === "exa" && item.configured));
     assert.ok(getAuroraMcpStatus().some(item => item.id === "firecrawl" && !item.configured));
+    assert.ok(getAuroraMcpStatus().some(item => item.id === "cloudflare-browser-run" && !item.configured));
+
+    process.env.AURORA_EXA_ENABLED = "false";
+    process.env.CLOUDFLARE_ACCOUNT_ID = "test-account";
+    process.env.CLOUDFLARE_API_TOKEN = "test-browser-token";
+    global.fetch = async (url, options = {}) => {
+      assert.match(String(url), /\/accounts\/test-account\/browser-run\/markdown$/);
+      assert.equal(options.headers.Authorization, "Bearer test-browser-token");
+      assert.equal(JSON.parse(options.body).url, "https://example.com/");
+      return new Response(JSON.stringify({ success: true, result: "# Example page content" }), {
+        status: 200, headers: { "content-type": "application/json" }
+      });
+    };
+    const browserResult = await runAuroraMcpResearch("read this website https://example.com/", { maxResults: 3 });
+    assert.equal(browserResult.results.length, 1);
+    assert.equal(browserResult.results[0].server, "cloudflare-browser-run");
+    assert.match(browserResult.results[0].text, /Example page content/);
+    assert.ok(getAuroraMcpStatus().some(item => item.id === "cloudflare-browser-run" && item.configured));
   } finally {
     global.fetch = originalFetch;
   }
-  assert.ok(getAuroraMcpStatus().some(item => item.id === "cloudflare-browser-run" && !item.configured));
-  assert.equal(await runAuroraMcpResearch("read https://example.com"), (await runAuroraMcpResearch("read https://example.com")));
   console.log("AURORA remote MCP connector tests passed.");
 }
 
