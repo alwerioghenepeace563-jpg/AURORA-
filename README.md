@@ -29,6 +29,30 @@ When a provider succeeds, AURORA remembers it in the browser and uses it first o
 
 For provider preference shared across different devices and Vercel serverless instances, configure both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel. Without shared Redis, each browser keeps its own preference, while server-side memory is best-effort across serverless instances.
 
+## Optional remote MCP research connectors
+
+AURORA can enrich explicit live-research requests through optional server-side MCP
+connectors. The existing search and AI-provider fallback remain available if an
+MCP server is missing, rate-limited, or unavailable.
+
+- **Firecrawl:** hosted Streamable HTTP endpoint `https://mcp.firecrawl.dev/v2/mcp`.
+  Its keyless free tier is limited (search, scrape and parse); add
+  `FIRECRAWL_API_KEY` for authenticated access and higher-tier tools.
+- **Perplexity:** official endpoint `https://api.perplexity.ai/mcp`; requires
+  `PERPLEXITY_API_KEY`. Perplexity API use is not assumed to be free.
+- **Playwright:** set `AURORA_PLAYWRIGHT_MCP_URL` to a separately hosted
+  HTTPS Streamable HTTP MCP server. The normal `npx @playwright/mcp` setup is
+  a local stdio server and cannot be reached by Vercel functions. Chrome is a
+  browser choice/runtime behind Playwright, not a separate MCP server.
+- **Glyph:** set the custom endpoint only after identifying the exact Glyph MCP
+  implementation shown in the reference; the name alone is ambiguous.
+
+All MCP credentials are server-only environment variables. Do not put them in
+`VITE_*` variables, the APK, chat messages, or committed files. MCP output is
+treated as untrusted source material, not instructions. Automatic use is
+restricted to read-oriented tools; actions that change external state require a
+separate approval-aware capability.
+
 ## Vercel environment variables
 
 - `GROQ_API_KEY` — Groq API key.
