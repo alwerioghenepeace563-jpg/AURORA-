@@ -106,6 +106,18 @@
                 <action android:name="android.service.voice.VoiceInteractionSessionService" />
             </intent-filter>
         </service>
+        <service
+            android:name=".AuroraRecognitionService"
+            android:label="AURORA Speech Recognition Compatibility"
+            android:permission="android.permission.BIND_SPEECH_RECOGNITION"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech"
+                android:resource="@xml/aurora_recognition_service" />
+        </service>
             <service android:name=".AuroraOverlayService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="microphone" />
         <service
             android:name=".AuroraNotificationListenerService"
@@ -118,6 +130,6 @@
     </application>
 
     <!-- Permissions -->
-    <queries><package android:name="com.whatsapp" /><package android:name="com.whatsapp.w4b" /><package android:name="com.google.android.youtube" /><package android:name="com.android.chrome" /><package android:name="com.android.settings" /><package android:name="com.google.android.gm" /><package android:name="com.google.android.apps.maps" /><package android:name="com.google.android.apps.messaging" /><package android:name="com.android.vending" /><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent></queries>
+    <queries><package android:name="com.whatsapp" /><package android:name="com.whatsapp.w4b" /><package android:name="com.google.android.youtube" /><package android:name="com.android.chrome" /><package android:name="com.android.settings" /><package android:name="com.google.android.gm" /><package android:name="com.google.android.apps.maps" /><package android:name="com.google.android.apps.messaging" /><package android:name="com.android.vending" /><intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent><intent><action android:name="android.speech.RecognitionService" /></intent></queries>
 </manifest>
 
