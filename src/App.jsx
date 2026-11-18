@@ -2270,7 +2270,16 @@ export default function App() {
       <div className="ambient ambient-right" />
       <header className="topbar">
         <button className="brand-lockup" onClick={() => navigate("home")} aria-label="AURORA home">
-          <span className="brand-mark"><span /></span>
+          <svg className="brand-mark-svg" viewBox="0 0 108 108" role="img" aria-label="AURORA orbital A logo">
+            <circle cx="54" cy="54" r="47" fill="#10102D" stroke="#5A35D8" strokeWidth="2.5"/>
+            <path d="M10 58 C23 94 76 101 97 59" fill="none" stroke="#12D7F4" strokeWidth="2.2"/>
+            <path d="M25 77 L49 29 Q53 20 58 30 L83 77" fill="none" stroke="#B94CFF" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M25 77 L49 29 Q53 20 58 30 L83 77" fill="none" stroke="#24DDFB" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12 63 C30 80 71 81 96 43" fill="none" stroke="#F5B94B" strokeWidth="3.5" strokeLinecap="round"/>
+            <path d="M53 45 L56 52 L63 55 L56 58 L53 65 L50 58 L43 55 L50 52Z" fill="#FFFFFF"/>
+            <path d="M82 23 L84 28 L89 30 L84 32 L82 37 L80 32 L75 30 L80 28Z" fill="#28DDF5"/>
+            <path d="M25 37 L27 41 L31 43 L27 45 L25 49 L23 45 L19 43 L23 41Z" fill="#F8C45A"/>
+          </svg>
           <span className="brand-name">AURORA<span className="brand-dot">.</span><small>PERSONAL INTELLIGENCE</small></span>
         </button>
         <div className="topbar-right">
@@ -2742,7 +2751,7 @@ export default function App() {
                 <style>{`
                   .aurora-pulse-backdrop{position:fixed!important;inset:0!important;z-index:9999!important;display:block!important;padding:0!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
                   .aurora-pulse-panel{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;min-height:0!important;margin:0!important;padding:0!important;display:block!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#f5f7ff!important;pointer-events:none!important;isolation:isolate}
-                  .aurora-pulse-panel:before{content:"";position:fixed;inset:5px;border-radius:22px;pointer-events:none;border:1px solid transparent;background:linear-gradient(120deg,#ff5bc8,#55dcff,#b38aff,#ffe18a,#69efc2,#ff5bc8) border-box;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:.34;animation:auroraPulseFrame 12s linear infinite}
+                  .aurora-pulse-panel:before{display:none!important}
                   .aurora-pulse-head{position:fixed!important;top:12px!important;left:50%!important;transform:translateX(-50%)!important;width:min(520px,calc(100vw - 24px))!important;height:76px!important;display:flex!important;align-items:center!important;justify-content:center!important;pointer-events:none!important;z-index:10002!important}
                   .aurora-pulse-head .aurora-pulse-orb{position:relative!important;inset:auto!important;transform:none!important;width:68px!important;height:68px!important;flex:0 0 68px!important;border-radius:50%!important;background:radial-gradient(circle at 30% 22%,#fff 0,#b9f8ff 12%,#5bdcff 28%,#7c67ff 54%,#ec70e8 76%,#ffe5a5 100%)!important;box-shadow:0 0 16px #71eaffaa,0 0 38px #a47bff88,0 0 70px #ff6bc955!important;pointer-events:none!important;animation:auroraPulseOrb 4.4s ease-in-out infinite!important}
                   .aurora-pulse-head .aurora-pulse-brand{display:none!important}
@@ -2755,7 +2764,7 @@ export default function App() {
                   .aurora-pulse-tools-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;max-height:220px!important;overflow:auto!important}
                   .aurora-pulse-tool-card{min-height:68px!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:7px!important;padding:10px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:14px!important;background:rgba(255,255,255,.055)!important;color:#f4f7ff!important;text-align:left!important;font-size:11px!important;cursor:pointer!important;box-shadow:inset 0 0 14px rgba(255,255,255,.025),0 0 14px rgba(124,168,255,.07)!important}
                   .aurora-pulse-tool-card svg{color:#9ceaff!important}
-                  .aurora-pulse-chat{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:11px!important;min-height:110px!important;max-height:min(52dvh,460px)!important;overflow:auto!important;padding:16px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(22,25,40,.42),rgba(11,14,27,.34))!important;backdrop-filter:blur(18px) saturate(125%)!important;-webkit-backdrop-filter:blur(18px) saturate(125%)!important;box-shadow:0 16px 44px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.08)!important;overscroll-behavior:contain}
+                  .aurora-pulse-chat{position:relative!important;display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:11px!important;min-height:110px!important;max-height:min(52dvh,460px)!important;overflow:auto!important;padding:16px!important;border:1px solid rgba(255,255,255,.035)!important;border-radius:22px!important;background:linear-gradient(145deg,rgba(22,25,40,.28),rgba(11,14,27,.22))!important;backdrop-filter:blur(22px) saturate(125%)!important;-webkit-backdrop-filter:blur(22px) saturate(125%)!important;box-shadow:0 16px 44px rgba(0,0,0,.10),inset 0 1px rgba(255,255,255,.035)!important;overscroll-behavior:contain}
                   .aurora-pulse-message{position:relative!important;max-width:92%!important;padding:10px 13px!important;border:1px solid transparent!important;border-radius:15px!important;background:rgba(255,255,255,.065)!important;color:rgba(255,255,255,.94)!important;font-size:13px!important;line-height:1.55!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}
                   .aurora-pulse-message:after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(125deg,rgba(255,99,204,.44),rgba(93,223,255,.36),rgba(173,130,255,.4));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
                   .aurora-pulse-message.user{align-self:flex-end;background:rgba(74,132,177,.13)!important}

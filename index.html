@@ -36,6 +36,49 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+        function showStartupFailure(message) {
+          if (!root || root.dataset.auroraFailureShown === "1") return;
+          root.dataset.auroraFailureShown = "1";
+          root.innerHTML = "";
+          var shell = document.createElement("main");
+          shell.style.cssText = "min-height:100vh;box-sizing:border-box;padding:28px 22px;background:#080a12;color:#f4f5ff;font-family:system-ui,sans-serif";
+          var content = document.createElement("section");
+          content.style.cssText = "max-width:520px;margin:12vh auto 0";
+          var brand = document.createElement("div");
+          brand.textContent = "AURORA";
+          brand.style.cssText = "color:#a99aff;font-size:13px;letter-spacing:3px;font-weight:700";
+          var heading = document.createElement("h1");
+          heading.textContent = "AURORA could not finish loading";
+          heading.style.cssText = "font-size:25px;margin:18px 0 8px";
+          var explanation = document.createElement("p");
+          explanation.textContent = "The startup process reported an error. Please share this screen so the issue can be identified.";
+          explanation.style.cssText = "color:#b8bfd0;line-height:1.6";
+          var detail = document.createElement("pre");
+          detail.textContent = String(message || "The app did not render within 15 seconds.");
+          detail.style.cssText = "white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;border-radius:12px;background:#151a29;color:#ffd7a3;font-size:12px";
+          var button = document.createElement("button");
+          button.textContent = "Restart AURORA";
+          button.onclick = function () { window.location.reload(); };
+          button.style.cssText = "margin-top:12px;padding:12px 18px;border:0;border-radius:10px;background:#8b7cff;color:#080a12;font-weight:700";
+          content.append(brand, heading, explanation, detail, button);
+          shell.appendChild(content);
+          root.appendChild(shell);
+        }
+        window.addEventListener("error", function (event) {
+          showStartupFailure(event.error && (event.error.stack || event.error.message) || event.message || "A JavaScript loading error occurred.");
+        });
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason;
+          showStartupFailure(reason && (reason.stack || reason.message) || String(reason || "An unhandled startup promise was rejected."));
+        });
+        window.setTimeout(function () {
+          if (root && root.childElementCount === 0) showStartupFailure("The app entry point did not render within 15 seconds. This may indicate a failed JavaScript bundle load or an early startup exception.");
+        }, 15000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

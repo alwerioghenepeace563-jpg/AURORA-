@@ -19,8 +19,8 @@ android {
         applicationId "com.aurora.assistant"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1154
-        versionName "1.0.154"
+        versionCode 1156
+        versionName "1.0.156"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -30,7 +30,13 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.aurora
+            // Use the persistent AURORA identity whenever CI has restored it.
+            // For PR/verification builds without signing secrets, leave the
+            // Android plugin's generated debug signing config in place.
+            def auroraDebugKey = file("${System.getProperty('user.home')}/.android/debug.keystore")
+            if (auroraDebugKey.exists()) {
+                signingConfig signingConfigs.aurora
+            }
         }
         release {
             minifyEnabled false
