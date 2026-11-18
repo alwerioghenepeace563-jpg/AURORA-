@@ -44,10 +44,16 @@ MCP server is missing, rate-limited, or unavailable.
   it unless a genuinely free allowance is available and no billing is enabled.
 - **Perplexity:** not enabled in this $0 configuration because its MCP requires
   a separate API key and usage may be billed. AURORA uses Exa instead.
-- **Playwright:** set `AURORA_PLAYWRIGHT_MCP_URL` to a separately hosted
-  HTTPS Streamable HTTP MCP server. The normal `npx @playwright/mcp` setup is
-  a local stdio server and cannot be reached by Vercel functions. Chrome is a
-  browser choice/runtime behind Playwright, not a separate MCP server.
+- **Cloudflare Browser Run + Playwright MCP (free tier):** a deployable Worker
+  scaffold is included in `cloudflare/aurora-browser-mcp`. It uses Cloudflare's
+  official `@cloudflare/playwright-mcp` package and exposes Streamable HTTP at
+  `/mcp`, protected by a shared bearer secret. Deploy it on the Cloudflare
+  Workers Free plan, then set `AURORA_PLAYWRIGHT_MCP_URL` to its `/mcp` URL
+  and `AURORA_PLAYWRIGHT_MCP_TOKEN` to the same secret in Vercel. Free-plan
+  Browser Run allowance is 10 browser minutes/day, max 3 concurrent sessions,
+  and 60 seconds per browser timeout. Keep usage within that allowance and
+  do not upgrade or enable billing. See the worker README for deployment steps.
+  The normal local stdio Playwright MCP cannot be reached by Vercel functions.
 - **Glyph:** set the custom endpoint only after identifying the exact Glyph MCP
   implementation shown in the reference; the name alone is ambiguous.
 
@@ -64,6 +70,8 @@ separate approval-aware capability.
 - `OPENROUTER_API_KEY` — OpenRouter API key for the free-model fallback.
 - `GEMINI_API_KEY` — Gemini API key, including image/PDF requests and final text fallback.
 - `GEMINI_MODEL` — optional; defaults to `gemini-2.5-flash`.
+- `AURORA_EXA_ENABLED` / `AURORA_EXA_MCP_URL` — free keyless Exa research connector (rate-limited).
+- `AURORA_PLAYWRIGHT_MCP_URL` / `AURORA_PLAYWRIGHT_MCP_TOKEN` — optional Cloudflare Browser Run Worker endpoint and shared secret.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — optional shared provider state across serverless instances.
 - `ELEVENLABS_API_KEY` — ElevenLabs API key for voice output.
 - `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` — optional voice configuration.
