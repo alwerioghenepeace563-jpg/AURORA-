@@ -35,11 +35,15 @@ AURORA can enrich explicit live-research requests through optional server-side M
 connectors. The existing search and AI-provider fallback remain available if an
 MCP server is missing, rate-limited, or unavailable.
 
-- **Firecrawl:** hosted Streamable HTTP endpoint `https://mcp.firecrawl.dev/v2/mcp`.
-  Its keyless free tier is limited (search, scrape and parse); add
-  `FIRECRAWL_API_KEY` for authenticated access and higher-tier tools.
-- **Perplexity:** official endpoint `https://api.perplexity.ai/mcp`; requires
-  `PERPLEXITY_API_KEY`. Perplexity API use is not assumed to be free.
+- **Exa (default free research connector):** hosted Streamable HTTP endpoint
+  `https://mcp.exa.ai/mcp`. It supports keyless, rate-limited use, so AURORA
+  can search and fetch pages without adding a billing method or API key.
+- **Firecrawl (optional):** hosted Streamable HTTP endpoint
+  `https://mcp.firecrawl.dev/v2/mcp`. The current hosted service requires an
+  API key or OAuth access token; it stays disabled by default. Do not configure
+  it unless a genuinely free allowance is available and no billing is enabled.
+- **Perplexity:** not enabled in this $0 configuration because its MCP requires
+  a separate API key and usage may be billed. AURORA uses Exa instead.
 - **Playwright:** set `AURORA_PLAYWRIGHT_MCP_URL` to a separately hosted
   HTTPS Streamable HTTP MCP server. The normal `npx @playwright/mcp` setup is
   a local stdio server and cannot be reached by Vercel functions. Chrome is a
