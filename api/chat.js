@@ -85,7 +85,7 @@ async function chatHandler(req, res) {
       message => message?.role === "user" && typeof message.content === "string"
     );
     const searchText = latestUserMessage?.content?.trim().slice(0, 240) || "";
-    const asksForLiveInfo = /\b(search (?:the )?(?:web|internet|online)|look up online|find online|latest|current|today'?s news|recent news|breaking news|headlines|news about|as of (?:today|now)|this week|current price|price of|what happened (?:today|recently))\b/i.test(searchText);
+    const asksForLiveInfo = /\b(search (?:the )?(?:web|internet|online)|look up online|find online|research|investigate|browse (?:the )?(?:web|internet|website)|open (?:this )?website|latest|current|today'?s news|recent news|breaking news|headlines|news about|as of (?:today|now)|this week|current price|price of|what happened (?:today|recently))\b/i.test(searchText);
     const hasUserAttachments = body.messages.some(message => message?.image || message?.document);
 
     if (asksForLiveInfo && !hasUserAttachments && searchText.length >= 2) {
