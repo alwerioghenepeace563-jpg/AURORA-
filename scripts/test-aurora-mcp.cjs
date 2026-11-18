@@ -3,6 +3,9 @@ const { runAuroraMcpResearch, getAuroraMcpStatus } = require("../lib/aurora-mcp.
 
 async function main() {
   delete process.env.PERPLEXITY_API_KEY;
+  process.env.AURORA_EXA_ENABLED = "true";
+  process.env.AURORA_FIRECRAWL_ENABLED = "false";
+  delete process.env.FIRECRAWL_API_KEY;
   delete process.env.AURORA_PLAYWRIGHT_MCP_URL;
   delete process.env.AURORA_GLYPH_MCP_URL;
   process.env.AURORA_FIRECRAWL_ENABLED = "true";
@@ -16,7 +19,7 @@ async function main() {
     if (payload.method === "initialize") {
       return new Response(JSON.stringify({
         jsonrpc: "2.0", id: payload.id,
-        result: { protocolVersion: "2025-03-26", capabilities: {}, serverInfo: { name: "mock-firecrawl", version: "1" } }
+        result: { protocolVersion: "2025-03-26", capabilities: {}, serverInfo: { name: "mock-exa", version: "1" } }
       }), { status: 200, headers: { "content-type": "application/json", "mcp-session-id": "mock-session" } });
     }
     if (payload.method === "notifications/initialized") {
@@ -26,7 +29,7 @@ async function main() {
       return new Response(JSON.stringify({
         jsonrpc: "2.0", id: payload.id,
         result: { tools: [{
-          name: "firecrawl_search",
+          name: "web_search_exa",
           description: "Search the web for relevant pages.",
           inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"] }
         }] }
@@ -50,7 +53,7 @@ async function main() {
 
     const result = await runAuroraMcpResearch("research photosynthesis today");
     assert.equal(result.results.length, 1);
-    assert.equal(result.results[0].server, "firecrawl");
+    assert.equal(result.results[0].server, "exa");
     assert.match(result.results[0].text, /Mock search result/);
     assert.equal(calls, 4, "Expected initialize, initialized notification, tools/list and tools/call.");
     assert.ok(getAuroraMcpStatus().some(item => item.id === "firecrawl" && item.configured));
