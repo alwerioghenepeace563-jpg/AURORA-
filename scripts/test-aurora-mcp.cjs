@@ -6,6 +6,7 @@ async function main() {
   delete process.env.AURORA_PLAYWRIGHT_MCP_URL;
   delete process.env.AURORA_GLYPH_MCP_URL;
   process.env.AURORA_FIRECRAWL_ENABLED = "true";
+  process.env.FIRECRAWL_API_KEY = "test-firecrawl-key";
 
   const originalFetch = global.fetch;
   let calls = 0;
