@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.provider.Settings;
 import android.speech.RecognitionListener;
 import android.speech.RecognitionService;
@@ -14,51 +15,57 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Compatibility recognition-service endpoint required by Android's voice-assistant
- * metadata. On Android 12+ the platform uses its normal recognizer and ignores this
- * metadata target. On older Android versions this endpoint delegates to an installed
- * system recognizer, never to itself.
+ * Compatibility recognition endpoint required by Android assistant metadata.
+ * It delegates to an installed recognizer outside this package, avoiding recursion.
+ * Android 12+ uses its platform recognizer path and ignores this metadata target.
  */
 public final class AuroraRecognitionService extends RecognitionService {
     private final Map<Callback, SpeechRecognizer> active = new ConcurrentHashMap<>();
+
+    private interface CallbackCall { void run() throws RemoteException; }
+    private void notifyCallback(CallbackCall call) {
+        try { call.run(); } catch (RemoteException ignored) {}
+    }
+    private void reportError(Callback callback, int error) {
+        notifyCallback(() -> callback.error(error));
+    }
 
     @Override
     protected void onStartListening(Intent recognizerIntent, Callback callback) {
         if (callback == null) return;
         SpeechRecognizer recognizer = createExternalRecognizer();
         if (recognizer == null) {
-            callback.error(SpeechRecognizer.ERROR_RECOGNIZER_BUSY);
+            reportError(callback, SpeechRecognizer.ERROR_SERVER);
             return;
         }
 
         SpeechRecognizer previous = active.put(callback, recognizer);
         destroy(previous);
         recognizer.setRecognitionListener(new RecognitionListener() {
-            private void finish() {
-                SpeechRecognizer current = active.remove(callback);
-                destroy(current);
-            }
+            private void finish() { finishRequest(callback); }
 
-            @Override public void onReadyForSpeech(Bundle params) { callback.readyForSpeech(params); }
-            @Override public void onBeginningOfSpeech() { callback.beginningOfSpeech(); }
-            @Override public void onRmsChanged(float rmsdB) { callback.rmsChanged(rmsdB); }
-            @Override public void onBufferReceived(byte[] buffer) { callback.bufferReceived(buffer); }
-            @Override public void onEndOfSpeech() { callback.endOfSpeech(); }
+            @Override public void onReadyForSpeech(Bundle params) { notifyCallback(() -> callback.readyForSpeech(params)); }
+            @Override public void onBeginningOfSpeech() { notifyCallback(callback::beginningOfSpeech); }
+            @Override public void onRmsChanged(float rmsdB) { notifyCallback(() -> callback.rmsChanged(rmsdB)); }
+            @Override public void onBufferReceived(byte[] buffer) { notifyCallback(() -> callback.bufferReceived(buffer)); }
+            @Override public void onEndOfSpeech() { notifyCallback(callback::endOfSpeech); }
             @Override public void onError(int error) {
-                try { callback.error(error); } finally { finish(); }
+                reportError(callback, error);
+                finish();
             }
             @Override public void onResults(Bundle results) {
-                try { callback.results(results); } finally { finish(); }
+                notifyCallback(() -> callback.results(results));
+                finish();
             }
-            @Override public void onPartialResults(Bundle partialResults) { callback.partialResults(partialResults); }
-            @Override public void onEvent(int eventType, Bundle params) { callback.event(eventType, params); }
+            @Override public void onPartialResults(Bundle partialResults) { notifyCallback(() -> callback.partialResults(partialResults)); }
+            @Override public void onEvent(int eventType, Bundle params) {}
         });
 
         try {
             recognizer.startListening(recognizerIntent == null ? new Intent() : new Intent(recognizerIntent));
         } catch (RuntimeException error) {
             finishRequest(callback);
-            callback.error(SpeechRecognizer.ERROR_CLIENT);
+            reportError(callback, SpeechRecognizer.ERROR_CLIENT);
         }
     }
 
@@ -66,14 +73,14 @@ public final class AuroraRecognitionService extends RecognitionService {
     protected void onStopListening(Callback callback) {
         SpeechRecognizer recognizer = active.get(callback);
         if (recognizer == null) {
-            callback.error(SpeechRecognizer.ERROR_CLIENT);
+            reportError(callback, SpeechRecognizer.ERROR_CLIENT);
             return;
         }
         try {
             recognizer.stopListening();
         } catch (RuntimeException error) {
             finishRequest(callback);
-            callback.error(SpeechRecognizer.ERROR_CLIENT);
+            reportError(callback, SpeechRecognizer.ERROR_CLIENT);
         }
     }
 
