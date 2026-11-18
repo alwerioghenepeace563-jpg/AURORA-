@@ -8,6 +8,9 @@ async function main() {
   delete process.env.FIRECRAWL_API_KEY;
   delete process.env.FIRECRAWL_OAUTH_TOKEN;
   delete process.env.AURORA_PLAYWRIGHT_MCP_URL;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.CLOUDFLARE_API_TOKEN;
+  process.env.AURORA_CLOUDFLARE_BROWSER_ENABLED = "true";
   delete process.env.AURORA_GLYPH_MCP_URL;
 
   const originalFetch = global.fetch;
@@ -60,6 +63,8 @@ async function main() {
   } finally {
     global.fetch = originalFetch;
   }
+  assert.ok(getAuroraMcpStatus().some(item => item.id === "cloudflare-browser-run" && !item.configured));
+  assert.equal(await runAuroraMcpResearch("read https://example.com"), (await runAuroraMcpResearch("read https://example.com")));
   console.log("AURORA remote MCP connector tests passed.");
 }
 
