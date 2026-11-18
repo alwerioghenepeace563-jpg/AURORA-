@@ -6,10 +6,9 @@ async function main() {
   process.env.AURORA_EXA_ENABLED = "true";
   process.env.AURORA_FIRECRAWL_ENABLED = "false";
   delete process.env.FIRECRAWL_API_KEY;
+  delete process.env.FIRECRAWL_OAUTH_TOKEN;
   delete process.env.AURORA_PLAYWRIGHT_MCP_URL;
   delete process.env.AURORA_GLYPH_MCP_URL;
-  process.env.AURORA_FIRECRAWL_ENABLED = "true";
-  process.env.FIRECRAWL_API_KEY = "test-firecrawl-key";
 
   const originalFetch = global.fetch;
   let calls = 0;
@@ -36,7 +35,7 @@ async function main() {
       }), { status: 200, headers: { "content-type": "application/json" } });
     }
     if (payload.method === "tools/call") {
-      assert.equal(payload.params.name, "firecrawl_search");
+      assert.equal(payload.params.name, "web_search_exa");
       assert.equal(payload.params.arguments.query, "research photosynthesis today");
       return new Response(JSON.stringify({
         jsonrpc: "2.0", id: payload.id,
@@ -56,7 +55,8 @@ async function main() {
     assert.equal(result.results[0].server, "exa");
     assert.match(result.results[0].text, /Mock search result/);
     assert.equal(calls, 4, "Expected initialize, initialized notification, tools/list and tools/call.");
-    assert.ok(getAuroraMcpStatus().some(item => item.id === "firecrawl" && item.configured));
+    assert.ok(getAuroraMcpStatus().some(item => item.id === "exa" && item.configured));
+    assert.ok(getAuroraMcpStatus().some(item => item.id === "firecrawl" && !item.configured));
   } finally {
     global.fetch = originalFetch;
   }
