@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.provider.Settings;
 import android.speech.RecognitionListener;
 import android.speech.RecognitionService;
 import android.speech.SpeechRecognizer;
@@ -90,25 +89,22 @@ public final class AuroraRecognitionService extends RecognitionService {
     }
 
     private SpeechRecognizer createExternalRecognizer() {
-        ComponentName preferred = null;
-        String configured = Settings.Secure.getString(
-            getContentResolver(), Settings.Secure.VOICE_RECOGNITION_SERVICE);
-        if (configured != null) preferred = ComponentName.unflattenFromString(configured);
-
         Intent query = new Intent(RecognitionService.SERVICE_INTERFACE);
         List<ResolveInfo> services = getPackageManager().queryIntentServices(query, PackageManager.MATCH_ALL);
         if (services == null || services.isEmpty()) return null;
 
         ComponentName selected = null;
+        ComponentName systemSelected = null;
         for (ResolveInfo info : services) {
             if (info.serviceInfo == null || getPackageName().equals(info.serviceInfo.packageName)) continue;
             ComponentName candidate = new ComponentName(info.serviceInfo.packageName, info.serviceInfo.name);
-            if (preferred != null && preferred.equals(candidate)) {
-                selected = candidate;
+            if (selected == null) selected = candidate;
+            if ((info.serviceInfo.applicationInfo.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0) {
+                systemSelected = candidate;
                 break;
             }
-            if (selected == null) selected = candidate;
         }
+        if (systemSelected != null) selected = systemSelected;
         if (selected == null) return null;
         try {
             return SpeechRecognizer.createSpeechRecognizer(this, selected);
