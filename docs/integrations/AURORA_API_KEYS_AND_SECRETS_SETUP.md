@@ -177,3 +177,16 @@ These services still have usage policies, availability limits and network requir
 A configured status means a variable exists, not that the provider accepts it, has quota, or supports a requested model. Use a live provider test for AI keys. VoiceText requires an authenticated transcription round-trip. Supabase cloud memory requires a signed-in test account and RLS verification. Android signing requires a certificate match and release build.
 
 Never mark Stages 1–14 as fully configured merely because environment variables have been entered. Stage 13 provider adapters and release/device certification remain separate work.
+
+
+## 5. Optional free Cloudflare Browser Run page reader
+
+AURORA can optionally read a user-supplied public webpage using Cloudflare Browser Run's Markdown Quick Action. The current Workers Free allowance is 10 browser minutes per day. This is a limited allowance, not unlimited free browser automation; do not upgrade to a paid plan or enable billing for this integration.
+
+| Variable | Requirement | Purpose |
+|---|---|---|
+| CLOUDFLARE_ACCOUNT_ID | Required to enable Browser Run | Cloudflare account ID used in the Browser Run endpoint |
+| CLOUDFLARE_API_TOKEN | Required to enable Browser Run | Server-only API token with Browser Run - Edit permission |
+| AURORA_CLOUDFLARE_BROWSER_ENABLED | Optional; defaults true when credentials exist | Set false to disable the integration |
+
+The integration only runs when the user explicitly asks AURORA to read/browse a message containing a public HTTP(S) URL. It uses one Markdown Quick Action per request, does not launch a persistent browser session, and caps returned text. If Cloudflare returns a daily-limit response, AURORA falls back to its existing search/provider path. Keep the account on the Workers Free plan and monitor the Browser Run usage dashboard. Never put the API token in a VITE_ variable, source file, APK, or chat message.
