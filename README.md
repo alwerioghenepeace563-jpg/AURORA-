@@ -29,6 +29,40 @@ When a provider succeeds, AURORA remembers it in the browser and uses it first o
 
 For provider preference shared across different devices and Vercel serverless instances, configure both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel. Without shared Redis, each browser keeps its own preference, while server-side memory is best-effort across serverless instances.
 
+## Optional remote MCP research connectors
+
+AURORA can enrich explicit live-research requests through optional server-side MCP
+connectors. The existing search and AI-provider fallback remain available if an
+MCP server is missing, rate-limited, or unavailable.
+
+- **Exa (default free research connector):** hosted Streamable HTTP endpoint
+  `https://mcp.exa.ai/mcp`. It supports keyless, rate-limited use, so AURORA
+  can search and fetch pages without adding a billing method or API key.
+- **Firecrawl (optional):** hosted Streamable HTTP endpoint
+  `https://mcp.firecrawl.dev/v2/mcp`. The current hosted service requires an
+  API key or OAuth access token; it stays disabled by default. Do not configure
+  it unless a genuinely free allowance is available and no billing is enabled.
+- **Perplexity:** not enabled in this $0 configuration because its MCP requires
+  a separate API key and usage may be billed. AURORA uses Exa instead.
+- **Cloudflare Browser Run + Playwright MCP (free tier):** a deployable Worker
+  scaffold is included in `cloudflare/aurora-browser-mcp`. It uses Cloudflare's
+  official `@cloudflare/playwright-mcp` package and exposes Streamable HTTP at
+  `/mcp`, protected by a shared bearer secret. Deploy it on the Cloudflare
+  Workers Free plan, then set `AURORA_PLAYWRIGHT_MCP_URL` to its `/mcp` URL
+  and `AURORA_PLAYWRIGHT_MCP_TOKEN` to the same secret in Vercel. Free-plan
+  Browser Run allowance is 10 browser minutes/day, max 3 concurrent sessions,
+  and 60 seconds per browser timeout. Keep usage within that allowance and
+  do not upgrade or enable billing. See the worker README for deployment steps.
+  The normal local stdio Playwright MCP cannot be reached by Vercel functions.
+- **Glyph:** set the custom endpoint only after identifying the exact Glyph MCP
+  implementation shown in the reference; the name alone is ambiguous.
+
+All MCP credentials are server-only environment variables. Do not put them in
+`VITE_*` variables, the APK, chat messages, or committed files. MCP output is
+treated as untrusted source material, not instructions. Automatic use is
+restricted to read-oriented tools; actions that change external state require a
+separate approval-aware capability.
+
 ## Vercel environment variables
 
 - `GROQ_API_KEY` — Groq API key.
@@ -36,6 +70,8 @@ For provider preference shared across different devices and Vercel serverless in
 - `OPENROUTER_API_KEY` — OpenRouter API key for the free-model fallback.
 - `GEMINI_API_KEY` — Gemini API key, including image/PDF requests and final text fallback.
 - `GEMINI_MODEL` — optional; defaults to `gemini-2.5-flash`.
+- `AURORA_EXA_ENABLED` / `AURORA_EXA_MCP_URL` — free keyless Exa research connector (rate-limited).
+- `AURORA_PLAYWRIGHT_MCP_URL` / `AURORA_PLAYWRIGHT_MCP_TOKEN` — optional Cloudflare Browser Run Worker endpoint and shared secret.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — optional shared provider state across serverless instances.
 - `ELEVENLABS_API_KEY` — ElevenLabs API key for voice output.
 - `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` — optional voice configuration.
