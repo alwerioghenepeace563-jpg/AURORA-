@@ -327,22 +327,36 @@ export default {
     }
 
     if (!url.pathname.startsWith("/api/")) {
-      // Serve the SPA shell through the Worker so it cannot be shadowed by a
-      // stale edge-cached document that references an asset from an older build.
-      if (url.pathname === "/" || url.pathname === "/index.html") {
-        const indexUrl = new URL("/index.html", request.url);
-        const assetRequest = new Request(indexUrl, request);
-        const assetResponse = await env.ASSETS.fetch(assetRequest);
-        const headers = new Headers(assetResponse.headers);
-        headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-        headers.set("Pragma", "no-cache");
-        return new Response(assetResponse.body, {
-          status: assetResponse.status,
-          statusText: assetResponse.statusText,
-          headers
-        });
+      // Fetch exact static assets first. Missing JS/CSS/images must stay 404s
+      // rather than being silently rewritten to index.html by an SPA fallback.
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        if (url.pathname === "/" || url.pathname === "/index.html") {
+          const headers = new Headers(assetResponse.headers);
+          headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+          headers.set("Pragma", "no-cache");
+          return new Response(assetResponse.body, {
+            status: assetResponse.status,
+            statusText: assetResponse.statusText,
+            headers
+          });
+        }
+        return assetResponse;
       }
-      return env.ASSETS.fetch(request);
+
+      // Keep client-side navigation working, but only for extensionless paths.
+      // A missing file-like asset should return 404, never the HTML application.
+      if (/\\.[^/]+$/.test(url.pathname)) return assetResponse;
+      const indexUrl = new URL("/index.html", request.url);
+      const shell = await env.ASSETS.fetch(new Request(indexUrl, request));
+      const headers = new Headers(shell.headers);
+      headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      headers.set("Pragma", "no-cache");
+      return new Response(shell.body, {
+        status: shell.status,
+        statusText: shell.statusText,
+        headers
+      });
     }
 
     // Stage 1 keeps existing API contracts intact. Individual routes will be
