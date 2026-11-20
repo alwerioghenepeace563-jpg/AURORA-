@@ -1,0 +1,84 @@
+name: AURORA Cloudflare API
+# Stage 7 runs full frontend, Android parity, and Worker checks without deploying.
+
+on:
+  push:
+    branches:
+      - feature/aurora-cloudflare-backend-migration
+    paths:
+      - "cloudflare/aurora-api/**"
+      - "src/lib/aurora-api-config.js"
+      - "src/lib/aurora-native.ts"
+      - "scripts/test-aurora-api-routing.cjs"
+      - "scripts/check-android-feature-parity.mjs"
+      - "src/**"
+      - "public/**"
+      - "android/**"
+      - "scripts/**"
+      - "index.html"
+      - "vite.config.js"
+      - "package.json"
+      - ".github/workflows/aurora-cloudflare-api.yml"
+      - ".github/workflows/deploy-aurora-cloudflare.yml"
+  pull_request:
+    paths:
+      - "cloudflare/aurora-api/**"
+      - ".github/workflows/aurora-cloudflare-api.yml"
+      - "src/**"
+      - "public/**"
+      - "android/**"
+      - "scripts/**"
+      - "index.html"
+      - "vite.config.js"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: cloudflare/aurora-api
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        working-directory: .
+        run: npm install --no-audit --no-fund
+      - name: Type-check frontend
+        working-directory: .
+        run: npm run typecheck
+      - name: Build frontend SPA
+        working-directory: .
+        run: npm run build
+      - name: Verify Android feature parity contracts
+        working-directory: .
+        run: npm run android:check
+      - name: Run complete AURORA core regression suite
+        working-directory: .
+        run: npm run test:core
+      - name: Install Worker dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check Worker
+        run: npm run typecheck
+      - name: Test frontend API origin routing
+        run: node ../../scripts/test-aurora-api-routing.cjs
+      - name: Test Worker endpoint contracts locally
+        run: npm run test:contracts
+      - name: Test deployed Worker smoke-test input contracts
+        run: npm run test:smoke-contracts
+      - name: Run static deployment preflight
+        run: npm run test:preflight
+      - name: Syntax-check deployed Worker smoke test
+        run: node --check scripts/test-deployed-worker.mjs
+      - name: Validate Cloudflare bundle without deploying
+        run: npx wrangler deploy --dry-run

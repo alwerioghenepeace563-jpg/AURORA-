@@ -49,6 +49,7 @@ jobs:
           echo "VITE_AURORA_VERSION_NAME=1.0.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
       - name: Build web app
         env:
+          VITE_AURORA_API_BASE_URL: ${{ vars.VITE_AURORA_API_BASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
