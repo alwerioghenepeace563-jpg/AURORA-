@@ -68,5 +68,8 @@
     "vite": "^6.4.1",
     "@capacitor/cli": "^7.4.3"
   },
-  "type": "module"
+  "type": "module",
+  "overrides": {
+    "picomatch": "^4.0.8"
+  }
 }
