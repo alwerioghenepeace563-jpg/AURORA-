@@ -74,6 +74,22 @@ try {
   assert.equal(sameOriginMetadata.headers.get('access-control-allow-origin'), base,
     'Cloudflare-hosted frontend must be allowed to call its same-origin API');
 
+  const sameOriginChat = await expectStatus('/api/chat', 503, {
+    method: 'POST',
+    headers: { Origin: base, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'hello' }] })
+  });
+  assert.equal(sameOriginChat.headers.get('access-control-allow-origin'), base,
+    'Cloudflare-hosted frontend chat must accept its own origin');
+
+  const sameOriginResearch = await expectStatus('/api/search', 400, {
+    method: 'POST',
+    headers: { Origin: base, 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
+  assert.equal(sameOriginResearch.headers.get('access-control-allow-origin'), base,
+    'Cloudflare-hosted frontend research must accept its own origin');
+
   const metadataResponse = await expectStatus('/api/meta?handler=health', 200, {
     headers: { Origin: allowedOrigin }
   });

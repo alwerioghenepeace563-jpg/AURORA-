@@ -460,7 +460,9 @@ export default function App() {
           setPublicAuthConfig(data);
         }
       })
-      .catch(() => {});
+      .catch(error => {
+        if (!cancelled) setAuthMessage(error?.message || "AURORA sign-in configuration is unavailable. Check the Cloudflare Worker Supabase settings.");
+      });
     return () => { cancelled = true; };
   }, []);
   const authUrl = (publicAuthConfig?.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_API || "").trim().replace(/\/$/, "").replace(/\/(?:rest\/v1|auth\/v1)$/i, "");
@@ -1078,7 +1080,7 @@ export default function App() {
     event.preventDefault();
     setAuthMessage("");
     if (!authConfigured) {
-      setAuthMessage("Login setup is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
+      setAuthMessage("AURORA sign-in is not connected yet. Add SUPABASE_URL and SUPABASE_ANON_KEY to the aurora-api Worker in Cloudflare, then refresh.");
       return;
     }
     if (!authEmail.trim() || !authPassword) { setAuthMessage("Enter your email and password to continue."); return; }
@@ -1111,7 +1113,7 @@ export default function App() {
   async function handleOAuth(provider) {
     setAuthMessage("");
     if (!authConfigured) {
-      setAuthMessage("Login setup is not connected yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
+      setAuthMessage("AURORA sign-in is not connected yet. Add SUPABASE_URL and SUPABASE_ANON_KEY to the aurora-api Worker in Cloudflare, then refresh.");
       return;
     }
     try {
@@ -2250,7 +2252,7 @@ export default function App() {
                   <div className="auth-input-wrap"><LockKeyhole size={17}/><input type={authShowPassword ? "text" : "password"} autoComplete={authMode === "signup" ? "new-password" : "current-password"} minLength={6} value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} placeholder="Enter your password" required/><button type="button" onClick={()=>setAuthShowPassword(v=>!v)} aria-label={authShowPassword ? "Hide password" : "Show password"}>{authShowPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div>
                 </label>
                 {authMessage && <p className="auth-message" role="status">{authMessage}</p>}
-                {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Sign-in configuration is still loading or unavailable. Please try again shortly.</p>}
+                {!authConfigured && <p className="auth-setup-note"><ShieldCheck size={15}/> Cloudflare sign-in needs SUPABASE_URL and SUPABASE_ANON_KEY configured on the aurora-api Worker.</p>}
                 <button className="auth-submit" type="submit" disabled={authBusy || !authConfigured}>{authBusy ? <span className="mini-loader"/> : null}{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"} <ArrowUpRight size={18}/></button>
               </form>
               <p className="auth-switch">{authMode === "signup" ? "Already have an account?" : "New to AURORA?"}<button type="button" onClick={()=>{setAuthMode(v=>v==="signup"?"signin":"signup");setAuthMessage("");}}>{authMode === "signup" ? "Sign in" : "Create an account"}</button></p>

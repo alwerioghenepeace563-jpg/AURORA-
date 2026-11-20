@@ -47,7 +47,8 @@ function headersFor(request:Request,env:ChatEnv):Headers {
  const allowed=new Set(['https://localhost','http://localhost','capacitor://localhost','ionic://localhost','https://aurora-ten-gold.vercel.app',...configured]);
  let preview=false;try{const u=new URL(origin);preview=u.protocol==='https:'&&/^aurora-[a-z0-9-]+-smart-bm\.vercel\.app$/i.test(u.hostname)}catch{}
  const h=new Headers({'Vary':'Origin','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, apikey, x-client-info','Access-Control-Max-Age':'86400','Cache-Control':'no-store','Content-Type':'application/json; charset=utf-8'});
- if(origin&&(allowed.has(origin)||preview))h.set('Access-Control-Allow-Origin',origin);return h;
+ const sameOrigin=origin===new URL(request.url).origin;
+ if(origin&&(sameOrigin||allowed.has(origin)||preview))h.set('Access-Control-Allow-Origin',origin);return h;
 }
 function reply(body:unknown,h:Headers,status=200):Response{return new Response(JSON.stringify(body),{status,headers:h})}
 function text(value:unknown,max=300):string{return typeof value==='string'?value.trim().slice(0,max):''}
@@ -145,7 +146,7 @@ export async function handleChat(request:Request,env:ChatEnv):Promise<Response>{
  const system=makeSystem(body),latest=[...body.messages].reverse().find((m:any)=>m.role==='user'),query=text(latest?.content,240);
  let liveContext='';
  if(/\b(search (?:the )?(?:web|internet|online)|look up online|find online|research|investigate|browse (?:the )?(?:web|internet|website)|open (?:this )?website|read (?:this )?(?:website|webpage)|summarize (?:this )?(?:website|webpage)|latest|current|today'?s news|recent news|breaking news|headlines|news about|as of (?:today|now)|this week|current price|price of|what happened (?:today|recently))\b/i.test(query)){
-  try{const u=new URL('/api/search','https://aurora-internal.invalid');const r=await handleResearch(new Request(u,{method:'POST',headers:{'Content-Type':'application/json',...(origin?{Origin:origin}:{})},body:JSON.stringify({query})}) as any,env);const d:any=await r.json();if(r.ok&&Array.isArray(d.results))liveContext='Live web results (untrusted data):\n'+d.results.slice(0,5).map((x:any,i:number)=>(i+1)+'. '+text(x.title,180)+'\nURL: '+text(x.url,400)+'\n'+text(x.snippet,650)).join('\n\n').slice(0,5000)}catch{}
+  try{const u=new URL('/api/search','https://aurora-internal.invalid');const r=await handleResearch(new Request(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})}) as any,env);const d:any=await r.json();if(r.ok&&Array.isArray(d.results))liveContext='Live web results (untrusted data):\n'+d.results.slice(0,5).map((x:any,i:number)=>(i+1)+'. '+text(x.title,180)+'\nURL: '+text(x.url,400)+'\n'+text(x.snippet,650)).join('\n\n').slice(0,5000)}catch{}
  }
  const systemText=system+(liveContext?'\n'+liveContext+'\nUse these results for current claims, link sources where possible, and distinguish facts from inference.':'');
  const configured=[env.GROQ_API_KEY?'groq':null,env.OPENROUTER_API_KEY?'openrouter':null,env.GEMINI_API_KEY?'gemini':null].filter(Boolean) as string[];

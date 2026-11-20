@@ -17,7 +17,8 @@ function cors(request:Request,env:ResearchEnv):Headers {
   const allowed=new Set(['https://localhost','http://localhost','capacitor://localhost','ionic://localhost','https://aurora-ten-gold.vercel.app',...configured]);
   let preview=false; try { const u=new URL(origin); preview=u.protocol==='https:' && /^aurora-[a-z0-9-]+-smart-bm\.vercel\.app$/i.test(u.hostname); } catch {}
   const h=new Headers({'Vary':'Origin','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, apikey, x-client-info','Access-Control-Max-Age':'86400','Cache-Control':'no-store'});
-  if(origin&&(allowed.has(origin)||preview))h.set('Access-Control-Allow-Origin',origin); return h;
+  const sameOrigin=origin===new URL(request.url).origin;
+  if(origin&&(sameOrigin||allowed.has(origin)||preview))h.set('Access-Control-Allow-Origin',origin); return h;
 }
 function safeUrl(raw:string):string|null {
   try {
