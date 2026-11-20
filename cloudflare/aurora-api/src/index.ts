@@ -346,7 +346,7 @@ export default {
 
       // Keep client-side navigation working, but only for extensionless paths.
       // A missing file-like asset should return 404, never the HTML application.
-      if (/\\.[^/]+$/.test(url.pathname)) return assetResponse;
+      if (/\.[^/]+$/.test(url.pathname)) return assetResponse;
       const indexUrl = new URL("/index.html", request.url);
       const shell = await env.ASSETS.fetch(new Request(indexUrl, request));
       const headers = new Headers(shell.headers);
