@@ -327,11 +327,20 @@ export default {
     }
 
     if (!url.pathname.startsWith("/api/")) {
-      // Resolve the site root explicitly to the uploaded SPA entry point.
-      // This avoids a root-path 404 on workers.dev while preserving deep-link fallback.
-      if (url.pathname === "/") {
+      // Serve the SPA shell through the Worker so it cannot be shadowed by a
+      // stale edge-cached document that references an asset from an older build.
+      if (url.pathname === "/" || url.pathname === "/index.html") {
         const indexUrl = new URL("/index.html", request.url);
-        return env.ASSETS.fetch(new Request(indexUrl, request));
+        const assetRequest = new Request(indexUrl, request);
+        const assetResponse = await env.ASSETS.fetch(assetRequest);
+        const headers = new Headers(assetResponse.headers);
+        headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        headers.set("Pragma", "no-cache");
+        return new Response(assetResponse.body, {
+          status: assetResponse.status,
+          statusText: assetResponse.statusText,
+          headers
+        });
       }
       return env.ASSETS.fetch(request);
     }
