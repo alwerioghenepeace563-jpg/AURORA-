@@ -329,7 +329,14 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       // Fetch exact static assets first. Missing JS/CSS/images must stay 404s
       // rather than being silently rewritten to index.html by an SPA fallback.
-      const assetResponse = await env.ASSETS.fetch(request);
+      // Cloudflare's asset manifest is keyed by the pathname. Ignore request
+      // query parameters (including cache-busting probes) during lookup so a
+      // valid hashed bundle can never be mistaken for an SPA navigation.
+      const assetUrl = new URL(request.url);
+      assetUrl.search = "";
+      assetUrl.hash = "";
+      const assetRequest = new Request(assetUrl.toString(), request);
+      const assetResponse = await env.ASSETS.fetch(assetRequest);
       if (assetResponse.status !== 404) {
         if (url.pathname === "/" || url.pathname === "/index.html") {
           const headers = new Headers(assetResponse.headers);
