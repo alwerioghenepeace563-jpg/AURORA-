@@ -55,12 +55,8 @@ jobs:
             console.log('Audit report could not be parsed:', error.message);
           }
           NODE
-      # Enforce advisories for shipped runtime dependencies. The full dependency
-      # tree (including build-only tooling) is still reported above; currently
-      # reported picomatch finding is build-tool-only and its upstream advisory
-      # was withdrawn without a patched registry release.
-      - name: Enforce production dependency security audit
-        run: npm audit --omit=dev --audit-level=low
+      - name: Enforce dependency security audit
+        run: npm audit --audit-level=low
       - name: Run AURORA core and architecture tests
         run: npm run test:core
       - name: Build web app

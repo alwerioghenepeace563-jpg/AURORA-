@@ -29,9 +29,9 @@ android {
         }
     }
     buildTypes {
-        // Debug builds use Android's standard debug keystore. Do not apply
-        // the long-lived release alias here: it is not present in the runner's
-        // default debug keystore and must never block compile-only CI.
+        debug {
+            signingConfig signingConfigs.aurora
+        }
         release {
             minifyEnabled false
             signingConfig signingConfigs.aurora

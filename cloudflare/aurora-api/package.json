@@ -1,0 +1,20 @@
+{
+  "name": "aurora-cloudflare-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test:contracts": "node scripts/test-worker-contracts.mjs",
+    "test:smoke-contracts": "node scripts/test-deployed-worker-contracts.mjs",
+    "test:deployed": "node scripts/test-deployed-worker.mjs",
+    "test:preflight": "node scripts/deployment-preflight.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261119.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.165.0"
+  }
+}

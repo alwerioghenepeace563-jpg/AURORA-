@@ -1,4 +1,5 @@
 import { registerPlugin, Capacitor } from "@capacitor/core";
+import { resolveAuroraApiUrl } from "./aurora-api-config.js";
 
 type AuroraLocationPlugin = {
   requestLocationPermission(): Promise<{ granted: boolean }>;
@@ -321,8 +322,9 @@ export const auroraNative = {
   },
 };
 
-// Keep web requests same-origin on the website, and route native Android API calls to the production API.
-export const auroraApiUrl = (path: string): string => {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return Capacitor.isNativePlatform() ? `https://aurora-ten-gold.vercel.app${normalized}` : normalized;
-};
+// The Worker origin is opt-in until it is deployed and configured. Empty keeps current routing.
+const auroraBuildEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env || {};
+export const auroraApiUrl = (path: string): string => resolveAuroraApiUrl(path, {
+  baseUrl: auroraBuildEnv.VITE_AURORA_API_BASE_URL,
+  isNative: Capacitor.isNativePlatform()
+});
