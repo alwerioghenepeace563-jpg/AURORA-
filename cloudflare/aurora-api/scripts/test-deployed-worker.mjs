@@ -32,7 +32,11 @@ if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 60000) {
   console.error('AURORA_SMOKE_TIMEOUT_MS must be a whole number from 1000 to 60000.');
   process.exit(2);
 }
-const headers = smokeOrigin ? { Origin: smokeOrigin } : {};
+const headers = {
+  ...(smokeOrigin ? { Origin: smokeOrigin } : {}),
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache'
+};
 
 async function get(path) {
   const response = await fetch(new URL(path, origin), {
@@ -73,10 +77,16 @@ async function options(path) {
 const { response: appResponse, body: appHtml } = await getText('/');
 assert.ok((appResponse.headers.get('content-type') || '').includes('text/html'), 'Root must serve the AURORA SPA HTML');
 assert.match(appHtml, /<div[^>]+id=["']root["']/i, 'Root HTML must include the React mount point');
+assert.match(appResponse.headers.get('cache-control') || '', /no-store|no-cache/i,
+  'SPA shell must not be cached across asset deployments');
 const jsAsset = appHtml.match(/<script[^>]+src=["']([^"']+)["']/i)?.[1];
 assert.ok(jsAsset && jsAsset.split('?')[0].endsWith('.js'), 'Root HTML must reference a built JavaScript asset');
-const { response: jsResponse } = await getText(jsAsset);
-assert.match(jsResponse.headers.get('content-type') || '', /javascript|ecmascript/i, 'Built app JavaScript must be served as JavaScript');
+const jsAssetUrl = new URL(jsAsset, origin);
+jsAssetUrl.searchParams.set('__aurora_asset_probe', String(Date.now()));
+const { response: jsResponse, body: jsBody } = await getText(jsAssetUrl.toString());
+const jsContentType = jsResponse.headers.get('content-type') || '';
+assert.match(jsContentType, /javascript|ecmascript/i,
+  `Built app JavaScript ${jsAssetUrl.pathname} must be served as JavaScript; received HTTP ${jsResponse.status}, content-type "${jsContentType}", body prefix: ${jsBody.slice(0, 120)}`);
 const { response: spaResponse, body: spaHtml } = await getText('/__aurora_cloudflare_spa_probe__');
 assert.ok((spaResponse.headers.get('content-type') || '').includes('text/html'), 'Unknown frontend paths must use SPA fallback');
 assert.match(spaHtml, /id=["']root["']/i, 'SPA fallback must serve the AURORA application shell');

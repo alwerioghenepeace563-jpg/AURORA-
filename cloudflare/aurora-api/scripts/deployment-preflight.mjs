@@ -72,9 +72,8 @@ assert.equal(config.workers_dev, true, 'workers.dev must remain enabled for the 
 assert.equal(config.observability?.enabled, true, 'Worker observability must remain enabled');
 assert.equal(config.assets?.directory, '../../dist', 'Worker must publish the Vite dist directory');
 assert.equal(config.assets?.binding, 'ASSETS', 'Worker static asset binding is required');
-assert.equal(config.assets?.not_found_handling, 'single-page-application', 'SPA fallback must be enabled');
-assert.ok(config.assets?.run_worker_first?.includes('/api/*'), 'API routes must execute in the Worker');
-assert.ok(config.assets?.run_worker_first?.includes('/health'), 'Health route must execute in the Worker');
+assert.equal(config.assets?.not_found_handling, 'none', 'Worker must control missing-asset and SPA fallback handling');
+assert.ok(config.assets?.run_worker_first?.includes('/*'), 'All requests must reach the Worker for explicit asset and SPA routing');
 for (const name of ['typecheck', 'build', 'android:check', 'test:core']) {
   assert.equal(typeof frontendPackage.scripts?.[name], 'string', 'Missing root validation script: ' + name);
 }

@@ -327,13 +327,43 @@ export default {
     }
 
     if (!url.pathname.startsWith("/api/")) {
-      // Resolve the site root explicitly to the uploaded SPA entry point.
-      // This avoids a root-path 404 on workers.dev while preserving deep-link fallback.
-      if (url.pathname === "/") {
-        const indexUrl = new URL("/index.html", request.url);
-        return env.ASSETS.fetch(new Request(indexUrl, request));
+      // Fetch exact static assets first. Missing JS/CSS/images must stay 404s
+      // rather than being silently rewritten to index.html by an SPA fallback.
+      // Cloudflare's asset manifest is keyed by the pathname. Ignore request
+      // query parameters (including cache-busting probes) during lookup so a
+      // valid hashed bundle can never be mistaken for an SPA navigation.
+      const assetUrl = new URL(request.url);
+      assetUrl.search = "";
+      assetUrl.hash = "";
+      const assetRequest = new Request(assetUrl.toString(), request);
+      const assetResponse = await env.ASSETS.fetch(assetRequest);
+      if (assetResponse.status !== 404) {
+        if (url.pathname === "/" || url.pathname === "/index.html") {
+          const headers = new Headers(assetResponse.headers);
+          headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+          headers.set("Pragma", "no-cache");
+          return new Response(assetResponse.body, {
+            status: assetResponse.status,
+            statusText: assetResponse.statusText,
+            headers
+          });
+        }
+        return assetResponse;
       }
-      return env.ASSETS.fetch(request);
+
+      // Keep client-side navigation working, but only for extensionless paths.
+      // A missing file-like asset should return 404, never the HTML application.
+      if (/\.[^/]+$/.test(url.pathname)) return assetResponse;
+      const indexUrl = new URL("/index.html", request.url);
+      const shell = await env.ASSETS.fetch(new Request(indexUrl, request));
+      const headers = new Headers(shell.headers);
+      headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+      headers.set("Pragma", "no-cache");
+      return new Response(shell.body, {
+        status: shell.status,
+        statusText: shell.statusText,
+        headers
+      });
     }
 
     // Stage 1 keeps existing API contracts intact. Individual routes will be
