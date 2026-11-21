@@ -18,6 +18,8 @@ type ActiveCall = { id: string; reminderId?: string; title: string; message: str
 type Signal = { id: string; callId: string; fromDeviceId: string; toDeviceId: string; kind: "offer" | "answer" | "ice" | "hangup"; payload: unknown; createdAt: number };
 const MAX_REMINDERS = 100;
 const MAX_SIGNAL_BYTES = 48_000;
+const RING_TIMEOUT_MS = 60_000;
+const PUSH_QUEUE_TIMEOUT_MS = 24 * 60 * 60_000;
 const idPattern = /^[a-zA-Z0-9_-]{8,80}$/;
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
@@ -138,7 +140,7 @@ export class AuroraCallsDurableObject {
     for (const reminder of due) {
       const devices = await this.state.storage.get<Device[]>("devices") || [];
       const online = devices.some(d => now - d.lastSeen < 60_000);
-      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online || devices.some(d => Boolean(d.token)) ? "ringing" : "pending", createdAt: now, expiresAt: 0 };
+      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online || devices.some(d => Boolean(d.token)) ? "ringing" : "pending", createdAt: now, expiresAt: devices.some(d => Boolean(d.token)) ? now + PUSH_QUEUE_TIMEOUT_MS : online ? now + RING_TIMEOUT_MS : 0 };
       const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
       await this.state.storage.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-19), call]);
       if (call.status === "ringing") await this.push({ event: "incoming_call", call, reminder });
@@ -217,9 +219,12 @@ export class AuroraCallsDurableObject {
     for (const call of calls) {
       if (call.status === "pending") {
         call.status = "ringing";
-        call.expiresAt = 0;
+        call.expiresAt = Date.now() + RING_TIMEOUT_MS;
         changed = true;
         await this.push({ event: "incoming_call", call });
+      } else if (call.status === "ringing" && call.expiresAt === 0) {
+        call.expiresAt = Date.now() + RING_TIMEOUT_MS;
+        changed = true;
       } else if (call.status === "ringing" && call.expiresAt > 0 && call.expiresAt < Date.now()) {
         call.status = "missed";
         changed = true;
@@ -236,6 +241,8 @@ export class AuroraCallsDurableObject {
     const calls = await this.state.storage.get<ActiveCall[]>("calls") || [], call = calls.find(c => c.id === id);
     if (!call) return json({ error: "Call not found." }, 404);
     if (action === "answer" && !["ringing","pending"].includes(call.status)) return json({ error: "This call is no longer available." }, 409);
+    if (action === "decline" && !["ringing","pending"].includes(call.status)) return json({ error: "Only an incoming call can be declined." }, 409);
+    if (action === "end" && call.status !== "answered") return json({ error: "Only an answered call can be ended." }, 409);
     if (action === "answer" && call.expiresAt > 0 && call.expiresAt < Date.now()) { call.status = "missed"; await this.state.storage.put("calls", calls); return json({ error: "This call has expired." }, 410); }
     call.status = action === "answer" ? "answered" : action === "decline" ? "declined" : "ended";
     if (action === "answer") call.answeredBy = deviceId;
