@@ -24,6 +24,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
   const pollRef = useRef(null);
   const voiceSessionRef = useRef(false);
   const recognitionRef = useRef(null);
+  const processingVoiceRef = useRef(false);
   const api = useCallback(async (path, init = {}) => {
     if (!token) throw new Error("Sign in required.");
     const response = await fetch(auroraApiUrl(path), { ...init, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(init.headers || {}) } });
@@ -95,6 +96,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
   }
   async function endCall() {
     if (!active) return;
+    voiceSessionRef.current = false; recognitionRef.current?.stop?.(); recognitionRef.current = null; setListening(false);
     try { await api("/api/calls/" + encodeURIComponent(active.id) + "/end", { method: "POST", body: JSON.stringify({ deviceId }) }); setActive(null); }
     catch (err) { setError(err.message); }
   }
@@ -105,9 +107,9 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
     const recognition = new Recognition();
     recognition.lang = "en-NG"; recognition.continuous = true; recognition.interimResults = false;
     recognition.onstart = () => setListening(true);
-    recognition.onresult = event => { for (let i = event.resultIndex; i < event.results.length; i++) { const transcript = event.results[i]?.[0]?.transcript?.trim(); if (event.results[i].isFinal && transcript) onReply?.("I answered your AURORA call. " + transcript); } };
+    recognition.onresult = event => { for (let i = event.resultIndex; i < event.results.length; i++) { const transcript = event.results[i]?.[0]?.transcript?.trim(); if (event.results[i].isFinal && transcript && !processingVoiceRef.current) { processingVoiceRef.current = true; recognition.stop(); Promise.resolve(onReply?.("I answered your AURORA call. " + transcript)).catch(err => setError(err.message || "AURORA could not process that reply.")).finally(() => { processingVoiceRef.current = false; if (voiceSessionRef.current && recognitionRef.current === recognition) window.setTimeout(() => { if (voiceSessionRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 900); }); } } };
     recognition.onerror = event => { if (event.error === "not-allowed" || event.error === "service-not-allowed") voiceSessionRef.current = false; setError("Voice conversation paused. Check microphone permission or type your reply."); };
-    recognition.onend = () => { setListening(false); if (voiceSessionRef.current && recognitionRef.current === recognition) { window.setTimeout(() => { if (voiceSessionRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 450); } };
+    recognition.onend = () => { setListening(false); if (voiceSessionRef.current && !processingVoiceRef.current && recognitionRef.current === recognition) { window.setTimeout(() => { if (voiceSessionRef.current && !processingVoiceRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 450); } };
     voiceSessionRef.current = true; recognitionRef.current = recognition;
     try { recognition.start(); } catch (err) { voiceSessionRef.current = false; recognitionRef.current = null; setError("Could not start hands-free voice. Try the Speak button."); }
   }
