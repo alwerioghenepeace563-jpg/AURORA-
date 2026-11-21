@@ -45,6 +45,16 @@ const worker=fs.readFileSync(path.join(root,"android/app/src/main/java/com/auror
 const nativeReminder=fs.readFileSync(path.join(root,"android/app/src/main/java/com/aurora/assistant/AuroraReminderPlugin.java"),"utf8");
 const nativeBridge=fs.readFileSync(path.join(root,"src/lib/aurora-native.ts"),"utf8");
 const panel=fs.readFileSync(path.join(root,"src/components/WatchtowerPanel.jsx"),"utf8");
+const reminderCall=fs.readFileSync(path.join(root,"android/app/src/main/java/com/aurora/assistant/AuroraReminderCallActivity.java"),"utf8");
+const reminderReceiver=fs.readFileSync(path.join(root,"android/app/src/main/java/com/aurora/assistant/AuroraReminderReceiver.java"),"utf8");
+const manifest=fs.readFileSync(path.join(root,"android/app/src/main/AndroidManifest.xml"),"utf8");
+assert.match(reminderReceiver,/IMPORTANCE_HIGH/,"reminders must use high-priority notification channel");
+assert.match(reminderReceiver,/AuroraReminderCallActivity/,"reminder notification must open the call-style screen");
+assert.match(reminderCall,/SNOOZE · 10 MIN/,"call-style screen must offer a 10-minute snooze");
+assert.match(reminderCall,/DISMISS/,"call-style screen must offer dismissal");
+assert.match(reminderCall,/setAndAllowWhileIdle/,"snooze must schedule a new Android reminder");
+assert.match(manifest,/\.AuroraReminderCallActivity/,"call-style activity must be registered");
+
 assert.match(worker,/PeriodicWorkRequest/,"Android must schedule periodic background checks");
 assert.match(worker,/NetworkType\.CONNECTED/,"background checks must wait for network connectivity");
 assert.match(worker,/\/api\/search/,"background checks must use AURORA Search");
