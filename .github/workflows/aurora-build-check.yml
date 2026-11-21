@@ -57,11 +57,37 @@ jobs:
           NODE
       - name: Enforce dependency security audit
         run: npm audit --audit-level=low
+      - name: Set up Gradle dependency cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       - name: Run AURORA core and architecture tests
         run: npm run test:core
       - name: Build web app
         run: npm run build
       - name: Sync Capacitor Android project
         run: npm run android:sync
-      - name: Compile Android native code
-        run: cd android && bash ./gradlew :app:compileDebugJavaWithJavac --no-daemon
+      - name: Compile Android native code with transient Maven retry
+        shell: bash
+        run: |
+          set -u
+          cd android
+          for attempt in 1 2 3; do
+            log_file="$RUNNER_TEMP/aurora-gradle-attempt-$attempt.log"
+            echo "Gradle compile attempt $attempt/3"
+            if bash ./gradlew :app:compileDebugJavaWithJavac --no-daemon --max-workers=2 >"$log_file" 2>&1; then
+              cat "$log_file"
+              exit 0
+            else
+              status=$?
+              cat "$log_file"
+              if [[ "$attempt" -lt 3 ]] && grep -Eiq 'HTTP 429|status code 429|Too Many Requests|Could not GET|Read timed out|Connection reset|status code 5[0-9][0-9]' "$log_file"; then
+                delay=$((attempt * 20))
+                echo "Temporary Maven/repository network failure detected; retrying in $delay seconds."
+                sleep "$delay"
+              else
+                exit "$status"
+              fi
+            fi
+          done
+          exit 1
