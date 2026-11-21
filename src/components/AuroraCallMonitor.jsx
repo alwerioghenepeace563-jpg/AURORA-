@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import { auroraApiUrl } from "../lib/aurora-native";
 import { PhoneCall, Phone, PhoneOff, Mic, Send } from "lucide-react";
 import "./calls.css";
@@ -19,6 +21,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
   const [reply, setReply] = useState("");
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
+  const pollRef = useRef(null);
   const api = useCallback(async (path, init = {}) => {
     if (!token) throw new Error("Sign in required.");
     const response = await fetch(auroraApiUrl(path), { ...init, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(init.headers || {}) } });
@@ -32,18 +35,53 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
     if (next && !active && !incoming) setIncoming(next);
     if (!next && incoming) setIncoming(null);
   }, [api, deviceId, active, incoming]);
+  useEffect(() => { pollRef.current = poll; }, [poll]);
+
+  // Register the native Android push token with the account-scoped calling service.
+  // The app still polls while open; push wakes/notifies it when Android delivers FCM.
+  useEffect(() => {
+    if (!token) return;
+    let live = true;
+    const listeners = [];
+    const registerDevice = async (pushToken) => {
+      await api("/api/calls/devices", { method: "POST", body: JSON.stringify({
+        deviceId, platform: Capacitor.getPlatform() === "android" ? "android" : "web",
+        ...(pushToken ? { pushToken } : {})
+      }) });
+    };
+    (async () => {
+      try {
+        await registerDevice();
+        if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return;
+        listeners.push(await PushNotifications.addListener("registration", async event => {
+          try { await registerDevice(event.value); } catch (err) { if (live) setError(err.message); }
+        }));
+        listeners.push(await PushNotifications.addListener("registrationError", event => {
+          if (live) setError(event.error || "Android push registration failed. Calls will still arrive while AURORA is open.");
+        }));
+        listeners.push(await PushNotifications.addListener("pushNotificationActionPerformed", () => {
+          pollRef.current?.().catch(err => live && setError(err.message));
+        }));
+        const permission = await PushNotifications.requestPermissions();
+        if (permission.receive === "granted") await PushNotifications.register();
+        else if (live) setError("Allow notifications for background AURORA calls. Calls still work while the app is open.");
+      } catch (err) { if (live) setError(err.message); }
+    })();
+    return () => { live = false; listeners.forEach(listener => listener.remove()); };
+  }, [api, deviceId, token]);
+
   useEffect(() => {
     if (!token) return;
     let live = true, timer;
     (async () => {
       try {
-        await api("/api/calls/devices", { method: "POST", body: JSON.stringify({ deviceId, platform: /Android/i.test(navigator.userAgent) ? "android" : "web" }) });
-        if (live) await poll();
-        if (live) timer = window.setInterval(() => poll().catch(err => live && setError(err.message)), 7000);
+        await poll();
+        if (live) timer = window.setInterval(() => pollRef.current?.().catch(err => live && setError(err.message)), 7000);
       } catch (err) { if (live) setError(err.message); }
     })();
     return () => { live = false; if (timer) window.clearInterval(timer); };
-  }, [api, deviceId, poll, token]);
+  }, [api, deviceId, token, poll]);
+
   async function decide(action) {
     if (!incoming) return;
     const call = incoming;
@@ -84,7 +122,6 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
       {error && <small role="alert">{error}</small>}
       {incoming && <div className="aurora-call-global-actions"><button type="button" className="primary-action" onClick={() => decide("answer")}><Phone size={16}/> Answer</button><button type="button" className="outline-action" onClick={() => decide("decline")}><PhoneOff size={16}/> Decline</button></div>}
       {active && <><form className="activity-inline-form" onSubmit={sendReply}><input value={reply} onChange={e => setReply(e.target.value)} placeholder="Say something to AURORA…" aria-label="Reply to AURORA"/><button type="button" className="outline-action" onClick={voiceReply} disabled={listening}><Mic size={15}/>{listening ? "Listening" : "Speak"}</button><button className="primary-action" type="submit"><Send size={15}/> Send</button></form><button type="button" className="outline-action" onClick={endCall}><PhoneOff size={15}/> End call</button></>}
-
     </section>
   </div>;
 }
