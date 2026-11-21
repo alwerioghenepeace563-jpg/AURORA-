@@ -24,6 +24,7 @@ assert.ok(calling.includes("outcomes.some(outcome => outcome.delivered)"), "One 
 assert.ok(calling.includes('detail.errorCode === "UNREGISTERED"'), "Only confirmed-unregistered FCM tokens may be retired");
 assert.ok(calling.includes("invalidTokens.size"), "Confirmed stale FCM tokens must be cleared from device records");
 assert.ok(calling.includes("device.token === invalidTokens.get(device.id)"), "A stale-token response must not erase a newer token registered for the same device");
+assert.ok(calling.includes("this.state.storage.transaction(async txn => {\n            const latest = await txn.get<Device[]>(\"devices\")"), "Stale FCM token cleanup must be atomic with concurrent device registration");
 assert.ok(calling.includes("const recipients = targetDeviceId"), "Device-specific signalling push must not notify unrelated devices");
 assert.ok(calling.includes("activeCall.answeredBy"), "Call signalling must be restricted to the device that answered");
 assert.match(calling, /MAX_SIGNAL_BYTES/, "WebRTC signaling payloads must be bounded");
@@ -38,8 +39,14 @@ assert.ok(calling.includes("const cancelled = await this.state.storage.transacti
 assert.ok(calling.includes("const dueCalls = await this.state.storage.transaction(async txn =>"), "Due reminders must be claimed and converted to calls atomically");
 assert.ok(calling.includes("deliveredIds.has(r.id)"), "Alarm retries must not redeliver already-claimed reminders");
 assert.ok(calling.includes("].slice(-20)"), "Call history must remain bounded after a batch of due reminders");
-assert.ok(calling.includes("const registered = await this.state.storage.transaction(async txn =>"), "Inbox heartbeats must not overwrite concurrent device token updates");
-assert.ok(calling.includes("const mine = await this.state.storage.transaction(async txn =>"), "Signal inbox reads must atomically consume each signal once");
+assert.ok(calling.includes("const result = await this.state.storage.transaction(async txn => {\n      const devices = await txn.get<Device[]>(\"devices\")"), "Inbox heartbeats and call claiming must be atomic");
+assert.ok(calling.includes("const newlyRinging: ActiveCall[] = []"), "Only one concurrent inbox poll may claim and announce a pending call");
+assert.ok(calling.includes("for (const call of result.newlyRinging) await this.push"), "Incoming-call push must happen only after the inbox claim commits");
+assert.ok(calling.includes("this.alarmUpdate = update.catch"), "Concurrent reminder edits must serialize Durable Object alarm recalculation");
+assert.ok(calling.includes("Only the device that answered this call can end it"), "Only the answering device may end an active call");
+assert.ok(calling.includes("const result = await this.state.storage.transaction(async txn => {\n      const devices = await txn.get<Device[]>(\"devices\")"), "Signal writes must validate devices and active call state atomically");
+assert.ok(calling.includes("const active = calls.filter(c => c.status === \"pending\" || c.status === \"ringing\" || c.status === \"answered\")"), "Call history trimming must preserve all active calls");
+assert.ok(calling.includes("const result = await this.state.storage.transaction(async txn => {\n      const devices = await txn.get<Device[]>(\"devices\")"), "Signal inbox reads must atomically validate devices and consume each signal once");
 assert.ok(calling.includes("signal.fromDeviceId !== id && signal.toDeviceId !== id"), "Removing a device must also clear its queued call signals");
 assert.match(calling, /AURORA_PUSH_GATEWAY_URL/, "Push delivery must use a server-side gateway");
 assert.match(worker, /url\.pathname\.startsWith\("\/api\/calls"\)/, "Worker must route calling API requests");
