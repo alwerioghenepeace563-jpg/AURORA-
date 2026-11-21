@@ -35,15 +35,15 @@ function connectors(env: Env): Connector[] {
       label: "Firecrawl Search and Extraction",
       url: value(env, "AURORA_FIRECRAWL_MCP_URL") || "https://mcp.firecrawl.dev/v2/mcp",
       token: firecrawlToken,
-      enabled: value(env, "AURORA_FIRECRAWL_ENABLED").toLowerCase() !== "false" && Boolean(firecrawlToken),
+      enabled: value(env, "AURORA_FIRECRAWL_ENABLED").toLowerCase() !== "false",
       kind: "research"
     },
     {
       id: "perplexity",
       label: "Perplexity Research",
-      url: value(env, "AURORA_PERPLEXITY_MCP_URL"),
+      url: value(env, "AURORA_PERPLEXITY_MCP_URL") || "https://api.perplexity.ai/mcp",
       token: perplexityToken,
-      enabled: Boolean(value(env, "AURORA_PERPLEXITY_MCP_URL") && perplexityToken),
+      enabled: Boolean(perplexityToken) && value(env, "AURORA_PERPLEXITY_ENABLED").toLowerCase() !== "false",
       kind: "research"
     },
     {
