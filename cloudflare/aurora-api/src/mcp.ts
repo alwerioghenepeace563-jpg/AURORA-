@@ -244,11 +244,11 @@ export async function runAuroraMcpResearch(env: Env, query: string) {
   const selected = connectors(env).filter(server =>
     server.enabled && (server.kind !== "browser" || Boolean(targetUrl))
   );
-  const jobs = selected.map(server => runMcpServer(server, cleanQuery, targetUrl)
-    .catch(error => ({ server: server.id, label: server.label, error: String(error?.message || "MCP unavailable").slice(0, 120) })));
+  const jobs: Promise<any>[] = selected.map(server => runMcpServer(server, cleanQuery, targetUrl)
+    .catch((error: any) => ({ server: server.id, label: server.label, error: String(error?.message || "MCP unavailable").slice(0, 120) })));
   if (targetUrl) {
     jobs.push(runCloudflareBrowserRun(env, targetUrl)
-      .catch(error => ({ server: "cloudflare-browser-run", label: "Cloudflare Browser Run", error: String(error?.message || "Browser unavailable").slice(0, 120) })));
+      .catch((error: any) => ({ server: "cloudflare-browser-run", label: "Cloudflare Browser Run", error: String(error?.message || "Browser unavailable").slice(0, 120) })));
   }
   const settled = await Promise.all(jobs);
   return {
