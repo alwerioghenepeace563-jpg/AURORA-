@@ -15,6 +15,14 @@ interface Env {
   [key: string]: any;
   LEGACY_API_ORIGIN?: string;
   AURORA_BACKEND_STAGE?: string;
+  AURORA_CALLS: DurableObjectNamespace;
+  AURORA_PUSH_GATEWAY_URL?: string;
+  AURORA_PUSH_GATEWAY_TOKEN?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_ANON_KEY?: string;
+  VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_API?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
   ASSETS: { fetch(request: Request): Promise<Response> };
 }
 
