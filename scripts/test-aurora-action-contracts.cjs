@@ -7,10 +7,10 @@ const assert = require("node:assert/strict");
   const runtimeSource = fs.readFileSync(path.resolve(__dirname, "../src/core/aurora-capability-runtime.js"), "utf8");
   const nativeSource = fs.readFileSync(path.resolve(__dirname, "../src/lib/aurora-native.ts"), "utf8");
   const androidSource = fs.readFileSync(path.resolve(__dirname, "../android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java"), "utf8");
-  assert.match(runtimeSource, /id: "device\\.set_flashlight"[\\s\\S]*?approvalRequired: true[\\s\\S]*?permissionRequirements: \\["android\\.camera"\\][\\s\\S]*?typeof input\\?\\.enabled === "boolean"[\\s\\S]*?verified: true/);
-  assert.match(nativeSource, /setFlashlight\\(enabled: boolean\\)/);
-  assert.match(androidSource, /public void setFlashlight\\(PluginCall call\\)[\\s\\S]*?manager\\.setTorchMode\\(selected, enabled\\)/);
-  assert.match(androidSource, /private void cameraPermissionCallback[\\s\\S]*?PermissionState\\.GRANTED/);
+  assert.match(runtimeSource, /id: "device\.set_flashlight"[\s\S]*?approvalRequired: true[\s\S]*?permissionRequirements: \["android\.camera"\][\s\S]*?typeof input\?\.enabled === "boolean"[\s\S]*?verified: true/);
+  assert.match(nativeSource, /setFlashlight\(enabled: boolean\)/);
+  assert.match(androidSource, /public void setFlashlight\(PluginCall call\)[\s\S]*?manager\.setTorchMode\(selected, enabled\)/);
+  assert.match(androidSource, /private void cameraPermissionCallback[\s\S]*?PermissionState\.GRANTED/);
 
   let executions = 0;
   const denied = createAuroraActionEngine();
