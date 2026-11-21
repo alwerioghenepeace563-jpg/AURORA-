@@ -6,7 +6,7 @@ import { auroraSecureStorage } from "./lib/aurora-secure-storage";
 import { auroraRuntime } from "./core/aurora-runtime";
 import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
-import MapsWorkspace from "./MapsWorkspace";
+import MapsWorkspace from "./MapsWorkspace";\nimport AuroraConnectWorkspace from "./components/AuroraConnectWorkspace";
 import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace";
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
@@ -18,7 +18,7 @@ import { buildAuroraDeviceInsights } from "./core/aurora-device-insights";
 import { AURORA_VOICE_INTELLIGENCE, applySpeechPace, inferSpeechDelivery, isImmediateInterruptionCommand, isLikelySpeechEcho, resolveVoiceFollowUp, splitSpeechIntoChunks } from "./core/aurora-voice-intelligence.js";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
+  Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy, PhoneCall,
   Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
   SlidersHorizontal, Sparkles, MessageCircle, Search, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned, Maximize2, Minimize2
@@ -2412,7 +2412,7 @@ export default function App() {
                 <div className="tools-category-heading"><span>01</span><div><h2>Explore AURORA</h2><p>Choose a workspace for what you want to accomplish.</p></div></div>
                 <div className="explore-shortcuts">
                   <button type="button" onClick={() => navigate("activities")}><CalendarDays size={18}/><span><strong>Activities</strong><small>Tasks, reminders and calendar</small></span><ChevronRight size={16}/></button>
-                  <button type="button" onClick={() => navigate("maps")}><MapPinned size={18}/><span><strong>Maps & places</strong><small>Explore locations and plan journeys</small></span><ChevronRight size={16}/></button>
+                  <button type="button" onClick={() => navigate("maps")}><MapPinned size={18}/><span><strong>Maps & places</strong><small>Explore locations and plan journeys</small></span><ChevronRight size={16}/></button>\n                  <button type="button" onClick={() => navigate("connect")}><PhoneCall size={18}/><span><strong>AURORA Connect</strong><small>Private internet voice calls</small></span><ChevronRight size={16}/></button>
                   <button type="button" onClick={() => navigate("library")}><BookOpen size={18}/><span><strong>Knowledge library</strong><small>Your saved information and notes</small></span><ChevronRight size={16}/></button>
                 </div>
                 <div className="tool-launch-grid">
@@ -2676,7 +2676,7 @@ export default function App() {
               <KnowledgeUniverseWorkspace />
             </motion.section>
           )}
-          {page === "maps" && <motion.div key="maps" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><MapsWorkspace /></motion.div>}
+          {page === "maps" && <motion.div key="maps" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><MapsWorkspace /></motion.div>}\n          {page === "connect" && <motion.div key="connect" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><AuroraConnectWorkspace /></motion.div>}
 
           {page === "profile" && (
             <motion.section key="profile" className="utility-page profile-page" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
