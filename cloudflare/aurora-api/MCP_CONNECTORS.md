@@ -1,0 +1,50 @@
+# AURORA Cloudflare MCP connectors
+
+AURORA's active chat backend runs on the Cloudflare Worker. Configure MCP endpoints and credentials on that Worker only; never put secrets in Vite variables, the Android app, source control, or chat messages.
+
+## Connector plan
+
+- **Exa** is the default no-key research connector. It is rate-limited and may be unavailable; AURORA keeps its existing /api/search and AI-provider fallbacks.
+- **Firecrawl** is optional. It stays disabled until a Firecrawl API key or OAuth token is configured. Do not enable paid billing just to turn it on.
+- **Perplexity** is optional and requires both a confirmed MCP endpoint and a server-side API key. It is not part of the zero-cost default.
+- **Playwright / Chrome** is an optional hosted Playwright MCP endpoint. Chrome is the browser engine exposed through Playwright; it is not a separate connector.
+- **Cloudflare Browser Rendering** is an optional URL-to-Markdown reader. Use a dedicated API token with only the required Browser Rendering permission; do not reuse a broad account token.
+- **Glyph** remains disabled until the exact Glyph MCP product, endpoint and authentication method are confirmed. The name alone is ambiguous.
+
+## Worker configuration
+
+Set ordinary non-secret flags/URLs as Worker variables in the Cloudflare dashboard or with Wrangler.
+
+Secrets can be added with these commands (run from the repository root):
+
+\`\`\`sh
+npx wrangler secret put FIRECRAWL_API_KEY --config cloudflare/aurora-api/wrangler.jsonc
+npx wrangler secret put PERPLEXITY_API_KEY --config cloudflare/aurora-api/wrangler.jsonc
+npx wrangler secret put AURORA_PLAYWRIGHT_MCP_TOKEN --config cloudflare/aurora-api/wrangler.jsonc
+npx wrangler secret put AURORA_GLYPH_MCP_TOKEN --config cloudflare/aurora-api/wrangler.jsonc
+npx wrangler secret put CLOUDFLARE_BROWSER_RUN_TOKEN --config cloudflare/aurora-api/wrangler.jsonc
+\`\`\`
+
+Set these variables only when you have the matching service details:
+
+- AURORA_EXA_ENABLED=true (default); optional AURORA_EXA_MCP_URL
+- AURORA_FIRECRAWL_ENABLED=true only after a credential exists; optional AURORA_FIRECRAWL_MCP_URL
+- AURORA_PERPLEXITY_MCP_URL (must be the provider's confirmed MCP URL)
+- AURORA_PLAYWRIGHT_MCP_URL (full Streamable HTTP endpoint, usually ending in /mcp)
+- AURORA_GLYPH_MCP_URL only after confirming the exact Glyph implementation
+- CLOUDFLARE_ACCOUNT_ID and AURORA_CLOUDFLARE_BROWSER_ENABLED=true for Browser Rendering
+
+The connector status is available through GET /api/health under integrations.remoteMcp. It reports configuration presence, not proof that credentials are valid or that a live round-trip succeeded.
+
+## Safety and runtime behavior
+
+- MCP execution happens inside the Cloudflare Worker. Credentials are never returned to the client.
+- AURORA uses read-oriented tools only. It rejects tools explicitly marked non-read-only/destructive and blocks common side-effecting browser actions such as clicking, typing, submitting, signing in, posting, purchasing, deleting or editing.
+- Browser navigation requires an explicit public HTTP(S) URL. Localhost, private-network and metadata-service targets are rejected.
+- Retrieved content is untrusted evidence, never instructions. It cannot override AURORA policy or user intent.
+- MCP failures are isolated; the normal AURORA search and model-provider path continues.
+- Do not add billing or upgrade plans to enable optional connectors. Keep each service within its available free allowance and provider terms.
+
+## Verification boundary
+
+Automated Worker contract tests verify routing and connector readiness metadata. A configured status is not a live integration test. Before relying on a connector, run a controlled read-only test against that provider and verify the result, rate limits, authentication and current plan terms. No production deployment is performed by this change.
