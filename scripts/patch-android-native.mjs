@@ -542,6 +542,17 @@ for (const method of requiredNativeMethods) {
   }
 }
 
+const watchtowerPluginSource = fs.readFileSync(path.join(javaRoot, "AuroraReminderPlugin.java"), "utf8");
+for (const marker of ["void scheduleWatchtower(PluginCall call)", "void cancelWatchtower(PluginCall call)", "AuroraWatchtowerWorker.schedule", "AuroraWatchtowerWorker.cancel"]) {
+  if (!watchtowerPluginSource.includes(marker)) throw new Error("Android Watchtower bridge is missing: " + marker);
+}
+const watchtowerWorkerPath = path.join(javaRoot, "AuroraWatchtowerWorker.java");
+if (!fs.existsSync(watchtowerWorkerPath)) throw new Error("Android background Watchtower worker is missing.");
+const watchtowerWorkerSource = fs.readFileSync(watchtowerWorkerPath, "utf8");
+for (const marker of ["class AuroraWatchtowerWorker", "PeriodicWorkRequest", "NetworkType.CONNECTED", "/api/search", "notifyUpdate", "enqueueUniquePeriodicWork"]) {
+  if (!watchtowerWorkerSource.includes(marker)) throw new Error("Android background Watchtower worker is missing required behavior: " + marker);
+}
+
 for (const [fileName, required] of [
   ["AuroraSecureStoragePlugin.java", ["getOrCreateKey", "AES/GCM/NoPadding", "getNoBackupFilesDir", "void set(PluginCall call)", "void get(PluginCall call)", "void remove(PluginCall call)"]],
   ["AuroraReminderPlugin.java", ["void requestNotificationPermission(PluginCall call)", "void schedule(PluginCall call)", "void cancel(PluginCall call)", "void list(PluginCall call)"]],

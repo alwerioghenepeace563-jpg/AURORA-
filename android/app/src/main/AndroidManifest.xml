@@ -56,6 +56,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AuroraReminderCallActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:theme="@style/AppTheme.NoActionBarLaunch" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

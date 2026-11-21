@@ -140,6 +140,12 @@ type AuroraNativePlugin = {
 
 const AuroraNative = registerPlugin<AuroraNativePlugin>("AuroraNative");
 
+type AuroraReminderBridge = {
+  scheduleWatchtower(options: { id: string; title: string; query: string; intervalHours: number; endpoint: string }): Promise<{ scheduled: boolean; id: string; intervalHours: number; background: boolean }>;
+  cancelWatchtower(options: { id: string }): Promise<{ cancelled: boolean; id: string }>;
+};
+const AuroraReminder = registerPlugin<AuroraReminderBridge>("AuroraReminder");
+
 export async function requestAuroraCameraPermission(): Promise<{ granted: boolean }> {
   try { return await AuroraNative.requestCameraPermission(); }
   catch { return { granted: false }; }
@@ -217,6 +223,14 @@ export const auroraNative = {
   },
   requestMicrophonePermission: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Microphone permission is available only in the Android app."); return AuroraNative.requestMicrophonePermission(); },
   requestNotificationPermission: async () => { if (!Capacitor.isNativePlatform()) return { granted: false }; return AuroraNative.requestNotificationPermission(); },
+  scheduleWatchtower: async (options: { id: string; title: string; query: string; intervalHours: number; endpoint: string }) => {
+    if (Capacitor.getPlatform() !== "android") return { scheduled: false, id: options.id, intervalHours: options.intervalHours, background: false };
+    return AuroraReminder.scheduleWatchtower(options);
+  },
+  cancelWatchtower: async (id: string) => {
+    if (Capacitor.getPlatform() !== "android") return { cancelled: false, id };
+    return AuroraReminder.cancelWatchtower({ id });
+  },
   startSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.startSpeechRecognition(); },
   stopSpeechRecognition: async () => { if (!Capacitor.isNativePlatform()) throw new Error("Native speech recognition is available only in the Android app."); return AuroraNative.stopSpeechRecognition(); },
   addSpeechResultListener: (callback: (event: { transcript: string }) => void) => AuroraNative.addListener("speechResult", callback),

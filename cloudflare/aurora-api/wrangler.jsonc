@@ -17,5 +17,21 @@
     "run_worker_first": [
       "/*"
     ]
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "AURORA_CONNECT_ROOMS",
+        "class_name": "AuroraConnectRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "AuroraConnectRoom"
+      ]
+    }
+  ]
 }

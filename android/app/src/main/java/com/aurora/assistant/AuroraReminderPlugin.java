@@ -102,4 +102,31 @@ public class AuroraReminderPlugin extends Plugin {
         getContext().getSharedPreferences("aurora_reminders", 0).edit().remove(id).apply();
         call.resolve(new JSObject().put("cancelled", cancelled));
     }
+
+    @PluginMethod
+    public void scheduleWatchtower(PluginCall call) {
+        String id=call.getString("id"), title=call.getString("title"), query=call.getString("query"), endpoint=call.getString("endpoint");
+        Integer hours=call.getInt("intervalHours");
+        if(id==null||id.trim().isEmpty()||id.length()>80||title==null||title.trim().isEmpty()||title.length()>120||query==null||query.trim().length()<2||query.length()>500||hours==null||hours<1||hours>24||endpoint==null||!endpoint.startsWith("https://")||!endpoint.endsWith("/api/search")){
+            call.reject("A valid monitor, search interval and secure AURORA Search endpoint are required."); return;
+        }
+        if(Build.VERSION.SDK_INT>=33&&getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){
+            call.reject("Allow AURORA notifications before enabling background Watchtower alerts."); return;
+        }
+        try {
+            AuroraWatchtowerWorker.schedule(getContext(),id,title.trim(),query.trim(),hours,endpoint);
+            call.resolve(new JSObject().put("scheduled",true).put("id",id).put("intervalHours",hours).put("background",true));
+        } catch(Exception error) { call.reject("Android could not schedule this Watchtower monitor.",error); }
+    }
+
+    @PluginMethod
+    public void cancelWatchtower(PluginCall call) {
+        String id=call.getString("id");
+        if(id==null||id.trim().isEmpty()||id.length()>80){call.reject("A valid Watchtower monitor ID is required.");return;}
+        try {
+            AuroraWatchtowerWorker.cancel(getContext(),id);
+            call.resolve(new JSObject().put("cancelled",true).put("id",id));
+        } catch(Exception error) { call.reject("Android could not cancel this Watchtower monitor.",error); }
+    }
+
 }

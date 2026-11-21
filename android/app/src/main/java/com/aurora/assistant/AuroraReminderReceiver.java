@@ -27,13 +27,27 @@ public class AuroraReminderReceiver extends BroadcastReceiver {
         if (title == null || title.trim().isEmpty()) return;
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
-        if (Build.VERSION.SDK_INT >= 26) manager.createNotificationChannel(new NotificationChannel(CHANNEL, "AURORA reminders", NotificationManager.IMPORTANCE_DEFAULT));
-        Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-        PendingIntent open = launch == null ? null : PendingIntent.getActivity(context, 0, launch, PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        if (Build.VERSION.SDK_INT >= 26) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL, "AURORA reminder calls", NotificationManager.IMPORTANCE_HIGH);
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 450, 250, 450, 900});
+            manager.createNotificationChannel(channel);
+        }
+        String id = intent.getStringExtra("id");
+        int notificationId = id == null ? (int) System.currentTimeMillis() : id.hashCode();
+        Intent callScreen = new Intent(context, AuroraReminderCallActivity.class);
+        callScreen.putExtra("id", id);
+        callScreen.putExtra("title", title);
+        callScreen.putExtra("message", message == null ? "" : message);
+        callScreen.putExtra("notificationId", notificationId);
+        PendingIntent open = PendingIntent.getActivity(context, notificationId, callScreen,
+            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(context, CHANNEL) : new Notification.Builder(context);
-        builder.setSmallIcon(context.getApplicationInfo().icon).setContentTitle(title).setContentText(message == null ? "" : message).setAutoCancel(true);
-        if (open != null) builder.setContentIntent(open);
-        manager.notify(intent.getStringExtra("id") == null ? (int) System.currentTimeMillis() : intent.getStringExtra("id").hashCode(), builder.build());
+        builder.setSmallIcon(context.getApplicationInfo().icon).setContentTitle("AURORA reminder call")
+            .setContentText(title).setSubText(message == null ? "" : message)
+            .setCategory(Notification.CATEGORY_ALARM).setPriority(Notification.PRIORITY_HIGH)
+            .setVibrate(new long[]{0, 450, 250, 450, 900}).setContentIntent(open).setAutoCancel(true);
+        manager.notify(notificationId, builder.build());
     }
 
     private void restorePending(Context context) {
