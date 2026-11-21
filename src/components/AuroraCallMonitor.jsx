@@ -13,7 +13,7 @@ function deviceIdForMonitor() {
     return id;
   } catch { return "aurora-device-" + Date.now(); }
 }
-export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
+export default function AuroraCallMonitor({ authSession, onReply, onSpeak, isSpeaking = false }) {
   const token = authSession?.access_token || "";
   const deviceId = useMemo(() => deviceIdForMonitor(), []);
   const [incoming, setIncoming] = useState(null);
@@ -38,7 +38,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
     if (next && !active && !incoming) setIncoming(next);
     if (!next && incoming) setIncoming(null);
   }, [api, deviceId, active, incoming]);
-  useEffect(() => { pollRef.current = poll; }, [poll]);
+  useEffect(() => { pollRef.current = poll; }, [poll]);\n  useEffect(() => {\n    const recognition = recognitionRef.current;\n    if (!voiceSessionRef.current || !recognition) return;\n    if (isSpeaking) { try { recognition.stop(); } catch {} return; }\n    if (processingVoiceRef.current || listening) return;\n    const timer = window.setTimeout(() => { if (voiceSessionRef.current && !isSpeaking && !processingVoiceRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 700);\n    return () => window.clearTimeout(timer);\n  }, [isSpeaking, listening]);
 
   // Register the native Android push token with the account-scoped calling service.
   // The app still polls while open; push wakes/notifies it when Android delivers FCM.
