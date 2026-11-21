@@ -100,7 +100,7 @@ try {
   assert.equal(metadata.integrations.userScopedData, false);
   assert.equal(metadata.integrations.remoteMcp.defaultResearch, 'exa');
   assert.ok(metadata.integrations.remoteMcp.connectors.some(item => item.id === 'exa' && item.configured));
-  assert.ok(metadata.integrations.remoteMcp.connectors.some(item => item.id === 'firecrawl' && !item.configured));
+  assert.ok(metadata.integrations.remoteMcp.connectors.some(item => item.id === 'firecrawl' && item.configured && !item.authenticationConfigured));
   assert.equal(metadata.integrations.remoteMcp.cloudflareBrowserRun.configured, false);
   assert.equal(metadataResponse.headers.get('access-control-allow-origin'), allowedOrigin);
 
