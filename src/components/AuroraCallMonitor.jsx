@@ -78,7 +78,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak, isSpe
         else if (live) setError("Allow notifications for background AURORA calls. Calls still work while the app is open.");
       } catch (err) { if (live) setError(err.message); }
     })();
-    return () => { live = false; listeners.forEach(listener => listener.remove()); voiceSessionRef.current = false; recognitionRef.current?.stop?.(); recognitionRef.current = null; };
+    return () => { live = false; listeners.forEach(listener => listener.remove()); voiceSessionRef.current = false; recognitionRef.current?.stop?.(); recognitionRef.current = null; if (token) fetch(auroraApiUrl("/api/calls/devices/" + encodeURIComponent(deviceId)), { method: "DELETE", headers: { Authorization: "Bearer " + token } }).catch(() => {}); };
   }, [api, deviceId, token]);
 
   useEffect(() => {
