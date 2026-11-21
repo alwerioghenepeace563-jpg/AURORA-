@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [mcp, chat, index, docs] = await Promise.all([
+const [mcp, chat, index, docs, memory] = await Promise.all([
   readFile(new URL('../src/mcp.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/chat.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/index.ts', import.meta.url), 'utf8'),
-  readFile(new URL('../MCP_CONNECTORS.md', import.meta.url), 'utf8')
+  readFile(new URL('../MCP_CONNECTORS.md', import.meta.url), 'utf8'),
+  readFile(new URL('../src/research-memory.ts', import.meta.url), 'utf8')
 ]);
 
 assert.match(chat, /import \{ runAuroraMcpResearch \} from '\.\/mcp';/);
@@ -54,5 +55,20 @@ assert.ok(chat.includes(".join('\\n\\n')"));
 assert.ok(mcp.includes('sources: extractSourceUrls(output)'));
 assert.ok(mcp.includes('sources: extractSourceUrls(markdown)'));
 assert.match(chat, /Sources: /);
+
+assert.match(chat, /readResearchMemory/);
+assert.match(chat, /saveResearchMemory/);
+assert.match(chat, /clearResearchMemory/);
+assert.match(chat, /isResearchQuery/);
+assert.match(memory, /UPSTASH_REDIS_REST_URL/);
+assert.match(memory, /KV_REST_API_URL/);
+assert.match(memory, /crypto\.subtle\.digest\('SHA-256'/);
+assert.match(memory, /MEMORY_TTL_SECONDS/);
+assert.match(memory, /MAX_MEMORY_ITEMS/);
+assert.match(memory, /Authorization: "Bearer "/);
+assert.match(memory, /clearResearchMemory/);
+assert.match(memory, /safeMemoryQuery/);
+assert.match(memory, /Relevant prior AURORA research notes/);
+
 
 console.log('AURORA Cloudflare MCP architecture checks passed.');
