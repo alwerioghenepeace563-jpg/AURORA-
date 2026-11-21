@@ -89,6 +89,7 @@ function safeTargetUrl(raw: string): string {
     const url = new URL(raw);
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return "";
+    if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(host) || host.includes(":")) return "";
     if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") ||
         host === "metadata.google.internal" || host === "metadata" ||
         host === "169.254.169.254" || host === "::1" || host === "0.0.0.0" ||
