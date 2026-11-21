@@ -15,6 +15,8 @@ function deviceIdForMonitor() {
 }
 export default function AuroraCallMonitor({ authSession, onReply, onSpeak, isSpeaking = false }) {
   const token = authSession?.access_token || "";
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
   const deviceId = useMemo(() => deviceIdForMonitor(), []);
   const [incoming, setIncoming] = useState(null);
   const [active, setActive] = useState(null);
@@ -78,7 +80,21 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak, isSpe
         else if (live) setError("Allow notifications for background AURORA calls. Calls still work while the app is open.");
       } catch (err) { if (live) setError(err.message); }
     })();
-    return () => { live = false; listeners.forEach(listener => listener.remove()); voiceSessionRef.current = false; recognitionRef.current?.stop?.(); recognitionRef.current = null; if (token) fetch(auroraApiUrl("/api/calls/devices/" + encodeURIComponent(deviceId)), { method: "DELETE", headers: { Authorization: "Bearer " + token } }).catch(() => {}); };
+    return () => {
+      live = false;
+      listeners.forEach(listener => listener.remove());
+      voiceSessionRef.current = false;
+      recognitionRef.current?.stop?.();
+      recognitionRef.current = null;
+      // Access-token refreshes rerun this effect. Do not let cleanup for the
+      // old token delete the same device just registered with the new token.
+      // Delete only on sign-out or actual monitor unmount.
+      if (token && (!tokenRef.current || tokenRef.current === token)) {
+        fetch(auroraApiUrl("/api/calls/devices/" + encodeURIComponent(deviceId)), {
+          method: "DELETE", headers: { Authorization: "Bearer " + token }
+        }).catch(() => {});
+      }
+    };
   }, [api, deviceId, token]);
 
   useEffect(() => {
