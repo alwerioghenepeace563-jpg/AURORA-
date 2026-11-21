@@ -176,3 +176,28 @@ The `POST /api/media-generate` route runs in the Cloudflare Worker when the
 Supabase URL, anon key, and Gemini key are configured. It verifies the caller
 before contacting the provider and returns generated image data to the
 authenticated client. Keep provider credentials in Worker secrets only.
+
+
+## AURORA internal calling
+
+The internal calling API is account-scoped and runs through a Cloudflare Durable Object:
+
+- `POST /api/calls/devices` registers a signed-in user's AURORA device (`deviceId`, optional push token, and platform).
+- `DELETE /api/calls/devices/:deviceId` unregisters a device.
+- `POST /api/calls/schedules` creates a reminder-backed AURORA call (ID, title, message, and Unix-millisecond `scheduledAt`).
+- `GET /api/calls/schedules` lists scheduled calls; `DELETE /api/calls/schedules/:id` cancels one.
+- `GET /api/calls/inbox?deviceId=...` updates the device heartbeat and returns ringing calls. A due call stays **pending** while no registered device has checked in during the previous 60 seconds; it becomes ringing when a device reconnects.
+- `POST /api/calls/:callId/answer`, `/decline`, and `/end` update call state.
+- `POST /api/calls/signals` and `GET /api/calls/signals?deviceId=...` exchange bounded, account-local offer/answer/ICE/hangup signaling payloads for future peer-to-peer audio sessions.
+
+All routes verify the bearer token against Supabase Auth `/auth/v1/user` before selecting a per-user Durable Object. The DO keeps schedules, registered devices, active calls, and short-lived signaling data isolated by verified account ID. It caps each account at 10 registered devices and 100 scheduled calls; signaling payloads are capped at 48 KB. A call is not a SIM/PSTN call.
+
+### Delivery and deployment requirements
+
+The Worker needs the `AURORA_CALLS` Durable Object binding and `v1-aurora-calls` SQLite-class migration declared in `wrangler.jsonc`. Supabase URL and anon key must be present as Worker runtime configuration so the user can be verified.
+
+Background push delivery is intentionally adapter-based. Configure `AURORA_PUSH_GATEWAY_URL` as an HTTPS endpoint and `AURORA_PUSH_GATEWAY_TOKEN` as a Worker secret. The gateway receives a POST with registered device tokens and an event payload (for example `incoming_call` or `call_signal`). It must deliver through the app's chosen push provider and must never expose its credentials to clients. The app currently polls its authenticated inbox while open, so a due call remains pending while all devices are offline and is surfaced on reconnect. A real background incoming-call screen while the app is closed still requires a push provider SDK/configuration and a native Android push receiver; those provider credentials and delivery round-trips are not included or claimed by this code change.
+
+The Activities page exposes an AURORA Calls workspace for scheduling, answering/declining, and sending a spoken or typed response into the existing AURORA assistant conversation. Voice reply uses browser speech recognition where supported and falls back to typing. Actual full-duplex WebRTC audio calling is not yet certified; the signaling endpoints are the foundation and require a native/browser media-session adapter before claiming live two-way audio.
+
+The calling architecture regression checks run as part of `npm run test:contracts` in this directory. Live push, WebRTC media, Android background delivery, and production Durable Object deployment must be verified separately before release.
