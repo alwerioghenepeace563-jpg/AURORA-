@@ -107,30 +107,43 @@ export class AuroraCallsDurableObject {
   }
   private async removeDevice(id: string): Promise<Response> {
     if (!validDeviceId(id)) return json({ error: "Invalid device ID." }, 400);
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    await this.state.storage.put("devices", devices.filter(d => d.id !== id));
+    await this.state.storage.transaction(async txn => {
+      const devices = await txn.get<Device[]>("devices") || [];
+      await txn.put("devices", devices.filter(d => d.id !== id));
+      const signals = await txn.get<Signal[]>("signals") || [];
+      await txn.put("signals", signals.filter(signal => signal.fromDeviceId !== id && signal.toDeviceId !== id));
+    });
     return json({ removed: true });
   }
   private async createReminder(request: Request): Promise<Response> {
     const body = await parseJson(request), id = safeText(body.id, 80), title = safeText(body.title, 120), message = safeText(body.message, 500);
     const scheduledAt = Number(body.scheduledAt);
     if (!validDeviceId(id) || !title || !Number.isFinite(scheduledAt) || scheduledAt < Date.now() + 10_000 || scheduledAt > Date.now() + 365 * 86400_000) return json({ error: "Provide an ID, title and a time between 10 seconds and 365 days from now." }, 400);
-    const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
-    if (reminders.filter(r => r.status === "scheduled").length >= MAX_REMINDERS) return json({ error: "This account has reached its 100 scheduled-call limit." }, 429);
     const reminder: Reminder = { id, title, message, scheduledAt, status: "scheduled", createdAt: Date.now() };
-    await this.state.storage.put("reminders", [...reminders.filter(r => r.id !== id), reminder]);
-    const current = await this.state.storage.get<number>("nextAlarm");
-    if (!current || scheduledAt < current) await this.state.storage.setAlarm(scheduledAt);
-    await this.state.storage.put("nextAlarm", current ? Math.min(current, scheduledAt) : scheduledAt);
+    const result = await this.state.storage.transaction(async txn => {
+      const reminders = await txn.get<Reminder[]>("reminders") || [];
+      const existing = reminders.find(r => r.id === id);
+      if (!existing && reminders.filter(r => r.status === "scheduled").length >= MAX_REMINDERS) return { error: "This account has reached its 100 scheduled-call limit.", status: 429 };
+      const next = [...reminders.filter(r => r.id !== id), reminder];
+      await txn.put("reminders", next);
+      return { scheduled: true as const, reminder, nextAlarm: next.filter(r => r.status === "scheduled").reduce<number | null>((min,r) => min === null || r.scheduledAt < min ? r.scheduledAt : min, null) };
+    });
+    if ("error" in result) return json({ error: result.error }, result.status);
+    if (result.nextAlarm !== null) await this.state.storage.setAlarm(result.nextAlarm);
+    await this.state.storage.put("nextAlarm", result.nextAlarm);
     return json({ scheduled: true, reminder });
   }
   private async cancelReminder(id: string): Promise<Response> {
     if (!validDeviceId(id)) return json({ error: "Invalid reminder ID." }, 400);
-    const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
-    const next = reminders.map(r => r.id === id && r.status === "scheduled" ? { ...r, status: "cancelled" as const } : r);
-    await this.state.storage.put("reminders", next);
+    const cancelled = await this.state.storage.transaction(async txn => {
+      const reminders = await txn.get<Reminder[]>("reminders") || [];
+      const found = reminders.some(r => r.id === id && r.status === "scheduled");
+      const next = reminders.map(r => r.id === id && r.status === "scheduled" ? { ...r, status: "cancelled" as const } : r);
+      await txn.put("reminders", next);
+      return found;
+    });
     await this.rearm();
-    return json({ cancelled: next.some((r,i) => r.id === id && r.status === "cancelled" && reminders[i]?.status === "scheduled") });
+    return json({ cancelled });
   }
   private async rearm(): Promise<void> {
     const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
@@ -139,19 +152,27 @@ export class AuroraCallsDurableObject {
     else { await this.state.storage.setAlarm(next); await this.state.storage.put("nextAlarm", next); }
   }
   async alarm(): Promise<void> {
-    const reminders = await this.state.storage.get<Reminder[]>("reminders") || [], now = Date.now();
-    const due = reminders.filter(r => r.status === "scheduled" && r.scheduledAt <= now + 5000);
-    let updated = reminders;
-    for (const reminder of due) {
-      const devices = await this.state.storage.get<Device[]>("devices") || [];
+    const now = Date.now();
+    // Claim due reminders and create their calls in one transaction. Alarm
+    // retries or overlapping schedule edits cannot create duplicate calls.
+    const dueCalls = await this.state.storage.transaction(async txn => {
+      const reminders = await txn.get<Reminder[]>("reminders") || [];
+      const devices = await txn.get<Device[]>("devices") || [];
+      const calls = await txn.get<ActiveCall[]>("calls") || [];
+      const due = reminders.filter(r => r.status === "scheduled" && r.scheduledAt <= now + 5000);
+      if (!due.length) return [] as Array<{call: ActiveCall; reminder: Reminder}>;
+      const hasPushDevice = devices.some(d => Boolean(d.token));
       const online = devices.some(d => now - d.lastSeen < 60_000);
-      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online || devices.some(d => Boolean(d.token)) ? "ringing" : "pending", createdAt: now, expiresAt: devices.some(d => Boolean(d.token)) ? now + PUSH_QUEUE_TIMEOUT_MS : online ? now + RING_TIMEOUT_MS : 0 };
-      const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
-      await this.state.storage.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-19), call]);
-      if (call.status === "ringing") await this.push({ event: "incoming_call", call, reminder });
-      updated = updated.map(r => r.id === reminder.id ? { ...r, status: "delivered" } : r);
-    }
-    await this.state.storage.put("reminders", updated);
+      const created = due.map(reminder => ({
+        reminder,
+        call: { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: (online || hasPushDevice ? "ringing" : "pending") as ActiveCall["status"], createdAt: now, expiresAt: hasPushDevice ? now + PUSH_QUEUE_TIMEOUT_MS : online ? now + RING_TIMEOUT_MS : 0 }
+      }));
+      const deliveredIds = new Set(due.map(r => r.id));
+      await txn.put("reminders", reminders.map(r => deliveredIds.has(r.id) ? { ...r, status: "delivered" as const } : r));
+      await txn.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-Math.max(0, 20-created.length)), ...created.map(item => item.call)]);
+      return created;
+    });
+    for (const item of dueCalls) if (item.call.status === "ringing") await this.push({ event: "incoming_call", call: item.call, reminder: item.reminder });
     await this.rearm();
   }
   private base64Url(value: string | Uint8Array): string {
@@ -228,11 +249,15 @@ export class AuroraCallsDurableObject {
   }
   private async readInbox(deviceId: string): Promise<Response> {
     if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    const device = devices.find(d => d.id === deviceId);
-    if (!device) return json({ error: "Register this AURORA device before checking incoming calls." }, 403);
-    device.lastSeen = Date.now();
-    await this.state.storage.put("devices", devices);
+    const registered = await this.state.storage.transaction(async txn => {
+      const devices = await txn.get<Device[]>("devices") || [];
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) return false;
+      device.lastSeen = Date.now();
+      await txn.put("devices", devices);
+      return true;
+    });
+    if (!registered) return json({ error: "Register this AURORA device before checking incoming calls." }, 403);
     const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
     let changed = false;
     for (const call of calls) {
@@ -306,9 +331,13 @@ export class AuroraCallsDurableObject {
     if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
     const devices = await this.state.storage.get<Device[]>("devices") || [];
     if (!devices.some(d => d.id === deviceId)) return json({ error: "This device is not registered." }, 403);
-    const signals = await this.state.storage.get<Signal[]>("signals") || [];
-    const mine = signals.filter(s => s.toDeviceId === deviceId && Date.now() - s.createdAt < 120_000);
-    await this.state.storage.put("signals", signals.filter(s => s.toDeviceId !== deviceId && Date.now() - s.createdAt < 120_000));
+    const mine = await this.state.storage.transaction(async txn => {
+      const signals = await txn.get<Signal[]>("signals") || [];
+      const now = Date.now();
+      const received = signals.filter(s => s.toDeviceId === deviceId && now - s.createdAt < 120_000);
+      await txn.put("signals", signals.filter(s => s.toDeviceId !== deviceId && now - s.createdAt < 120_000));
+      return received;
+    });
     return json({ signals: mine });
   }
 }
