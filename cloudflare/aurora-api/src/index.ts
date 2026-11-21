@@ -117,7 +117,7 @@ async function handleMetadata(request: Request, env: Env, route: string): Promis
         voiceKey, voiceId, voice: voiceKey && voiceId, voiceTextBridge: voiceText,
         sharedProviderState: sharedState, adminCodeEditing: githubCodeEdit,
         remoteMcp: getMcpStatus(env),
-        researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) }
+        researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) },\n        internalCalling: { durableObjectConfigured: Boolean(env.AURORA_CALLS), pushGatewayConfigured: Boolean(env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN), deliveryMode: env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN ? "push-and-inbox-polling" : "inbox-polling-while-app-open" }
       }
     }, headers);
   }
@@ -250,7 +250,7 @@ export default {
           adminProviderDiagnosticsMoved: true,
           versionedChatMoved: true,
           adminCodeEditingMoved: true,
-          mcpResearchMoved: true,
+          mcpResearchMoved: true,\n          internalCallingMoved: true,
           rowLevelSecurityMode: "supabase-caller-jwt-forwarding",
           rowLevelSecurityVerified: false
         }
