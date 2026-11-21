@@ -153,6 +153,32 @@ function buildToolArgs(tool: any, query: string, targetUrl: string): Record<stri
   return required.every((key: string) => Object.prototype.hasOwnProperty.call(args, key)) ? args : null;
 }
 
+function toolRelevance(server: Connector, tool: any, query: string, targetUrl: string): number {
+  const name = String(tool?.name || "").toLowerCase();
+  const description = String(tool?.description || "").toLowerCase();
+  const haystack = name + " " + description;
+  let score = 0;
+  if (targetUrl) {
+    if (/scrape|extract|fetch|read|page|url|content/.test(haystack)) score += 8;
+    if (/search|discover|similar/.test(haystack)) score -= 3;
+  } else {
+    if (/search|web_search|search_web|query/.test(name)) score += 8;
+    if (/search|research|discover/.test(description)) score += 3;
+    if (/scrape|extract|fetch|read_page/.test(name)) score -= 2;
+  }
+  if (/news|latest|current|today|recent/.test(query.toLowerCase()) && /news|web|search/.test(haystack)) score += 2;
+  if (/answer|ask/.test(name)) score += 1;
+  if (server.id === "cloudflare-api" && /execute/.test(name)) score -= 100;
+  return score;
+}
+
+function selectRelevantTool(server: Connector, tools: any[], query: string, targetUrl: string): any | null {
+  return tools
+    .filter(tool => readOnlyTool(server, tool, targetUrl) && buildToolArgs(tool, query, targetUrl) !== null)
+    .map(tool => ({ tool, score: toolRelevance(server, tool, query, targetUrl) }))
+    .sort((a, b) => b.score - a.score)[0]?.tool || null;
+}
+
 async function parseMcpResponse(response: Response, expectedId?: number): Promise<any> {
   if (response.status === 202 || response.status === 204) return null;
   const body = await response.text();
@@ -226,9 +252,7 @@ async function runMcpServer(server: Connector, query: string, targetUrl: string)
 
   const listed = await rpc("tools/list");
   const tools = Array.isArray(listed?.tools) ? listed.tools : [];
-  const selected = tools.find((tool: any) =>
-    readOnlyTool(server, tool, targetUrl) && buildToolArgs(tool, query, targetUrl) !== null
-  );
+  const selected = selectRelevantTool(server, tools, query, targetUrl);
   if (!selected) return null;
   const args = buildToolArgs(selected, query, targetUrl) || {};
   const result = await rpc("tools/call", { name: selected.name, arguments: args });
