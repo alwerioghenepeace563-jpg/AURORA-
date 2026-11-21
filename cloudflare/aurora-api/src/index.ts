@@ -203,6 +203,36 @@ async function proxyToLegacy(request: Request, env: Env): Promise<Response> {
   }
 }
 
+
+async function handleAuroraConnect(request: Request, env: Env): Promise<Response> {
+  const headers = corsHeaders(request, env, "POST, OPTIONS");
+  const origin = request.headers.get("Origin") || "";
+  if (origin && !headers.has("Access-Control-Allow-Origin")) return jsonWithHeaders({ error: "Origin not allowed." }, headers, 403);
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (request.method !== "POST") return jsonWithHeaders({ error: "Use POST." }, headers, 405);
+  if (!env.AURORA_CONNECT_ROOMS) return jsonWithHeaders({ error: "AURORA Connect signaling is not configured on this Worker yet." }, headers, 503);
+  const supabaseUrl = String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API || "").replace(/\/$/, "");
+  const anonKey = String(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "");
+  const auth = request.headers.get("Authorization") || "";
+  if (!supabaseUrl || !anonKey || !auth.startsWith("Bearer ")) return jsonWithHeaders({ error: "Sign in to AURORA before using Connect." }, headers, 401);
+  let user: any;
+  try {
+    const response = await fetch(supabaseUrl + "/auth/v1/user", { headers: { apikey: anonKey, Authorization: auth }, signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return jsonWithHeaders({ error: "Your AURORA session is invalid or expired." }, headers, 401);
+    user = await response.json();
+  } catch { return jsonWithHeaders({ error: "Could not verify your AURORA account." }, headers, 503); }
+  if (!user?.id) return jsonWithHeaders({ error: "AURORA account verification failed." }, headers, 401);
+  const body: any = await request.json().catch(() => ({}));
+  const roomId = String(body.roomId || "").toUpperCase();
+  if (!/^[A-Z0-9]{6,12}$/.test(roomId)) return jsonWithHeaders({ error: "Invalid call room code." }, headers, 400);
+  const ticket = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+  const id = env.AURORA_CONNECT_ROOMS.idFromName(roomId);
+  const stub = env.AURORA_CONNECT_ROOMS.get(id);
+  const saved = await stub.fetch("https://aurora-connect.internal/ticket", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket, userId: user.id }) });
+  if (!saved.ok) return jsonWithHeaders({ error: "Could not create a secure call ticket." }, headers, 503);
+  return jsonWithHeaders({ ticket, expiresInSeconds: 90 }, headers);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
