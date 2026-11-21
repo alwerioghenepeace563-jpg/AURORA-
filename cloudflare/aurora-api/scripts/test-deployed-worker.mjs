@@ -77,8 +77,11 @@ async function options(path) {
 const { response: appResponse, body: appHtml } = await getText('/');
 assert.ok((appResponse.headers.get('content-type') || '').includes('text/html'), 'Root must serve the AURORA SPA HTML');
 assert.match(appHtml, /<div[^>]+id=["']root["']/i, 'Root HTML must include the React mount point');
-assert.match(appResponse.headers.get('cache-control') || '', /no-store|no-cache/i,
-  'SPA shell must not be cached across asset deployments');
+const shellCacheControl = appResponse.headers.get('cache-control') || '';
+const shellIsNotFreshCached = /no-store|no-cache/i.test(shellCacheControl) ||
+  (/max-age=0/i.test(shellCacheControl) && /must-revalidate/i.test(shellCacheControl));
+assert.ok(shellIsNotFreshCached,
+  `SPA shell must not remain fresh-cached across asset deployments; received Cache-Control: "${shellCacheControl}"`);
 const jsAsset = appHtml.match(/<script[^>]+src=["']([^"']+)["']/i)?.[1];
 assert.ok(jsAsset && jsAsset.split('?')[0].endsWith('.js'), 'Root HTML must reference a built JavaScript asset');
 const jsAssetUrl = new URL(jsAsset, origin);
