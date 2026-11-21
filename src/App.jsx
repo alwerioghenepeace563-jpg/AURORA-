@@ -2913,7 +2913,7 @@ export default function App() {
       </AnimatePresence>,
       document.body
       )}
-      <AuroraCallMonitor authSession={authSession} onReply={(text) => sendMessage(text)} onSpeak={(text) => speak(text)}/>
+      <AuroraCallMonitor authSession={authSession} onReply={(text) => sendMessage(text)} onSpeak={(text) => speak(text)} isSpeaking={speaking}/>
       <BottomNav active={page} onNavigate={navigate} />
       <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>
     </div>
