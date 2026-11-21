@@ -298,12 +298,8 @@ public class AuroraOverlayService extends Service {
             if (query.isEmpty() || query.length() > 2000) {
                 return "{\"accepted\":false,\"message\":\"Enter a request of up to 2000 characters.\"}";
             }
-            android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
-            boolean saved = prefs.edit()
-                .putString("pulse_action_request", query)
-                .putLong("pulse_action_request_at", System.currentTimeMillis())
-                .commit();
-            if (!saved) return "{\"accepted\":false,\"message\":\"AURORA could not queue that request.\"}";
+            boolean saved = AuroraActionRequestQueue.enqueue(AuroraOverlayService.this, query, "pulse_overlay");
+            if (!saved) return "{\\"accepted\\":false,\\"message\\":\\"AURORA's request queue is full or unavailable. Try again shortly.\\"}";
             try {
                 Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
                 if (launch == null) throw new IllegalStateException("AURORA launch activity is unavailable.");
