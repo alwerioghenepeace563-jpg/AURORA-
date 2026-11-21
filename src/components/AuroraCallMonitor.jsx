@@ -38,7 +38,15 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak, isSpe
     if (next && !active && !incoming) setIncoming(next);
     if (!next && incoming) setIncoming(null);
   }, [api, deviceId, active, incoming]);
-  useEffect(() => { pollRef.current = poll; }, [poll]);\n  useEffect(() => {\n    const recognition = recognitionRef.current;\n    if (!voiceSessionRef.current || !recognition) return;\n    if (isSpeaking) { try { recognition.stop(); } catch {} return; }\n    if (processingVoiceRef.current || listening) return;\n    const timer = window.setTimeout(() => { if (voiceSessionRef.current && !isSpeaking && !processingVoiceRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 700);\n    return () => window.clearTimeout(timer);\n  }, [isSpeaking, listening]);
+  useEffect(() => { pollRef.current = poll; }, [poll]);
+  useEffect(() => {
+    const recognition = recognitionRef.current;
+    if (!voiceSessionRef.current || !recognition) return;
+    if (isSpeaking) { try { recognition.stop(); } catch {} return; }
+    if (processingVoiceRef.current || listening) return;
+    const timer = window.setTimeout(() => { if (voiceSessionRef.current && !isSpeaking && !processingVoiceRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 700);
+    return () => window.clearTimeout(timer);
+  }, [isSpeaking, listening]);
 
   // Register the native Android push token with the account-scoped calling service.
   // The app still polls while open; push wakes/notifies it when Android delivers FCM.
@@ -107,9 +115,9 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak, isSpe
     const recognition = new Recognition();
     recognition.lang = "en-NG"; recognition.continuous = true; recognition.interimResults = false;
     recognition.onstart = () => setListening(true);
-    recognition.onresult = event => { for (let i = event.resultIndex; i < event.results.length; i++) { const transcript = event.results[i]?.[0]?.transcript?.trim(); if (event.results[i].isFinal && transcript && !processingVoiceRef.current) { processingVoiceRef.current = true; recognition.stop(); Promise.resolve(onReply?.("I answered your AURORA call. " + transcript)).catch(err => setError(err.message || "AURORA could not process that reply.")).finally(() => { processingVoiceRef.current = false; if (voiceSessionRef.current && recognitionRef.current === recognition) window.setTimeout(() => { if (voiceSessionRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 900); }); } } };
+    recognition.onresult = event => { for (let i = event.resultIndex; i < event.results.length; i++) { const transcript = event.results[i]?.[0]?.transcript?.trim(); if (event.results[i].isFinal && transcript && !processingVoiceRef.current) { processingVoiceRef.current = true; recognition.stop(); Promise.resolve(onReply?.("I answered your AURORA call. " + transcript)).catch(err => setError(err.message || "AURORA could not process that reply.")).finally(() => { processingVoiceRef.current = false; if (voiceSessionRef.current && recognitionRef.current === recognition) window.setTimeout(() => { if (voiceSessionRef.current && !isSpeaking && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 900); }); } } };
     recognition.onerror = event => { if (event.error === "not-allowed" || event.error === "service-not-allowed") voiceSessionRef.current = false; setError("Voice conversation paused. Check microphone permission or type your reply."); };
-    recognition.onend = () => { setListening(false); if (voiceSessionRef.current && !processingVoiceRef.current && recognitionRef.current === recognition) { window.setTimeout(() => { if (voiceSessionRef.current && !processingVoiceRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 450); } };
+    recognition.onend = () => { setListening(false); if (voiceSessionRef.current && !isSpeaking && !processingVoiceRef.current && recognitionRef.current === recognition) { window.setTimeout(() => { if (voiceSessionRef.current && !isSpeaking && !processingVoiceRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 450); } };
     voiceSessionRef.current = true; recognitionRef.current = recognition;
     try { recognition.start(); } catch (err) { voiceSessionRef.current = false; recognitionRef.current = null; setError("Could not start hands-free voice. Try the Speak button."); }
   }
