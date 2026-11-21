@@ -29,6 +29,7 @@ assert.match(wrangler, /"new_sqlite_classes": \["AuroraCallsDurableObject"\]/, "
 assert.match(ui, /Schedule AURORA call/, "The calling workspace must schedule calls");
 assert.match(ui, /Incoming AURORA call/, "The calling workspace must show incoming calls");
 assert.match(ui, /onReply/, "The answered call must hand voice/text replies to the assistant");
+assert.match(ui, /setActiveCall\(call\)/, "Answering from Activities must keep the call session active for replies");
 assert.match(app, /activityTab === "calls"/, "The calling workspace must be reachable from Activities");
 const monitor = await readFile(resolve(root, "src/components/AuroraCallMonitor.jsx"), "utf8");
 assert.match(app, /<AuroraCallMonitor/, "Incoming call monitor must stay mounted across app pages");
