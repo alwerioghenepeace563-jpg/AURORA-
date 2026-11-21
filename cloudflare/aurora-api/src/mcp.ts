@@ -123,6 +123,18 @@ function extractTargetUrl(query: string): string {
   return match ? safeTargetUrl(match[0]) : "";
 }
 
+function extractSourceUrls(text: string): string[] {
+  const matches = text.match(/https?:\\/\\/[^\\s<>"')\\]]+/gi) || [];
+  const sources = new Set<string>();
+  for (const candidate of matches) {
+    const cleaned = candidate.replace(/[.,;!?]+$/, "");
+    const safe = safeTargetUrl(cleaned);
+    if (safe) sources.add(safe);
+    if (sources.size >= 8) break;
+  }
+  return [...sources];
+}
+
 function wantsResearch(query: string): boolean {
   return Boolean(extractTargetUrl(query)) ||
     /\b(search|research|look up|find online|latest|current|today|recent|news|compare sources|investigate|browse|website|webpage|read this|open this)\b/i.test(query);
@@ -263,7 +275,10 @@ async function runMcpServer(server: Connector, query: string, targetUrl: string)
   const output = chunks.join("\n").trim() ||
     (result?.structuredContent ? JSON.stringify(result.structuredContent) : "");
   if (!output) return null;
-  return { server: server.id, label: server.label, tool: selected.name, text: output.slice(0, MAX_TEXT) };
+  return {
+    server: server.id, label: server.label, tool: selected.name,
+    text: output.slice(0, MAX_TEXT), sources: extractSourceUrls(output)
+  };
 }
 
 async function runCloudflareBrowserRun(env: Env, targetUrl: string) {
@@ -284,7 +299,7 @@ async function runCloudflareBrowserRun(env: Env, targetUrl: string) {
     typeof payload?.result?.markdown === "string" ? payload.result.markdown : "";
   return markdown.trim() ? {
     server: "cloudflare-browser-run", label: "Cloudflare Browser Run", tool: "markdown",
-    text: markdown.slice(0, MAX_TEXT)
+    text: markdown.slice(0, MAX_TEXT), sources: extractSourceUrls(markdown)
   } : null;
 }
 
