@@ -8,6 +8,9 @@ export interface CallingEnv {
   AURORA_CALLS: DurableObjectNamespace;
   AURORA_PUSH_GATEWAY_URL?: string;
   AURORA_PUSH_GATEWAY_TOKEN?: string;
+  FCM_PROJECT_ID?: string;
+  FCM_CLIENT_EMAIL?: string;
+  FCM_PRIVATE_KEY?: string;
 }
 type Device = { id: string; token?: string; platform: "android" | "web"; updatedAt: number; lastSeen: number };
 type Reminder = { id: string; title: string; message: string; scheduledAt: number; status: "scheduled" | "delivered" | "cancelled"; createdAt: number };
@@ -58,6 +61,8 @@ export async function handleCalling(request: Request, env: CallingEnv): Promise<
 export class AuroraCallsDurableObject {
   private state: DurableObjectState;
   private env: CallingEnv;
+  private fcmAccessToken = "";
+  private fcmAccessTokenExpiresAt = 0;
   constructor(state: DurableObjectState, env: CallingEnv) { this.state = state; this.env = env; }
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url), path = url.pathname;
@@ -85,10 +90,11 @@ export class AuroraCallsDurableObject {
   private async registerDevice(request: Request): Promise<Response> {
     const body = await parseJson(request), id = safeText(body.deviceId, 80), token = safeText(body.pushToken, 4096);
     const platform = body.platform === "web" ? "web" : "android";
-    if (!validDeviceId(id) || token.length < 16) return json({ error: "A valid device ID and push token are required." }, 400);
+    if (!validDeviceId(id) || (token && token.length < 16)) return json({ error: "A valid device ID and optional push token are required." }, 400);
     const devices = await this.state.storage.get<Device[]>("devices") || [];
+    const existing = devices.find(d => d.id === id);
     const next = devices.filter(d => d.id !== id);
-    next.push({ id, ...(token ? { token } : {}), platform, updatedAt: Date.now(), lastSeen: Date.now() });
+    next.push({ id, ...((token || existing?.token) ? { token: token || existing?.token } : {}), platform, updatedAt: Date.now(), lastSeen: Date.now() });
     await this.state.storage.put("devices", next.slice(-10));
     return json({ registered: true, deviceId: id, deviceLimit: 10 });
   }
@@ -141,14 +147,56 @@ export class AuroraCallsDurableObject {
     await this.state.storage.put("reminders", updated);
     await this.rearm();
   }
-  private async push(payload: unknown): Promise<void> {
+  private base64Url(value: string | Uint8Array): string {
+    const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  }
+  private async getFcmAccessToken(): Promise<string> {
+    if (this.fcmAccessToken && this.fcmAccessTokenExpiresAt > Date.now() + 60_000) return this.fcmAccessToken;
+    const email = this.env.FCM_CLIENT_EMAIL || "", privateKey = (this.env.FCM_PRIVATE_KEY || "").replace(/\\\\n/g, "\\n"), now = Math.floor(Date.now() / 1000);
+    if (!email || !privateKey) throw new Error("FCM service account is not configured.");
+    const pem = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+    const binary = atob(pem), keyBytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    const key = await crypto.subtle.importKey("pkcs8", keyBytes, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+    const header = this.base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+    const claims = this.base64Url(JSON.stringify({ iss: email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }));
+    const unsigned = header + "." + claims;
+    const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsigned)));
+    const assertion = unsigned + "." + this.base64Url(signature);
+    const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }), signal: AbortSignal.timeout(9000) });
+    const data = await response.json().catch(() => ({})) as { access_token?: string; expires_in?: number };
+    if (!response.ok || !data.access_token) throw new Error("Google did not issue an FCM access token.");
+    this.fcmAccessToken = data.access_token;
+    this.fcmAccessTokenExpiresAt = Date.now() + Math.max(60, Number(data.expires_in) || 3600) * 1000;
+    return this.fcmAccessToken;
+  }
+  private async push(payload: any): Promise<void> {
+    const devices = await this.state.storage.get<Device[]>("devices") || [];
+    if (!devices.length) return;
+    const projectId = this.env.FCM_PROJECT_ID || "";
+    if (projectId && this.env.FCM_CLIENT_EMAIL && this.env.FCM_PRIVATE_KEY) {
+      try {
+        const accessToken = await this.getFcmAccessToken();
+        const call = payload?.call || {};
+        const data = Object.fromEntries(Object.entries({ event: payload?.event || "aurora_event", callId: call.id || payload?.callId || "", title: call.title || "AURORA", message: call.message || "" }).map(([key,value]) => [key, String(value)]));
+        await Promise.all(devices.filter(d => d.platform === "android" && d.token).map(async device => {
+          const response = await fetch("https://fcm.googleapis.com/v1/projects/" + encodeURIComponent(projectId) + "/messages:send", {
+            method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+            body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "60s", notification: { channel_id: "aurora_calls", sound: "default", click_action: "FLUTTER_NOTIFICATION_CLICK" } } } }),
+            signal: AbortSignal.timeout(9000)
+          });
+          if (!response.ok) throw new Error("FCM delivery failed with status " + response.status);
+        }));
+        return;
+      } catch (error) { /* fall through to the optional gateway and in-app inbox */ }
+    }
     const endpoint = this.env.AURORA_PUSH_GATEWAY_URL || "", secret = this.env.AURORA_PUSH_GATEWAY_TOKEN || "";
     if (!endpoint || !secret) return;
     let parsed: URL;
     try { parsed = new URL(endpoint); if (parsed.protocol !== "https:") return; } catch { return; }
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    if (!devices.length) return;
-    try { await fetch(parsed.toString(), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret }, body: JSON.stringify({ devices: devices.map(({id,token,platform}) => ({ id, token, platform })), payload }), signal: AbortSignal.timeout(10_000) }); } catch { /* retry is provided by the pending-call list */ }
+    try { await fetch(parsed.toString(), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret }, body: JSON.stringify({ devices: devices.map(({id,token,platform}) => ({ id, token, platform })), payload }), signal: AbortSignal.timeout(10_000) }); } catch { /* pending calls remain available in the authenticated inbox */ }
   }
   private async readInbox(deviceId: string): Promise<Response> {
     if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
@@ -193,6 +241,9 @@ export class AuroraCallsDurableObject {
     if (!idPattern.test(callId) || !validDeviceId(fromDeviceId) || !validDeviceId(toDeviceId) || !["offer","answer","ice","hangup"].includes(kind)) return json({ error: "Invalid call signal." }, 400);
     const devices = await this.state.storage.get<Device[]>("devices") || [];
     if (!devices.some(d => d.id === fromDeviceId) || !devices.some(d => d.id === toDeviceId)) return json({ error: "Both devices must be registered to this AURORA account." }, 403);
+    const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
+    const activeCall = calls.find(c => c.id === callId && c.status === "answered");
+    if (!activeCall || !activeCall.answeredBy || (fromDeviceId !== activeCall.answeredBy && toDeviceId !== activeCall.answeredBy)) return json({ error: "Signals are allowed only for the device that answered this active call." }, 409);
     const raw = JSON.stringify(body.payload ?? null);
     if (raw.length > MAX_SIGNAL_BYTES) return json({ error: "Call signal is too large." }, 413);
     const signals = await this.state.storage.get<Signal[]>("signals") || [];
