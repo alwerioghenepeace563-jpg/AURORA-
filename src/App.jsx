@@ -577,6 +577,7 @@ export default function App() {
   const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
   const pulseDragRef = useRef(null);
   const pulseDispatchRef = useRef(null);
+  const nativeHandoffPollInFlightRef = useRef(false);
   const pulseRecognitionRef = useRef(null);
   const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
@@ -645,6 +646,8 @@ export default function App() {
     let stopped = false;
     AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
     const pollWakeWord = async () => {
+      if (stopped || nativeHandoffPollInFlightRef.current) return;
+      nativeHandoffPollInFlightRef.current = true;
       try {
         const pulseRequest = await AuroraNative.consumePulseOpenRequest();
         if (stopped) return;
@@ -654,14 +657,17 @@ export default function App() {
           setNativeNotice("AURORA Pulse opened from the assistant gesture.");
         }
 
-        const sharedPulseAction = await AuroraNative.consumePulseActionRequest();
-        if (stopped) return;
-        if (sharedPulseAction?.query) {
+        // Do not dequeue a native request until the shared Pulse dispatcher is mounted.
+        if (typeof pulseDispatchRef.current === "function") {
+          const sharedPulseAction = await AuroraNative.consumePulseActionRequest();
+          if (stopped) return;
+          if (sharedPulseAction?.query) {
           setPulseOpen(true);
           setNativeNotice("Pulse request received. Running it through AURORA's shared action engine.");
-          window.setTimeout(() => {
-            if (!stopped) pulseDispatchRef.current?.(sharedPulseAction.query);
-          }, 250);
+            window.setTimeout(() => {
+              if (!stopped) void pulseDispatchRef.current?.(sharedPulseAction.query);
+            }, 250);
+          }
         }
 
         const sessionQuery = await AuroraNative.consumeAssistantSessionQuery();
@@ -677,7 +683,9 @@ export default function App() {
         if (stopped || !result?.detected) return;
         setPulseOpen(true);
         setNativeNotice("Hey AURORA heard you. AURORA Pulse is open and listening.");
-      } catch {}
+      } catch {} finally {
+        nativeHandoffPollInFlightRef.current = false;
+      }
     };
     const timer = setInterval(pollWakeWord, 1100);
     return () => { stopped = true; clearInterval(timer); };
