@@ -16,8 +16,23 @@ function redisConfig(env: Env): { url: string; token: string } | null {
   }
 }
 
-async function memoryKey(authorization: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(authorization));
+async function memoryKey(env: Env, authorization: string): Promise<string> {
+  const supabaseUrl = String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API || "").trim().replace(/\\/+$/, "");
+  const anonKey = String(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "").trim();
+  if (!authorization || !anonKey) return "";
+  let base: URL;
+  try {
+    base = new URL(supabaseUrl);
+    if (base.protocol !== "https:") return "";
+  } catch { return ""; }
+  const response = await fetch(new URL("/auth/v1/user", base), {
+    headers: { Authorization: authorization, apikey: anonKey },
+    signal: AbortSignal.timeout(3500)
+  });
+  if (!response.ok) return "";
+  const user: any = await response.json();
+  if (typeof user?.id !== "string" || !user.id) return "";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(user.id));
   const hash = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
   return "aurora:research-memory:v1:" + hash;
 }
@@ -51,7 +66,8 @@ function words(value: string): Set<string> {
 export async function readResearchMemory(env: Env, authorization: string, query: string): Promise<string> {
   if (!authorization || !safeMemoryQuery(query) || !redisConfig(env)) return "";
   try {
-    const key = await memoryKey(authorization);
+    const key = await memoryKey(env, authorization);
+    if (!key) return "";
     const raw = await redis(env, ["GET", key]);
     if (typeof raw !== "string" || !raw) return "";
     const entries = JSON.parse(raw);
@@ -86,7 +102,8 @@ export async function saveResearchMemory(
 ): Promise<boolean> {
   if (!authorization || !safeMemoryQuery(query) || !Array.isArray(evidence) || !evidence.length || !redisConfig(env)) return false;
   try {
-    const key = await memoryKey(authorization);
+    const key = await memoryKey(env, authorization);
+    if (!key) return false;
     const raw = await redis(env, ["GET", key]);
     const previous = typeof raw === "string" ? JSON.parse(raw) : [];
     const entries = Array.isArray(previous) ? previous : [];
@@ -114,7 +131,9 @@ export async function saveResearchMemory(
 export async function clearResearchMemory(env: Env, authorization: string): Promise<boolean> {
   if (!authorization || !redisConfig(env)) return false;
   try {
-    await redis(env, ["DEL", await memoryKey(authorization)]);
+    const key = await memoryKey(env, authorization);
+    if (!key) return false;
+    await redis(env, ["DEL", key]);
     return true;
   } catch (error) {
     console.warn("AURORA research memory clear skipped.", error);
