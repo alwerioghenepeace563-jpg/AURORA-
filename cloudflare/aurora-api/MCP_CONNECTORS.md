@@ -48,6 +48,10 @@ AURORA ranks eligible read-only MCP tools against the user's request instead of 
 
 MCP research output also extracts a small, validated set of public source URLs and passes them into AURORA's evidence context so the model can attribute claims and present source links. URLs are filtered through the same public-target checks; this is not a substitute for full DNS-level SSRF protection.
 
+### Cross-source verification
+
+For each research response, AURORA summarizes the number of responding connectors, distinct linked source domains and domains repeated across evidence items. The chat model is instructed to compare the actual claims and label agreement, disagreement and unresolved points separately. Connector count and repeated domains are coverage signals only: they are not proof of factual corroboration, and multiple tools may rely on the same underlying publisher. When evidence is thin or conflicting, AURORA should say so rather than manufacture consensus.
+
 ## Safety and runtime behavior
 
 - MCP execution happens inside the Cloudflare Worker. Credentials are never returned to the client.
