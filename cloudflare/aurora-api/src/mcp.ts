@@ -20,6 +20,7 @@ function value(env: Env, key: string): string {
 
 function connectors(env: Env): Connector[] {
   const firecrawlToken = value(env, "FIRECRAWL_OAUTH_TOKEN") || value(env, "FIRECRAWL_API_KEY");
+  const tavilyToken = value(env, "TAVILY_API_KEY");
   const perplexityToken = value(env, "PERPLEXITY_API_KEY");
   return [
     {
@@ -36,6 +37,14 @@ function connectors(env: Env): Connector[] {
       url: value(env, "AURORA_FIRECRAWL_MCP_URL") || "https://mcp.firecrawl.dev/v2/mcp",
       token: firecrawlToken,
       enabled: value(env, "AURORA_FIRECRAWL_ENABLED").toLowerCase() !== "false",
+      kind: "research"
+    },
+    {
+      id: "tavily",
+      label: "Tavily Web Research",
+      url: value(env, "AURORA_TAVILY_MCP_URL") || "https://mcp.tavily.com/mcp/",
+      token: tavilyToken,
+      enabled: Boolean(tavilyToken) && value(env, "AURORA_TAVILY_ENABLED").toLowerCase() !== "false",
       kind: "research"
     },
     {
