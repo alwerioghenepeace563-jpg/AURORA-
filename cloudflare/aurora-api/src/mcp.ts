@@ -309,7 +309,7 @@ function summarizeResearchQuality(results: any[]) {
   const domainCounts = new Map<string, number>();
   for (const item of usable) {
     const domains = new Set((Array.isArray(item.sources) ? item.sources : []).map((source: any) => {
-      try { return new URL(String(source)).hostname.toLowerCase().replace(/^www\\./, ""); }
+      try { return new URL(String(source)).hostname.toLowerCase().replace(/^www\./, ""); }
       catch { return ""; }
     }).filter(Boolean));
     item.sourceDomains = [...domains];
