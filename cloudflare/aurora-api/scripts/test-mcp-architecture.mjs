@@ -62,7 +62,7 @@ assert.match(chat, /clearResearchMemory/);
 assert.match(chat, /isResearchQuery/);
 assert.match(memory, /UPSTASH_REDIS_REST_URL/);
 assert.match(memory, /KV_REST_API_URL/);
-assert.match(memory, /crypto\.subtle\.digest\('SHA-256'/);
+assert.match(memory, /crypto\.subtle\.digest\("SHA-256"/);
 assert.match(memory, /MEMORY_TTL_SECONDS/);
 assert.match(memory, /MAX_MEMORY_ITEMS/);
 assert.match(memory, /Authorization: "Bearer "/);
