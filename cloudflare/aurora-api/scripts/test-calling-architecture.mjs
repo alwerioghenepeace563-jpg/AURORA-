@@ -21,6 +21,7 @@ assert.ok(calling.includes("Promise.all(androidDevices.map"), "FCM delivery must
 assert.ok(calling.includes("outcomes.some(outcome => outcome.delivered)"), "One failed device must not hide successful FCM deliveries to other devices");
 assert.ok(calling.includes('detail.errorCode === "UNREGISTERED"'), "Only confirmed-unregistered FCM tokens may be retired");
 assert.ok(calling.includes("invalidIds.size"), "Confirmed stale FCM tokens must be cleared from device records");
+assert.ok(calling.includes("device.token === invalidTokens.get(device.id)"), "A stale-token response must not erase a newer token registered for the same device");
 assert.ok(calling.includes("const recipients = targetDeviceId"), "Device-specific signalling push must not notify unrelated devices");
 assert.ok(calling.includes("activeCall.answeredBy"), "Call signalling must be restricted to the device that answered");
 assert.match(calling, /MAX_SIGNAL_BYTES/, "WebRTC signaling payloads must be bounded");
