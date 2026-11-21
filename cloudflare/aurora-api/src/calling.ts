@@ -151,13 +151,13 @@ export class AuroraCallsDurableObject {
     const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
     let binary = "";
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+    return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   }
   private async getFcmAccessToken(): Promise<string> {
     if (this.fcmAccessToken && this.fcmAccessTokenExpiresAt > Date.now() + 60_000) return this.fcmAccessToken;
-    const email = this.env.FCM_CLIENT_EMAIL || "", privateKey = (this.env.FCM_PRIVATE_KEY || "").replace(/\\\\n/g, "\\n"), now = Math.floor(Date.now() / 1000);
+    const email = this.env.FCM_CLIENT_EMAIL || "", privateKey = (this.env.FCM_PRIVATE_KEY || "").replace(/\\n/g, "\n"), now = Math.floor(Date.now() / 1000);
     if (!email || !privateKey) throw new Error("FCM service account is not configured.");
-    const pem = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\\s/g, "");
+    const pem = privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
     const binary = atob(pem), keyBytes = Uint8Array.from(binary, char => char.charCodeAt(0));
     const key = await crypto.subtle.importKey("pkcs8", keyBytes, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
     const header = this.base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
