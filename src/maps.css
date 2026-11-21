@@ -59,3 +59,14 @@
 .maps-map-frame .leaflet-control-zoom a{background:rgba(5,14,27,.92);color:#eaf7ff;border-color:rgba(180,220,255,.2)}
 .maps-map-frame .leaflet-control-zoom a:hover{background:rgba(23,66,98,.96);color:#fff}
 @media(max-width:480px){.maps-layer-grid button{min-height:44px;font-size:10px}.maps-layer-label{margin-top:7px}}
+
+
+/* Native in-app 3D Earth globe */
+.maps-earth-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;background:radial-gradient(ellipse at 50% 45%,#102b4b 0%,#050d1c 58%,#020611 100%);touch-action:pan-x pan-y}
+.maps-earth-canvas canvas{display:block;max-width:100%;outline:none}
+.maps-earth-loading{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;background:rgba(3,9,20,.72);color:#c7e9ff;font-size:12px;text-align:center;padding:24px;pointer-events:none}
+.maps-earth-error{pointer-events:auto}
+.maps-earth-caption{position:absolute;z-index:3;left:12px;bottom:12px;display:flex;align-items:center;gap:7px;border:1px solid rgba(139,207,255,.2);border-radius:9px;padding:8px 10px;background:rgba(3,11,24,.82);color:#cceeff;font-size:9px;letter-spacing:.05em;pointer-events:none;backdrop-filter:blur(10px)}
+.maps-earth-locate{position:absolute;z-index:4;right:12px;bottom:12px;display:flex;align-items:center;gap:7px;border:1px solid rgba(139,207,255,.28);border-radius:10px;padding:9px 11px;background:rgba(3,11,24,.9);color:#e7f7ff;font-size:11px;font-weight:600}
+.maps-earth-locate:hover{background:rgba(23,66,98,.96)}
+@media(max-width:480px){.maps-earth-caption{left:9px;bottom:10px;font-size:8px;padding:7px 8px}.maps-earth-locate{right:9px;bottom:10px;padding:8px 9px}}
