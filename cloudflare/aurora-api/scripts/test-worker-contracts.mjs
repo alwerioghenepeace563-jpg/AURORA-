@@ -260,6 +260,11 @@ try {
   await expectStatus('/api/legacy-parity-smoke', 503);
   const spaFallback = await expectStatus('/not-an-api-route', 200);
   assert.match(spaFallback.headers.get('content-type') || '', /text\/html/i);
+  const cloudflareProbeFallback = await expectStatus('/__aurora_cloudflare_spa_probe__', 200);
+  assert.match(cloudflareProbeFallback.headers.get('content-type') || '', /text\/html/i,
+    'Cloudflare asset-layer redirects for extensionless routes must fall through to the SPA shell');
+  assert.match(await cloudflareProbeFallback.text(), /id=["']root["']/i,
+    'Cloudflare SPA probe must return the AURORA app shell');
 
   console.log('AURORA Worker contract smoke tests passed (Cloudflare-hosted SPA, SPA fallback, health, metadata, same-origin CORS, chat, VoiceText transcription bridge, media search, weather, voice catalogue, voice synthesis, image-generation route guards, research, Supabase configuration, and legacy fallback).');
 } catch (error) {
