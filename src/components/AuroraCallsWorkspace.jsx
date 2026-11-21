@@ -80,6 +80,7 @@ export default function AuroraCallsWorkspace({ authSession, onReply, onSpeak }) 
       await api("/api/calls/" + encodeURIComponent(call.id) + "/" + action, { method: "POST", body: JSON.stringify({ deviceId }) });
       setCalls(items => items.filter(item => item.id !== call.id));
       if (action === "answer") {
+        setActiveCall(call);
         const spoken = [call.title, call.message].filter(Boolean).join(". ");
         if (spoken) onSpeak?.("AURORA calling. " + spoken);
       }
@@ -124,6 +125,6 @@ export default function AuroraCallsWorkspace({ authSession, onReply, onSpeak }) 
     <div className="activity-panel-title"><div><h3>Scheduled calls</h3><p>Calls stay pending if your devices are offline, then appear when an AURORA device reconnects.</p></div><button className="outline-action" type="button" onClick={() => refresh().catch(err => setError(err.message))}><RefreshCw size={14}/> Refresh</button></div>
     <div className="activity-record-list">{reminders.map(item => <div className="activity-record" key={item.id}><span className="record-main"><strong>{item.title}</strong><small><Clock3 size={12}/> {new Date(item.scheduledAt).toLocaleString()}</small>{item.message && <small>{item.message}</small>}</span><button className="record-delete" type="button" onClick={() => cancel(item.id)} aria-label="Cancel scheduled call">×</button></div>)}{!reminders.length && <p className="activity-muted">No AURORA calls scheduled yet.</p>}</div>
     {activeCall && <form className="activity-inline-form" onSubmit={sendReply}><input value={reply} onChange={e => setReply(e.target.value)} placeholder="Reply to AURORA…" aria-label="Reply to AURORA call"/><button type="button" className="outline-action" onClick={voiceReply} disabled={listening}><Mic size={15}/> {listening ? "Listening…" : "Speak"}</button><button className="primary-action" type="submit"><Send size={15}/> Send</button></form>}
-    <p className="activity-muted">Background ringing needs a configured push-delivery gateway and native push receiver. While the app is open, AURORA checks for incoming calls every few seconds. This feature does not place ordinary SIM or phone-network calls.</p>
+    <p className="activity-muted">Android background notifications use Firebase Cloud Messaging when Firebase app configuration and Cloudflare FCM credentials are configured. While the app is open, AURORA also checks its private call inbox. This feature does not place ordinary SIM or phone-network calls.</p>
   </section>;
 }
