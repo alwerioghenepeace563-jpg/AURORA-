@@ -21,7 +21,9 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
   const [reply, setReply] = useState("");
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
-  const pollRef = useRef(null);\n  const voiceSessionRef = useRef(false);\n  const recognitionRef = useRef(null);
+  const pollRef = useRef(null);
+  const voiceSessionRef = useRef(false);
+  const recognitionRef = useRef(null);
   const api = useCallback(async (path, init = {}) => {
     if (!token) throw new Error("Sign in required.");
     const response = await fetch(auroraApiUrl(path), { ...init, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(init.headers || {}) } });
@@ -96,7 +98,20 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
     try { await api("/api/calls/" + encodeURIComponent(active.id) + "/end", { method: "POST", body: JSON.stringify({ deviceId }) }); setActive(null); }
     catch (err) { setError(err.message); }
   }
-  function toggleHandsFree() {\n    if (voiceSessionRef.current) { voiceSessionRef.current = false; recognitionRef.current?.stop?.(); recognitionRef.current = null; setListening(false); return; }\n    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;\n    if (!Recognition) { setError("Continuous voice conversation is unavailable in this Android browser. Use Speak or type a reply."); return; }\n    const recognition = new Recognition();\n    recognition.lang = "en-NG"; recognition.continuous = true; recognition.interimResults = false;\n    recognition.onstart = () => setListening(true);\n    recognition.onresult = event => { for (let i = event.resultIndex; i < event.results.length; i++) { const transcript = event.results[i]?.[0]?.transcript?.trim(); if (event.results[i].isFinal && transcript) onReply?.("I answered your AURORA call. " + transcript); } };\n    recognition.onerror = event => { if (event.error === "not-allowed" || event.error === "service-not-allowed") voiceSessionRef.current = false; setError("Voice conversation paused. Check microphone permission or type your reply."); };\n    recognition.onend = () => { setListening(false); if (voiceSessionRef.current && recognitionRef.current === recognition) { window.setTimeout(() => { if (voiceSessionRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 450); } };\n    voiceSessionRef.current = true; recognitionRef.current = recognition;\n    try { recognition.start(); } catch (err) { voiceSessionRef.current = false; recognitionRef.current = null; setError("Could not start hands-free voice. Try the Speak button."); }\n  }\n  async function sendReply(event) {
+  function toggleHandsFree() {
+    if (voiceSessionRef.current) { voiceSessionRef.current = false; recognitionRef.current?.stop?.(); recognitionRef.current = null; setListening(false); return; }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) { setError("Continuous voice conversation is unavailable in this Android browser. Use Speak or type a reply."); return; }
+    const recognition = new Recognition();
+    recognition.lang = "en-NG"; recognition.continuous = true; recognition.interimResults = false;
+    recognition.onstart = () => setListening(true);
+    recognition.onresult = event => { for (let i = event.resultIndex; i < event.results.length; i++) { const transcript = event.results[i]?.[0]?.transcript?.trim(); if (event.results[i].isFinal && transcript) onReply?.("I answered your AURORA call. " + transcript); } };
+    recognition.onerror = event => { if (event.error === "not-allowed" || event.error === "service-not-allowed") voiceSessionRef.current = false; setError("Voice conversation paused. Check microphone permission or type your reply."); };
+    recognition.onend = () => { setListening(false); if (voiceSessionRef.current && recognitionRef.current === recognition) { window.setTimeout(() => { if (voiceSessionRef.current && recognitionRef.current === recognition) { try { recognition.start(); } catch {} } }, 450); } };
+    voiceSessionRef.current = true; recognitionRef.current = recognition;
+    try { recognition.start(); } catch (err) { voiceSessionRef.current = false; recognitionRef.current = null; setError("Could not start hands-free voice. Try the Speak button."); }
+  }
+  async function sendReply(event) {
     event.preventDefault();
     if (!reply.trim()) return;
     const text = reply.trim(); setReply("");
