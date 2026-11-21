@@ -204,10 +204,12 @@ export class AuroraCallsDurableObject {
           }
         }));
         fcmDelivered = outcomes.some(outcome => outcome.delivered);
-        const invalidIds = new Set(outcomes.filter(outcome => outcome.invalidToken).map(outcome => outcome.deviceId));
-        if (invalidIds.size) {
+        const invalidTokens = new Map(outcomes.filter(outcome => outcome.invalidToken).map(outcome => [outcome.deviceId, androidDevices.find(device => device.id === outcome.deviceId)?.token]));
+        if (invalidTokens.size) {
           const latest = await this.state.storage.get<Device[]>("devices") || [];
-          await this.state.storage.put("devices", latest.map(device => invalidIds.has(device.id) ? { ...device, token: undefined } : device));
+          // Retire only the exact token that FCM rejected. A newer token may
+          // have been registered while the network request was in flight.
+          await this.state.storage.put("devices", latest.map(device => invalidTokens.has(device.id) && device.token === invalidTokens.get(device.id) ? { ...device, token: undefined } : device));
         }
       } catch { /* pending calls remain available in the authenticated inbox */ }
     }
