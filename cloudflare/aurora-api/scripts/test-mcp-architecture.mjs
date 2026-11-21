@@ -23,6 +23,7 @@ assert.match(mcp, /readOnlyHint === false/);
 assert.match(mcp, /destructiveHint === true/);
 assert.match(mcp, /localhost/);
 assert.match(mcp, /metadata\.google\.internal/);
+assert.match(mcp, /host\.includes\(\":\"\)/);
 assert.match(mcp, /MCP_TIMEOUT_MS/);
 assert.match(mcp, /Promise\.all\(jobs\)/);
 assert.match(docs, /credentials are never returned to the client/i);
