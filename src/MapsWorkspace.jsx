@@ -1,9 +1,15 @@
 import "./maps.css";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, ExternalLink, Route, Clock3 } from "lucide-react";
+import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, ExternalLink, Route, Clock3, Mountain, Layers3, Globe2 } from "lucide-react";
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const TILE_SOURCES = {
+  street: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>', maxZoom: 19 },
+  satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics and contributors", maxZoom: 19 },
+  terrain: { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)', maxZoom: 17 },
+  hybrid: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics; labels &copy; Esri", maxZoom: 19 }
+};
 
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
@@ -11,9 +17,7 @@ function loadLeaflet() {
   window.__auroraLeafletPromise = new Promise((resolve, reject) => {
     if (!document.querySelector('link[data-aurora-leaflet]')) {
       const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = LEAFLET_CSS;
-      link.dataset.auroraLeaflet = "true";
+      link.rel = "stylesheet"; link.href = LEAFLET_CSS; link.dataset.auroraLeaflet = "true";
       document.head.appendChild(link);
     }
     let script = document.querySelector('script[data-aurora-leaflet]');
@@ -22,9 +26,7 @@ function loadLeaflet() {
       script.addEventListener("error", reject, { once: true });
       return;
     }
-    script = document.createElement("script");
-    script.src = LEAFLET_JS;
-    script.async = true;
+    script = document.createElement("script"); script.src = LEAFLET_JS; script.async = true;
     script.dataset.auroraLeaflet = "true";
     script.onload = () => window.L ? resolve(window.L) : reject(new Error("Map library did not initialise."));
     script.onerror = () => reject(new Error("Map library could not load. Check your internet connection."));
@@ -34,22 +36,13 @@ function loadLeaflet() {
 }
 
 export default function MapsWorkspace() {
-  const mapNodeRef = useRef(null);
-  const mapRef = useRef(null);
-  const routeLayerRef = useRef(null);
-  const userMarkerRef = useRef(null);
-  const destinationMarkerRef = useRef(null);
-  const watchIdRef = useRef(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState("");
-  const [destination, setDestination] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [routeInfo, setRouteInfo] = useState(null);
-  const [tracking, setTracking] = useState(false);
-  const [notice, setNotice] = useState("Search for a destination or use your current location to begin.");
-  const [mode, setMode] = useState("street");
-  const [googleView, setGoogleView] = useState("");
+  const mapNodeRef = useRef(null), mapRef = useRef(null), tileLayerRef = useRef(null), labelLayerRef = useRef(null);
+  const routeLayerRef = useRef(null), userMarkerRef = useRef(null), destinationMarkerRef = useRef(null), watchIdRef = useRef(null);
+  const [mapReady, setMapReady] = useState(false), [mapError, setMapError] = useState("");
+  const [destination, setDestination] = useState(""), [busy, setBusy] = useState(false);
+  const [location, setLocation] = useState(null), [routeInfo, setRouteInfo] = useState(null);
+  const [tracking, setTracking] = useState(false), [notice, setNotice] = useState("Search for a destination or use your current location to begin.");
+  const [mode, setMode] = useState("street"), [googleView, setGoogleView] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -57,16 +50,29 @@ export default function MapsWorkspace() {
       if (cancelled || !mapNodeRef.current || mapRef.current) return;
       const map = L.map(mapNodeRef.current, { zoomControl: false, preferCanvas: true }).setView([9.0820, 8.6753], 6);
       L.control.zoom({ position: "bottomright" }).addTo(map);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>'
-      }).addTo(map);
-      mapRef.current = map;
-      setMapReady(true);
-      setTimeout(() => map.invalidateSize(), 150);
+      tileLayerRef.current = L.tileLayer(TILE_SOURCES.street.url, { maxZoom: TILE_SOURCES.street.maxZoom, attribution: TILE_SOURCES.street.attribution }).addTo(map);
+      mapRef.current = map; setMapReady(true); setTimeout(() => map.invalidateSize(), 150);
     }).catch((error) => setMapError(error.message || "The map could not load."));
-    return () => { cancelled = true; if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current); mapRef.current?.remove(); mapRef.current = null; };
+    return () => {
+      cancelled = true;
+      if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
+      mapRef.current?.remove(); mapRef.current = null; tileLayerRef.current = null; labelLayerRef.current = null; setMapReady(false);
+    };
   }, [googleView]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.L) return;
+    const L = window.L, source = TILE_SOURCES[mode] || TILE_SOURCES.street;
+    if (tileLayerRef.current) mapRef.current.removeLayer(tileLayerRef.current);
+    if (labelLayerRef.current) { mapRef.current.removeLayer(labelLayerRef.current); labelLayerRef.current = null; }
+    tileLayerRef.current = L.tileLayer(source.url, { maxZoom: source.maxZoom, attribution: source.attribution }).addTo(mapRef.current);
+    if (mode === "hybrid") {
+      labelLayerRef.current = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19, opacity: 0.95, attribution: "Place labels &copy; Esri"
+      }).addTo(mapRef.current);
+    }
+    setNotice(mode === "street" ? "Street map active." : mode === "satellite" ? "Satellite imagery active." : mode === "terrain" ? "Terrain map active. Elevation shading is illustrative, not a live 3D elevation model." : "Hybrid imagery and place labels active.");
+  }, [mapReady, mode]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -74,16 +80,12 @@ export default function MapsWorkspace() {
     return () => clearTimeout(timer);
   }, [mapReady]);
 
-
   useEffect(() => {
     if (!mapReady || !mapRef.current || !location || !window.L) return;
     const point = [location.lat, location.lon];
-    if (!userMarkerRef.current) {
-      userMarkerRef.current = window.L.circleMarker(point, { radius: 9, color: "#f5fcff", weight: 3, fillColor: "#27a9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
-      mapRef.current.setView(point, 16);
-    } else {
-      userMarkerRef.current.setLatLng(point);
-    }
+    if (!userMarkerRef.current) userMarkerRef.current = window.L.circleMarker(point, { radius: 9, color: "#f5fcff", weight: 3, fillColor: "#27a9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
+    else userMarkerRef.current.setLatLng(point);
+    if (!routeLayerRef.current) mapRef.current.setView(point, 16);
   }, [mapReady, location]);
 
   function useCurrentLocation() {
@@ -92,14 +94,13 @@ export default function MapsWorkspace() {
     navigator.geolocation.getCurrentPosition((position) => {
       const point = [position.coords.latitude, position.coords.longitude];
       setLocation({ lat: point[0], lon: point[1] });
-      const L = window.L;
-      if (L && mapRef.current) {
-        if (!userMarkerRef.current) userMarkerRef.current = L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
+      if (window.L && mapRef.current) {
+        if (!userMarkerRef.current) userMarkerRef.current = window.L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
         else userMarkerRef.current.setLatLng(point);
         mapRef.current.setView(point, 16);
       }
-      setNotice("Your current location is shown. If this is your first visit, allow location access when prompted.");
-    }, (error) => setNotice(error.code === 1 ? "Location permission was denied. Allow location access in your device settings and try again." : "Could not get your location. Check GPS and internet, then try again."), { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+      setNotice("Your current location is shown. Location access is controlled by your device.");
+    }, (error) => setNotice(error.code === 1 ? "Location permission was denied. Allow location access in device settings and try again." : "Could not get your location. Check GPS and internet, then try again."), { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
   }
 
   function toggleTracking() {
@@ -112,9 +113,8 @@ export default function MapsWorkspace() {
     watchIdRef.current = navigator.geolocation.watchPosition((position) => {
       const point = [position.coords.latitude, position.coords.longitude];
       setLocation({ lat: point[0], lon: point[1] });
-      const L = window.L;
-      if (L && mapRef.current) {
-        if (!userMarkerRef.current) userMarkerRef.current = L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your live location");
+      if (window.L && mapRef.current) {
+        if (!userMarkerRef.current) userMarkerRef.current = window.L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your live location");
         else userMarkerRef.current.setLatLng(point);
         if (!routeLayerRef.current) mapRef.current.panTo(point);
       }
@@ -126,92 +126,85 @@ export default function MapsWorkspace() {
     event?.preventDefault();
     const query = destination.trim();
     if (!query) { setNotice("Enter a place or destination first."); return; }
-    setBusy(true);
-    setRouteInfo(null);
-    setNotice("Finding destination…");
+    setBusy(true); setRouteInfo(null); setNotice("Finding destination…");
     if (routeLayerRef.current) { routeLayerRef.current.remove(); routeLayerRef.current = null; }
     if (destinationMarkerRef.current) { destinationMarkerRef.current.remove(); destinationMarkerRef.current = null; }
     try {
-      const geocodeResponse = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(query), {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(12000)
+      const response = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(query), {
+        headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000)
       });
-      if (!geocodeResponse.ok) throw new Error("Destination search is temporarily unavailable.");
-      const results = await geocodeResponse.json();
+      if (!response.ok) throw new Error("Destination search is temporarily unavailable.");
+      const results = await response.json();
       if (!results.length) throw new Error("I couldn't find that place. Try adding the city or state.");
       const target = { lat: Number(results[0].lat), lon: Number(results[0].lon), label: results[0].display_name };
       const L = window.L;
       if (L && mapRef.current) {
-        if (destinationMarkerRef.current) destinationMarkerRef.current.remove();
         destinationMarkerRef.current = L.marker([target.lat, target.lon]).addTo(mapRef.current).bindPopup(target.label);
         destinationMarkerRef.current.openPopup();
       }
       if (location) {
         const routeResponse = await fetch("https://router.project-osrm.org/route/v1/driving/" + location.lon + "," + location.lat + ";" + target.lon + "," + target.lat + "?overview=full&geometries=geojson&steps=true", { signal: AbortSignal.timeout(12000) });
         if (routeResponse.ok) {
-          const routeData = await routeResponse.json();
-          const route = routeData.routes?.[0];
+          const data = await routeResponse.json(), route = data.routes?.[0];
           if (route && L && mapRef.current) {
-            if (routeLayerRef.current) routeLayerRef.current.remove();
             routeLayerRef.current = L.geoJSON(route.geometry, { style: { color: "#35b9ff", weight: 6, opacity: .9, lineCap: "round", lineJoin: "round" } }).addTo(mapRef.current);
             mapRef.current.fitBounds(routeLayerRef.current.getBounds(), { padding: [35, 35] });
             setRouteInfo({ distance: route.distance, duration: route.duration, target });
-            setNotice("Route shown. Directions and ETA are estimates; follow road signs and local guidance.");
-            return;
+            setNotice("Route shown. Distance and ETA are estimates; follow road signs and local guidance."); return;
           }
         }
       }
       if (L && mapRef.current) mapRef.current.setView([target.lat, target.lon], 15);
-      setRouteInfo({ target });
-      setNotice("Destination found. Tap Use my location first to calculate a route from where you are.");
+      setRouteInfo({ target }); setNotice("Destination found. Use your location to calculate a route from where you are.");
     } catch (error) {
-      setNotice(error.name === "TimeoutError" || error.name === "AbortError"
-        ? "The map service took too long to respond. Please try again."
-        : error.message || "Could not find that destination.");
+      setNotice(error.name === "TimeoutError" || error.name === "AbortError" ? "The map service took too long to respond. Please try again." : error.message || "Could not find that destination.");
     } finally { setBusy(false); }
   }
 
-  function stopTrackingForMapSwitch() {
-    if (watchIdRef.current != null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-    }
-    watchIdRef.current = null;
-    setTracking(false);
+  function stopTracking() {
+    if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null; setTracking(false);
   }
-
-  function openGoogle(modeName) {
-    stopTrackingForMapSwitch();
-    setGoogleView(modeName);
-    setMode(modeName);
-    setNotice(modeName === "satellite" ? "Loading Google Maps satellite imagery inside this map box…" : modeName === "streetview" ? "Loading Google Maps street-level imagery inside this map box where available…" : "Loading Google Maps directions inside this map box…");
+  function openGoogle(view) {
+    stopTracking(); setGoogleView(view);
+    setNotice(view === "streetview" ? "Opening Google Street View where imagery is available…" : "Opening Google Maps directions…");
   }
-
   function googleEmbedUrl() {
     const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
-    if (googleView === "satellite") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&t=k&z=15&output=embed";
     if (googleView === "streetview") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&layer=c&output=embed";
     const origin = location ? location.lat + "," + location.lon : "Nigeria";
     return "https://maps.google.com/maps?saddr=" + encodeURIComponent(origin) + "&daddr=" + encodeURIComponent(destination.trim() || query) + "&output=embed";
   }
-
+  function openEarth3D() {
+    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
+    window.open("https://earth.google.com/web/search/" + encodeURIComponent(query), "_blank", "noopener,noreferrer");
+    setNotice("Opening Google Earth for 3D globe and terrain exploration.");
+  }
   const fmtDistance = (metres) => metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : Math.round(metres) + " m";
   const fmtDuration = (seconds) => { const mins = Math.round(seconds / 60); return mins >= 60 ? Math.floor(mins / 60) + " hr " + (mins % 60) + " min" : mins + " min"; };
 
   return <section className="utility-page aurora-maps-page">
-    <div className="maps-heading"><div><p className="panel-eyebrow"><MapPinned size={14}/> AURORA NAVIGATION</p><h1>Maps<span>.</span></h1><p className="utility-intro">Explore places, locate yourself, and plan a journey.</p></div><span className={"maps-live-badge " + (tracking ? "is-live" : "")}><i/>{tracking ? "LOCATION LIVE" : "MAP READY"}</span></div>
+    <div className="maps-heading"><div><p className="panel-eyebrow"><MapPinned size={14}/> AURORA EARTH & NAVIGATION</p><h1>Maps<span>.</span></h1><p className="utility-intro">Explore the world, switch map layers, find places and plan journeys.</p></div><span className={"maps-live-badge " + (tracking ? "is-live" : "")}><i/>{tracking ? "LOCATION LIVE" : "MAP READY"}</span></div>
     <div className="maps-workspace">
       <aside className="maps-controls">
-        <form className="maps-search" onSubmit={searchDestination}><Search size={18}/><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Where do you want to go?" aria-label="Destination" /><button type="submit" disabled={busy} aria-label="Search destination">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button></form>
-        <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Use my location</strong><small>Show where I am now</small></span></button>
+        <form className="maps-search" onSubmit={searchDestination}><Search size={18}/><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Search a place, address or landmark" aria-label="Destination"/><button type="submit" disabled={busy} aria-label="Search destination">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button></form>
+        <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Use my location</strong><small>Center the map on this device</small></span></button>
         <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live location" : "Live location tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span></button>
-        <div className="maps-mode-row"><button type="button" className={mode === "street" ? "maps-mode-active" : ""} onClick={() => { stopTrackingForMapSwitch(); setGoogleView(""); setMode("street"); setNotice("Built-in street map is active."); }}><MapPinned size={15}/> Map</button><button type="button" onClick={() => openGoogle("satellite")}><Satellite size={15}/> Satellite</button></div>
-        <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level view</strong><small>Google ground-level imagery where available</small></span><ArrowLeft size={14} style={{ transform: "rotate(135deg)" }}/></button>
-        <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Fallback for full navigation and traffic</small></span><ExternalLink size={14}/></button>
-        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Routing is provided by a public demo service and may be limited or unavailable.</small></div>}
+        <p className="maps-layer-label"><Layers3 size={14}/> MAP LAYERS</p>
+        <div className="maps-layer-grid">
+          <button type="button" className={mode === "street" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("street"); }}><MapPinned size={16}/>Street</button>
+          <button type="button" className={mode === "satellite" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("satellite"); }}><Satellite size={16}/>Satellite</button>
+          <button type="button" className={mode === "hybrid" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("hybrid"); }}><Layers3 size={16}/>Hybrid</button>
+          <button type="button" className={mode === "terrain" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("terrain"); }}><Mountain size={16}/>Terrain</button>
+        </div>
+        <button type="button" className="maps-action" onClick={openEarth3D}><Globe2 size={17}/><span><strong>Explore in 3D Earth</strong><small>Open 3D globe, terrain and buildings</small></span><ExternalLink size={14}/></button>
+        <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level view</strong><small>Google imagery where available</small></span><ArrowLeft size={14} style={{transform:"rotate(135deg)"}}/></button>
+        <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Traffic and full navigation</small></span><ExternalLink size={14}/></button>
+        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Routing uses a public demo service and may be limited or unavailable.</small></div>}
         <p className="maps-note" role="status">{notice}</p>
       </aside>
-      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "satellite" ? "Google Maps satellite view" : googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade" /><button type="button" className="maps-return-map" onClick={() => { stopTrackingForMapSwitch(); setGoogleView(""); setMode("street"); setNotice("Returned to AURORA built-in map."); }}><MapPinned size={14}/> AURORA Map</button><button type="button" className="maps-locate-overlay" onClick={useCurrentLocation} aria-label="Show my current location"><LocateFixed size={16}/> My location</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed", "")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map" />{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">Interactive street map · © OpenStreetMap contributors</div></>}</div>
+      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade"/><button type="button" className="maps-return-map" onClick={() => { setGoogleView(""); setNotice("Returned to AURORA map layers."); }}><MapPinned size={14}/> AURORA Map</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed","")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map"/>{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">{mode === "street" ? "Street map" : mode === "satellite" ? "Satellite imagery" : mode === "hybrid" ? "Satellite + place labels" : "Terrain"} · AURORA Maps</div></>}</div>
     </div>
-    <div className="maps-disclaimer">Satellite imagery, Street View, traffic and full turn-by-turn guidance open in Google Maps where supported. Built-in routing uses public services for prototype use and is not a guaranteed emergency or commercial navigation service.</div>
+    <div className="maps-disclaimer">AURORA combines open street, satellite and terrain layers with Google Earth for 3D exploration. Live tracking runs only while this map page is active. Route estimates and public map services are not guaranteed for emergency use.</div>
   </section>;
 }
