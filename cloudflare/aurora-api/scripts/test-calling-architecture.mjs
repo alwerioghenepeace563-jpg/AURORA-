@@ -13,9 +13,14 @@ assert.match(calling, /get\(env\.AURORA_CALLS\.idFromName\("user:" \+ user\.id\)
 assert.match(calling, /status: online \? "ringing" : "pending"/, "Offline devices must leave due calls pending");
 assert.match(calling, /private async readInbox/, "Devices need an authenticated inbox poll");
 assert.match(calling, /deviceLimit: 10/, "Device registration must be bounded");
+assert.ok(calling.includes("optional push token"), "Devices must register before an FCM token is available");
+assert.ok(calling.includes("getFcmAccessToken"), "Worker must mint server-side FCM OAuth tokens");
+assert.ok(calling.includes("fcm.googleapis.com/v1/projects"), "Worker must deliver Android push through FCM HTTP v1");
+assert.ok(calling.includes("activeCall.answeredBy"), "Call signalling must be restricted to the device that answered");
 assert.match(calling, /MAX_SIGNAL_BYTES/, "WebRTC signaling payloads must be bounded");
 assert.match(calling, /AURORA_PUSH_GATEWAY_URL/, "Push delivery must use a server-side gateway");
 assert.match(worker, /url\.pathname\.startsWith\("\/api\/calls"\)/, "Worker must route calling API requests");
+assert.ok(worker.includes("fcmConfigured"), "Health must expose FCM readiness");
 assert.match(wrangler, /"name": "AURORA_CALLS"/, "Worker must bind the calling Durable Object");
 assert.match(wrangler, /"new_sqlite_classes": \["AuroraCallsDurableObject"\]/, "Durable Object migration must be declared");
 assert.match(ui, /Schedule AURORA call/, "The calling workspace must schedule calls");
@@ -25,4 +30,8 @@ assert.match(app, /activityTab === "calls"/, "The calling workspace must be reac
 const monitor = await readFile(resolve(root, "src/components/AuroraCallMonitor.jsx"), "utf8");
 assert.match(app, /<AuroraCallMonitor/, "Incoming call monitor must stay mounted across app pages");
 assert.ok(monitor.includes('api("/api/calls/inbox?deviceId="'), "The app-wide monitor must poll the authenticated call inbox");
+assert.ok(monitor.includes("@capacitor/push-notifications"), "Android app must integrate Capacitor push notifications");
+assert.ok(monitor.includes("PushNotifications.register"), "Android app must register for push delivery");
+const nativeActivity = await readFile(resolve(root, "android/app/src/main/java/com/aurora/assistant/MainActivity.java"), "utf8");
+assert.ok(nativeActivity.includes("aurora_calls"), "Android must create the high-priority AURORA call notification channel");
 console.log("AURORA calling architecture checks passed.");
