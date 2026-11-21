@@ -17,7 +17,7 @@ function redisConfig(env: Env): { url: string; token: string } | null {
 }
 
 async function memoryKey(env: Env, authorization: string): Promise<string> {
-  const supabaseUrl = String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API || "").trim().replace(/\\/+$/, "");
+  const supabaseUrl = String(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API || "").trim().replace(/\/+$/, "");
   const anonKey = String(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || "").trim();
   if (!authorization || !anonKey) return "";
   let base: URL;
