@@ -1,5 +1,6 @@
 import { handleChat } from './chat';
 import { getMcpStatus } from './mcp';
+import { researchMemoryConfigured } from './research-memory';
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
@@ -114,7 +115,8 @@ async function handleMetadata(request: Request, env: Env, route: string): Promis
         supabaseAuth: supabase, userScopedData: supabase, imageGeneration: Boolean(env.GEMINI_API_KEY),
         voiceKey, voiceId, voice: voiceKey && voiceId, voiceTextBridge: voiceText,
         sharedProviderState: sharedState, adminCodeEditing: githubCodeEdit,
-        remoteMcp: getMcpStatus(env)
+        remoteMcp: getMcpStatus(env),
+        researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) }
       }
     }, headers);
   }
