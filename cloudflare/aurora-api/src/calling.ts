@@ -138,7 +138,7 @@ export class AuroraCallsDurableObject {
     for (const reminder of due) {
       const devices = await this.state.storage.get<Device[]>("devices") || [];
       const online = devices.some(d => now - d.lastSeen < 60_000);
-      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online ? "ringing" : "pending", createdAt: now, expiresAt: online ? now + 45_000 : 0 };
+      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online || devices.some(d => Boolean(d.token)) ? "ringing" : "pending", createdAt: now, expiresAt: 0 };
       const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
       await this.state.storage.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-19), call]);
       if (call.status === "ringing") await this.push({ event: "incoming_call", call, reminder });
@@ -186,7 +186,7 @@ export class AuroraCallsDurableObject {
         await Promise.all(androidDevices.map(async device => {
           const response = await fetch("https://fcm.googleapis.com/v1/projects/" + encodeURIComponent(projectId) + "/messages:send", {
             method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
-            body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "60s", notification: { channel_id: "aurora_calls", sound: "default" } } } }),
+            body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "86400s", notification: { channel_id: "aurora_calls", sound: "default" } } } }),
             signal: AbortSignal.timeout(9000)
           });
           if (!response.ok) throw new Error("FCM delivery failed with status " + response.status);
@@ -214,7 +214,7 @@ export class AuroraCallsDurableObject {
     for (const call of calls) {
       if (call.status === "pending") {
         call.status = "ringing";
-        call.expiresAt = Date.now() + 45_000;
+        call.expiresAt = 0;
         changed = true;
         await this.push({ event: "incoming_call", call });
       } else if (call.status === "ringing" && call.expiresAt > 0 && call.expiresAt < Date.now()) {
