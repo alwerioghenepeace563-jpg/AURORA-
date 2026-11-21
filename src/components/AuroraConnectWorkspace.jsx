@@ -84,7 +84,8 @@ export default function AuroraConnectWorkspace() {
       socket.onmessage = async event => {
         let message;
         try { message = JSON.parse(event.data); } catch { return; }
-        if (message.type === "joined") { return; }\n        if (message.type === "peer-joined") {
+        if (message.type === "joined") { return; }
+        if (message.type === "peer-joined") {
           setRemotePresent(true);
           setStatus("Contact found · setting up secure audio…");
           const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun.cloudflare.com:3478" }] });
