@@ -105,7 +105,8 @@ function extractTargetUrl(query: string): string {
 }
 
 function wantsResearch(query: string): boolean {
-  return /\b(search|research|look up|find online|latest|current|today|recent|news|compare sources|investigate|browse|website|webpage)\b/i.test(query);
+  return Boolean(extractTargetUrl(query)) ||
+    /\b(search|research|look up|find online|latest|current|today|recent|news|compare sources|investigate|browse|website|webpage|read this|open this)\b/i.test(query);
 }
 
 function readOnlyTool(server: Connector, tool: any, targetUrl: string): boolean {
