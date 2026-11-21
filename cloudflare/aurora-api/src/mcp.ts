@@ -124,7 +124,7 @@ function extractTargetUrl(query: string): string {
 }
 
 function extractSourceUrls(text: string): string[] {
-  const matches = text.match(/https?:\\/\\/[^\\s<>"')\\]]+/gi) || [];
+  const matches = text.match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
   const sources = new Set<string>();
   for (const candidate of matches) {
     const cleaned = candidate.replace(/[.,;!?]+$/, "");
