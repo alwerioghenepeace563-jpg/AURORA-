@@ -2,6 +2,7 @@ import { handleChat } from './chat';
 import { getMcpStatus } from './mcp';
 import { researchMemoryConfigured } from './research-memory';
 import { handleCalling } from './calling';
+export { AuroraCallsDurableObject } from './calling';
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
