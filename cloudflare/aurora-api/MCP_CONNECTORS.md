@@ -42,6 +42,10 @@ Set these variables only when you have the matching service details:
 
 The connector status is available through GET /api/health under integrations.remoteMcp. It reports configuration presence, not proof that credentials are valid or that a live round-trip succeeded.
 
+## Tool selection
+
+AURORA ranks eligible read-only MCP tools against the user's request instead of blindly taking the first tool returned by a server. Direct webpage URLs prioritize page extraction and reading tools; general research prioritizes search tools. Tool schemas must still support the required arguments, and side-effecting tools remain excluded.
+
 ## Safety and runtime behavior
 
 - MCP execution happens inside the Cloudflare Worker. Credentials are never returned to the client.
