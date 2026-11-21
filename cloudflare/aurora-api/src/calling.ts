@@ -236,6 +236,12 @@ export class AuroraCallsDurableObject {
         call.expiresAt = Date.now() + RING_TIMEOUT_MS;
         changed = true;
         await this.push({ event: "incoming_call", call });
+      } else if (call.status === "ringing" && call.expiresAt > Date.now() + RING_TIMEOUT_MS) {
+        // Push-backed calls may be queued for up to 24 hours. Once a device
+        // actually reconnects and sees the call, start the normal 60s ring
+        // window instead of leaving the incoming-call UI active all day.
+        call.expiresAt = Date.now() + RING_TIMEOUT_MS;
+        changed = true;
       } else if (call.status === "ringing" && call.expiresAt === 0) {
         call.expiresAt = Date.now() + RING_TIMEOUT_MS;
         changed = true;
