@@ -41,8 +41,8 @@ assert.match(docs, /Glyph.*exact Glyph MCP product/i);
 assert.match(mcp, /function toolRelevance/);
 assert.match(mcp, /function selectRelevantTool/);
 assert.match(mcp, /function extractSourceUrls/);
-assert.match(mcp, /sources: extractSourceUrls\\(output\\)/);
-assert.match(mcp, /sources: extractSourceUrls\\(markdown\\)/);
+assert.ok(mcp.includes('sources: extractSourceUrls(output)'));
+assert.ok(mcp.includes('sources: extractSourceUrls(markdown)'));
 assert.match(chat, /Sources: /);
 
 console.log('AURORA Cloudflare MCP architecture checks passed.');
