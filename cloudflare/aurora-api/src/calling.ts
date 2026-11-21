@@ -256,19 +256,30 @@ export class AuroraCallsDurableObject {
   private async updateCall(request: Request, id: string, action: "answer" | "decline" | "end"): Promise<Response> {
     const body = await parseJson(request), deviceId = safeText(body.deviceId, 80);
     if (!validDeviceId(deviceId)) return json({ error: "A registered device ID is required." }, 400);
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    if (!devices.some(d => d.id === deviceId)) return json({ error: "This device is not registered for this AURORA account." }, 403);
-    const calls = await this.state.storage.get<ActiveCall[]>("calls") || [], call = calls.find(c => c.id === id);
-    if (!call) return json({ error: "Call not found." }, 404);
-    if (action === "answer" && !["ringing","pending"].includes(call.status)) return json({ error: "This call is no longer available." }, 409);
-    if (action === "decline" && !["ringing","pending"].includes(call.status)) return json({ error: "Only an incoming call can be declined." }, 409);
-    if (action === "end" && call.status !== "answered") return json({ error: "Only an answered call can be ended." }, 409);
-    if (action === "answer" && call.expiresAt > 0 && call.expiresAt < Date.now()) { call.status = "missed"; await this.state.storage.put("calls", calls); return json({ error: "This call has expired." }, 410); }
-    call.status = action === "answer" ? "answered" : action === "decline" ? "declined" : "ended";
-    if (action === "answer") call.answeredBy = deviceId;
-    await this.state.storage.put("calls", calls);
-    await this.push({ event: "call_" + call.status, call, deviceId });
-    return json({ updated: true, call });
+    // Serialize competing answers/declines across devices. Without this
+    // transaction, two devices can both read "ringing" and both answer.
+    const outcome = await this.state.storage.transaction(async txn => {
+      const devices = await txn.get<Device[]>("devices") || [];
+      if (!devices.some(d => d.id === deviceId)) return { error: "This device is not registered for this AURORA account.", status: 403 };
+      const calls = await txn.get<ActiveCall[]>("calls") || [];
+      const call = calls.find(c => c.id === id);
+      if (!call) return { error: "Call not found.", status: 404 };
+      if (action === "answer" && !["ringing", "pending"].includes(call.status)) return { error: "This call is no longer available.", status: 409 };
+      if (action === "decline" && !["ringing", "pending"].includes(call.status)) return { error: "Only an incoming call can be declined.", status: 409 };
+      if (action === "end" && call.status !== "answered") return { error: "Only an answered call can be ended.", status: 409 };
+      if (action === "answer" && call.expiresAt > 0 && call.expiresAt < Date.now()) {
+        call.status = "missed";
+        await txn.put("calls", calls);
+        return { error: "This call has expired.", status: 410 };
+      }
+      call.status = action === "answer" ? "answered" : action === "decline" ? "declined" : "ended";
+      if (action === "answer") call.answeredBy = deviceId;
+      await txn.put("calls", calls);
+      return { call };
+    });
+    if ("error" in outcome) return json({ error: outcome.error }, outcome.status);
+    await this.push({ event: "call_" + outcome.call.status, call: outcome.call, deviceId });
+    return json({ updated: true, call: outcome.call });
   }
   private async sendSignal(request: Request): Promise<Response> {
     const body = await parseJson(request), callId = safeText(body.callId, 80), fromDeviceId = safeText(body.fromDeviceId, 80), toDeviceId = safeText(body.toDeviceId, 80), kind = body.kind;
