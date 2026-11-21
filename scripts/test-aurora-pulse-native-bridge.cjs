@@ -12,9 +12,9 @@ for (const method of ["showOverlay", "hideOverlay", "getOverlayStatus"]) {
   assert.match(bridge, new RegExp(method + "\\("), "TypeScript bridge must expose " + method);
 }
 assert.match(plugin, /AuroraOverlayService\.ACTION_SHOW/, "showOverlay must start the native overlay service");
-assert.match(plugin, /public void consumePulseActionRequest\(PluginCall call\)/, "The native plugin must consume queued Pulse requests.");
+assert.match(plugin, /AuroraActionRequestQueue\.dequeue\(getContext\(\)\)/, "The native plugin must consume requests atomically from the shared queue.");
 assert.match(service, /sendToSharedPulse\(String rawQuery\)/, "The overlay must hand requests to the app's shared runtime.");
-assert.match(service, /pulse_action_request_at/, "Queued requests must have an expiry timestamp.");
+assert.match(service, /AuroraActionRequestQueue\.enqueue\(AuroraOverlayService\.this, query, "pulse_overlay"\)/, "Pulse overlay requests must enter the shared bounded queue.");
 assert.match(bridge, /consumePulseActionRequest\(\)/, "The TypeScript bridge must expose the shared Pulse handoff.");
 assert.match(panel, /AuroraOverlay\.sendToSharedPulse\(t\)/, "Native Pulse prompts must hand off instead of using a separate chat engine.");
 assert.match(app, /consumePulseActionRequest\(\)/, "The app must consume queued native Pulse requests.");
