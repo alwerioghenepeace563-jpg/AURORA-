@@ -61,6 +61,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
+      - name: Set up Gradle dependency cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       - name: Run AURORA core and architecture tests
         run: npm run test:core
       - name: Build web app
