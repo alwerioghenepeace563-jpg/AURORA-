@@ -74,7 +74,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
     recognition.onresult = event => { const text = event.results?.[0]?.[0]?.transcript || ""; if (text) onReply?.("I answered your AURORA call. " + text); };
     recognition.start();
   }
-  if (!incoming && !active && !error) return null;
+  if (!incoming && !active) return null;
   return <div className="aurora-call-global-layer" role="presentation">
     <section className="aurora-call-global-card" role="dialog" aria-modal="true" aria-label={active ? "AURORA call in progress" : "Incoming AURORA call"}>
       <div className="aurora-call-global-orb"><PhoneCall size={27}/></div>
@@ -84,7 +84,7 @@ export default function AuroraCallMonitor({ authSession, onReply, onSpeak }) {
       {error && <small role="alert">{error}</small>}
       {incoming && <div className="aurora-call-global-actions"><button type="button" className="primary-action" onClick={() => decide("answer")}><Phone size={16}/> Answer</button><button type="button" className="outline-action" onClick={() => decide("decline")}><PhoneOff size={16}/> Decline</button></div>}
       {active && <><form className="activity-inline-form" onSubmit={sendReply}><input value={reply} onChange={e => setReply(e.target.value)} placeholder="Say something to AURORA…" aria-label="Reply to AURORA"/><button type="button" className="outline-action" onClick={voiceReply} disabled={listening}><Mic size={15}/>{listening ? "Listening" : "Speak"}</button><button className="primary-action" type="submit"><Send size={15}/> Send</button></form><button type="button" className="outline-action" onClick={endCall}><PhoneOff size={15}/> End call</button></>}
-      {!incoming && !active && error && <button type="button" className="outline-action" onClick={() => setError("")}>Dismiss</button>}
+
     </section>
   </div>;
 }
