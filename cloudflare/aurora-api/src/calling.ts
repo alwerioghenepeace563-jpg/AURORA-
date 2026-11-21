@@ -9,9 +9,9 @@ export interface CallingEnv {
   AURORA_PUSH_GATEWAY_URL?: string;
   AURORA_PUSH_GATEWAY_TOKEN?: string;
 }
-type Device = { id: string; token: string; platform: "android" | "web"; updatedAt: number };
+type Device = { id: string; token?: string; platform: "android" | "web"; updatedAt: number; lastSeen: number };
 type Reminder = { id: string; title: string; message: string; scheduledAt: number; status: "scheduled" | "delivered" | "cancelled"; createdAt: number };
-type ActiveCall = { id: string; reminderId?: string; title: string; message: string; status: "ringing" | "answered" | "declined" | "missed" | "ended"; createdAt: number; expiresAt: number; answeredBy?: string };
+type ActiveCall = { id: string; reminderId?: string; title: string; message: string; status: "pending" | "ringing" | "answered" | "declined" | "missed" | "ended"; createdAt: number; expiresAt: number; answeredBy?: string };
 type Signal = { id: string; callId: string; fromDeviceId: string; toDeviceId: string; kind: "offer" | "answer" | "ice" | "hangup"; payload: unknown; createdAt: number };
 const MAX_REMINDERS = 100;
 const MAX_SIGNAL_BYTES = 48_000;
@@ -68,6 +68,7 @@ export class AuroraCallsDurableObject {
     }
     if (path === "/api/calls/devices" && request.method === "POST") return this.registerDevice(request);
     if (path.startsWith("/api/calls/devices/") && request.method === "DELETE") return this.removeDevice(decodeURIComponent(path.split("/").pop() || ""));
+    if (path === "/api/calls/inbox" && request.method === "GET") return this.readInbox(url.searchParams.get("deviceId") || "");
     if (path === "/api/calls/schedules" && request.method === "POST") return this.createReminder(request);
     if (path === "/api/calls/schedules" && request.method === "GET") {
       const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
@@ -86,7 +87,7 @@ export class AuroraCallsDurableObject {
     if (!validDeviceId(id) || token.length < 16) return json({ error: "A valid device ID and push token are required." }, 400);
     const devices = await this.state.storage.get<Device[]>("devices") || [];
     const next = devices.filter(d => d.id !== id);
-    next.push({ id, token, platform, updatedAt: Date.now() });
+    next.push({ id, ...(token ? { token } : {}), platform, updatedAt: Date.now(), lastSeen: Date.now() });
     await this.state.storage.put("devices", next.slice(-10));
     return json({ registered: true, deviceId: id, deviceLimit: 10 });
   }
@@ -128,10 +129,10 @@ export class AuroraCallsDurableObject {
     const due = reminders.filter(r => r.status === "scheduled" && r.scheduledAt <= now + 5000);
     let updated = reminders;
     for (const reminder of due) {
-      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: "ringing", createdAt: now, expiresAt: now + 45_000 };
+      const devices = await this.state.storage.get<Device[]>("devices") || [];\n      const online = devices.some(d => now - d.lastSeen < 60_000);\n      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online ? "ringing" : "pending", createdAt: now, expiresAt: online ? now + 45_000 : 0 };
       const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
       await this.state.storage.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-19), call]);
-      await this.push({ event: "incoming_call", call, reminder });
+      if (call.status === "ringing") await this.push({ event: "incoming_call", call, reminder });
       updated = updated.map(r => r.id === reminder.id ? { ...r, status: "delivered" } : r);
     }
     await this.state.storage.put("reminders", updated);
@@ -146,6 +147,29 @@ export class AuroraCallsDurableObject {
     if (!devices.length) return;
     try { await fetch(parsed.toString(), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret }, body: JSON.stringify({ devices: devices.map(({id,token,platform}) => ({ id, token, platform })), payload }), signal: AbortSignal.timeout(10_000) }); } catch { /* retry is provided by the pending-call list */ }
   }
+  private async readInbox(deviceId: string): Promise<Response> {
+    if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
+    const devices = await this.state.storage.get<Device[]>("devices") || [];
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) return json({ error: "Register this AURORA device before checking incoming calls." }, 403);
+    device.lastSeen = Date.now();
+    await this.state.storage.put("devices", devices);
+    const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
+    let changed = false;
+    for (const call of calls) {
+      if (call.status === "pending") {
+        call.status = "ringing";
+        call.expiresAt = Date.now() + 45_000;
+        changed = true;
+        await this.push({ event: "incoming_call", call });
+      } else if (call.status === "ringing" && call.expiresAt > 0 && call.expiresAt < Date.now()) {
+        call.status = "missed";
+        changed = true;
+      }
+    }
+    if (changed) await this.state.storage.put("calls", calls);
+    return json({ calls: calls.filter(c => c.status === "ringing" || c.status === "pending"), deviceId, polledAt: Date.now() });
+  }
   private async updateCall(request: Request, id: string, action: "answer" | "decline" | "end"): Promise<Response> {
     const body = await parseJson(request), deviceId = safeText(body.deviceId, 80);
     if (!validDeviceId(deviceId)) return json({ error: "A registered device ID is required." }, 400);
@@ -153,8 +177,8 @@ export class AuroraCallsDurableObject {
     if (!devices.some(d => d.id === deviceId)) return json({ error: "This device is not registered for this AURORA account." }, 403);
     const calls = await this.state.storage.get<ActiveCall[]>("calls") || [], call = calls.find(c => c.id === id);
     if (!call) return json({ error: "Call not found." }, 404);
-    if (action === "answer" && call.status !== "ringing") return json({ error: "This call is no longer ringing." }, 409);
-    if (action === "answer" && call.expiresAt < Date.now()) { call.status = "missed"; await this.state.storage.put("calls", calls); return json({ error: "This call has expired." }, 410); }
+    if (action === "answer" && !["ringing","pending"].includes(call.status)) return json({ error: "This call is no longer available." }, 409);
+    if (action === "answer" && call.expiresAt > 0 && call.expiresAt < Date.now()) { call.status = "missed"; await this.state.storage.put("calls", calls); return json({ error: "This call has expired." }, 410); }
     call.status = action === "answer" ? "answered" : action === "decline" ? "declined" : "ended";
     if (action === "answer") call.answeredBy = deviceId;
     await this.state.storage.put("calls", calls);
