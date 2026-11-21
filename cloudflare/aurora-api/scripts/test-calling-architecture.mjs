@@ -22,7 +22,7 @@ assert.ok(calling.includes("fcm.googleapis.com/v1/projects"), "Worker must deliv
 assert.ok(calling.includes("Promise.all(androidDevices.map"), "FCM delivery must isolate failures per Android device");
 assert.ok(calling.includes("outcomes.some(outcome => outcome.delivered)"), "One failed device must not hide successful FCM deliveries to other devices");
 assert.ok(calling.includes('detail.errorCode === "UNREGISTERED"'), "Only confirmed-unregistered FCM tokens may be retired");
-assert.ok(calling.includes("invalidIds.size"), "Confirmed stale FCM tokens must be cleared from device records");
+assert.ok(calling.includes("invalidTokens.size"), "Confirmed stale FCM tokens must be cleared from device records");
 assert.ok(calling.includes("device.token === invalidTokens.get(device.id)"), "A stale-token response must not erase a newer token registered for the same device");
 assert.ok(calling.includes("const recipients = targetDeviceId"), "Device-specific signalling push must not notify unrelated devices");
 assert.ok(calling.includes("activeCall.answeredBy"), "Call signalling must be restricted to the device that answered");
@@ -33,6 +33,14 @@ assert.ok(calling.includes("call.expiresAt > Date.now() + RING_TIMEOUT_MS"), "A 
 assert.match(calling, /Only an incoming call can be declined/, "Answered or ended calls must not be declined");
 assert.match(calling, /Only an answered call can be ended/, "Only an answered call can be ended");
 assert.ok(calling.includes("this.state.storage.transaction(async txn =>"), "Competing answer/decline requests must transition call state atomically");
+assert.ok(calling.includes("const result = await this.state.storage.transaction(async txn =>"), "Reminder creation and its account limit must be checked atomically");
+assert.ok(calling.includes("const cancelled = await this.state.storage.transaction(async txn =>"), "Reminder cancellation must be atomic");
+assert.ok(calling.includes("const dueCalls = await this.state.storage.transaction(async txn =>"), "Due reminders must be claimed and converted to calls atomically");
+assert.ok(calling.includes("deliveredIds.has(r.id)"), "Alarm retries must not redeliver already-claimed reminders");
+assert.ok(calling.includes("].slice(-20)"), "Call history must remain bounded after a batch of due reminders");
+assert.ok(calling.includes("const registered = await this.state.storage.transaction(async txn =>"), "Inbox heartbeats must not overwrite concurrent device token updates");
+assert.ok(calling.includes("const mine = await this.state.storage.transaction(async txn =>"), "Signal inbox reads must atomically consume each signal once");
+assert.ok(calling.includes("signal.fromDeviceId !== id && signal.toDeviceId !== id"), "Removing a device must also clear its queued call signals");
 assert.match(calling, /AURORA_PUSH_GATEWAY_URL/, "Push delivery must use a server-side gateway");
 assert.match(worker, /url\.pathname\.startsWith\("\/api\/calls"\)/, "Worker must route calling API requests");
 assert.ok(worker.includes("fcmConfigured"), "Health must expose FCM readiness");
