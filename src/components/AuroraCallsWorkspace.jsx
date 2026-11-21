@@ -22,7 +22,7 @@ export default function AuroraCallsWorkspace({ authSession, onReply, onSpeak }) 
   const [message, setMessage] = useState("");
   const [when, setWhen] = useState("");
   const [reminders, setReminders] = useState([]);
-  const [calls, setCalls] = useState([]);
+  const [calls, setCalls] = useState([]);\n  const [activeCall, setActiveCall] = useState(null);
   const [status, setStatus] = useState("Connecting this AURORA device…");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -84,7 +84,7 @@ export default function AuroraCallsWorkspace({ authSession, onReply, onSpeak }) 
       }
     } catch (err) { setError(err.message); }
   }
-  async function sendReply(event) {
+  async function endActiveCall() {\n    if (!activeCall) return;\n    try { await api("/api/calls/" + encodeURIComponent(activeCall.id) + "/end", { method: "POST", body: JSON.stringify({ deviceId }) }); setActiveCall(null); }\n    catch (err) { setError(err.message); }\n  }\n  async function sendReply(event) {
     event.preventDefault();
     if (!reply.trim()) return;
     const text = reply.trim(); setReply("");
@@ -104,7 +104,7 @@ export default function AuroraCallsWorkspace({ authSession, onReply, onSpeak }) 
   return <section className="activity-tool-panel aurora-calls-workspace">
     <div className="activity-panel-title"><div><h2><PhoneCall size={19}/> AURORA Calls</h2><p>Private calls from AURORA Core to your signed-in AURORA devices.</p></div><span className="coming-pill"><Radio size={12}/> {status}</span></div>
     {error && <p className="activity-muted" role="alert">{error}</p>}
-    {calls.length > 0 && <div className="aurora-incoming-call-list">{calls.map(call => <article className="aurora-incoming-call" key={call.id}>
+    {activeCall && <article className="aurora-incoming-call aurora-active-call"><div className="aurora-call-orb"><PhoneCall size={22}/></div><div className="aurora-call-copy"><strong>Connected to AURORA</strong><span>{activeCall.title}</span><small>{activeCall.message || "You can speak or type a reply to continue."}</small></div><div className="aurora-call-actions"><button type="button" className="outline-action" onClick={endActiveCall}><PhoneOff size={15}/> End call</button></div></article>}\n    {calls.length > 0 && <div className="aurora-incoming-call-list">{calls.map(call => <article className="aurora-incoming-call" key={call.id}>
       <div className="aurora-call-orb"><PhoneCall size={22}/></div><div className="aurora-call-copy"><strong>Incoming AURORA call</strong><span>{call.title}</span>{call.message && <small>{call.message}</small>}</div>
       <div className="aurora-call-actions"><button type="button" className="primary-action" onClick={() => answer(call, "answer")}><Phone size={15}/> Answer</button><button type="button" className="outline-action" onClick={() => answer(call, "decline")}><PhoneOff size={15}/> Decline</button></div>
     </article>)}</div>}
@@ -116,7 +116,7 @@ export default function AuroraCallsWorkspace({ authSession, onReply, onSpeak }) 
     </form>
     <div className="activity-panel-title"><div><h3>Scheduled calls</h3><p>Calls stay pending if your devices are offline, then appear when an AURORA device reconnects.</p></div><button className="outline-action" type="button" onClick={() => refresh().catch(err => setError(err.message))}><RefreshCw size={14}/> Refresh</button></div>
     <div className="activity-record-list">{reminders.map(item => <div className="activity-record" key={item.id}><span className="record-main"><strong>{item.title}</strong><small><Clock3 size={12}/> {new Date(item.scheduledAt).toLocaleString()}</small>{item.message && <small>{item.message}</small>}</span><button className="record-delete" type="button" onClick={() => cancel(item.id)} aria-label="Cancel scheduled call">×</button></div>)}{!reminders.length && <p className="activity-muted">No AURORA calls scheduled yet.</p>}</div>
-    {calls.some(c => c.status === "ringing") && <form className="activity-inline-form" onSubmit={sendReply}><input value={reply} onChange={e => setReply(e.target.value)} placeholder="Reply to AURORA…" aria-label="Reply to AURORA call"/><button type="button" className="outline-action" onClick={voiceReply} disabled={listening}><Mic size={15}/> {listening ? "Listening…" : "Speak"}</button><button className="primary-action" type="submit"><Send size={15}/> Send</button></form>}
+    {activeCall && <form className="activity-inline-form" onSubmit={sendReply}><input value={reply} onChange={e => setReply(e.target.value)} placeholder="Reply to AURORA…" aria-label="Reply to AURORA call"/><button type="button" className="outline-action" onClick={voiceReply} disabled={listening}><Mic size={15}/> {listening ? "Listening…" : "Speak"}</button><button className="primary-action" type="submit"><Send size={15}/> Send</button></form>}
     <p className="activity-muted">Background ringing needs a configured push-delivery gateway and native push receiver. While the app is open, AURORA checks for incoming calls every few seconds. This feature does not place ordinary SIM or phone-network calls.</p>
   </section>;
 }
