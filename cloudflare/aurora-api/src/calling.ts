@@ -65,6 +65,7 @@ export class AuroraCallsDurableObject {
   private env: CallingEnv;
   private fcmAccessToken = "";
   private fcmAccessTokenExpiresAt = 0;
+  private alarmUpdate: Promise<void> = Promise.resolve();
   constructor(state: DurableObjectState, env: CallingEnv) { this.state = state; this.env = env; }
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url), path = url.pathname;
@@ -129,8 +130,7 @@ export class AuroraCallsDurableObject {
       return { scheduled: true as const, reminder, nextAlarm: next.filter(r => r.status === "scheduled").reduce<number | null>((min,r) => min === null || r.scheduledAt < min ? r.scheduledAt : min, null) };
     });
     if ("error" in result) return json({ error: result.error }, result.status);
-    if (result.nextAlarm !== null) await this.state.storage.setAlarm(result.nextAlarm);
-    await this.state.storage.put("nextAlarm", result.nextAlarm);
+    await this.rearm();
     return json({ scheduled: true, reminder });
   }
   private async cancelReminder(id: string): Promise<Response> {
@@ -146,10 +146,16 @@ export class AuroraCallsDurableObject {
     return json({ cancelled });
   }
   private async rearm(): Promise<void> {
-    const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
-    const next = reminders.filter(r => r.status === "scheduled").reduce<number | null>((min,r) => min === null || r.scheduledAt < min ? r.scheduledAt : min, null);
-    if (next === null) { await this.state.storage.deleteAlarm(); await this.state.storage.delete("nextAlarm"); }
-    else { await this.state.storage.setAlarm(next); await this.state.storage.put("nextAlarm", next); }
+    // Serialize alarm recalculation so overlapping create/cancel requests cannot
+    // leave an older alarm timestamp as the final Durable Object alarm.
+    const update = this.alarmUpdate.then(async () => {
+      const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
+      const next = reminders.filter(r => r.status === "scheduled").reduce<number | null>((min,r) => min === null || r.scheduledAt < min ? r.scheduledAt : min, null);
+      if (next === null) { await this.state.storage.deleteAlarm(); await this.state.storage.delete("nextAlarm"); }
+      else { await this.state.storage.setAlarm(next); await this.state.storage.put("nextAlarm", next); }
+    });
+    this.alarmUpdate = update.catch(() => undefined);
+    await update;
   }
   async alarm(): Promise<void> {
     const now = Date.now();
@@ -169,7 +175,9 @@ export class AuroraCallsDurableObject {
       }));
       const deliveredIds = new Set(due.map(r => r.id));
       await txn.put("reminders", reminders.map(r => deliveredIds.has(r.id) ? { ...r, status: "delivered" as const } : r));
-      await txn.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended"), ...created.map(item => item.call)].slice(-20));
+      const active = calls.filter(c => c.status === "pending" || c.status === "ringing" || c.status === "answered");
+      const history = calls.filter(c => c.status !== "pending" && c.status !== "ringing" && c.status !== "answered").slice(-20);
+      await txn.put("calls", [...history, ...active, ...created.map(item => item.call)]);
       return created;
     });
     for (const item of dueCalls) if (item.call.status === "ringing") await this.push({ event: "incoming_call", call: item.call, reminder: item.reminder });
@@ -232,10 +240,12 @@ export class AuroraCallsDurableObject {
         fcmDelivered = outcomes.some(outcome => outcome.delivered);
         const invalidTokens = new Map(outcomes.filter(outcome => outcome.invalidToken).map(outcome => [outcome.deviceId, androidDevices.find(device => device.id === outcome.deviceId)?.token]));
         if (invalidTokens.size) {
-          const latest = await this.state.storage.get<Device[]>("devices") || [];
-          // Retire only the exact token that FCM rejected. A newer token may
-          // have been registered while the network request was in flight.
-          await this.state.storage.put("devices", latest.map(device => invalidTokens.has(device.id) && device.token === invalidTokens.get(device.id) ? { ...device, token: undefined } : device));
+          // Retire only the exact token that FCM rejected, inside a transaction
+          // so a concurrent registration cannot be overwritten by stale cleanup.
+          await this.state.storage.transaction(async txn => {
+            const latest = await txn.get<Device[]>("devices") || [];
+            await txn.put("devices", latest.map(device => invalidTokens.has(device.id) && device.token === invalidTokens.get(device.id) ? { ...device, token: undefined } : device));
+          });
         }
       } catch { /* pending calls remain available in the authenticated inbox */ }
     }
@@ -249,39 +259,46 @@ export class AuroraCallsDurableObject {
   }
   private async readInbox(deviceId: string): Promise<Response> {
     if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
-    const registered = await this.state.storage.transaction(async txn => {
+    const result = await this.state.storage.transaction(async txn => {
       const devices = await txn.get<Device[]>("devices") || [];
       const device = devices.find(d => d.id === deviceId);
-      if (!device) return false;
+      if (!device) return { error: "Register this AURORA device before checking incoming calls.", status: 403 };
       device.lastSeen = Date.now();
       await txn.put("devices", devices);
-      return true;
-    });
-    if (!registered) return json({ error: "Register this AURORA device before checking incoming calls." }, 403);
-    const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
-    let changed = false;
-    for (const call of calls) {
-      if (call.status === "pending") {
-        call.status = "ringing";
-        call.expiresAt = Date.now() + RING_TIMEOUT_MS;
-        changed = true;
-        await this.push({ event: "incoming_call", call });
-      } else if (call.status === "ringing" && call.expiresAt > Date.now() + RING_TIMEOUT_MS) {
-        // Push-backed calls may be queued for up to 24 hours. Once a device
-        // actually reconnects and sees the call, start the normal 60s ring
-        // window instead of leaving the incoming-call UI active all day.
-        call.expiresAt = Date.now() + RING_TIMEOUT_MS;
-        changed = true;
-      } else if (call.status === "ringing" && call.expiresAt === 0) {
-        call.expiresAt = Date.now() + RING_TIMEOUT_MS;
-        changed = true;
-      } else if (call.status === "ringing" && call.expiresAt > 0 && call.expiresAt < Date.now()) {
-        call.status = "missed";
-        changed = true;
+      const calls = await txn.get<ActiveCall[]>("calls") || [];
+      const now = Date.now();
+      const newlyRinging: ActiveCall[] = [];
+      let changed = false;
+      for (const call of calls) {
+        if (call.status === "pending") {
+          call.status = "ringing";
+          call.expiresAt = now + RING_TIMEOUT_MS;
+          newlyRinging.push({ ...call });
+          changed = true;
+        } else if (call.status === "ringing" && call.expiresAt > now + RING_TIMEOUT_MS) {
+          // A push-backed call switches to the normal 60s ring window when
+          // the first device reconnects and claims it from the inbox.
+          call.expiresAt = now + RING_TIMEOUT_MS;
+          changed = true;
+        } else if (call.status === "ringing" && call.expiresAt === 0) {
+          call.expiresAt = now + RING_TIMEOUT_MS;
+          changed = true;
+        } else if (call.status === "ringing" && call.expiresAt > 0 && call.expiresAt < now) {
+          call.status = "missed";
+          changed = true;
+        }
       }
-    }
-    if (changed) await this.state.storage.put("calls", calls);
-    return json({ calls: calls.filter(c => c.status === "ringing" || c.status === "pending"), deviceId, polledAt: Date.now() });
+      if (changed) await txn.put("calls", calls);
+      return {
+        calls: calls.filter(c => c.status === "ringing" || c.status === "pending"),
+        newlyRinging
+      };
+    });
+    if ("error" in result) return json({ error: result.error }, result.status);
+    // Push only after the transaction commits; concurrent inbox polls cannot
+    // both claim and announce the same pending call.
+    for (const call of result.newlyRinging) await this.push({ event: "incoming_call", call });
+    return json({ calls: result.calls, deviceId, polledAt: Date.now() });
   }
   private async updateCall(request: Request, id: string, action: "answer" | "decline" | "end"): Promise<Response> {
     const body = await parseJson(request), deviceId = safeText(body.deviceId, 80);
@@ -297,6 +314,7 @@ export class AuroraCallsDurableObject {
       if (action === "answer" && !["ringing", "pending"].includes(call.status)) return { error: "This call is no longer available.", status: 409 };
       if (action === "decline" && !["ringing", "pending"].includes(call.status)) return { error: "Only an incoming call can be declined.", status: 409 };
       if (action === "end" && call.status !== "answered") return { error: "Only an answered call can be ended.", status: 409 };
+      if (action === "end" && call.answeredBy !== deviceId) return { error: "Only the device that answered this call can end it.", status: 403 };
       if (action === "answer" && call.expiresAt > 0 && call.expiresAt < Date.now()) {
         call.status = "missed";
         await txn.put("calls", calls);
@@ -314,30 +332,35 @@ export class AuroraCallsDurableObject {
   private async sendSignal(request: Request): Promise<Response> {
     const body = await parseJson(request), callId = safeText(body.callId, 80), fromDeviceId = safeText(body.fromDeviceId, 80), toDeviceId = safeText(body.toDeviceId, 80), kind = body.kind;
     if (!idPattern.test(callId) || !validDeviceId(fromDeviceId) || !validDeviceId(toDeviceId) || !["offer","answer","ice","hangup"].includes(kind)) return json({ error: "Invalid call signal." }, 400);
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    if (!devices.some(d => d.id === fromDeviceId) || !devices.some(d => d.id === toDeviceId)) return json({ error: "Both devices must be registered to this AURORA account." }, 403);
-    const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
-    const activeCall = calls.find(c => c.id === callId && c.status === "answered");
-    if (!activeCall || !activeCall.answeredBy || (fromDeviceId !== activeCall.answeredBy && toDeviceId !== activeCall.answeredBy)) return json({ error: "Signals are allowed only for the device that answered this active call." }, 409);
     const raw = JSON.stringify(body.payload ?? null);
     if (raw.length > MAX_SIGNAL_BYTES) return json({ error: "Call signal is too large." }, 413);
-    const signals = await this.state.storage.get<Signal[]>("signals") || [];
-    const signal: Signal = { id: crypto.randomUUID(), callId, fromDeviceId, toDeviceId, kind, payload: body.payload ?? null, createdAt: Date.now() };
-    await this.state.storage.put("signals", [...signals.filter(s => Date.now() - s.createdAt < 120_000), signal].slice(-100));
+    const result = await this.state.storage.transaction(async txn => {
+      const devices = await txn.get<Device[]>("devices") || [];
+      if (!devices.some(d => d.id === fromDeviceId) || !devices.some(d => d.id === toDeviceId)) return { error: "Both devices must be registered to this AURORA account.", status: 403 };
+      const calls = await txn.get<ActiveCall[]>("calls") || [];
+      const activeCall = calls.find(c => c.id === callId && c.status === "answered");
+      if (!activeCall || !activeCall.answeredBy || (fromDeviceId !== activeCall.answeredBy && toDeviceId !== activeCall.answeredBy)) return { error: "Signals are allowed only for the device that answered this active call.", status: 409 };
+      const signals = await txn.get<Signal[]>("signals") || [];
+      const signal: Signal = { id: crypto.randomUUID(), callId, fromDeviceId, toDeviceId, kind, payload: body.payload ?? null, createdAt: Date.now() };
+      await txn.put("signals", [...signals.filter(s => Date.now() - s.createdAt < 120_000), signal].slice(-100));
+      return { signal };
+    });
+    if ("error" in result) return json({ error: result.error }, result.status);
     await this.push({ event: "call_signal", targetDeviceId: toDeviceId, callId });
-    return json({ queued: true, signalId: signal.id });
+    return json({ queued: true, signalId: result.signal.id });
   }
   private async readSignals(deviceId: string): Promise<Response> {
     if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    if (!devices.some(d => d.id === deviceId)) return json({ error: "This device is not registered." }, 403);
-    const mine = await this.state.storage.transaction(async txn => {
+    const result = await this.state.storage.transaction(async txn => {
+      const devices = await txn.get<Device[]>("devices") || [];
+      if (!devices.some(d => d.id === deviceId)) return { error: "This device is not registered.", status: 403 };
       const signals = await txn.get<Signal[]>("signals") || [];
       const now = Date.now();
       const received = signals.filter(s => s.toDeviceId === deviceId && now - s.createdAt < 120_000);
       await txn.put("signals", signals.filter(s => s.toDeviceId !== deviceId && now - s.createdAt < 120_000));
-      return received;
+      return { signals: received };
     });
-    return json({ signals: mine });
+    if ("error" in result) return json({ error: result.error }, result.status);
+    return json({ signals: result.signals });
   }
 }
