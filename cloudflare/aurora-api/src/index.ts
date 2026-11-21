@@ -337,7 +337,23 @@ export default {
       assetUrl.hash = "";
       const assetRequest = new Request(assetUrl.toString(), request);
       const assetResponse = await env.ASSETS.fetch(assetRequest);
-      if (assetResponse.status !== 404) {
+      const isSpaNavigation = !/\\.[^/]+$/.test(url.pathname);
+      const isAssetRedirect = [301, 302, 303, 307, 308].includes(assetResponse.status);
+      const redirectTarget = assetResponse.headers.get("Location");
+      let isSameOriginAssetRedirect = false;
+      if (isAssetRedirect && redirectTarget) {
+        try {
+          isSameOriginAssetRedirect = new URL(redirectTarget, request.url).origin === url.origin;
+        } catch {
+          isSameOriginAssetRedirect = false;
+        }
+      }
+      // Cloudflare's asset layer can normalize an unknown extensionless route
+      // with a same-origin 307 (for example, by appending a slash). That is not
+      // a real app asset: treat it as a miss so the Worker can serve index.html.
+      const assetMiss = assetResponse.status === 404 ||
+        (isSpaNavigation && isSameOriginAssetRedirect);
+      if (!assetMiss) {
         if (url.pathname === "/" || url.pathname === "/index.html") {
           const headers = new Headers(assetResponse.headers);
           headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
