@@ -1,4 +1,6 @@
-import { handleChat } from './chat';\nimport { AuroraConnectRoom } from './connect';\nexport { AuroraConnectRoom };
+import { handleChat } from './chat';
+import { AuroraConnectRoom } from './connect';
+export { AuroraConnectRoom };
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
@@ -286,7 +288,21 @@ export default {
       });
     }
 
-    if (url.pathname === "/api/connect/ticket") return handleAuroraConnect(request, env);\n    const connectRoom = url.pathname.match(/^\\/api\\/connect\\/([A-Z0-9]{6,12})$/i);\n    if (connectRoom) {\n      if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") return json({ error: "WebSocket upgrade required." }, 426);\n      const ticket = url.searchParams.get("ticket") || "";\n      if (!ticket) return json({ error: "A short-lived call ticket is required." }, 401);\n      const id = env.AURORA_CONNECT_ROOMS.idFromName(connectRoom[1].toUpperCase());\n      return env.AURORA_CONNECT_ROOMS.get(id).fetch("https://aurora-connect.internal/socket?ticket=" + encodeURIComponent(ticket), request);\n    }\n\n    if (url.pathname === "/api/meta") {
+    if (url.pathname === "/api/connect/ticket") return handleAuroraConnect(request, env);
+    const connectRoom = url.pathname.match(/^\/api\/connect\/([A-Z0-9]{6,12})$/i);
+    if (connectRoom) {
+      if (!workerRouteOriginAllowed(request, env)) return json({ error: "Origin not allowed." }, 403);
+      if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") return json({ error: "WebSocket upgrade required." }, 426);
+      const ticket = url.searchParams.get("ticket") || "";
+      if (!ticket) return json({ error: "A short-lived call ticket is required." }, 401);
+      const id = env.AURORA_CONNECT_ROOMS.idFromName(connectRoom[1].toUpperCase());
+      const forwardedUrl = new URL("https://aurora-connect.internal/socket");
+      forwardedUrl.searchParams.set("ticket", ticket);
+      const forwarded = new Request(forwardedUrl, { method: "GET", headers: request.headers });
+      return env.AURORA_CONNECT_ROOMS.get(id).fetch(forwarded);
+    }
+
+    if (url.pathname === "/api/meta") {
       return handleMetadata(request, env, url.searchParams.get("handler") || "");
     }
 
