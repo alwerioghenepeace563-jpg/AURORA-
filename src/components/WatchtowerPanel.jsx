@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { BellRing, Eye, Pause, Play, Plus, ShieldCheck, Trash2, Clock3, RadioTower, Search, ExternalLink } from "lucide-react";
 import { createAuroraWatchtower } from "../core/aurora-watchtower.js";
-const watchtower=createAuroraWatchtower(), intervals=[1,3,6,12,24];
+import { auroraApiUrl } from "../lib/aurora-native";
+const watchtower=createAuroraWatchtower({searcher:async query=>{const response=await fetch(auroraApiUrl("/api/search"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query}),cache:"no-store"});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||"AURORA Search is temporarily unavailable.");return data;}}), intervals=[1,3,6,12,24];
 const formatTime=value=>value?new Date(value).toLocaleString():"Not searched yet";
 export default function WatchtowerPanel(){
  const [items,setItems]=useState(()=>watchtower.list()),[title,setTitle]=useState(""),[query,setQuery]=useState(""),[intervalHours,setIntervalHours]=useState("6"),[approved,setApproved]=useState(false),[message,setMessage]=useState(""),[showForm,setShowForm]=useState(false),[checking,setChecking]=useState("");
