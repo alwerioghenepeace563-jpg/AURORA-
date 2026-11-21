@@ -1,6 +1,7 @@
 import { handleChat } from './chat';
 import { getMcpStatus } from './mcp';
 import { researchMemoryConfigured } from './research-memory';
+import { handleCalling } from './calling';
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
@@ -265,6 +266,10 @@ export default {
     if (url.pathname === "/api/health") return handleMetadata(request, env, "health");
     if (url.pathname === "/api/public-config") return handleMetadata(request, env, "public-config");
     if (url.pathname === "/api/models") return handleMetadata(request, env, "models");
+
+    if (url.pathname.startsWith("/api/calls")) {
+      return handleCalling(request, env);
+    }
 
     if (url.pathname === "/api/search" || url.pathname === "/api/research") {
       return handleResearch(request, env);
