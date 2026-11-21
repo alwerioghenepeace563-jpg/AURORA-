@@ -40,7 +40,7 @@ Set these variables only when you have the matching service details:
 - AURORA_GLYPH_MCP_URL only after confirming the exact Glyph implementation
 - CLOUDFLARE_ACCOUNT_ID and AURORA_CLOUDFLARE_BROWSER_ENABLED=true for Browser Rendering
 
-The connector status is available through GET /api/health under integrations.remoteMcp. It reports configuration presence, not proof that credentials are valid or that a live round-trip succeeded.
+The connector status is available through GET /api/health under integrations.remoteMcp. Research memory readiness is exposed separately as integrations.researchMemory.configured; it reports required Worker configuration, not proof of a successful Redis round-trip.
 
 ## Tool selection
 
