@@ -327,59 +327,44 @@ export default {
     }
 
     if (!url.pathname.startsWith("/api/")) {
-      // Fetch exact static assets first. Missing JS/CSS/images must stay 404s
-      // rather than being silently rewritten to index.html by an SPA fallback.
-      // Cloudflare's asset manifest is keyed by the pathname. Ignore request
-      // query parameters (including cache-busting probes) during lookup so a
-      // valid hashed bundle can never be mistaken for an SPA navigation.
+      const isFileLikePath = /\.[^/]+$/.test(url.pathname);
+
+      // Resolve browser navigation routes directly to the SPA shell. Do not
+      // ask the static asset layer to resolve extensionless paths: Cloudflare
+      // may issue a 307 normalization redirect before the SPA fallback can
+      // run, even when the Worker is configured to run first.
+      if (!isFileLikePath && ["GET", "HEAD"].includes(request.method)) {
+        const indexUrl = new URL("/index.html", request.url);
+        const shell = await env.ASSETS.fetch(new Request(indexUrl, request));
+        const headers = new Headers(shell.headers);
+        headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        headers.set("Pragma", "no-cache");
+        return new Response(shell.body, {
+          status: shell.status,
+          statusText: shell.statusText,
+          headers
+        });
+      }
+
+      // File-like requests must resolve to their exact static asset. Strip
+      // query parameters so cache-busting probes cannot turn valid assets
+      // into misses; missing files remain 404s instead of receiving HTML.
       const assetUrl = new URL(request.url);
       assetUrl.search = "";
       assetUrl.hash = "";
       const assetRequest = new Request(assetUrl.toString(), request);
       const assetResponse = await env.ASSETS.fetch(assetRequest);
-      const isSpaNavigation = !/\\.[^/]+$/.test(url.pathname);
-      const isAssetRedirect = [301, 302, 303, 307, 308].includes(assetResponse.status);
-      const redirectTarget = assetResponse.headers.get("Location");
-      let isSameOriginAssetRedirect = false;
-      if (isAssetRedirect && redirectTarget) {
-        try {
-          isSameOriginAssetRedirect = new URL(redirectTarget, request.url).origin === url.origin;
-        } catch {
-          isSameOriginAssetRedirect = false;
-        }
+      if (url.pathname === "/index.html") {
+        const headers = new Headers(assetResponse.headers);
+        headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        headers.set("Pragma", "no-cache");
+        return new Response(assetResponse.body, {
+          status: assetResponse.status,
+          statusText: assetResponse.statusText,
+          headers
+        });
       }
-      // Cloudflare's asset layer can normalize an unknown extensionless route
-      // with a same-origin 307 (for example, by appending a slash). That is not
-      // a real app asset: treat it as a miss so the Worker can serve index.html.
-      const assetMiss = assetResponse.status === 404 ||
-        (isSpaNavigation && isSameOriginAssetRedirect);
-      if (!assetMiss) {
-        if (url.pathname === "/" || url.pathname === "/index.html") {
-          const headers = new Headers(assetResponse.headers);
-          headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-          headers.set("Pragma", "no-cache");
-          return new Response(assetResponse.body, {
-            status: assetResponse.status,
-            statusText: assetResponse.statusText,
-            headers
-          });
-        }
-        return assetResponse;
-      }
-
-      // Keep client-side navigation working, but only for extensionless paths.
-      // A missing file-like asset should return 404, never the HTML application.
-      if (/\.[^/]+$/.test(url.pathname)) return assetResponse;
-      const indexUrl = new URL("/index.html", request.url);
-      const shell = await env.ASSETS.fetch(new Request(indexUrl, request));
-      const headers = new Headers(shell.headers);
-      headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-      headers.set("Pragma", "no-cache");
-      return new Response(shell.body, {
-        status: shell.status,
-        statusText: shell.statusText,
-        headers
-      });
+      return assetResponse;
     }
 
     // Stage 1 keeps existing API contracts intact. Individual routes will be
