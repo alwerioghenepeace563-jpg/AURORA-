@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { auroraApiUrl } from "../lib/aurora-native";
+import "./calls.css";
 import { BellRing, Phone, PhoneCall, PhoneOff, Radio, RefreshCw, Send, Mic, Clock3 } from "lucide-react";
 
 const DEVICE_KEY = "aurora-internal-call-device";
