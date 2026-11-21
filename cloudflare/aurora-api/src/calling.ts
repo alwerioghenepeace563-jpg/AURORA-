@@ -176,27 +176,31 @@ export class AuroraCallsDurableObject {
     const devices = await this.state.storage.get<Device[]>("devices") || [];
     if (!devices.length) return;
     const projectId = this.env.FCM_PROJECT_ID || "";
-    if (projectId && this.env.FCM_CLIENT_EMAIL && this.env.FCM_PRIVATE_KEY) {
+    const androidDevices = devices.filter(d => d.platform === "android" && d.token);
+    let fcmDelivered = false;
+    if (projectId && this.env.FCM_CLIENT_EMAIL && this.env.FCM_PRIVATE_KEY && androidDevices.length) {
       try {
         const accessToken = await this.getFcmAccessToken();
         const call = payload?.call || {};
         const data = Object.fromEntries(Object.entries({ event: payload?.event || "aurora_event", callId: call.id || payload?.callId || "", title: call.title || "AURORA", message: call.message || "" }).map(([key,value]) => [key, String(value)]));
-        await Promise.all(devices.filter(d => d.platform === "android" && d.token).map(async device => {
+        await Promise.all(androidDevices.map(async device => {
           const response = await fetch("https://fcm.googleapis.com/v1/projects/" + encodeURIComponent(projectId) + "/messages:send", {
             method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
-            body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "60s", notification: { channel_id: "aurora_calls", sound: "default", click_action: "FLUTTER_NOTIFICATION_CLICK" } } } }),
+            body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "60s", notification: { channel_id: "aurora_calls", sound: "default" } } } }),
             signal: AbortSignal.timeout(9000)
           });
           if (!response.ok) throw new Error("FCM delivery failed with status " + response.status);
         }));
-        return;
-      } catch (error) { /* fall through to the optional gateway and in-app inbox */ }
+        fcmDelivered = true;
+      } catch { /* pending calls remain available in the authenticated inbox */ }
     }
     const endpoint = this.env.AURORA_PUSH_GATEWAY_URL || "", secret = this.env.AURORA_PUSH_GATEWAY_TOKEN || "";
     if (!endpoint || !secret) return;
     let parsed: URL;
     try { parsed = new URL(endpoint); if (parsed.protocol !== "https:") return; } catch { return; }
-    try { await fetch(parsed.toString(), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret }, body: JSON.stringify({ devices: devices.map(({id,token,platform}) => ({ id, token, platform })), payload }), signal: AbortSignal.timeout(10_000) }); } catch { /* pending calls remain available in the authenticated inbox */ }
+    const gatewayDevices = fcmDelivered ? devices.filter(d => d.platform === "web" && d.token) : devices;
+    if (!gatewayDevices.length) return;
+    try { await fetch(parsed.toString(), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret }, body: JSON.stringify({ devices: gatewayDevices.map(({id,token,platform}) => ({ id, token, platform })), payload }), signal: AbortSignal.timeout(10_000) }); } catch { /* pending calls remain available in the authenticated inbox */ }
   }
   private async readInbox(deviceId: string): Promise<Response> {
     if (!validDeviceId(deviceId)) return json({ error: "A valid device ID is required." }, 400);
