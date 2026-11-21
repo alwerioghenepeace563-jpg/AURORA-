@@ -107,7 +107,7 @@ function safeTargetUrl(raw: string): string {
     const url = new URL(raw);
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return "";
-    if (/^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(host) || host.includes(":")) return "";
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(":")) return "";
     if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") ||
         host === "metadata.google.internal" || host === "metadata" ||
         host === "169.254.169.254" || host === "::1" || host === "0.0.0.0" ||
@@ -181,6 +181,7 @@ async function runMcpServer(server: Connector, query: string, targetUrl: string)
   }
   let sessionId = "";
   let requestId = 0;
+  let negotiatedProtocolVersion = MCP_PROTOCOL_VERSION;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/event-stream"
@@ -191,7 +192,7 @@ async function runMcpServer(server: Connector, query: string, targetUrl: string)
     const id = ++requestId;
     const response = await fetch(endpoint.href, {
       method: "POST",
-      headers: { ...headers, ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}) },
+      headers: { ...headers, ...(method === "initialize" ? {} : { "MCP-Protocol-Version": negotiatedProtocolVersion }), ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}) },
       body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
       signal: AbortSignal.timeout(MCP_TIMEOUT_MS)
     });
@@ -203,14 +204,15 @@ async function runMcpServer(server: Connector, query: string, targetUrl: string)
     return payload?.result ?? null;
   };
 
-  await rpc("initialize", {
+  const initialized = await rpc("initialize", {
     protocolVersion: MCP_PROTOCOL_VERSION,
     capabilities: {},
     clientInfo: { name: "AURORA-Cloudflare", version: "1.0.0" }
   });
+  if (typeof initialized?.protocolVersion === "string") negotiatedProtocolVersion = initialized.protocolVersion;
   const notification = await fetch(endpoint.href, {
     method: "POST",
-    headers: { ...headers, ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}) },
+    headers: { ...headers, "MCP-Protocol-Version": negotiatedProtocolVersion, ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}) },
     body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }),
     signal: AbortSignal.timeout(MCP_TIMEOUT_MS)
   });
