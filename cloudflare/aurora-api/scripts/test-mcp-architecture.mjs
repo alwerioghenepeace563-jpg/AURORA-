@@ -15,11 +15,13 @@ assert.match(index, /import \{ getMcpStatus \} from '\.\/mcp';/);
 assert.match(index, /remoteMcp: getMcpStatus\(env\)/);
 assert.match(index, /mcpResearchMoved: true/);
 
-for (const connector of ['exa', 'firecrawl', 'tavily', 'perplexity', 'playwright', 'glyph']) {
+for (const connector of ['exa', 'firecrawl', 'tavily', 'cloudflare-api', 'perplexity', 'playwright', 'glyph']) {
   assert.match(mcp, new RegExp('id: "' + connector + '"'));
 }
 assert.match(mcp, /CLOUDFLARE_BROWSER_RUN_TOKEN/);
 assert.match(mcp, /TAVILY_API_KEY/);
+assert.match(mcp, /AURORA_CLOUDFLARE_MCP_TOKEN/);
+assert.match(mcp, /https:\/\/mcp\.cloudflare\.com\/mcp/);
 assert.match(mcp, /https:\/\/mcp\.tavily\.com\/mcp\//);
 assert.match(mcp, /readOnlyHint === false/);
 assert.match(mcp, /destructiveHint === true/);
