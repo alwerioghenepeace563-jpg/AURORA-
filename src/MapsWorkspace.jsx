@@ -1,6 +1,6 @@
 import "./maps.css";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, Route, Clock3, Globe2, Layers3, RotateCcw } from "lucide-react";
+import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, Route, Clock3, Globe2, Layers3, RotateCcw, Mountain, Volume2, VolumeX, Play, Pause } from "lucide-react";
 
 const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css";
 const MAPLIBRE_JS = "https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js";
@@ -27,16 +27,39 @@ const STREET_STYLE = {
   },
   layers: [{ id: "aurora-street", type: "raster", source: "auroraStreet", paint: { "raster-opacity": 1 } }]
 };
+const TERRAIN_SOURCE = { type: "raster-dem", tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: 15, encoding: "terrarium", attribution: "© AWS Terrain Tiles" };
 const SATELLITE_SOURCE = {
   type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 19,
   attribution: "Tiles © Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
 };
 
+function distanceMetres(a, b) {
+  const rad = value => value * Math.PI / 180;
+  const dLat = rad(b[1] - a[1]), dLon = rad(b[0] - a[0]);
+  const lat1 = rad(a[1]), lat2 = rad(b[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+function maneuverInstruction(step) {
+  const maneuver = step?.maneuver || {};
+  const modifier = String(maneuver.modifier || "").replace(/_/g, " ");
+  const road = step?.name ? " onto " + step.name : "";
+  const type = maneuver.type || "continue";
+  if (type === "arrive") return "You have arrived at your destination.";
+  if (type === "depart") return "Start your journey" + (step?.name ? " on " + step.name : "") + ".";
+  if (type === "roundabout" || type === "rotary") return "Enter the roundabout" + (maneuver.exit ? " and take exit " + maneuver.exit : "") + road + ".";
+  if (type === "merge") return "Merge " + (modifier || "ahead") + road + ".";
+  if (type === "fork" || type === "on ramp" || type === "off ramp") return "Keep " + (modifier || "going") + road + ".";
+  if (type === "turn" || type === "end of road" || type === "new name") return "Turn " + (modifier || "ahead") + road + ".";
+  if (type === "continue" || type === "notification") return "Continue " + (modifier || "ahead") + road + ".";
+  return "Continue your route" + road + ".";
+}
 export default function MapsWorkspace() {
-  const mapNodeRef = useRef(null), mapRef = useRef(null), routeRef = useRef(null), userMarkerRef = useRef(null), destinationMarkerRef = useRef(null), watchIdRef = useRef(null);
+  const mapNodeRef = useRef(null), mapRef = useRef(null), routeRef = useRef(null), userMarkerRef = useRef(null), destinationMarkerRef = useRef(null), watchIdRef = useRef(null), stepIndexRef = useRef(0);
   const [mapReady, setMapReady] = useState(false), [mapError, setMapError] = useState(""), [destination, setDestination] = useState("");
   const [busy, setBusy] = useState(false), [location, setLocation] = useState(null), [routeInfo, setRouteInfo] = useState(null);
   const [tracking, setTracking] = useState(false), [mode, setMode] = useState("street");
+  const [terrainEnabled, setTerrainEnabled] = useState(true), [guidanceActive, setGuidanceActive] = useState(false), [voiceGuidance, setVoiceGuidance] = useState(true), [stepIndex, setStepIndex] = useState(0);
   const [notice, setNotice] = useState("Drag the Earth to rotate it. Zoom in to explore real streets and places.");
 
   useEffect(() => {
@@ -53,6 +76,9 @@ export default function MapsWorkspace() {
       map.on("load", () => {
         if (cancelled) return;
         map.setFog({ color: "rgb(5, 12, 27)", "high-color": "rgb(12, 42, 76)", "space-color": "rgb(2, 5, 14)", "star-intensity": 0.75 });
+        map.addSource("auroraTerrain", TERRAIN_SOURCE);
+        map.setTerrain({ source: "auroraTerrain", exaggeration: 1.15 });
+        map.addLayer({ id: "aurora-hillshade", type: "hillshade", source: "auroraTerrain", paint: { "hillshade-exaggeration": 0.22, "hillshade-shadow-color": "#14253b", "hillshade-highlight-color": "#9db8ce" } });
         setMapReady(true);
       });
       map.on("error", (event) => { if (event?.error && !mapReady) setMapError("Some map tiles could not load. Check your connection and try again."); });
@@ -91,6 +117,58 @@ export default function MapsWorkspace() {
     setNotice(nextMode === "satellite" ? "Satellite imagery layer active. Imagery availability and freshness vary by location." : "Real street map active. Zoom in to inspect roads, labels and places.");
   }
 
+  function setTerrain(enabled) {
+    const map = mapRef.current;
+    if (!map || !mapReady || !map.getSource("auroraTerrain")) return;
+    map.setTerrain(enabled ? { source: "auroraTerrain", exaggeration: 1.15 } : null);
+    if (map.getLayer("aurora-hillshade")) map.setLayoutProperty("aurora-hillshade", "visibility", enabled ? "visible" : "none");
+    setTerrainEnabled(enabled);
+    setNotice(enabled ? "3D elevation terrain enabled where elevation tiles are available." : "Terrain relief is off; the 3D Earth and map layers remain active.");
+  }
+
+  function speakInstruction(step) {
+    if (!voiceGuidance || !("speechSynthesis" in window) || !step) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(maneuverInstruction(step));
+    utterance.rate = 0.92; utterance.pitch = 0.95; utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopGuidance() {
+    if (watchIdRef.current != null) navigator.geolocation?.clearWatch(watchIdRef.current);
+    watchIdRef.current = null; setGuidanceActive(false); setTracking(false);
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setNotice("Turn guidance stopped.");
+  }
+
+  function startGuidance() {
+    if (!routeInfo?.steps?.length) { setNotice("Search a destination from your GPS location to get a step-by-step route first."); return; }
+    if (!navigator.geolocation) { setNotice("GPS is not supported on this device."); return; }
+    if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
+    stepIndexRef.current = 0; setStepIndex(0); setGuidanceActive(true); setTracking(true);
+    speakInstruction(routeInfo.steps[0]);
+    watchIdRef.current = navigator.geolocation.watchPosition(position => {
+      const point = [position.coords.longitude, position.coords.latitude];
+      setLocation({ lon: point[0], lat: point[1] }); updateMarker(point);
+      mapRef.current?.easeTo({ center: point, duration: 500 });
+      const nextIndex = stepIndexRef.current + 1;
+      const nextStep = routeInfo.steps[nextIndex];
+      if (nextStep?.maneuver?.location && distanceMetres(point, nextStep.maneuver.location) < 45) {
+        stepIndexRef.current = nextIndex; setStepIndex(nextIndex); speakInstruction(nextStep);
+        if (nextStep.maneuver.type === "arrive" || nextIndex === routeInfo.steps.length - 1) {
+          setNotice("You have reached the end of the route.");
+          setGuidanceActive(false); setTracking(false);
+          if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+      }
+    }, error => {
+      setGuidanceActive(false); setTracking(false);
+      setNotice(error.code === 1 ? "Location permission was denied. Turn-by-turn guidance needs GPS permission." : "GPS guidance lost its location signal.");
+    }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 15000 });
+    setNotice("Turn-by-turn guidance started. Keep the app open and follow road signs.");
+  }
+
   function updateMarker(point) {
     const map = mapRef.current, gl = window.maplibregl;
     if (!map || !gl) return;
@@ -112,7 +190,7 @@ export default function MapsWorkspace() {
   }
 
   function toggleTracking() {
-    if (tracking) { if (watchIdRef.current != null) navigator.geolocation?.clearWatch(watchIdRef.current); watchIdRef.current = null; setTracking(false); setNotice("Live GPS tracking stopped."); return; }
+    if (tracking) { if (guidanceActive) { stopGuidance(); return; } if (watchIdRef.current != null) navigator.geolocation?.clearWatch(watchIdRef.current); watchIdRef.current = null; setTracking(false); setNotice("Live GPS tracking stopped."); return; }
     if (!navigator.geolocation) { setNotice("Live GPS is not supported on this device."); return; }
     setTracking(true);
     watchIdRef.current = navigator.geolocation.watchPosition(position => {
@@ -149,7 +227,9 @@ export default function MapsWorkspace() {
             const coordinates = route.geometry.coordinates;
             const bounds = coordinates.reduce((b, p) => b.extend(p), new gl.LngLatBounds(coordinates[0], coordinates[0]));
             map.fitBounds(bounds, { padding: 65, maxZoom: 15, pitch: 42, duration: 1100 });
-            setRouteInfo({ distance: route.distance, duration: route.duration, target });
+            const steps = (route.legs || []).flatMap(leg => leg.steps || []).filter(step => step.maneuver);
+            stepIndexRef.current = 0; setStepIndex(0); setGuidanceActive(false);
+            setRouteInfo({ distance: route.distance, duration: route.duration, target, steps });
             setNotice("Road route displayed on the Earth map. ETA is an estimate; follow road signs and local guidance.");
             return;
           }
@@ -185,13 +265,14 @@ export default function MapsWorkspace() {
         <form className="maps-search" onSubmit={searchDestination}><Search size={18}/><input value={destination} onChange={event => setDestination(event.target.value)} placeholder="Search any place on Earth…" aria-label="Search destination"/><button type="submit" disabled={busy} aria-label="Search place">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button></form>
         <div className="maps-layer-label"><Layers3 size={14}/> MAP LAYERS</div>
         <div className="maps-mode-row"><button type="button" className={mode === "street" ? "maps-mode-active" : ""} onClick={() => setMapLayer("street")}><MapPinned size={15}/> Street</button><button type="button" className={mode === "satellite" ? "maps-mode-active" : ""} onClick={() => setMapLayer("satellite")}><Satellite size={15}/> Satellite</button></div>
+        <button type="button" className={"maps-action " + (terrainEnabled ? "maps-action-active" : "")} onClick={() => setTerrain(!terrainEnabled)}><Mountain size={17}/><span><strong>{terrainEnabled ? "3D terrain enabled" : "Enable 3D terrain"}</strong><small>Elevation relief from AWS Terrain Tiles</small></span></button>
         <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Use my location</strong><small>Fly from Earth to your GPS position</small></span></button>
         <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live GPS" : "Live GPS tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span></button>
-        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Public routing service; availability and road coverage vary.</small></div>}
+        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}{routeInfo.steps?.length > 0 && <div className="maps-guidance-controls"><button type="button" onClick={guidanceActive ? stopGuidance : startGuidance}>{guidanceActive ? <Pause size={14}/> : <Play size={14}/>} {guidanceActive ? "Stop guidance" : "Start guidance"}</button><button type="button" aria-label={voiceGuidance ? "Mute voice guidance" : "Enable voice guidance"} onClick={() => { setVoiceGuidance(!voiceGuidance); if (voiceGuidance && "speechSynthesis" in window) window.speechSynthesis.cancel(); }} >{voiceGuidance ? <Volume2 size={15}/> : <VolumeX size={15}/>}</button></div>}{routeInfo.steps?.length > 0 && <div className="maps-turn-list"><strong>Next directions</strong>{routeInfo.steps.slice(stepIndex, stepIndex + 4).map((step, index) => <div className={"maps-turn-step " + (index === 0 ? "is-current" : "")} key={stepIndex + index}><span>{step.maneuver?.type === "arrive" ? "◎" : index + stepIndex + 1}</span><div><b>{maneuverInstruction(step)}</b><small>{fmtDistance(step.distance || 0)}</small></div></div>)}</div>}<small>OSRM road guidance is an estimate, not a substitute for signs or safe driving decisions.</small></div>}
         <p className="maps-note" role="status" aria-live="polite">{notice}</p>
         <button type="button" className="maps-reset-action" onClick={resetEarth}><ArrowLeft size={14}/> Return to full Earth</button>
       </aside>
     </div>
-    <div className="maps-disclaimer">The globe is the actual interactive map, not a decorative image: it transitions from whole-Earth view into real mapped streets and satellite tiles. GPS tracking runs only while this page is open. Public map, geocoding and routing services have usage limits; this prototype does not provide guaranteed live traffic, elevation terrain or turn-by-turn voice guidance.</div>
+    <div className="maps-disclaimer">The globe is the actual interactive map. Street tiles, satellite imagery, AWS elevation tiles, Nominatim place search and OSRM route instructions are external services with coverage and usage limits. Voice guidance uses the device speech engine and requires this page to stay open with GPS permission. Live traffic is not enabled because it requires a separate traffic-data provider credential; this map does not replace road signs or safe navigation judgment.</div>
   </section>;
 }
