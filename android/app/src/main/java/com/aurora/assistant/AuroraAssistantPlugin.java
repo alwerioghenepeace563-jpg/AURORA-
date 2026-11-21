@@ -498,7 +498,24 @@ public class AuroraAssistantPlugin extends Plugin {
         if (Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED) call.resolve(new JSObject().put("granted", true));
         else call.reject("Allow AURORA notifications so the wake-word microphone service can remain visibly active. You can deny this and continue using AURORA normally.");
     }
-    @PluginMethod public void consumeWakeWord(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean d=p.getBoolean("wake_detected",false);if(d)p.edit().putBoolean("wake_detected",false).apply();JSObject r=new JSObject();r.put("detected",d);call.resolve(r); }
+    @PluginMethod public void consumeWakeWord(PluginCall call) {
+        android.content.SharedPreferences p = getContext().getSharedPreferences("aurora_assistant", 0);
+        boolean detected = p.getBoolean("wake_detected", false);
+        String command = "";
+        if (detected) {
+            long capturedAt = p.getLong("wake_command_at", 0L);
+            String stored = p.getString("wake_command", "");
+            if (capturedAt > 0L && System.currentTimeMillis() - capturedAt <= 60_000L && stored != null) {
+                command = stored.trim();
+            }
+            p.edit().putBoolean("wake_detected", false)
+                .remove("wake_command").remove("wake_command_at").apply();
+        }
+        JSObject result = new JSObject();
+        result.put("detected", detected);
+        result.put("command", command);
+        call.resolve(result);
+    }
     @PluginMethod public void consumePulseOpenRequest(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean requested=p.getBoolean("pulse_open_requested",false);if(requested)p.edit().putBoolean("pulse_open_requested",false).apply();JSObject r=new JSObject();r.put("requested",requested);call.resolve(r); }
     @PluginMethod
     public void startAssistantService(PluginCall call) {
