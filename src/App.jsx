@@ -7,6 +7,7 @@ import { auroraRuntime } from "./core/aurora-runtime";
 import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
+import AuroraCallsWorkspace from "./components/AuroraCallsWorkspace";
 import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace";
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
@@ -2536,6 +2537,7 @@ export default function App() {
                 <button type="button" role="tab" aria-selected={activityTab==="tasks"} className={activityTab==="tasks"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("tasks")}><Check size={16}/>Tasks</button>
                 <button type="button" role="tab" aria-selected={activityTab==="notes"} className={activityTab==="notes"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("notes")}><NotebookPen size={16}/>Notes</button>
                 <button type="button" role="tab" aria-selected={activityTab==="reminders"} className={activityTab==="reminders"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("reminders")}><Bell size={16}/>Reminders</button>
+                 <button type="button" role="tab" aria-selected={activityTab==="calls"} className={activityTab==="calls"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("calls")}><PhoneCall size={16}/>AURORA Calls</button>
                 <button type="button" role="tab" aria-selected={activityTab==="calendar"} className={activityTab==="calendar"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("calendar")}><CalendarClock size={16}/>Calendar</button>
                 <button type="button" role="tab" aria-selected={activityTab==="timer"} className={activityTab==="timer"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("timer")}><Timer size={16}/>Timer</button>
                 <button type="button" role="tab" aria-selected={activityTab==="schedules"} className={activityTab==="schedules"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("schedules")}><CalendarDays size={16}/>Schedules</button>
@@ -2543,7 +2545,8 @@ export default function App() {
                 <button type="button" role="tab" aria-selected={activityTab==="predictive"} className={activityTab==="predictive"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("predictive")}><Activity size={16}/>Predictive</button>
                 <button type="button" role="tab" aria-selected={activityTab==="intelligence"} className={activityTab==="intelligence"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("intelligence")}><Sparkles size={16}/>Intelligence</button>
               </div>
-              {activityTab === "knowledge" && <KnowledgeUniverseWorkspace/>}
+              {activityTab === "calls" && <AuroraCallsWorkspace authSession={authSession} onReply={(text) => sendMessage(text)} onSpeak={(text) => speak(text)}/>}
+               {activityTab === "knowledge" && <KnowledgeUniverseWorkspace/>}
               {activityTab === "predictive" && <PredictiveDashboard tasks={tasks} reminders={reminders} events={events}/> }
               {activityTab === "intelligence" && <IntelligenceEcosystemWorkspace/>}
               {activityTab === "tasks" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>My tasks</h2><p>Small steps, saved on this device.</p></div></div><form className="activity-inline-form" onSubmit={(e)=>{e.preventDefault();if(!taskDraft.trim())return;setTasks((old)=>[{id:Date.now(),title:taskDraft.trim(),done:false},...old]);setTaskDraft("");}}><input value={taskDraft} onChange={e=>setTaskDraft(e.target.value)} placeholder="What do you need to do?"/><button className="primary-action" type="submit"><Plus size={16}/> Add</button></form><div className="activity-record-list">{tasks.length===0?<p className="activity-muted">Your task list is empty. Add your first task above.</p>:tasks.map(task=><div className={"activity-record "+(task.done?"activity-record-done":"")} key={task.id}><button type="button" className="record-check" onClick={()=>setTasks(old=>old.map(t=>t.id===task.id?{...t,done:!t.done}:t))} aria-label="Toggle task">{task.done&&<Check size={14}/>}</button><span className="record-main">{task.title}</span><button type="button" className="record-delete" onClick={()=>setTasks(old=>old.filter(t=>t.id!==task.id))} aria-label="Delete task"><Trash2 size={15}/></button></div>)}</div></div>}
