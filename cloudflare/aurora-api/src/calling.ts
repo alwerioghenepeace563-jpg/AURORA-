@@ -197,7 +197,7 @@ export class AuroraCallsDurableObject {
             });
             if (response.ok) return { delivered: true, deviceId: device.id };
             const failure = await response.json().catch(() => ({})) as { error?: { details?: Array<{ errorCode?: string }> } };
-            const invalidToken = response.status === 404 || (failure.error?.details || []).some(detail => detail.errorCode === "UNREGISTERED");
+            const invalidToken = (failure.error?.details || []).some(detail => detail.errorCode === "UNREGISTERED");
             return { delivered: false, invalidToken, deviceId: device.id };
           } catch {
             return { delivered: false, invalidToken: false, deviceId: device.id };
