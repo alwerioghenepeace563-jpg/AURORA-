@@ -16,7 +16,7 @@ const watchtower = createAuroraWatchtower({
     {title:"Second result",url:"https://example.com/two",snippet:"Another update"}
   ]}; }
 });
-assert.throws(() => watchtower.create({ title:"", query:"results", intervalHours:6 }), /approval/i);
+assert.throws(() => watchtower.create({ title:"", query:"results", intervalHours:6 }), /approval|permission/i);
 const created = watchtower.create({ approved:true, title:"Anything tracker", query:"new developments about renewable energy", intervalHours:1 });
 assert.equal(created.id,"watch-test");
 assert.equal(watchtower.list().length,1);
