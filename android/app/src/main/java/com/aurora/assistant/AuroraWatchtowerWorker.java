@@ -3,6 +3,8 @@ package com.aurora.assistant;
 import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -95,12 +97,15 @@ public class AuroraWatchtowerWorker extends Worker {
         NotificationManager manager=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
         if(manager==null)return;
         if(Build.VERSION.SDK_INT>=26) manager.createNotificationChannel(new NotificationChannel(CHANNEL,"AURORA Watchtower updates",NotificationManager.IMPORTANCE_DEFAULT));
-        IntentHelper.openApp(context,id);
-        Notification notification=new NotificationCompat.Builder(context,CHANNEL)
+        Intent launch=context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        PendingIntent open=launch==null?null:PendingIntent.getActivity(context,0,launch,PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_IMMUTABLE:0));
+        NotificationCompat.Builder builder=new NotificationCompat.Builder(context,CHANNEL)
             .setSmallIcon(context.getApplicationInfo().icon).setContentTitle("AURORA found an update")
             .setContentText(title+" · "+count+" new search result(s)")
             .setStyle(new NotificationCompat.BigTextStyle().bigText("Watchtower found "+count+" new search result(s) for "+title+". Open AURORA to review the sources."))
-            .setAutoCancel(true).build();
+            .setAutoCancel(true);
+        if(open!=null) builder.setContentIntent(open);
+        Notification notification=builder.build();
         manager.notify(id.hashCode(),notification);
     }
 
@@ -120,9 +125,4 @@ public class AuroraWatchtowerWorker extends Worker {
         context.getSharedPreferences("aurora_watchtower_state",0).edit().remove("urls_"+id).remove("checked_"+id).apply();
     }
 
-    private static final class IntentHelper {
-        static void openApp(Context context,String id) {
-            // Notifications intentionally open the app through its launcher; no external action is triggered.
-        }
-    }
 }
