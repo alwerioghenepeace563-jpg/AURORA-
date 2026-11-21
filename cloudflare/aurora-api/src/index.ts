@@ -12,7 +12,7 @@ interface Env {
   [key: string]: any;
   LEGACY_API_ORIGIN?: string;
   AURORA_BACKEND_STAGE?: string;
-  ASSETS: { fetch(request: Request): Promise<Response> };
+  ASSETS: { fetch(request: Request): Promise<Response> };\n  AURORA_CONNECT_ROOMS: DurableObjectNamespace;
 }
 
 const JSON_HEADERS = {
@@ -256,7 +256,7 @@ export default {
       });
     }
 
-    if (url.pathname === "/api/meta") {
+    if (url.pathname === "/api/connect/ticket") return handleAuroraConnect(request, env);\n    const connectRoom = url.pathname.match(/^\\/api\\/connect\\/([A-Z0-9]{6,12})$/i);\n    if (connectRoom) {\n      if (request.method !== "GET" || request.headers.get("Upgrade") !== "websocket") return json({ error: "WebSocket upgrade required." }, 426);\n      const ticket = url.searchParams.get("ticket") || "";\n      if (!ticket) return json({ error: "A short-lived call ticket is required." }, 401);\n      const id = env.AURORA_CONNECT_ROOMS.idFromName(connectRoom[1].toUpperCase());\n      return env.AURORA_CONNECT_ROOMS.get(id).fetch("https://aurora-connect.internal/socket?ticket=" + encodeURIComponent(ticket), request);\n    }\n\n    if (url.pathname === "/api/meta") {
       return handleMetadata(request, env, url.searchParams.get("handler") || "");
     }
 
