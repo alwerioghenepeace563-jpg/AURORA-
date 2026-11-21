@@ -31,6 +31,8 @@ assert.match(mcp, /host\.includes\(\":\"\)/);
 assert.match(mcp, /\\d\{1,3\}/);
 assert.match(mcp, /MCP_TIMEOUT_MS/);
 assert.match(mcp, /MCP-Protocol-Version/);
+assert.match(mcp, /expectedId/);
+assert.match(mcp, /message\.id === expectedId/);
 assert.match(mcp, /negotiatedProtocolVersion/);
 assert.match(mcp, /Promise\.all\(jobs\)/);
 assert.match(docs, /credentials are never returned to the client/i);
