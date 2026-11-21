@@ -4,6 +4,7 @@ import { auroraNative } from "../lib/aurora-native";
 import { buildAuroraRoutineInsights } from "../core/aurora-routine-insights";
 import { buildAuroraDeviceInsights } from "../core/aurora-device-insights";
 import { Activity, Pause, Play, ShieldCheck, Trash2, X, Clock3, Sparkles } from "lucide-react";
+import WatchtowerPanel from "./WatchtowerPanel.jsx";
 
 const engine = auroraRuntime.predictive;
 function formatTime(value) {
@@ -139,5 +140,6 @@ export default function PredictiveDashboard({ tasks = [], reminders = [], events
     {suggestions.length ? suggestions.map(item=><article className="predictive-suggestion" key={item.id}><div><strong>{item.title}</strong><p>{item.reason}</p><small>{formatTime(item.createdAt)}</small></div><div className="predictive-suggestion-actions"><button type="button" className="outline-action" onClick={()=>{engine.snooze(item.id);refresh();}}><Clock3 size={14}/> Snooze</button><button type="button" className="record-delete" onClick={()=>{engine.dismiss(item.id);refresh();}} aria-label="Dismiss suggestion"><Trash2 size={15}/></button></div></article>) : <p className="activity-muted">No suggestions yet. You can ask AURORA to create one from your saved tasks.</p>}
     <div className="predictive-footer"><span>{status.sourceCount} connected source(s) · {status.retentionHours}h retention</span><button type="button" className="outline-action" onClick={()=>{engine.clear();refresh();setMessage("Predictive history cleared.");}}>Clear history</button></div>{sources.length>0&&<div className="predictive-source-review"><strong>Connected data sources</strong>{sources.map(source=><div className="predictive-sensor-row" key={source.id}><span>{source.label} · {source.signal}</span><button type="button" className="record-delete" onClick={()=>removeSource(source.id)} aria-label={"Disconnect "+source.label}><X size={15}/></button></div>)}</div>}
     {message && <p className="predictive-message" role="status" aria-live="polite">{message}</p>}
-  </section>;
+  <WatchtowerPanel />
+    </section>;
 }
