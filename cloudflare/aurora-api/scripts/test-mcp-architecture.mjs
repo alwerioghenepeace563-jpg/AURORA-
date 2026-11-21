@@ -62,7 +62,7 @@ assert.match(chat, /clearResearchMemory/);
 assert.match(chat, /isResearchQuery/);
 assert.match(memory, /UPSTASH_REDIS_REST_URL/);
 assert.match(memory, /KV_REST_API_URL/);
-assert.match(memory, /auth\\/v1\\/user/);
+assert.ok(memory.includes('/auth/v1/user'));
 assert.match(memory, /crypto\.subtle\.digest\("SHA-256"/);
 assert.match(memory, /SUPABASE_ANON_KEY/);
 assert.match(memory, /MEMORY_TTL_SECONDS/);
