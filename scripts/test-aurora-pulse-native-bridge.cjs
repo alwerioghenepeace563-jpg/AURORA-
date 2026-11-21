@@ -25,6 +25,9 @@ assert.match(panel, /AuroraOverlay\.sendToSharedPulse\(t\)/, "Native Pulse promp
 assert.match(app, /consumePulseActionRequest\(\)/, "The app must consume queued native Pulse requests.");
 assert.match(app, /nativeHandoffPollInFlightRef\.current\) return/, "Native handoff polling must not overlap.");
 assert.match(app, /nativeHandoffPollInFlightRef\.current = false/, "Native handoff polling must always release its in-flight lock.");
+assert.match(app, /nativeHandoffDispatchInFlightRef\.current = true/, "Only one queued native action may be dispatched at a time.");
+assert.match(app, /await pulseDispatchRef\.current\(sharedPulseAction\.query\)/, "The next native action must wait for the current Pulse dispatch to finish.");
+assert.match(app, /nativeHandoffDispatchInFlightRef\.current = false/, "The native dispatch lock must be released after completion.");
 assert.match(app, /typeof pulseDispatchRef\.current === "function"[\s\S]*?consumePulseActionRequest/, "The app must not dequeue requests before the shared dispatcher is ready.");
 assert.match(app, /pulseDispatchRef\.current\?\.\(sharedPulseAction\.query\)/, "Queued requests must enter the current in-app Pulse dispatcher.");
 assert.match(app, /auroraRuntime\.surfaces\.route\(text, \{ surface: "pulse" \}\)/, "In-app Pulse must use the shared AURORA capability gateway.");
