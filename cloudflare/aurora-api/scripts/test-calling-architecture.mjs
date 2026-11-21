@@ -14,6 +14,8 @@ assert.ok(calling.includes("devices.some(d => Boolean(d.token))"), "Offline devi
 assert.ok(calling.includes('ttl: "86400s"'), "FCM must queue notifications while a device is offline");
 assert.match(calling, /private async readInbox/, "Devices need an authenticated inbox poll");
 assert.match(calling, /deviceLimit: 10/, "Device registration must be bounded");
+assert.ok(calling.includes("devices.length >= 10"), "Adding an eleventh device must be rejected instead of silently evicting another device");
+assert.ok(calling.includes("This AURORA account already has 10 registered devices"), "Device cap rejection must explain how to recover");
 assert.ok(calling.includes("optional push token"), "Devices must register before an FCM token is available");
 assert.ok(calling.includes("getFcmAccessToken"), "Worker must mint server-side FCM OAuth tokens");
 assert.ok(calling.includes("fcm.googleapis.com/v1/projects"), "Worker must deliver Android push through FCM HTTP v1");
