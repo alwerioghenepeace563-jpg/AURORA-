@@ -93,11 +93,16 @@ export class AuroraCallsDurableObject {
     const body = await parseJson(request), id = safeText(body.deviceId, 80), token = safeText(body.pushToken, 4096);
     const platform = body.platform === "web" ? "web" : "android";
     if (!validDeviceId(id) || (token && token.length < 16)) return json({ error: "A valid device ID and optional push token are required." }, 400);
-    const devices = await this.state.storage.get<Device[]>("devices") || [];
-    const existing = devices.find(d => d.id === id);
-    const next = devices.filter(d => d.id !== id);
-    next.push({ id, ...((token || existing?.token) ? { token: token || existing?.token } : {}), platform, updatedAt: Date.now(), lastSeen: Date.now() });
-    await this.state.storage.put("devices", next.slice(-10));
+    const result = await this.state.storage.transaction(async txn => {
+      const devices = await txn.get<Device[]>("devices") || [];
+      const existing = devices.find(d => d.id === id);
+      if (!existing && devices.length >= 10) return { error: "This AURORA account already has 10 registered devices. Remove an old device before adding another.", status: 429 };
+      const next = devices.filter(d => d.id !== id);
+      next.push({ id, ...((token || existing?.token) ? { token: token || existing?.token } : {}), platform, updatedAt: Date.now(), lastSeen: Date.now() });
+      await txn.put("devices", next);
+      return { registered: true as const };
+    });
+    if ("error" in result) return json({ error: result.error }, result.status);
     return json({ registered: true, deviceId: id, deviceLimit: 10 });
   }
   private async removeDevice(id: string): Promise<Response> {
