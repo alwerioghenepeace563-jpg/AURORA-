@@ -27,6 +27,8 @@ export default function MapsWorkspace() {
   const [tracking, setTracking] = useState(false);
   const [satellite, setSatellite] = useState(true);
   const [autoRotate, setAutoRotate] = useState(true);
+  const autoRotateRef = useRef(true);
+  useEffect(() => { autoRotateRef.current = autoRotate; }, [autoRotate]);
   const [notice, setNotice] = useState("Drag the Earth to explore. Search for a destination or enable GPS.");
   const [zoom, setZoom] = useState(1);
 
@@ -76,6 +78,9 @@ export default function MapsWorkspace() {
         const group = new THREE.Group();
         scene.add(group);
         const geometry = new THREE.SphereGeometry(2, 96, 96);
+        const grid = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(2.008, 24, 16)), new THREE.LineBasicMaterial({ color: 0x51dfff, transparent: true, opacity: 0.26 }));
+        grid.visible = !satellite;
+        group.add(grid);
         earthMaterial = new THREE.MeshPhongMaterial({ color: 0x8ba7c8, shininess: 12, specular: new THREE.Color(0x244a70) });
         earth = new THREE.Mesh(geometry, earthMaterial);
         group.add(earth);
@@ -148,13 +153,13 @@ export default function MapsWorkspace() {
         const animate = () => {
           if (cancelled) return;
           frame = requestAnimationFrame(animate);
-          if (autoRotate && pointer === null) group.rotation.y += 0.0008;
+          if (autoRotateRef.current && pointer === null) group.rotation.y += 0.0008;
           else if (pointer === null) { group.rotation.y += velocityX; group.rotation.x = Math.max(-1.1, Math.min(1.1, group.rotation.x + velocityY)); velocityX *= 0.94; velocityY *= 0.94; }
           stars.rotation.y -= 0.00006;
           renderer.render(scene, camera);
         };
         animate();
-        sceneRef.current = { THREE, group, camera, renderer, earthMaterial, markerGroup: markerGroup.current, routeGroup: routeGroup.current, host };
+        sceneRef.current = { THREE, group, camera, renderer, earthMaterial, grid, markerGroup: markerGroup.current, routeGroup: routeGroup.current, host };
       } catch (cause) {
         if (!cancelled) setError(cause?.message || "The 3D Earth could not load. Check your internet connection and WebGL support.");
       }
@@ -175,7 +180,7 @@ export default function MapsWorkspace() {
       });
       sceneRef.current = null;
     };
-  }, [autoRotate]);
+  }, []);
 
   const updateMarker = useCallback((point, kind) => {
     const state = sceneRef.current;
@@ -193,6 +198,21 @@ export default function MapsWorkspace() {
 
   useEffect(() => { updateMarker(location, "current-location"); }, [location, updateMarker]);
   useEffect(() => { updateMarker(destination, "destination"); }, [destination, updateMarker]);
+  useEffect(() => {
+    const state = sceneRef.current;
+    if (!state) return;
+    state.grid.visible = !satellite;
+    if (satellite) {
+      state.earthMaterial.map?.dispose?.();
+      new state.THREE.TextureLoader().load(EARTH_TEXTURE, (texture) => {
+        if (sceneRef.current !== state) { texture.dispose(); return; }
+        texture.colorSpace = state.THREE.SRGBColorSpace;
+        state.earthMaterial.map = texture; state.earthMaterial.color.set(0xffffff); state.earthMaterial.needsUpdate = true;
+      });
+    } else {
+      state.earthMaterial.map = null; state.earthMaterial.color.set(0x17466b); state.earthMaterial.emissive.set(0x071b35); state.earthMaterial.needsUpdate = true;
+    }
+  }, [satellite, ready]);
 
   const flyTo = useCallback((point) => {
     const state = sceneRef.current;
@@ -283,7 +303,7 @@ export default function MapsWorkspace() {
         {!ready && !error && <div className="cosmos-loading"><span className="mini-loader"/> Initialising planetary engine…</div>}
         {error && <div className="cosmos-loading cosmos-error"><Globe2 size={28}/><strong>Cosmic Earth unavailable</strong><span>{error}</span><button type="button" onClick={() => window.location.reload()}>Reload map</button></div>}
         <div className="cosmos-hud cosmos-hud-top"><span><Activity size={13}/> PLANETARY VIEW</span><span>EARTH · 3D</span></div>
-        <div className="cosmos-hud cosmos-hud-bottom"><span><i/> {satellite ? "BLUE MARBLE / SATELLITE-STYLE TEXTURE" : "EARTH DAYLIGHT TEXTURE"}</span><span>ZOOM {zoom.toFixed(2)}×</span></div>
+        <div className="cosmos-hud cosmos-hud-bottom"><span><i/> {satellite ? "GLOBAL EARTH IMAGERY TEXTURE" : "HOLOGRAPHIC GRID MODE"}</span><span>ZOOM {zoom.toFixed(2)}×</span></div>
         <div className="cosmos-globe-controls">
           <button type="button" onClick={() => changeZoom(-0.7)} aria-label="Zoom in"><ZoomIn size={17}/></button>
           <button type="button" onClick={() => changeZoom(0.7)} aria-label="Zoom out"><ZoomOut size={17}/></button>
@@ -296,7 +316,7 @@ export default function MapsWorkspace() {
         <form className="maps-search cosmos-search" onSubmit={searchDestination}><Search size={17}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search any place on Earth…" aria-label="Search destination"/><button type="submit" disabled={busy} aria-label="Search">{busy ? <span className="mini-loader"/> : <ArrowUpRight size={17}/>}</button></form>
         <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Locate my position</strong><small>Place GPS marker on Earth</small></span></button>
         <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><Crosshair size={17}/><span><strong>{tracking ? "Stop live GPS" : "Enable live GPS"}</strong><small>{tracking ? "Updating while page is open" : "Requires location permission"}</small></span></button>
-        <button type="button" className={"maps-action " + (satellite ? "cosmos-layer-active" : "")} onClick={() => setSatellite((value) => !value)}><Satellite size={17}/><span><strong>{satellite ? "Satellite-style texture" : "Earth daylight texture"}</strong><small>Toggle planetary surface appearance</small></span></button>
+        <button type="button" className={"maps-action " + (satellite ? "cosmos-layer-active" : "")} onClick={() => setSatellite((value) => !value)}><Satellite size={17}/><span><strong>{satellite ? "Earth imagery texture" : "Holographic grid mode"}</strong><small>Switch between imagery and holographic grid</small></span></button>
         <button type="button" className="maps-action" onClick={() => setAutoRotate((value) => !value)}>{autoRotate ? <Pause size={17}/> : <Play size={17}/>}<span><strong>{autoRotate ? "Pause Earth rotation" : "Resume Earth rotation"}</strong><small>Drag the globe to rotate manually</small></span></button>
         {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">ROUTE PREVIEW</p><strong>{routeInfo.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Navigation size={14}/>{(routeInfo.distance / 1000).toFixed(1)} km</span><span>{Math.round(routeInfo.duration / 60)} min</span></div>}<small>Public routing preview. Follow road signs and local guidance.</small></div>}
         <p className="maps-note" role="status">{notice}</p>
