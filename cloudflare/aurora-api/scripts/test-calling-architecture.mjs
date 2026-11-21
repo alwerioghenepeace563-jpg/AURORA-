@@ -65,6 +65,7 @@ assert.ok(monitor.includes('api("/api/calls/inbox?deviceId="'), "The app-wide mo
 assert.ok(monitor.includes("@capacitor/push-notifications"), "Android app must integrate Capacitor push notifications");
 assert.ok(monitor.includes("PushNotifications.register"), "Android app must register for push delivery");
 assert.ok(monitor.includes('method: "DELETE"'), "Signed-out devices must be unregistered from future call push delivery");
+assert.ok(monitor.includes("tokenRef.current === token"), "Auth-token refresh cleanup must not unregister a device re-registered with a refreshed token");
 assert.ok(monitor.includes("function toggleHandsFree"), "Answered calls must offer hands-free voice conversation");
 const nativeActivity = await readFile(resolve(root, "android/app/src/main/java/com/aurora/assistant/MainActivity.java"), "utf8");
 assert.ok(nativeActivity.includes("aurora_calls"), "Android must create the high-priority AURORA call notification channel");
