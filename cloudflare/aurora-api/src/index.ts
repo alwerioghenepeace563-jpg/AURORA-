@@ -1,4 +1,4 @@
-import { handleChat } from './chat';
+import { handleChat } from './chat';\nimport { AuroraConnectRoom } from './connect';\nexport { AuroraConnectRoom };
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
