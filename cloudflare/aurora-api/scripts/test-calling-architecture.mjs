@@ -55,6 +55,11 @@ assert.ok(worker.includes("export { AuroraCallsDurableObject }"), "Worker entryp
 assert.match(wrangler, /"name": "AURORA_CALLS"/, "Worker must bind the calling Durable Object");
 assert.match(wrangler, /"new_sqlite_classes": \["AuroraCallsDurableObject"\]/, "Durable Object migration must be declared");
 assert.match(ui, /Schedule AURORA call/, "The calling workspace must schedule calls");
+assert.ok(ui.includes("function toLocalDateTimeValue"), "The datetime-local minimum must be formatted in the device's local timezone");
+assert.ok(ui.includes("min={minCallTime}"), "Call scheduling must use the local-time minimum rather than a UTC timestamp");
+assert.ok(ui.includes("Choose a call time at least 10 seconds from now."), "The workspace must reject past or too-soon call times before submitting");
+assert.ok(ui.includes("if (cancelingId) return;"), "Repeated cancel taps must not send duplicate cancellation requests");
+
 assert.ok(ui.includes("app-wide call monitor"), "Activities must explain that incoming calls are handled by the global monitor");
 assert.ok(!ui.includes("/api/calls/inbox"), "Activities must not compete with the global monitor for incoming-call inbox polling");
 assert.ok(!ui.includes("/api/calls/devices"), "Activities must not register a duplicate device alongside the global monitor");
