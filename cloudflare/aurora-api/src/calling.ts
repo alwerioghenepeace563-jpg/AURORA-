@@ -188,15 +188,27 @@ export class AuroraCallsDurableObject {
         const accessToken = await this.getFcmAccessToken();
         const call = payload?.call || {};
         const data = Object.fromEntries(Object.entries({ event: payload?.event || "aurora_event", callId: call.id || payload?.callId || "", title: call.title || "AURORA", message: call.message || "" }).map(([key,value]) => [key, String(value)]));
-        await Promise.all(androidDevices.map(async device => {
-          const response = await fetch("https://fcm.googleapis.com/v1/projects/" + encodeURIComponent(projectId) + "/messages:send", {
-            method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
-            body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "86400s", notification: { channel_id: "aurora_calls", sound: "default" } } } }),
-            signal: AbortSignal.timeout(9000)
-          });
-          if (!response.ok) throw new Error("FCM delivery failed with status " + response.status);
+        const outcomes = await Promise.all(androidDevices.map(async device => {
+          try {
+            const response = await fetch("https://fcm.googleapis.com/v1/projects/" + encodeURIComponent(projectId) + "/messages:send", {
+              method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+              body: JSON.stringify({ message: { token: device.token, notification: { title: call.title || "AURORA", body: call.message || "AURORA has a reminder for you." }, data, android: { priority: "high", ttl: "86400s", notification: { channel_id: "aurora_calls", sound: "default" } } } }),
+              signal: AbortSignal.timeout(9000)
+            });
+            if (response.ok) return { delivered: true, deviceId: device.id };
+            const failure = await response.json().catch(() => ({})) as { error?: { details?: Array<{ errorCode?: string }> } };
+            const invalidToken = response.status === 404 || (failure.error?.details || []).some(detail => detail.errorCode === "UNREGISTERED");
+            return { delivered: false, invalidToken, deviceId: device.id };
+          } catch {
+            return { delivered: false, invalidToken: false, deviceId: device.id };
+          }
         }));
-        fcmDelivered = true;
+        fcmDelivered = outcomes.some(outcome => outcome.delivered);
+        const invalidIds = new Set(outcomes.filter(outcome => outcome.invalidToken).map(outcome => outcome.deviceId));
+        if (invalidIds.size) {
+          const latest = await this.state.storage.get<Device[]>("devices") || [];
+          await this.state.storage.put("devices", latest.map(device => invalidIds.has(device.id) ? { ...device, token: undefined } : device));
+        }
       } catch { /* pending calls remain available in the authenticated inbox */ }
     }
     const endpoint = this.env.AURORA_PUSH_GATEWAY_URL || "", secret = this.env.AURORA_PUSH_GATEWAY_TOKEN || "";
