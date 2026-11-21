@@ -27,12 +27,13 @@ export async function handleCalling(request: Request, env: CallingEnv): Promise<
   const origin = request.headers.get("Origin") || "";
   const configured = (env.AURORA_ALLOWED_ORIGIN || "").split(",").map(v => v.trim().replace(/\/+$/, "")).filter(Boolean);
   const allowed = new Set(["https://localhost", "http://localhost", "capacitor://localhost", "ionic://localhost", "https://aurora-ten-gold.vercel.app", ...configured]);
-  const sameOrigin = origin === new URL(request.url).origin;\n  if (origin && !sameOrigin && !allowed.has(origin)) {
+  const sameOrigin = origin === new URL(request.url).origin;
+  if (origin && !sameOrigin && !allowed.has(origin)) {
     try { const parsed = new URL(origin); if (parsed.protocol !== "https:" || !/^aurora-[a-z0-9-]+-smart-bm\.vercel\.app$/i.test(parsed.hostname)) return json({ error: "Origin not allowed." }, 403); }
     catch { return json({ error: "Origin not allowed." }, 403); }
   }
   const headers = new Headers({ "Vary": "Origin", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info", "Access-Control-Max-Age": "86400", "Cache-Control": "no-store" });
-  if (origin && (sameOrigin || allowed.has(origin) || /^https:\/\/aurora-[a-z0-9-]+-smart-bm\\.vercel\\.app$/i.test(new URL(origin).hostname))) headers.set("Access-Control-Allow-Origin", origin);
+  if (origin && (sameOrigin || allowed.has(origin) || /^https:\/\/aurora-[a-z0-9-]+-smart-bm\.vercel\.app$/i.test(new URL(origin).hostname))) headers.set("Access-Control-Allow-Origin", origin);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
   const url = new URL(request.url);
   const auth = request.headers.get("Authorization") || "";
@@ -129,7 +130,9 @@ export class AuroraCallsDurableObject {
     const due = reminders.filter(r => r.status === "scheduled" && r.scheduledAt <= now + 5000);
     let updated = reminders;
     for (const reminder of due) {
-      const devices = await this.state.storage.get<Device[]>("devices") || [];\n      const online = devices.some(d => now - d.lastSeen < 60_000);\n      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online ? "ringing" : "pending", createdAt: now, expiresAt: online ? now + 45_000 : 0 };
+      const devices = await this.state.storage.get<Device[]>("devices") || [];
+      const online = devices.some(d => now - d.lastSeen < 60_000);
+      const call: ActiveCall = { id: crypto.randomUUID().replace(/-/g,""), reminderId: reminder.id, title: reminder.title, message: reminder.message, status: online ? "ringing" : "pending", createdAt: now, expiresAt: online ? now + 45_000 : 0 };
       const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
       await this.state.storage.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-19), call]);
       if (call.status === "ringing") await this.push({ event: "incoming_call", call, reminder });
