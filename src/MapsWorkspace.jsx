@@ -4,6 +4,27 @@ import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, Exter
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const GLOBE_JS = "https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js";
+const EARTH_TEXTURE = "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg";
+const EARTH_BUMP = "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png";
+const EARTH_SKY = "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png";
+
+function loadGlobeLibrary() {
+  if (window.Globe) return Promise.resolve(window.Globe);
+  if (window.__auroraGlobePromise) return window.__auroraGlobePromise;
+  window.__auroraGlobePromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = GLOBE_JS;
+    script.async = true;
+    script.onload = () => window.Globe ? resolve(window.Globe) : reject(new Error("3D Earth could not initialise."));
+    script.onerror = () => reject(new Error("3D Earth library could not load. Check your internet connection."));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    window.__auroraGlobePromise = null;
+    throw error;
+  });
+  return window.__auroraGlobePromise;
+}
 const TILE_SOURCES = {
   street: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>', maxZoom: 19 },
   satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics and contributors", maxZoom: 19 },
@@ -38,11 +59,13 @@ function loadLeaflet() {
 export default function MapsWorkspace() {
   const mapNodeRef = useRef(null), mapRef = useRef(null), tileLayerRef = useRef(null), labelLayerRef = useRef(null);
   const routeLayerRef = useRef(null), userMarkerRef = useRef(null), destinationMarkerRef = useRef(null), watchIdRef = useRef(null);
+  const earthNodeRef = useRef(null), earthInstanceRef = useRef(null);
   const [mapReady, setMapReady] = useState(false), [mapError, setMapError] = useState("");
   const [destination, setDestination] = useState(""), [busy, setBusy] = useState(false);
   const [location, setLocation] = useState(null), [routeInfo, setRouteInfo] = useState(null);
   const [tracking, setTracking] = useState(false), [notice, setNotice] = useState("Search for a destination or use your current location to begin.");
   const [mode, setMode] = useState("street"), [googleView, setGoogleView] = useState("");
+  const [earth3D, setEarth3D] = useState(false), [earthReady, setEarthReady] = useState(false), [earthError, setEarthError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +82,95 @@ export default function MapsWorkspace() {
       mapRef.current?.remove(); mapRef.current = null; tileLayerRef.current = null; labelLayerRef.current = null; setMapReady(false);
     };
   }, [googleView]);
+
+  useEffect(() => {
+    if (!earth3D || !earthNodeRef.current) return;
+    let cancelled = false;
+    let resizeObserver;
+    loadGlobeLibrary().then((Globe) => {
+      if (cancelled || !earthNodeRef.current) return;
+      const container = earthNodeRef.current;
+      const globe = new Globe(container, { rendererConfig: { antialias: false, alpha: true }, animateIn: true })
+        .globeImageUrl(EARTH_TEXTURE)
+        .bumpImageUrl(EARTH_BUMP)
+        .backgroundImageUrl(EARTH_SKY)
+        .backgroundColor("#020713")
+        .showAtmosphere(true)
+        .atmosphereColor("#55b9ff")
+        .atmosphereAltitude(0.16)
+        .showGraticules(false)
+        .pointLat("lat")
+        .pointLng("lng")
+        .pointAltitude("altitude")
+        .pointRadius("radius")
+        .pointColor("color")
+        .pointResolution(12)
+        .pointsMerge(true)
+        .enablePointerInteraction(true);
+      earthInstanceRef.current = globe;
+      globe.width(Math.max(280, container.clientWidth || 600));
+      globe.height(Math.max(380, container.clientHeight || 600));
+      globe.pointsData([
+        ...(location ? [{ lat: location.lat, lng: location.lon, altitude: 0.018, radius: 0.42, color: "#4fe3ff" }] : []),
+        ...(routeInfo?.target ? [{ lat: routeInfo.target.lat, lng: routeInfo.target.lon, altitude: 0.025, radius: 0.52, color: "#ffc66d" }] : [])
+      ]);
+      globe.controls().autoRotate = true;
+      globe.controls().autoRotateSpeed = 0.28;
+      globe.pointOfView(
+        routeInfo?.target
+          ? { lat: routeInfo.target.lat, lng: routeInfo.target.lon, altitude: 1.9 }
+          : location
+            ? { lat: location.lat, lng: location.lon, altitude: 2.2 }
+            : { lat: 9.082, lng: 8.6753, altitude: 2.6 },
+        900
+      );
+      globe.onGlobeClick(({ lat, lng }) => setNotice("Globe coordinates: " + lat.toFixed(3) + ", " + lng.toFixed(3) + "."));
+      resizeObserver = new ResizeObserver(() => {
+        if (!cancelled && earthNodeRef.current) {
+          globe.width(Math.max(280, earthNodeRef.current.clientWidth || 600));
+          globe.height(Math.max(380, earthNodeRef.current.clientHeight || 600));
+        }
+      });
+      resizeObserver.observe(container);
+      setEarthReady(true);
+      setNotice("AURORA 3D Earth is ready. Drag to rotate and pinch or scroll to zoom.");
+    }).catch((error) => {
+      if (!cancelled) {
+        setEarthError(error.message || "3D Earth could not load.");
+        setNotice("AURORA 3D Earth could not load. Check your connection and retry.");
+      }
+    });
+    return () => {
+      cancelled = true;
+      resizeObserver?.disconnect();
+      const globe = earthInstanceRef.current;
+      if (globe) {
+        globe._destructor?.();
+        earthInstanceRef.current = null;
+      }
+      if (earthNodeRef.current) earthNodeRef.current.replaceChildren();
+    };
+  }, [earth3D]);
+
+  useEffect(() => {
+    if (!earth3D || !earthInstanceRef.current) return;
+    const points = [
+      ...(location ? [{ lat: location.lat, lng: location.lon, altitude: 0.018, radius: 0.42, color: "#4fe3ff" }] : []),
+      ...(routeInfo?.target ? [{ lat: routeInfo.target.lat, lng: routeInfo.target.lon, altitude: 0.025, radius: 0.52, color: "#ffc66d" }] : [])
+    ];
+    earthInstanceRef.current.pointsData(points);
+    if (routeInfo?.target) earthInstanceRef.current.pointOfView({ lat: routeInfo.target.lat, lng: routeInfo.target.lon, altitude: 1.9 }, 900);
+    else if (location) earthInstanceRef.current.pointOfView({ lat: location.lat, lng: location.lon, altitude: 2.2 }, 900);
+  }, [earth3D, location, routeInfo]);
+
+  function centerEarthOnLocation() {
+    if (!location || !earthInstanceRef.current) {
+      setNotice("Use my location first to centre the 3D globe on this device.");
+      return;
+    }
+    earthInstanceRef.current.pointOfView({ lat: location.lat, lng: location.lon, altitude: 1.8 }, 1000);
+    setNotice("Centered the 3D globe on your current location.");
+  }
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.L) return;
@@ -166,7 +278,7 @@ export default function MapsWorkspace() {
     watchIdRef.current = null; setTracking(false);
   }
   function openGoogle(view) {
-    stopTracking(); setGoogleView(view);
+    stopTracking(); setEarth3D(false); setGoogleView(view);
     setNotice(view === "streetview" ? "Opening Google Street View where imagery is available…" : "Opening Google Maps directions…");
   }
   function googleEmbedUrl() {
@@ -176,9 +288,11 @@ export default function MapsWorkspace() {
     return "https://maps.google.com/maps?saddr=" + encodeURIComponent(origin) + "&daddr=" + encodeURIComponent(destination.trim() || query) + "&output=embed";
   }
   function openEarth3D() {
-    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
-    window.open("https://earth.google.com/web/search/" + encodeURIComponent(query), "_blank", "noopener,noreferrer");
-    setNotice("Opening Google Earth for 3D globe and terrain exploration.");
+    setGoogleView("");
+    setEarthError("");
+    setEarthReady(false);
+    setEarth3D(true);
+    setNotice("Loading AURORA 3D Earth…");
   }
   const fmtDistance = (metres) => metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : Math.round(metres) + " m";
   const fmtDuration = (seconds) => { const mins = Math.round(seconds / 60); return mins >= 60 ? Math.floor(mins / 60) + " hr " + (mins % 60) + " min" : mins + " min"; };
@@ -192,19 +306,19 @@ export default function MapsWorkspace() {
         <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live location" : "Live location tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span></button>
         <p className="maps-layer-label"><Layers3 size={14}/> MAP LAYERS</p>
         <div className="maps-layer-grid">
-          <button type="button" className={mode === "street" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("street"); }}><MapPinned size={16}/>Street</button>
-          <button type="button" className={mode === "satellite" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("satellite"); }}><Satellite size={16}/>Satellite</button>
-          <button type="button" className={mode === "hybrid" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("hybrid"); }}><Layers3 size={16}/>Hybrid</button>
-          <button type="button" className={mode === "terrain" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("terrain"); }}><Mountain size={16}/>Terrain</button>
+          <button type="button" className={mode === "street" ? "maps-layer-active" : ""} onClick={() => { setEarth3D(false); setGoogleView(""); setMode("street"); }}><MapPinned size={16}/>Street</button>
+          <button type="button" className={mode === "satellite" ? "maps-layer-active" : ""} onClick={() => { setEarth3D(false); setGoogleView(""); setMode("satellite"); }}><Satellite size={16}/>Satellite</button>
+          <button type="button" className={mode === "hybrid" ? "maps-layer-active" : ""} onClick={() => { setEarth3D(false); setGoogleView(""); setMode("hybrid"); }}><Layers3 size={16}/>Hybrid</button>
+          <button type="button" className={mode === "terrain" ? "maps-layer-active" : ""} onClick={() => { setEarth3D(false); setGoogleView(""); setMode("terrain"); }}><Mountain size={16}/>Terrain</button>
         </div>
-        <button type="button" className="maps-action" onClick={openEarth3D}><Globe2 size={17}/><span><strong>Explore in 3D Earth</strong><small>Open 3D globe, terrain and buildings</small></span><ExternalLink size={14}/></button>
+        <button type="button" className="maps-action" onClick={openEarth3D}><Globe2 size={17}/><span><strong>{earth3D ? "3D Earth is active" : "Explore in 3D Earth"}</strong><small>Interactive globe with terrain relief inside AURORA</small></span></button>
         <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level view</strong><small>Google imagery where available</small></span><ArrowLeft size={14} style={{transform:"rotate(135deg)"}}/></button>
         <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Traffic and full navigation</small></span><ExternalLink size={14}/></button>
         {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Routing uses a public demo service and may be limited or unavailable.</small></div>}
         <p className="maps-note" role="status">{notice}</p>
       </aside>
-      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade"/><button type="button" className="maps-return-map" onClick={() => { setGoogleView(""); setNotice("Returned to AURORA map layers."); }}><MapPinned size={14}/> AURORA Map</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed","")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map"/>{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">{mode === "street" ? "Street map" : mode === "satellite" ? "Satellite imagery" : mode === "hybrid" ? "Satellite + place labels" : "Terrain"} · AURORA Maps</div></>}</div>
+      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade"/><button type="button" className="maps-return-map" onClick={() => { setGoogleView(""); setNotice("Returned to AURORA map layers."); }}><MapPinned size={14}/> AURORA Map</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed","")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : earth3D ? <><div ref={earthNodeRef} className="maps-earth-canvas" aria-label="Interactive three-dimensional Earth globe"/>{!earthReady && !earthError && <div className="maps-earth-loading"><span className="mini-loader"/> Loading AURORA 3D Earth…</div>}{earthError && <div className="maps-earth-loading maps-earth-error">{earthError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload AURORA</button></div>}<div className="maps-earth-caption"><Globe2 size={13}/> AURORA 3D EARTH · drag to rotate · pinch to zoom</div><button type="button" className="maps-return-map" onClick={() => { setEarth3D(false); setNotice("Returned to AURORA map layers."); }}><MapPinned size={14}/> 2D Map</button><button type="button" className="maps-earth-locate" onClick={centerEarthOnLocation}><LocateFixed size={15}/> My location</button></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map"/>{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">{mode === "street" ? "Street map" : mode === "satellite" ? "Satellite imagery" : mode === "hybrid" ? "Satellite + place labels" : "Terrain"} · AURORA Maps</div></>}</div>
     </div>
-    <div className="maps-disclaimer">AURORA combines open street, satellite and terrain layers with Google Earth for 3D exploration. Live tracking runs only while this map page is active. Route estimates and public map services are not guaranteed for emergency use.</div>
+    <div className="maps-disclaimer">AURORA includes street, satellite, hybrid and terrain layers plus an in-app interactive 3D globe with terrain relief. The globe uses a static Earth texture, not live satellite imagery or detailed 3D city buildings. Live tracking runs only while this map page is active.</div>
   </section>;
 }
