@@ -57,7 +57,15 @@ export default function AuroraConnectWorkspace() {
       localStreamRef.current = stream;
       const token = (() => { try { return JSON.parse(localStorage.getItem("aurora-auth-session") || "null")?.access_token || ""; } catch { return ""; } })();
       if (!token) throw new Error("Sign in to AURORA before starting a private call.");
-      const socket = new WebSocket(apiToWebSocket("/api/connect/" + encodeURIComponent(code) + "?token=" + encodeURIComponent(token)));
+      const ticketResponse = await fetch(auroraApiUrl("/api/connect/ticket"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ roomId: code }),
+        cache: "no-store"
+      });
+      const ticketData = await ticketResponse.json().catch(() => ({}));
+      if (!ticketResponse.ok || !ticketData.ticket) throw new Error(ticketData.error || "Could not authorize this call.");
+      const socket = new WebSocket(apiToWebSocket("/api/connect/" + encodeURIComponent(code) + "?ticket=" + encodeURIComponent(ticketData.ticket)));
       socketRef.current = socket;
       setRoomCode(code);
       setStatus("Connecting to AURORA Connect…");
@@ -76,7 +84,7 @@ export default function AuroraConnectWorkspace() {
       socket.onmessage = async event => {
         let message;
         try { message = JSON.parse(event.data); } catch { return; }
-        if (message.type === "peer-joined") {
+        if (message.type === "joined") { return; }\n        if (message.type === "peer-joined") {
           setRemotePresent(true);
           setStatus("Contact found · setting up secure audio…");
           const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun.cloudflare.com:3478" }] });
