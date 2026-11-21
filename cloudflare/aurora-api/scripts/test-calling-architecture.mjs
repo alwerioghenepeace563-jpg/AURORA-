@@ -55,9 +55,9 @@ assert.ok(worker.includes("export { AuroraCallsDurableObject }"), "Worker entryp
 assert.match(wrangler, /"name": "AURORA_CALLS"/, "Worker must bind the calling Durable Object");
 assert.match(wrangler, /"new_sqlite_classes": \["AuroraCallsDurableObject"\]/, "Durable Object migration must be declared");
 assert.match(ui, /Schedule AURORA call/, "The calling workspace must schedule calls");
-assert.match(ui, /Incoming AURORA call/, "The calling workspace must show incoming calls");
-assert.match(ui, /onReply/, "The answered call must hand voice/text replies to the assistant");
-assert.match(ui, /setActiveCall\(call\)/, "Answering from Activities must keep the call session active for replies");
+assert.ok(ui.includes("app-wide call monitor"), "Activities must explain that incoming calls are handled by the global monitor");
+assert.ok(!ui.includes("/api/calls/inbox"), "Activities must not compete with the global monitor for incoming-call inbox polling");
+assert.ok(!ui.includes("/api/calls/devices"), "Activities must not register a duplicate device alongside the global monitor");
 assert.match(app, /activityTab === "calls"/, "The calling workspace must be reachable from Activities");
 const monitor = await readFile(resolve(root, "src/components/AuroraCallMonitor.jsx"), "utf8");
 assert.match(app, /<AuroraCallMonitor/, "Incoming call monitor must stay mounted across app pages");
