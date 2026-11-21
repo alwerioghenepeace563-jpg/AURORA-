@@ -153,20 +153,26 @@ function buildToolArgs(tool: any, query: string, targetUrl: string): Record<stri
   return required.every((key: string) => Object.prototype.hasOwnProperty.call(args, key)) ? args : null;
 }
 
-async function parseMcpResponse(response: Response): Promise<any> {
+async function parseMcpResponse(response: Response, expectedId?: number): Promise<any> {
   if (response.status === 202 || response.status === 204) return null;
   const body = await response.text();
   if (!body) return null;
   const type = (response.headers.get("content-type") || "").toLowerCase();
   if (type.includes("text/event-stream") || body.startsWith("event:") || body.startsWith("data:")) {
+    let fallback: any = null;
     for (const event of body.split(/\r?\n\r?\n/)) {
       const data = event.split(/\r?\n/).filter(line => line.startsWith("data:"))
         .map(line => line.slice(5).trim()).join("\n");
-      if (data && data !== "[DONE]") {
-        try { return JSON.parse(data); } catch { /* try the next event */ }
-      }
+      if (!data || data === "[DONE]") continue;
+      try {
+        const message = JSON.parse(data);
+        if (message && (message.result !== undefined || message.error !== undefined)) {
+          if (expectedId === undefined || message.id === expectedId) return message;
+          fallback = message;
+        }
+      } catch { /* ignore non-JSON SSE events and continue to the final response */ }
     }
-    return null;
+    return fallback;
   }
   try { return JSON.parse(body); } catch {
     throw new Error("MCP server returned an unsupported response.");
@@ -199,7 +205,7 @@ async function runMcpServer(server: Connector, query: string, targetUrl: string)
     const newSession = response.headers.get("mcp-session-id");
     if (newSession) sessionId = newSession;
     if (!response.ok) throw new Error("MCP HTTP " + response.status);
-    const payload = await parseMcpResponse(response);
+    const payload = await parseMcpResponse(response, id);
     if (payload?.error) throw new Error(String(payload.error.message || "MCP request failed"));
     return payload?.result ?? null;
   };
