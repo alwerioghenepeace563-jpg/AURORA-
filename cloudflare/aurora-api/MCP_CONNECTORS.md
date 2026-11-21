@@ -52,6 +52,20 @@ MCP research output also extracts a small, validated set of public source URLs a
 
 For each research response, AURORA summarizes the number of responding connectors, distinct linked source domains and domains repeated across evidence items. The chat model is instructed to compare the actual claims and label agreement, disagreement and unresolved points separately. Connector count and repeated domains are coverage signals only: they are not proof of factual corroboration, and multiple tools may rely on the same underlying publisher. When evidence is thin or conflicting, AURORA should say so rather than manufacture consensus.
 
+### Private research memory
+
+AURORA can retain compact research notes between authenticated chat sessions when an Upstash Redis REST store is configured on the Worker. Set `UPSTASH_REDIS_REST_URL` as a Worker variable and `UPSTASH_REDIS_REST_TOKEN` as a Worker secret. The existing `KV_REST_API_URL` and `KV_REST_API_TOKEN` names are accepted as compatibility aliases. The endpoint must use HTTPS. If no store is configured, or the chat request has no Authorization bearer token, memory is unavailable and normal chat continues.
+
+- Memory keys are derived from a SHA-256 hash of the request's bearer token; the token itself is never stored.
+- At most 12 compact notes are retained per authenticated token, with a 30-day expiry.
+- Notes contain the research query, short evidence excerpts and validated source URLs, not complete webpages or conversation transcripts.
+- Prior notes are treated as historical leads, not current proof; AURORA is instructed to re-check time-sensitive claims.
+- Sensitive-topic filters prevent automatic storage for queries involving medical/mental-health matters, self-harm, credentials, politics, religion, sexuality, criminal history and legal advice.
+- Send the chat message `forget my research memory` (or `clear all research memory`) while authenticated to clear that token's memory.
+- Memory reads/writes fail closed and do not block the normal answer when the Redis service is unavailable.
+
+Research memory is opt-in at the infrastructure level: it remains inactive until the Worker has a configured Redis REST URL and token. No secrets belong in the client or repository.
+
 ## Safety and runtime behavior
 
 - MCP execution happens inside the Cloudflare Worker. Credentials are never returned to the client.
