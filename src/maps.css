@@ -59,3 +59,21 @@
 .maps-map-frame .leaflet-control-zoom a{background:rgba(5,14,27,.92);color:#eaf7ff;border-color:rgba(180,220,255,.2)}
 .maps-map-frame .leaflet-control-zoom a:hover{background:rgba(23,66,98,.96);color:#fff}
 @media(max-width:480px){.maps-layer-grid button{min-height:44px;font-size:10px}.maps-layer-label{margin-top:7px}}
+
+
+/* Unified MapLibre Earth-to-street experience */
+.aurora-maps-immersive .maps-workspace{grid-template-columns:minmax(245px,280px) minmax(0,1fr)}
+.aurora-maps-immersive .maps-map-frame{min-height:640px;height:min(82vh,940px);background:#071321}
+.aurora-maps-immersive .maps-maplibre-map{background:#071321}
+.aurora-maps-immersive .maplibregl-map{font-family:'DM Sans',sans-serif}
+.aurora-maps-immersive .maplibregl-ctrl-group{overflow:hidden;border:1px solid rgba(180,220,255,.24)!important;border-radius:12px!important;background:rgba(5,14,27,.9)!important;box-shadow:0 5px 18px rgba(0,0,0,.25)!important}
+.aurora-maps-immersive .maplibregl-ctrl-group button{background-color:transparent!important}
+.aurora-maps-immersive .maplibregl-ctrl-group button span{filter:invert(1)}
+.aurora-maps-immersive .maplibregl-ctrl-attrib{background:rgba(4,12,24,.76)!important;color:#d1e1ef!important;font-size:9px!important}
+.aurora-maps-immersive .maplibregl-ctrl-attrib a{color:#a9ddff!important}
+.aurora-maps-immersive .maplibregl-ctrl-globe-minimap{display:none}
+.aurora-maps-immersive .maps-3d-toggle{border-color:rgba(99,237,193,.25)}
+.aurora-maps-immersive .maps-map-hint{position:absolute;z-index:4;right:12px;bottom:12px;display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid rgba(180,220,255,.18);border-radius:10px;background:rgba(4,12,24,.78);color:#d2e6f7;font-size:9px;pointer-events:none;backdrop-filter:blur(10px)}
+.aurora-map-user-marker{width:18px;height:18px;border:3px solid #fff;border-radius:50%;background:#27a9ff;box-shadow:0 0 0 7px rgba(39,169,255,.22),0 0 18px rgba(39,169,255,.8)}
+@media(max-width:850px){.aurora-maps-immersive .maps-workspace{grid-template-columns:minmax(0,1fr)}.aurora-maps-immersive .maps-map-frame{min-height:560px;height:70vh;max-height:850px}}
+@media(max-width:480px){.aurora-maps-immersive .maps-map-frame{min-height:510px;height:68vh;max-height:780px}.aurora-maps-immersive .maps-map-hint{left:10px;right:auto;bottom:43px;font-size:8px;padding:7px 8px}.aurora-maps-immersive .maplibregl-ctrl-attrib{max-width:62vw}}

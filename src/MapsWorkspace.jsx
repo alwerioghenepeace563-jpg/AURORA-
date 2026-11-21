@@ -1,134 +1,337 @@
 import "./maps.css";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, ExternalLink, Route, Clock3, Mountain, Layers3, Globe2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite,
+  ExternalLink, Route, Clock3, Mountain, Layers3, Globe2, Box
+} from "lucide-react";
 
-const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-const TILE_SOURCES = {
-  street: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>', maxZoom: 19 },
-  satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics and contributors", maxZoom: 19 },
-  terrain: { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)', maxZoom: 17 },
-  hybrid: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics; labels &copy; Esri", maxZoom: 19 }
-};
+const MAPLIBRE_VERSION = "6.19.0";
+const BASE_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const SATELLITE_TILES = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const TERRAIN_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+const EMPTY_ROUTE = { type: "FeatureCollection", features: [] };
 
-function loadLeaflet() {
-  if (window.L) return Promise.resolve(window.L);
-  if (window.__auroraLeafletPromise) return window.__auroraLeafletPromise;
-  window.__auroraLeafletPromise = new Promise((resolve, reject) => {
-    if (!document.querySelector('link[data-aurora-leaflet]')) {
+function loadMapLibre() {
+  if (window.__auroraMapLibrePromise) return window.__auroraMapLibrePromise;
+  window.__auroraMapLibrePromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('link[data-aurora-maplibre]');
+    if (!existing) {
       const link = document.createElement("link");
-      link.rel = "stylesheet"; link.href = LEAFLET_CSS; link.dataset.auroraLeaflet = "true";
+      link.rel = "stylesheet";
+      link.href = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
+      link.dataset.auroraMaplibre = "true";
       document.head.appendChild(link);
     }
-    let script = document.querySelector('script[data-aurora-leaflet]');
-    if (script) {
-      script.addEventListener("load", () => resolve(window.L), { once: true });
-      script.addEventListener("error", reject, { once: true });
-      return;
-    }
-    script = document.createElement("script"); script.src = LEAFLET_JS; script.async = true;
-    script.dataset.auroraLeaflet = "true";
-    script.onload = () => window.L ? resolve(window.L) : reject(new Error("Map library did not initialise."));
-    script.onerror = () => reject(new Error("Map library could not load. Check your internet connection."));
-    document.head.appendChild(script);
+    import(/* @vite-ignore */ `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.mjs`)
+      .then((module) => resolve(module))
+      .catch((error) => {
+        window.__auroraMapLibrePromise = null;
+        reject(new Error("AURORA 3D Maps could not load. Check your internet connection and try again."));
+      });
   });
-  return window.__auroraLeafletPromise;
+  return window.__auroraMapLibrePromise;
+}
+
+function makeLocationElement() {
+  const element = document.createElement("div");
+  element.className = "aurora-map-user-marker";
+  element.setAttribute("aria-label", "Your current location");
+  return element;
 }
 
 export default function MapsWorkspace() {
-  const mapNodeRef = useRef(null), mapRef = useRef(null), tileLayerRef = useRef(null), labelLayerRef = useRef(null);
-  const routeLayerRef = useRef(null), userMarkerRef = useRef(null), destinationMarkerRef = useRef(null), watchIdRef = useRef(null);
-  const [mapReady, setMapReady] = useState(false), [mapError, setMapError] = useState("");
-  const [destination, setDestination] = useState(""), [busy, setBusy] = useState(false);
-  const [location, setLocation] = useState(null), [routeInfo, setRouteInfo] = useState(null);
-  const [tracking, setTracking] = useState(false), [notice, setNotice] = useState("Search for a destination or use your current location to begin.");
-  const [mode, setMode] = useState("street"), [googleView, setGoogleView] = useState("");
+  const mapNodeRef = useRef(null);
+  const mapRef = useRef(null);
+  const mapLibraryRef = useRef(null);
+  const userMarkerRef = useRef(null);
+  const destinationMarkerRef = useRef(null);
+  const watchIdRef = useRef(null);
+  const routeLayerReadyRef = useRef(false);
+  const baseStyleLayerIdsRef = useRef([]);
+  const mapReadyRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState("");
+  const [destination, setDestination] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [location, setLocation] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [tracking, setTracking] = useState(false);
+  const [notice, setNotice] = useState("Explore the real Earth, tilt into 3D, or search for a destination.");
+  const [mode, setMode] = useState("hybrid");
+  const [view3D, setView3D] = useState(true);
+
+  const applyCameraMode = useCallback((enabled) => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    map.easeTo({
+      pitch: enabled ? 62 : 0,
+      bearing: enabled ? -18 : 0,
+      duration: 850
+    });
+    try {
+      if (enabled) map.setTerrain({ source: "aurora-terrain", exaggeration: 1.15 });
+      else map.setTerrain(null);
+    } catch {
+      setNotice("3D terrain is temporarily unavailable; the angled map view is still active.");
+    }
+  }, []);
+
+  const applyLayerMode = useCallback((nextMode) => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const satelliteVisible = nextMode === "satellite" || nextMode === "hybrid";
+    if (map.getLayer("aurora-satellite-layer")) {
+      map.setLayoutProperty("aurora-satellite-layer", "visibility", satelliteVisible ? "visible" : "none");
+    }
+    // Keep the satellite-only mode genuinely clean: hide every original
+    // basemap layer (roads, boundaries and labels), then restore them for
+    // Street, Hybrid and Terrain. AURORA's own overlays remain untouched.
+    for (const layerId of baseStyleLayerIdsRef.current) {
+      if (!map.getLayer(layerId)) continue;
+      const layer = map.getLayer(layerId);
+      const visibility = nextMode === "satellite" && layer.type !== "background"
+        ? "none"
+        : "visible";
+      map.setLayoutProperty(layerId, "visibility", visibility);
+    }
+    if (map.getLayer("aurora-hillshade")) {
+      map.setLayoutProperty("aurora-hillshade", "visibility", nextMode === "terrain" ? "visible" : "none");
+    }
+    setNotice(
+      nextMode === "street" ? "Street map active."
+      : nextMode === "satellite" ? "Satellite imagery active. Switch to Hybrid to show place labels."
+      : nextMode === "terrain" ? "Terrain mode active with elevation shading and 3D relief."
+      : "Hybrid satellite imagery with roads and place labels active."
+    );
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    loadLeaflet().then((L) => {
+    let mapInstance;
+    loadMapLibre().then((maplibre) => {
       if (cancelled || !mapNodeRef.current || mapRef.current) return;
-      const map = L.map(mapNodeRef.current, { zoomControl: false, preferCanvas: true }).setView([9.0820, 8.6753], 6);
-      L.control.zoom({ position: "bottomright" }).addTo(map);
-      tileLayerRef.current = L.tileLayer(TILE_SOURCES.street.url, { maxZoom: TILE_SOURCES.street.maxZoom, attribution: TILE_SOURCES.street.attribution }).addTo(map);
-      mapRef.current = map; setMapReady(true); setTimeout(() => map.invalidateSize(), 150);
-    }).catch((error) => setMapError(error.message || "The map could not load."));
+      mapLibraryRef.current = maplibre;
+      const map = new maplibre.Map({
+        container: mapNodeRef.current,
+        style: BASE_STYLE,
+        center: [8.6753, 9.082],
+        zoom: 2.25,
+        pitch: 48,
+        bearing: -12,
+        maxPitch: 82,
+        minZoom: 1,
+        maxZoom: 19,
+        projection: { type: "globe" },
+        canvasContextAttributes: { antialias: false, powerPreference: "low-power" },
+        attributionControl: { compact: true, customAttribution: [
+          "Satellite imagery © Esri, Maxar, Earthstar Geographics",
+          "Terrain: Mapzen Terrain Tiles / AWS Open Data"
+        ] }
+      });
+      mapInstance = map;
+      mapRef.current = map;
+      map.addControl(new maplibre.NavigationControl({
+        visualizePitch: true, showZoom: true, showCompass: true
+      }), "bottom-right");
+      map.addControl(new maplibre.GlobeControl(), "top-right");
+
+      map.once("load", () => {
+        if (cancelled) return;
+        try {
+          // Remember only the original basemap layers so layer switching
+          // never accidentally hides AURORA's satellite, route or 3D layers.
+          baseStyleLayerIdsRef.current = (map.getStyle()?.layers || []).map((layer) => layer.id);
+          map.setProjection({ type: "globe" });
+          map.addSource("aurora-satellite", {
+            type: "raster",
+            tiles: [SATELLITE_TILES],
+            tileSize: 256,
+            maxzoom: 19,
+            attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+          });
+          map.addSource("aurora-terrain", {
+            type: "raster-dem",
+            tiles: [TERRAIN_TILES],
+            tileSize: 256,
+            maxzoom: 15,
+            encoding: "terrarium",
+            attribution: "Terrain: Mapzen Terrain Tiles / AWS Open Data"
+          });
+          map.addSource("aurora-route", { type: "geojson", data: EMPTY_ROUTE });
+          map.addSource("aurora-buildings", {
+            type: "vector",
+            url: "https://tiles.openfreemap.org/planet"
+          });
+
+          const firstSymbol = map.getStyle().layers.find((layer) =>
+            layer.type === "symbol" && layer.layout && layer.layout["text-field"]
+          )?.id;
+
+          map.addLayer({
+            id: "aurora-satellite-layer",
+            type: "raster",
+            source: "aurora-satellite",
+            layout: { visibility: "visible" },
+            paint: { "raster-opacity": 1, "raster-fade-duration": 250 }
+          }, firstSymbol);
+
+          map.addLayer({
+            id: "aurora-hillshade",
+            type: "hillshade",
+            source: "aurora-terrain",
+            layout: { visibility: "none" },
+            paint: {
+              "hillshade-exaggeration": 0.35,
+              "hillshade-shadow-color": "#263342",
+              "hillshade-highlight-color": "#f4ead5"
+            }
+          }, firstSymbol);
+
+          map.addLayer({
+            id: "aurora-3d-buildings",
+            source: "aurora-buildings",
+            "source-layer": "building",
+            type: "fill-extrusion",
+            minzoom: 13.5,
+            filter: ["!=", ["get", "hide_3d"], true],
+            paint: {
+              "fill-extrusion-color": [
+                "interpolate", ["linear"], ["coalesce", ["get", "render_height"], 0],
+                0, "#c9d4df", 80, "#aebfce", 250, "#829db5"
+              ],
+              "fill-extrusion-height": [
+                "interpolate", ["linear"], ["zoom"],
+                13.5, 0, 14.5, ["coalesce", ["get", "render_height"], 0]
+              ],
+              "fill-extrusion-base": [
+                "interpolate", ["linear"], ["zoom"],
+                13.5, 0, 14.5, ["coalesce", ["get", "render_min_height"], 0]
+              ],
+              "fill-extrusion-opacity": 0.88
+            }
+          }, firstSymbol);
+
+          map.addLayer({
+            id: "aurora-route-line",
+            type: "line",
+            source: "aurora-route",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": "#29b9ff",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 5, 3, 15, 7],
+              "line-opacity": 0.94
+            }
+          });
+          routeLayerReadyRef.current = true;
+          map.setTerrain({ source: "aurora-terrain", exaggeration: 1.15 });
+          applyLayerMode("hybrid");
+          mapReadyRef.current = true;
+          setMapReady(true);
+          requestAnimationFrame(() => map.resize());
+        } catch (error) {
+          setMapError(error?.message || "AURORA could not initialise its 3D map layers.");
+        }
+      });
+      map.on("error", (event) => {
+        // Only promote style-loading errors to the blocking error state
+        // before the first successful map initialisation.
+        if (!mapReadyRef.current && event?.error?.message?.toLowerCase?.().includes("style")) {
+          setMapError("The map style could not be loaded. Please check your connection and retry.");
+        }
+      });
+    }).catch((error) => {
+      if (!cancelled) setMapError(error.message || "The map could not load.");
+    });
+
     return () => {
       cancelled = true;
       if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
-      mapRef.current?.remove(); mapRef.current = null; tileLayerRef.current = null; labelLayerRef.current = null; setMapReady(false);
+      userMarkerRef.current?.remove();
+      destinationMarkerRef.current?.remove();
+      mapInstance?.remove();
+      if (mapRef.current === mapInstance) mapRef.current = null;
+      mapLibraryRef.current = null;
+      routeLayerReadyRef.current = false;
+      baseStyleLayerIdsRef.current = [];
+      mapReadyRef.current = false;
+      setMapReady(false);
     };
-  }, [googleView]);
-
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !window.L) return;
-    const L = window.L, source = TILE_SOURCES[mode] || TILE_SOURCES.street;
-    if (tileLayerRef.current) mapRef.current.removeLayer(tileLayerRef.current);
-    if (labelLayerRef.current) { mapRef.current.removeLayer(labelLayerRef.current); labelLayerRef.current = null; }
-    tileLayerRef.current = L.tileLayer(source.url, { maxZoom: source.maxZoom, attribution: source.attribution }).addTo(mapRef.current);
-    if (mode === "hybrid") {
-      labelLayerRef.current = L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19, opacity: 0.95, attribution: "Place labels &copy; Esri"
-      }).addTo(mapRef.current);
-    }
-    setNotice(mode === "street" ? "Street map active." : mode === "satellite" ? "Satellite imagery active." : mode === "terrain" ? "Terrain map active. Elevation shading is illustrative, not a live 3D elevation model." : "Hybrid imagery and place labels active.");
-  }, [mapReady, mode]);
+  }, [applyLayerMode]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    const timer = setTimeout(() => mapRef.current?.invalidateSize(), 120);
-    return () => clearTimeout(timer);
-  }, [mapReady]);
+    applyLayerMode(mode);
+  }, [mapReady, mode, applyLayerMode]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !location || !window.L) return;
-    const point = [location.lat, location.lon];
-    if (!userMarkerRef.current) userMarkerRef.current = window.L.circleMarker(point, { radius: 9, color: "#f5fcff", weight: 3, fillColor: "#27a9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
-    else userMarkerRef.current.setLatLng(point);
-    if (!routeLayerRef.current) mapRef.current.setView(point, 16);
+    if (!mapReady || !mapRef.current) return;
+    applyCameraMode(view3D);
+  }, [mapReady, view3D, applyCameraMode]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !location || !mapLibraryRef.current) return;
+    const point = [location.lon, location.lat];
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new mapLibraryRef.current.Marker({ element: makeLocationElement() })
+        .setLngLat(point).setPopup(new mapLibraryRef.current.Popup({ offset: 18 }).setText("Your current location"))
+        .addTo(mapRef.current);
+    } else userMarkerRef.current.setLngLat(point);
   }, [mapReady, location]);
 
   function useCurrentLocation() {
     if (!navigator.geolocation) { setNotice("This device or browser does not support location."); return; }
     setNotice("Requesting location permission…");
     navigator.geolocation.getCurrentPosition((position) => {
-      const point = [position.coords.latitude, position.coords.longitude];
-      setLocation({ lat: point[0], lon: point[1] });
-      if (window.L && mapRef.current) {
-        if (!userMarkerRef.current) userMarkerRef.current = window.L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
-        else userMarkerRef.current.setLatLng(point);
-        mapRef.current.setView(point, 16);
-      }
+      const point = { lat: position.coords.latitude, lon: position.coords.longitude };
+      setLocation(point);
+      mapRef.current?.flyTo({ center: [point.lon, point.lat], zoom: 16, pitch: 65, speed: 0.8, curve: 1.4 });
+      setView3D(true);
       setNotice("Your current location is shown. Location access is controlled by your device.");
-    }, (error) => setNotice(error.code === 1 ? "Location permission was denied. Allow location access in device settings and try again." : "Could not get your location. Check GPS and internet, then try again."), { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+    }, (error) => setNotice(error.code === 1
+      ? "Location permission was denied. Allow location access in device settings and try again."
+      : "Could not get your location. Check GPS and internet, then try again."
+    ), { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
   }
 
   function toggleTracking() {
     if (tracking) {
       if (watchIdRef.current != null) navigator.geolocation?.clearWatch(watchIdRef.current);
-      watchIdRef.current = null; setTracking(false); setNotice("Live location tracking stopped."); return;
+      watchIdRef.current = null;
+      setTracking(false);
+      setNotice("Live location tracking stopped.");
+      return;
     }
     if (!navigator.geolocation) { setNotice("Live location is not supported by this device."); return; }
     setTracking(true);
     watchIdRef.current = navigator.geolocation.watchPosition((position) => {
-      const point = [position.coords.latitude, position.coords.longitude];
-      setLocation({ lat: point[0], lon: point[1] });
-      if (window.L && mapRef.current) {
-        if (!userMarkerRef.current) userMarkerRef.current = window.L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your live location");
-        else userMarkerRef.current.setLatLng(point);
-        if (!routeLayerRef.current) mapRef.current.panTo(point);
-      }
-    }, (error) => { setTracking(false); setNotice(error.code === 1 ? "Location permission was denied." : "Live location update failed. Check GPS and try again."); }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+      const point = { lat: position.coords.latitude, lon: position.coords.longitude };
+      setLocation(point);
+      if (!routeInfo) mapRef.current?.easeTo({ center: [point.lon, point.lat], duration: 700 });
+    }, (error) => {
+      setTracking(false);
+      setNotice(error.code === 1 ? "Location permission was denied." : "Live location update failed. Check GPS and try again.");
+    }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
     setNotice("Live location tracking is on while this page is open.");
+  }
+
+  function stopTracking() {
+    if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null;
+    setTracking(false);
   }
 
   async function searchDestination(event) {
     event?.preventDefault();
     const query = destination.trim();
     if (!query) { setNotice("Enter a place or destination first."); return; }
-    setBusy(true); setRouteInfo(null); setNotice("Finding destination…");
-    if (routeLayerRef.current) { routeLayerRef.current.remove(); routeLayerRef.current = null; }
-    if (destinationMarkerRef.current) { destinationMarkerRef.current.remove(); destinationMarkerRef.current = null; }
+    setBusy(true);
+    setRouteInfo(null);
+    setNotice("Finding destination…");
+    if (routeLayerReadyRef.current && mapRef.current?.getSource("aurora-route")) {
+      mapRef.current.getSource("aurora-route").setData(EMPTY_ROUTE);
+    }
+    destinationMarkerRef.current?.remove();
+    destinationMarkerRef.current = null;
     try {
       const response = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(query), {
         headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000)
@@ -137,74 +340,113 @@ export default function MapsWorkspace() {
       const results = await response.json();
       if (!results.length) throw new Error("I couldn't find that place. Try adding the city or state.");
       const target = { lat: Number(results[0].lat), lon: Number(results[0].lon), label: results[0].display_name };
-      const L = window.L;
-      if (L && mapRef.current) {
-        destinationMarkerRef.current = L.marker([target.lat, target.lon]).addTo(mapRef.current).bindPopup(target.label);
-        destinationMarkerRef.current.openPopup();
+      const maplibre = mapLibraryRef.current;
+      if (maplibre && mapRef.current) {
+        destinationMarkerRef.current = new maplibre.Marker({ color: "#ffca6b" })
+          .setLngLat([target.lon, target.lat])
+          .setPopup(new maplibre.Popup({ offset: 24 }).setText(target.label))
+          .addTo(mapRef.current);
       }
       if (location) {
-        const routeResponse = await fetch("https://router.project-osrm.org/route/v1/driving/" + location.lon + "," + location.lat + ";" + target.lon + "," + target.lat + "?overview=full&geometries=geojson&steps=true", { signal: AbortSignal.timeout(12000) });
+        const routeResponse = await fetch(
+          "https://router.project-osrm.org/route/v1/driving/" + location.lon + "," + location.lat + ";" + target.lon + "," + target.lat + "?overview=full&geometries=geojson&steps=true",
+          { signal: AbortSignal.timeout(12000) }
+        );
         if (routeResponse.ok) {
-          const data = await routeResponse.json(), route = data.routes?.[0];
-          if (route && L && mapRef.current) {
-            routeLayerRef.current = L.geoJSON(route.geometry, { style: { color: "#35b9ff", weight: 6, opacity: .9, lineCap: "round", lineJoin: "round" } }).addTo(mapRef.current);
-            mapRef.current.fitBounds(routeLayerRef.current.getBounds(), { padding: [35, 35] });
+          const data = await routeResponse.json();
+          const route = data.routes?.[0];
+          if (route && mapRef.current?.getSource("aurora-route") && maplibre) {
+            mapRef.current.getSource("aurora-route").setData({
+              type: "Feature",
+              properties: {},
+              geometry: route.geometry
+            });
+            const bounds = new maplibre.LngLatBounds();
+            route.geometry.coordinates.forEach((coordinate) => bounds.extend(coordinate));
+            mapRef.current.fitBounds(bounds, { padding: 70, pitch: view3D ? 55 : 0, duration: 900 });
             setRouteInfo({ distance: route.distance, duration: route.duration, target });
-            setNotice("Route shown. Distance and ETA are estimates; follow road signs and local guidance."); return;
+            setNotice("Route shown. Distance and ETA are estimates; follow road signs and local guidance.");
+            return;
           }
         }
       }
-      if (L && mapRef.current) mapRef.current.setView([target.lat, target.lon], 15);
-      setRouteInfo({ target }); setNotice("Destination found. Use your location to calculate a route from where you are.");
+      mapRef.current?.flyTo({ center: [target.lon, target.lat], zoom: 15.5, pitch: view3D ? 62 : 0, speed: 0.85 });
+      setRouteInfo({ target });
+      setNotice("Destination found. Use your location to calculate a route from where you are.");
     } catch (error) {
-      setNotice(error.name === "TimeoutError" || error.name === "AbortError" ? "The map service took too long to respond. Please try again." : error.message || "Could not find that destination.");
-    } finally { setBusy(false); }
+      setNotice(error.name === "TimeoutError" || error.name === "AbortError"
+        ? "The map service took too long to respond. Please try again."
+        : error.message || "Could not find that destination.");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function stopTracking() {
-    if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current);
-    watchIdRef.current = null; setTracking(false);
-  }
-  function openGoogle(view) {
-    stopTracking(); setGoogleView(view);
-    setNotice(view === "streetview" ? "Opening Google Street View where imagery is available…" : "Opening Google Maps directions…");
-  }
-  function googleEmbedUrl() {
-    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
-    if (googleView === "streetview") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&layer=c&output=embed";
-    const origin = location ? location.lat + "," + location.lon : "Nigeria";
-    return "https://maps.google.com/maps?saddr=" + encodeURIComponent(origin) + "&daddr=" + encodeURIComponent(destination.trim() || query) + "&output=embed";
-  }
-  function openEarth3D() {
-    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
-    window.open("https://earth.google.com/web/search/" + encodeURIComponent(query), "_blank", "noopener,noreferrer");
-    setNotice("Opening Google Earth for 3D globe and terrain exploration.");
-  }
   const fmtDistance = (metres) => metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : Math.round(metres) + " m";
-  const fmtDuration = (seconds) => { const mins = Math.round(seconds / 60); return mins >= 60 ? Math.floor(mins / 60) + " hr " + (mins % 60) + " min" : mins + " min"; };
+  const fmtDuration = (seconds) => {
+    const mins = Math.round(seconds / 60);
+    return mins >= 60 ? Math.floor(mins / 60) + " hr " + (mins % 60) + " min" : mins + " min";
+  };
+  const openGoogle = (kind) => {
+    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
+    const url = kind === "streetview"
+      ? "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=" + encodeURIComponent(location ? location.lat + "," + location.lon : query)
+      : "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(location ? location.lat + "," + location.lon : "Nigeria") + "&destination=" + encodeURIComponent(destination.trim() || query);
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
-  return <section className="utility-page aurora-maps-page">
-    <div className="maps-heading"><div><p className="panel-eyebrow"><MapPinned size={14}/> AURORA EARTH & NAVIGATION</p><h1>Maps<span>.</span></h1><p className="utility-intro">Explore the world, switch map layers, find places and plan journeys.</p></div><span className={"maps-live-badge " + (tracking ? "is-live" : "")}><i/>{tracking ? "LOCATION LIVE" : "MAP READY"}</span></div>
+  return <section className="utility-page aurora-maps-page aurora-maps-immersive">
+    <div className="maps-heading">
+      <div>
+        <p className="panel-eyebrow"><MapPinned size={14}/> AURORA EARTH & NAVIGATION</p>
+        <h1>Maps<span>.</span></h1>
+        <p className="utility-intro">One continuous Earth-to-street map. Zoom, tilt, rotate and explore.</p>
+      </div>
+      <span className={"maps-live-badge " + (tracking ? "is-live" : "")}><i/>{tracking ? "LOCATION LIVE" : "3D MAP READY"}</span>
+    </div>
     <div className="maps-workspace">
       <aside className="maps-controls">
-        <form className="maps-search" onSubmit={searchDestination}><Search size={18}/><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Search a place, address or landmark" aria-label="Destination"/><button type="submit" disabled={busy} aria-label="Search destination">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button></form>
-        <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Use my location</strong><small>Center the map on this device</small></span></button>
-        <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live location" : "Live location tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span></button>
+        <form className="maps-search" onSubmit={searchDestination}>
+          <Search size={18}/>
+          <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Search a place, address or landmark" aria-label="Destination"/>
+          <button type="submit" disabled={busy} aria-label="Search destination">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button>
+        </form>
+        <button type="button" className="maps-action" onClick={useCurrentLocation}>
+          <LocateFixed size={17}/><span><strong>Use my location</strong><small>Fly to this device's GPS position</small></span>
+        </button>
+        <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}>
+          <span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live location" : "Live location tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span>
+        </button>
         <p className="maps-layer-label"><Layers3 size={14}/> MAP LAYERS</p>
         <div className="maps-layer-grid">
-          <button type="button" className={mode === "street" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("street"); }}><MapPinned size={16}/>Street</button>
-          <button type="button" className={mode === "satellite" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("satellite"); }}><Satellite size={16}/>Satellite</button>
-          <button type="button" className={mode === "hybrid" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("hybrid"); }}><Layers3 size={16}/>Hybrid</button>
-          <button type="button" className={mode === "terrain" ? "maps-layer-active" : ""} onClick={() => { setGoogleView(""); setMode("terrain"); }}><Mountain size={16}/>Terrain</button>
+          <button type="button" className={mode === "street" ? "maps-layer-active" : ""} onClick={() => setMode("street")}><MapPinned size={16}/>Street</button>
+          <button type="button" className={mode === "satellite" ? "maps-layer-active" : ""} onClick={() => setMode("satellite")}><Satellite size={16}/>Satellite</button>
+          <button type="button" className={mode === "hybrid" ? "maps-layer-active" : ""} onClick={() => setMode("hybrid")}><Layers3 size={16}/>Hybrid</button>
+          <button type="button" className={mode === "terrain" ? "maps-layer-active" : ""} onClick={() => { setMode("terrain"); setView3D(true); }}><Mountain size={16}/>Terrain</button>
         </div>
-        <button type="button" className="maps-action" onClick={openEarth3D}><Globe2 size={17}/><span><strong>Explore in 3D Earth</strong><small>Open 3D globe, terrain and buildings</small></span><ExternalLink size={14}/></button>
-        <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level view</strong><small>Google imagery where available</small></span><ArrowLeft size={14} style={{transform:"rotate(135deg)"}}/></button>
-        <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Traffic and full navigation</small></span><ExternalLink size={14}/></button>
-        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Routing uses a public demo service and may be limited or unavailable.</small></div>}
+        <button type="button" className={"maps-action maps-3d-toggle " + (view3D ? "maps-action-active" : "")} onClick={() => setView3D((current) => !current)}>
+          {view3D ? <Box size={18}/> : <Globe2 size={18}/>}
+          <span><strong>{view3D ? "3D perspective ON" : "Switch to 3D perspective"}</strong><small>{view3D ? "Angled camera, raised terrain and buildings" : "Tilt the same map into 3D"}</small></span>
+        </button>
+        <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level imagery</strong><small>Open Google imagery where available</small></span><ArrowLeft size={14} style={{transform:"rotate(135deg)"}}/></button>
+        <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Optional external navigation</small></span><ExternalLink size={14}/></button>
+        {routeInfo && <div className="maps-route-card">
+          <p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>
+          {routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}
+          <small>Routing uses a public demo service and may be limited or unavailable.</small>
+        </div>}
         <p className="maps-note" role="status">{notice}</p>
       </aside>
-      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade"/><button type="button" className="maps-return-map" onClick={() => { setGoogleView(""); setNotice("Returned to AURORA map layers."); }}><MapPinned size={14}/> AURORA Map</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed","")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map"/>{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">{mode === "street" ? "Street map" : mode === "satellite" ? "Satellite imagery" : mode === "hybrid" ? "Satellite + place labels" : "Terrain"} · AURORA Maps</div></>}</div>
+      <div className="maps-map-frame maps-3d-frame">
+        <div ref={mapNodeRef} className="maps-leaflet-map maps-maplibre-map" aria-label="Interactive 3D Earth map"/>
+        {!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading AURORA's 3D Earth map…</div>}
+        {mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}
+        <div className="maps-map-caption">{mode === "street" ? "Street" : mode === "satellite" ? "Satellite" : mode === "terrain" ? "3D terrain" : "Satellite + labels"} · {view3D ? "3D perspective" : "2D view"}</div>
+        <div className="maps-map-hint"><Globe2 size={13}/> Pinch to zoom · Two fingers to tilt · Drag to rotate</div>
+      </div>
     </div>
-    <div className="maps-disclaimer">AURORA combines open street, satellite and terrain layers with Google Earth for 3D exploration. Live tracking runs only while this map page is active. Route estimates and public map services are not guaranteed for emergency use.</div>
+    <div className="maps-disclaimer">
+      AURORA uses one MapLibre camera and map surface for globe-to-street exploration. Satellite imagery is supplied by Esri and subject to its service terms; terrain uses Mapzen Terrain Tiles hosted on AWS Open Data. Building shapes and heights come from OpenStreetMap and coverage varies by location. This is not live video or live satellite footage. Location tracking runs only while this page is active.
+    </div>
   </section>;
 }
