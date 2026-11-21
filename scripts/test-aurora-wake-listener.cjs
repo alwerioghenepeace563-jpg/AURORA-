@@ -15,12 +15,18 @@ assert.match(service, /return START_NOT_STICKY/);
 assert.doesNotMatch(service, /return START_STICKY/);
 assert.match(service, /putBoolean\("wake_word_listening", false\)/);
 assert.match(service, /putBoolean\("wake_detected", true\)/);
+assert.match(service, /putString\("wake_command", spokenCommand\)/, "The wake listener must retain words spoken after the wake phrase.");
+assert.match(service, /EXTRA_AUTO_LISTEN, spokenCommand\.isEmpty\(\)/, "Pulse should only start a second listening session when no command was captured.");
+assert.match(plugin, /putString\("command", command\)/, "The native bridge must return the captured wake command.");
+assert.match(plugin, /wake_command_at/, "Captured wake commands must expire.");
 assert.match(service, /stopForeground\(true\)/);
 assert.match(plugin, /Allow notifications first so Android can show the active microphone listener and its Stop control/);
 assert.match(plugin, /serviceRunning && listeningFlag/);
 assert.match(app, /requestNotificationPermission\(\)/);
 assert.match(app, /Start Hey AURORA/);
 assert.match(app, /Stop service/);
+assert.match(app, /pulseDispatchRef\.current\?\.\(result\.command\.trim\(\)\)/, "Wake commands must enter the shared Pulse dispatcher.");
+assert.match(app, /shared AURORA action engine/, "The app must report shared wake-command routing.");
 assert.match(manifest, /android:foregroundServiceType="microphone"/);
 
 console.log("AURORA wake-listener tests passed: explicit permissions, visible stop control, truthful live status, and no sticky auto-restart.");
