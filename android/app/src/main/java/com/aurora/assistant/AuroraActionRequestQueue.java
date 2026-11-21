@@ -30,7 +30,7 @@ public final class AuroraActionRequestQueue {
                 item.put("source", safeSource);
                 item.put("createdAt", System.currentTimeMillis());
                 queue.put(item);
-                return prefs.edit().putString(QUEUE_KEY, queue.toString()).commit();
+                return prefs.edit().putString(QUEUE_KEY, queue.toString())\n                    .remove("pulse_action_request").remove("pulse_action_request_at").commit();
             } catch (Exception error) {
                 android.util.Log.w("AURORAActionQueue", "Could not enqueue assistant request.", error);
                 return false;
