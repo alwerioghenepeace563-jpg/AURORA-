@@ -16,8 +16,15 @@ assert.match(map, /addLayer\(\{ id: "aurora-route-line"/, "road routes must rend
 assert.match(map, /navigator\.geolocation\.getCurrentPosition/, "one-shot GPS location must be available");
 assert.match(map, /navigator\.geolocation\.watchPosition/, "foreground live GPS tracking must be available");
 assert.match(map, /map\.setFog\(/, "the globe must have a space atmosphere");
+assert.match(map, /elevation-tiles-prod\/terrarium/, "AWS terrain elevation tiles must be connected");
+assert.match(map, /encoding: "terrarium"/, "terrain tiles must use Terrarium elevation decoding");
+assert.match(map, /map\.setTerrain\(/, "3D terrain must be enabled through MapLibre");
+assert.match(map, /route\.legs\s*\|\|\s*\[\]/, "OSRM turn-by-turn route steps must be consumed");
+assert.match(map, /SpeechSynthesisUtterance/, "spoken navigation instructions must use device speech");
+assert.match(map, /watchPosition/, "turn guidance must follow foreground GPS updates");
+assert.match(map, /Start guidance/, "the map must expose an explicit guidance start control");
 assert.match(map, /resetEarth/, "users must be able to return to the whole-Earth view");
 assert.match(css, /\.maps-globe-map/, "the globe map surface must have layout styling");
 assert.match(css, /\.maps-earth-shell/, "the map and holographic controls must have responsive layout styling");
 assert.doesNotMatch(map, /loadLeaflet|L\.map\(/, "the primary map must no longer fall back to a flat Leaflet-only map");
-console.log("AURORA 3D Earth + real map tests passed.");
+console.log("AURORA 3D Earth, terrain and external navigation service tests passed.");
