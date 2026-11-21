@@ -27,6 +27,7 @@ assert.ok(calling.includes("activeCall.answeredBy"), "Call signalling must be re
 assert.match(calling, /MAX_SIGNAL_BYTES/, "WebRTC signaling payloads must be bounded");
 assert.match(calling, /RING_TIMEOUT_MS = 60_000/, "Online incoming calls must have a bounded ringing window");
 assert.match(calling, /PUSH_QUEUE_TIMEOUT_MS = 24 \* 60 \* 60_000/, "Push-backed calls must have a bounded offline delivery window");
+assert.ok(calling.includes("call.expiresAt > Date.now() + RING_TIMEOUT_MS"), "A push-backed call must switch to the short ring window when a device first sees it");
 assert.match(calling, /Only an incoming call can be declined/, "Answered or ended calls must not be declined");
 assert.match(calling, /Only an answered call can be ended/, "Only an answered call can be ended");
 assert.match(calling, /AURORA_PUSH_GATEWAY_URL/, "Push delivery must use a server-side gateway");
