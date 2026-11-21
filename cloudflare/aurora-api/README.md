@@ -176,3 +176,36 @@ The `POST /api/media-generate` route runs in the Cloudflare Worker when the
 Supabase URL, anon key, and Gemini key are configured. It verifies the caller
 before contacting the provider and returns generated image data to the
 authenticated client. Keep provider credentials in Worker secrets only.
+
+
+## AURORA internal calling
+
+The internal calling API is account-scoped and runs through a Cloudflare Durable Object:
+
+- `POST /api/calls/devices` registers a signed-in user's AURORA device (`deviceId`, optional push token, and platform).
+- `DELETE /api/calls/devices/:deviceId` unregisters a device.
+- `POST /api/calls/schedules` creates a reminder-backed AURORA call (ID, title, message, and Unix-millisecond `scheduledAt`).
+- `GET /api/calls/schedules` lists scheduled calls; `DELETE /api/calls/schedules/:id` cancels one.
+- `GET /api/calls/inbox?deviceId=...` updates the device heartbeat and returns ringing calls. A due call is sent to registered push-token devices even when they are offline; FCM can queue the high-priority notification for up to 24 hours. If no push token is registered and no device has checked in recently, the call stays **pending** until a device reconnects. Push-backed calls remain available until answered or declined.
+- `POST /api/calls/:callId/answer`, `/decline`, and `/end` update call state.
+- `POST /api/calls/signals` and `GET /api/calls/signals?deviceId=...` exchange bounded, account-local offer/answer/ICE/hangup signaling payloads for future peer-to-peer audio sessions.
+
+All routes verify the bearer token against Supabase Auth `/auth/v1/user` before selecting a per-user Durable Object. The DO keeps schedules, registered devices, active calls, and short-lived signaling data isolated by verified account ID. It caps each account at 10 registered devices and 100 scheduled calls; signaling payloads are capped at 48 KB. A call is not a SIM/PSTN call.
+
+### Delivery and deployment requirements
+
+The Worker needs the `AURORA_CALLS` Durable Object binding and `v1-aurora-calls` SQLite-class migration declared in `wrangler.jsonc`. Supabase URL and anon key must be present as Worker runtime configuration so the user can be verified.
+
+Android push delivery now has a direct Firebase Cloud Messaging (FCM) path. Add the Firebase project's `google-services.json` for the Android package `com.aurora.assistant` at `android/app/google-services.json`, enable Firebase Cloud Messaging for that project, and build/sync the Android app with `@capacitor/push-notifications`. The app requests notification permission, registers for an FCM token, and sends that token to the authenticated calling API. When the user taps an incoming notification, AURORA opens and refreshes its authenticated call inbox. Android creates a high-importance `aurora_calls` notification channel so incoming call notifications can alert while the app is backgrounded.
+
+Configure Worker runtime variable `FCM_PROJECT_ID`, and Worker secrets `FCM_CLIENT_EMAIL` and `FCM_PRIVATE_KEY` from a Firebase service account authorized to send FCM messages. The private key stays in Cloudflare and is used server-side to mint short-lived Google OAuth tokens; it is never sent to the app or stored in Git. The Worker sends high-priority FCM notifications to registered Android tokens. For web push or a custom provider, optionally configure `AURORA_PUSH_GATEWAY_URL` as an HTTPS endpoint and `AURORA_PUSH_GATEWAY_TOKEN` as a Worker secret; the gateway receives registered device tokens and an event payload. When Firebase or gateway configuration is absent, the authenticated inbox polling path remains available while AURORA is open and pending calls surface on reconnect.
+
+Background notification delivery is implemented in code but remains configuration-dependent: no Firebase project configuration or FCM service-account credentials are included in this repository, and no live FCM delivery has been verified. Android force-stop, disabled notifications, device battery restrictions, or network loss can still prevent timely delivery.
+
+Incoming calls now have bounded lifecycle windows: an online device gets a 60-second ringing window, while a call queued to a registered push-token device gets a 24-hour delivery window matching the FCM TTL. Calls with no reachable device and no push token remain pending until reconnect; once surfaced to a device, they enter the 60-second ringing window. Expired ringing calls are marked missed when the inbox is next checked. Only ringing/pending calls can be answered or declined, and only answered calls can be ended.
+
+FCM delivery is isolated per Android device: a failed token does not prevent other registered devices from receiving the same notification. The Worker clears a stored push token only when FCM explicitly reports the token as `UNREGISTERED`; transient failures keep the token for a later delivery attempt. Push delivery is best-effort, and the authenticated inbox remains the source of truth.
+
+The Activities page exposes an AURORA Calls workspace for scheduling, answering/declining, and sending a spoken or typed response into the existing AURORA assistant conversation. An app-wide incoming-call monitor is mounted independently of the current page, so a signed-in app session continues polling the inbox while the user is elsewhere in AURORA. Voice reply uses browser speech recognition where supported and falls back to typing. Actual full-duplex WebRTC audio calling is not yet certified; the signaling endpoints are the foundation and require a native/browser media-session adapter before claiming live two-way audio.
+
+The calling architecture regression checks run as part of `npm run test:contracts` in this directory. FCM credentials/configuration, live push delivery, real Android background behaviour, full-duplex WebRTC media, and production Durable Object deployment must be verified separately before release.

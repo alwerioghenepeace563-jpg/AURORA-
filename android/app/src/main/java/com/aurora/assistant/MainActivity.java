@@ -3,6 +3,9 @@ package com.aurora.assistant;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -19,6 +22,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AuroraLocationPlugin.class);
         registerPlugin(AuroraScreenCapturePlugin.class);
         registerPlugin(AuroraNfcPlugin.class);
+        createAuroraCallNotificationChannel();
         persistAssistantLaunch(getIntent());
         super.onCreate(savedInstanceState);
     }
@@ -28,6 +32,18 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         persistAssistantLaunch(intent);
+    }
+
+    private void createAuroraCallNotificationChannel() {
+        if (Build.VERSION.SDK_INT < 26) return;
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        NotificationChannel channel = new NotificationChannel(
+            "aurora_calls", "AURORA calls", NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription("Incoming AURORA reminders and internal calls");
+        channel.enableVibration(true);
+        manager.createNotificationChannel(channel);
     }
 
     private void persistAssistantLaunch(Intent intent) {

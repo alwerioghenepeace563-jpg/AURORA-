@@ -4,12 +4,33 @@ const assert = require("node:assert/strict");
 const plugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraAssistantPlugin.java", "utf8");
 const service = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraOverlayService.java", "utf8");
 const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
+const app = fs.readFileSync("src/App.jsx", "utf8");
+const panel = fs.readFileSync("android/app/src/main/assets/aurora_pulse_panel.html", "utf8");
+const queue = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraActionRequestQueue.java", "utf8");
 
 for (const method of ["showOverlay", "hideOverlay", "getOverlayStatus"]) {
   assert.match(plugin, new RegExp("public void " + method + "\\(PluginCall call\\)"), "Android plugin must implement " + method);
   assert.match(bridge, new RegExp(method + "\\("), "TypeScript bridge must expose " + method);
 }
 assert.match(plugin, /AuroraOverlayService\.ACTION_SHOW/, "showOverlay must start the native overlay service");
+assert.match(plugin, /AuroraActionRequestQueue\.dequeue\(getContext\(\)\)/, "The native plugin must consume requests atomically from the shared queue.");
+assert.match(queue, /MAX_ITEMS = 10/, "The shared native request queue must be bounded.");
+assert.match(queue, /TTL_MS = 10L \* 60L \* 1000L/, "Queued requests must expire after ten minutes.");
+assert.match(queue, /synchronized \(LOCK\)/, "Queue reads and writes must be serialized.");
+assert.match(queue, /requestId/, "Every queued request must have a unique identifier.");
+assert.match(service, /sendToSharedPulse\(String rawQuery\)/, "The overlay must hand requests to the app's shared runtime.");
+assert.match(service, /AuroraActionRequestQueue\.enqueue\(AuroraOverlayService\.this, query, "pulse_overlay"\)/, "Pulse overlay requests must enter the shared bounded queue.");
+assert.match(bridge, /consumePulseActionRequest\(\)/, "The TypeScript bridge must expose the shared Pulse handoff.");
+assert.match(panel, /AuroraOverlay\.sendToSharedPulse\(t\)/, "Native Pulse prompts must hand off instead of using a separate chat engine.");
+assert.match(app, /consumePulseActionRequest\(\)/, "The app must consume queued native Pulse requests.");
+assert.match(app, /nativeHandoffPollInFlightRef\.current\) return/, "Native handoff polling must not overlap.");
+assert.match(app, /nativeHandoffPollInFlightRef\.current = false/, "Native handoff polling must always release its in-flight lock.");
+assert.match(app, /nativeHandoffDispatchInFlightRef\.current = true/, "Only one queued native action may be dispatched at a time.");
+assert.match(app, /await pulseDispatchRef\.current\(sharedPulseAction\.query\)/, "The next native action must wait for the current Pulse dispatch to finish.");
+assert.match(app, /nativeHandoffDispatchInFlightRef\.current = false/, "The native dispatch lock must be released after completion.");
+assert.match(app, /typeof pulseDispatchRef\.current === "function"[\s\S]*?consumePulseActionRequest/, "The app must not dequeue requests before the shared dispatcher is ready.");
+assert.match(app, /pulseDispatchRef\.current\?\.\(sharedPulseAction\.query\)/, "Queued requests must enter the current in-app Pulse dispatcher.");
+assert.match(app, /auroraRuntime\.surfaces\.route\(text, \{ surface: "pulse" \}\)/, "In-app Pulse must use the shared AURORA capability gateway.");
 assert.match(plugin, /AuroraOverlayService\.ACTION_HIDE/, "hideOverlay must stop the native overlay service");
 assert.match(service, /orbAttached/, "orb attachment must be tracked independently");
 assert.match(service, /panelAttached/, "panel attachment must be tracked independently");

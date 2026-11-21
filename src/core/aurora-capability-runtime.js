@@ -723,6 +723,23 @@ function createAuroraCapabilityRuntime(options = {}) {
   });
 
   engine.registerCapability({
+    id: "device.set_flashlight",
+    label: "Control flashlight",
+    category: "device",
+    description: "Turn the rear camera flashlight on or off after fresh user approval and Android camera permission. AURORA verifies Android's returned state and never captures an image.",
+    risk: AURORA_ACTION_RISK.HIGH,
+    approvalRequired: true,
+    permissionRequirements: ["android.camera"],
+    validate: (input) => typeof input?.enabled === "boolean" || "Choose whether the flashlight should be on or off.",
+    availability: async () => ({ available: auroraNative.isAndroid(), reason: "Flashlight control requires the native Android app and a device with a rear flash." }),
+    execute: async ({ enabled }) => {
+      const result = await auroraNative.setFlashlight(enabled);
+      if (result?.enabled !== enabled) throw new Error("Android did not confirm the requested flashlight state.");
+      return { enabled: result.enabled, verified: true, cameraCapturePerformed: false };
+    }
+  });
+
+  engine.registerCapability({
     id: "device.open_wifi_settings",
     label: "Open Wi-Fi settings",
     category: "device",

@@ -72,6 +72,7 @@ type AuroraNativePlugin = {
   requestMicrophonePermission(): Promise<{ granted: boolean }>;
   requestNotificationPermission(): Promise<{ granted: boolean }>;
   consumeAssistantSessionQuery(): Promise<{ query: string }>;
+  consumePulseActionRequest(): Promise<{ query: string; requestId?: string; source?: "wake_word" | "pulse_overlay" | ""; createdAt?: number }>;
   getAssistantRoleStatus(): Promise<{ available: boolean; selected: boolean; requiresUserAction: boolean; serviceReady: boolean }>;
   openAssistantRoleSettings(): Promise<{ opened: boolean; userMustConfirm: boolean; fallback?: boolean }>;
   hasOverlayPermission(): Promise<{ granted: boolean }>;
@@ -193,6 +194,7 @@ export const auroraNative = {
   addNfcTagListener: async (listener: (event: { uid: string; technologies: string[]; textRecords?: string[]; readOnlyMetadata: true; readError?: string }) => void) => AuroraNfc.addListener("nfcTagDiscovered", listener),
   addNfcWriteResultListener: async (listener: (event: { uid: string; written: boolean; error?: string }) => void) => AuroraNfc.addListener("nfcWriteResult", listener),
   consumeAssistantSessionQuery: async () => Capacitor.getPlatform() === "android" ? AuroraNative.consumeAssistantSessionQuery() : { query: "" },
+  consumePulseActionRequest: async () => Capacitor.getPlatform() === "android" ? AuroraNative.consumePulseActionRequest() : { query: "" },
   getAssistantRoleStatus: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") return { available: false, selected: false, requiresUserAction: true, serviceReady: false }; return AuroraNative.getAssistantRoleStatus(); },
   openAssistantRoleSettings: async () => { if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") throw new Error("Android assistant-role setup is available only in the Android app."); return AuroraNative.openAssistantRoleSettings(); },
   hasOverlayPermission: async () => {

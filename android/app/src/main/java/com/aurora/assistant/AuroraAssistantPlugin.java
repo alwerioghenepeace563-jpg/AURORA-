@@ -89,6 +89,17 @@ public class AuroraAssistantPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void consumePulseActionRequest(PluginCall call) {
+        org.json.JSONObject request = AuroraActionRequestQueue.dequeue(getContext());
+        JSObject result = new JSObject();
+        result.put("query", request.optString("query", ""));
+        result.put("requestId", request.optString("requestId", ""));
+        result.put("source", request.optString("source", ""));
+        result.put("createdAt", request.optLong("createdAt", 0L));
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void consumeAssistantSessionQuery(PluginCall call) {
         android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
         String query = prefs.getString("assistant_session_query", "");
@@ -482,7 +493,12 @@ public class AuroraAssistantPlugin extends Plugin {
         if (Build.VERSION.SDK_INT < 33 || getPermissionState("notifications") == PermissionState.GRANTED) call.resolve(new JSObject().put("granted", true));
         else call.reject("Allow AURORA notifications so the wake-word microphone service can remain visibly active. You can deny this and continue using AURORA normally.");
     }
-    @PluginMethod public void consumeWakeWord(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean d=p.getBoolean("wake_detected",false);if(d)p.edit().putBoolean("wake_detected",false).apply();JSObject r=new JSObject();r.put("detected",d);call.resolve(r); }
+    @PluginMethod public void consumeWakeWord(PluginCall call) {
+        android.content.SharedPreferences p = getContext().getSharedPreferences("aurora_assistant", 0);
+        boolean detected = p.getBoolean("wake_detected", false);
+        if (detected) p.edit().putBoolean("wake_detected", false).apply();
+        call.resolve(new JSObject().put("detected", detected));
+    }
     @PluginMethod public void consumePulseOpenRequest(PluginCall call) { android.content.SharedPreferences p=getContext().getSharedPreferences("aurora_assistant",0);boolean requested=p.getBoolean("pulse_open_requested",false);if(requested)p.edit().putBoolean("pulse_open_requested",false).apply();JSObject r=new JSObject();r.put("requested",requested);call.resolve(r); }
     @PluginMethod
     public void startAssistantService(PluginCall call) {

@@ -292,6 +292,31 @@ public class AuroraOverlayService extends Service {
     }
 
     public class OverlayBridge {
+        @JavascriptInterface
+        public String sendToSharedPulse(String rawQuery) {
+            String query = rawQuery == null ? "" : rawQuery.trim();
+            if (query.isEmpty() || query.length() > 2000) {
+                return "{\"accepted\":false,\"message\":\"Enter a request of up to 2000 characters.\"}";
+            }
+            boolean saved = AuroraActionRequestQueue.enqueue(AuroraOverlayService.this, query, "pulse_overlay");
+            if (!saved) return "{\\"accepted\\":false,\\"message\\":\\"AURORA's request queue is full or unavailable. Try again shortly.\\"}";
+            try {
+                Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+                if (launch == null) throw new IllegalStateException("AURORA launch activity is unavailable.");
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(launch);
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    removeOverlay();
+                    stopSelf();
+                }, 350);
+                return "{\"accepted\":true,\"message\":\"Opening AURORA's shared assistant workspace.\"}";
+            } catch (Exception error) {
+                prefs.edit().remove("pulse_action_request").remove("pulse_action_request_at").commit();
+                android.util.Log.w("AURORAOverlay", "Could not hand Pulse request to the shared runtime.", error);
+                return "{\"accepted\":false,\"message\":\"AURORA could not open its shared workspace. Try again in the app.\"}";
+            }
+        }
+
         @JavascriptInterface public void showPanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { if (panelView != null) panelView.setVisibility(View.VISIBLE); }); }
         @JavascriptInterface public void hidePanel() { new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> { stopPulseSpeech(); if (panelView != null) panelView.setVisibility(View.GONE); }); }
         @JavascriptInterface public String startVoiceInput() { return startPulseSpeech(); }

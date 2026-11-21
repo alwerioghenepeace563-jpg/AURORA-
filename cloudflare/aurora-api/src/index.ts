@@ -1,6 +1,8 @@
 import { handleChat } from './chat';
 import { getMcpStatus } from './mcp';
 import { researchMemoryConfigured } from './research-memory';
+import { handleCalling } from './calling';
+export { AuroraCallsDurableObject } from './calling';
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
@@ -14,6 +16,14 @@ interface Env {
   [key: string]: any;
   LEGACY_API_ORIGIN?: string;
   AURORA_BACKEND_STAGE?: string;
+  AURORA_CALLS: DurableObjectNamespace;
+  AURORA_PUSH_GATEWAY_URL?: string;
+  AURORA_PUSH_GATEWAY_TOKEN?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_ANON_KEY?: string;
+  VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_API?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
   ASSETS: { fetch(request: Request): Promise<Response> };
 }
 
@@ -116,7 +126,8 @@ async function handleMetadata(request: Request, env: Env, route: string): Promis
         voiceKey, voiceId, voice: voiceKey && voiceId, voiceTextBridge: voiceText,
         sharedProviderState: sharedState, adminCodeEditing: githubCodeEdit,
         remoteMcp: getMcpStatus(env),
-        researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) }
+        researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) },
+        internalCalling: { durableObjectConfigured: Boolean(env.AURORA_CALLS), fcmConfigured: Boolean(env.FCM_PROJECT_ID && env.FCM_CLIENT_EMAIL && env.FCM_PRIVATE_KEY), pushGatewayConfigured: Boolean(env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN), deliveryMode: env.FCM_PROJECT_ID && env.FCM_CLIENT_EMAIL && env.FCM_PRIVATE_KEY ? "firebase-cloud-messaging-and-inbox-polling" : env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN ? "external-push-gateway-and-inbox-polling" : "inbox-polling-while-app-open" }
       }
     }, headers);
   }
@@ -250,6 +261,7 @@ export default {
           versionedChatMoved: true,
           adminCodeEditingMoved: true,
           mcpResearchMoved: true,
+          internalCallingMoved: true,
           rowLevelSecurityMode: "supabase-caller-jwt-forwarding",
           rowLevelSecurityVerified: false
         }
@@ -265,6 +277,10 @@ export default {
     if (url.pathname === "/api/health") return handleMetadata(request, env, "health");
     if (url.pathname === "/api/public-config") return handleMetadata(request, env, "public-config");
     if (url.pathname === "/api/models") return handleMetadata(request, env, "models");
+
+    if (url.pathname.startsWith("/api/calls")) {
+      return handleCalling(request, env);
+    }
 
     if (url.pathname === "/api/search" || url.pathname === "/api/research") {
       return handleResearch(request, env);

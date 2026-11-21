@@ -4,6 +4,14 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-19",
   "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      { "name": "AURORA_CALLS", "class_name": "AuroraCallsDurableObject" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1-aurora-calls", "new_sqlite_classes": ["AuroraCallsDurableObject"] }
+  ],
   "observability": {
     "enabled": true
   },

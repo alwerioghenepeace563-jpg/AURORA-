@@ -7,6 +7,8 @@ import { auroraRuntime } from "./core/aurora-runtime";
 import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
+import AuroraCallsWorkspace from "./components/AuroraCallsWorkspace";
+import AuroraCallMonitor from "./components/AuroraCallMonitor";
 import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace";
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
@@ -19,7 +21,7 @@ import { AURORA_VOICE_INTELLIGENCE, applySpeechPace, inferSpeechDelivery, isImme
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowUp, AudioLines, BookOpen, CalendarDays, Calculator, Copy,
-  Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House,
+  Bell, CalendarClock, Camera, Check, ChevronRight, CircleHelp, Clock3, Command, FileText, House, PhoneCall,
   Image as ImageIcon, Mic, MoreHorizontal, NotebookPen, Paperclip, Pause, Play, Plus, Send, Settings2, ShieldCheck, RotateCcw,
   SlidersHorizontal, Sparkles, MessageCircle, Search, SquarePen, Timer, Trash2, UserRound, Volume2, VolumeX, WandSparkles, X, GraduationCap, ArrowUpRight, Languages, History, Mail, LockKeyhole, Eye, EyeOff, MapPinned, Maximize2, Minimize2
 } from "lucide-react";
@@ -574,6 +576,9 @@ export default function App() {
   const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
   const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
   const pulseDragRef = useRef(null);
+  const pulseDispatchRef = useRef(null);
+  const nativeHandoffPollInFlightRef = useRef(false);
+  const nativeHandoffDispatchInFlightRef = useRef(false);
   const pulseRecognitionRef = useRef(null);
   const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
@@ -642,6 +647,8 @@ export default function App() {
     let stopped = false;
     AuroraNative.status().then((status) => { if (!stopped) { setNativeStatus(status); setNativeServiceOn(Boolean(status?.wakeWordListening)); } }).catch(() => {});
     const pollWakeWord = async () => {
+      if (stopped || nativeHandoffPollInFlightRef.current) return;
+      nativeHandoffPollInFlightRef.current = true;
       try {
         const pulseRequest = await AuroraNative.consumePulseOpenRequest();
         if (stopped) return;
@@ -649,6 +656,26 @@ export default function App() {
         if (pulseRequest?.requested) {
           setPulseOpen(true);
           setNativeNotice("AURORA Pulse opened from the assistant gesture.");
+        }
+
+        // Do not dequeue a native request until the shared Pulse dispatcher is mounted.
+        if (typeof pulseDispatchRef.current === "function" && !nativeHandoffDispatchInFlightRef.current) {
+          const sharedPulseAction = await AuroraNative.consumePulseActionRequest();
+          if (stopped) return;
+          if (sharedPulseAction?.query) {
+            nativeHandoffDispatchInFlightRef.current = true;
+            setPulseOpen(true);
+            setNativeNotice("Pulse request received. Running it through AURORA's shared action engine.");
+            window.setTimeout(async () => {
+              try {
+                if (!stopped && typeof pulseDispatchRef.current === "function") {
+                  await pulseDispatchRef.current(sharedPulseAction.query);
+                }
+              } finally {
+                nativeHandoffDispatchInFlightRef.current = false;
+              }
+            }, 250);
+          }
         }
 
         const sessionQuery = await AuroraNative.consumeAssistantSessionQuery();
@@ -663,8 +690,10 @@ export default function App() {
         const result = await AuroraNative.consumeWakeWord();
         if (stopped || !result?.detected) return;
         setPulseOpen(true);
-        setNativeNotice("Hey AURORA heard you. AURORA Pulse is open.");
-      } catch {}
+        setNativeNotice("Hey AURORA heard you. AURORA Pulse is open and listening.");
+      } catch {} finally {
+        nativeHandoffPollInFlightRef.current = false;
+      }
     };
     const timer = setInterval(pollWakeWord, 1100);
     return () => { stopped = true; clearInterval(timer); };
@@ -1960,6 +1989,8 @@ export default function App() {
     } finally { setPulseBusy(false); }
   }
 
+  pulseDispatchRef.current = sendPulseMessage;
+
   function cleanupPulseSpeech() {
     if (pulseInterruptionReleaseRef.current) { pulseInterruptionReleaseRef.current(); pulseInterruptionReleaseRef.current = null; }
     try { if (auroraNative.isAndroid()) void auroraNative.stopSpeechRecognition(); else pulseRecognitionRef.current?.stop?.(); } catch {}
@@ -2536,6 +2567,7 @@ export default function App() {
                 <button type="button" role="tab" aria-selected={activityTab==="tasks"} className={activityTab==="tasks"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("tasks")}><Check size={16}/>Tasks</button>
                 <button type="button" role="tab" aria-selected={activityTab==="notes"} className={activityTab==="notes"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("notes")}><NotebookPen size={16}/>Notes</button>
                 <button type="button" role="tab" aria-selected={activityTab==="reminders"} className={activityTab==="reminders"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("reminders")}><Bell size={16}/>Reminders</button>
+                 <button type="button" role="tab" aria-selected={activityTab==="calls"} className={activityTab==="calls"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("calls")}><PhoneCall size={16}/>AURORA Calls</button>
                 <button type="button" role="tab" aria-selected={activityTab==="calendar"} className={activityTab==="calendar"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("calendar")}><CalendarClock size={16}/>Calendar</button>
                 <button type="button" role="tab" aria-selected={activityTab==="timer"} className={activityTab==="timer"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("timer")}><Timer size={16}/>Timer</button>
                 <button type="button" role="tab" aria-selected={activityTab==="schedules"} className={activityTab==="schedules"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("schedules")}><CalendarDays size={16}/>Schedules</button>
@@ -2543,7 +2575,8 @@ export default function App() {
                 <button type="button" role="tab" aria-selected={activityTab==="predictive"} className={activityTab==="predictive"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("predictive")}><Activity size={16}/>Predictive</button>
                 <button type="button" role="tab" aria-selected={activityTab==="intelligence"} className={activityTab==="intelligence"?"activity-tab activity-tab-active":"activity-tab"} onClick={()=>setActivityTab("intelligence")}><Sparkles size={16}/>Intelligence</button>
               </div>
-              {activityTab === "knowledge" && <KnowledgeUniverseWorkspace/>}
+              {activityTab === "calls" && <AuroraCallsWorkspace authSession={authSession} onReply={(text) => sendMessage(text)} onSpeak={(text) => speak(text)}/>}
+               {activityTab === "knowledge" && <KnowledgeUniverseWorkspace/>}
               {activityTab === "predictive" && <PredictiveDashboard tasks={tasks} reminders={reminders} events={events}/> }
               {activityTab === "intelligence" && <IntelligenceEcosystemWorkspace/>}
               {activityTab === "tasks" && <div className="activity-tool-panel"><div className="activity-panel-title"><div><h2>My tasks</h2><p>Small steps, saved on this device.</p></div></div><form className="activity-inline-form" onSubmit={(e)=>{e.preventDefault();if(!taskDraft.trim())return;setTasks((old)=>[{id:Date.now(),title:taskDraft.trim(),done:false},...old]);setTaskDraft("");}}><input value={taskDraft} onChange={e=>setTaskDraft(e.target.value)} placeholder="What do you need to do?"/><button className="primary-action" type="submit"><Plus size={16}/> Add</button></form><div className="activity-record-list">{tasks.length===0?<p className="activity-muted">Your task list is empty. Add your first task above.</p>:tasks.map(task=><div className={"activity-record "+(task.done?"activity-record-done":"")} key={task.id}><button type="button" className="record-check" onClick={()=>setTasks(old=>old.map(t=>t.id===task.id?{...t,done:!t.done}:t))} aria-label="Toggle task">{task.done&&<Check size={14}/>}</button><span className="record-main">{task.title}</span><button type="button" className="record-delete" onClick={()=>setTasks(old=>old.filter(t=>t.id!==task.id))} aria-label="Delete task"><Trash2 size={15}/></button></div>)}</div></div>}
@@ -2909,6 +2942,7 @@ export default function App() {
       </AnimatePresence>,
       document.body
       )}
+      <AuroraCallMonitor authSession={authSession} onReply={(text) => sendMessage(text)} onSpeak={(text) => speak(text)} isSpeaking={speaking}/>
       <BottomNav active={page} onNavigate={navigate} />
       <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>
     </div>
