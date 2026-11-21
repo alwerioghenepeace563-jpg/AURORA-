@@ -14,6 +14,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import org.json.JSONObject;
 
 /** Tap-open reminder call-style screen. It never places a telephone call or bypasses the lock screen. */
 public class AuroraReminderCallActivity extends Activity {
@@ -58,7 +59,14 @@ public class AuroraReminderCallActivity extends Activity {
         intent.putExtra("id",reminderId);intent.putExtra("title",reminderTitle);intent.putExtra("message",reminderMessage);
         PendingIntent pending=PendingIntent.getBroadcast(this,reminderId.hashCode()&0x7fffffff,intent,PendingIntent.FLAG_UPDATE_CURRENT|(android.os.Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_IMMUTABLE:0));
         AlarmManager alarms=(AlarmManager)getSystemService(ALARM_SERVICE);
-        if(alarms!=null){long at=System.currentTimeMillis()+600000L;if(android.os.Build.VERSION.SDK_INT>=23)alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,at,pending);else alarms.set(AlarmManager.RTC_WAKEUP,at,pending);}
+        if(alarms!=null){
+            long at=System.currentTimeMillis()+600000L;
+            if(android.os.Build.VERSION.SDK_INT>=23)alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,at,pending);else alarms.set(AlarmManager.RTC_WAKEUP,at,pending);
+            try {
+                JSONObject saved=new JSONObject(); saved.put("id",reminderId); saved.put("title",reminderTitle); saved.put("message",reminderMessage==null?"":reminderMessage); saved.put("at",at);
+                getSharedPreferences("aurora_reminders",MODE_PRIVATE).edit().putString(reminderId,saved.toString()).apply();
+            } catch(Exception ignored) {}
+        }
         cancelNotification();
     }
 }
