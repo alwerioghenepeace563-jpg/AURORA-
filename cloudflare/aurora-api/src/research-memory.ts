@@ -54,7 +54,7 @@ async function redis(env: Env, command: unknown[]): Promise<any> {
 
 function safeMemoryQuery(query: string): boolean {
   if (!query || query.length < 4) return false;
-  return !/\b(medical|medicine|medication|symptom|diagnos|therapy|mental health|suicide|self-harm|bank account|password|api key|politic|election|religion|sexual|criminal|legal advice)\b/i.test(query);
+  return !/\b(medical|medicine|medication|symptom|diagnos|therapy|mental health|suicide|self-harm|bank account|credit card|investment|financial|password|api key|email address|phone number|home address|politic|election|religion|sexual|criminal|legal advice)\b/i.test(query);
 }
 
 function words(value: string): Set<string> {
