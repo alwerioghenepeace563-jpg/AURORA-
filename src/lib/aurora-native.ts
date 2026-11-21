@@ -72,7 +72,7 @@ type AuroraNativePlugin = {
   requestMicrophonePermission(): Promise<{ granted: boolean }>;
   requestNotificationPermission(): Promise<{ granted: boolean }>;
   consumeAssistantSessionQuery(): Promise<{ query: string }>;
-  consumePulseActionRequest(): Promise<{ query: string }>;
+  consumePulseActionRequest(): Promise<{ query: string; requestId?: string; source?: "wake_word" | "pulse_overlay" | ""; createdAt?: number }>;
   getAssistantRoleStatus(): Promise<{ available: boolean; selected: boolean; requiresUserAction: boolean; serviceReady: boolean }>;
   openAssistantRoleSettings(): Promise<{ opened: boolean; userMustConfirm: boolean; fallback?: boolean }>;
   hasOverlayPermission(): Promise<{ granted: boolean }>;
