@@ -10,7 +10,8 @@ const ui = await readFile(resolve(root, "src/components/AuroraCallsWorkspace.jsx
 const app = await readFile(resolve(root, "src/App.jsx"), "utf8");
 assert.match(calling, /\/auth\/v1\/user/, "Supabase must verify the caller identity");
 assert.match(calling, /get\(env\.AURORA_CALLS\.idFromName\("user:" \+ user\.id\)\)/, "Each account must get an isolated Durable Object");
-assert.match(calling, /status: online \? "ringing" : "pending"/, "Offline devices must leave due calls pending");
+assert.ok(calling.includes("devices.some(d => Boolean(d.token))"), "Offline devices with registered push tokens must receive queued calls");
+assert.ok(calling.includes('ttl: "86400s"'), "FCM must queue notifications while a device is offline");
 assert.match(calling, /private async readInbox/, "Devices need an authenticated inbox poll");
 assert.match(calling, /deviceLimit: 10/, "Device registration must be bounded");
 assert.ok(calling.includes("optional push token"), "Devices must register before an FCM token is available");
@@ -32,6 +33,7 @@ assert.match(app, /<AuroraCallMonitor/, "Incoming call monitor must stay mounted
 assert.ok(monitor.includes('api("/api/calls/inbox?deviceId="'), "The app-wide monitor must poll the authenticated call inbox");
 assert.ok(monitor.includes("@capacitor/push-notifications"), "Android app must integrate Capacitor push notifications");
 assert.ok(monitor.includes("PushNotifications.register"), "Android app must register for push delivery");
+assert.ok(monitor.includes("function toggleHandsFree"), "Answered calls must offer hands-free voice conversation");
 const nativeActivity = await readFile(resolve(root, "android/app/src/main/java/com/aurora/assistant/MainActivity.java"), "utf8");
 assert.ok(nativeActivity.includes("aurora_calls"), "Android must create the high-priority AURORA call notification channel");
 console.log("AURORA calling architecture checks passed.");
