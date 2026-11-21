@@ -44,9 +44,9 @@ export default function MapsWorkspace() {
     loadMapLibre().then((gl) => {
       if (cancelled || !mapNodeRef.current || mapRef.current) return;
       const map = new gl.Map({
-        container: mapNodeRef.current, style: STREET_STYLE, center: [8.6753, 9.082], zoom: 1.45,
+        container: mapNodeRef.current, style: STREET_STYLE, center: [8.6753, 9.082], zoom: 0.5,
         projection: "globe", attributionControl: true, renderWorldCopies: false,
-        pitch: 0, bearing: 0, maxPitch: 75, minZoom: 0.7, maxZoom: 19,
+        pitch: 0, bearing: 0, maxPitch: 75, minZoom: 0.3, maxZoom: 19,
         canvasContextAttributes: { antialias: true }
       });
       map.addControl(new gl.NavigationControl({ visualizePitch: true }), "bottom-right");
@@ -163,7 +163,7 @@ export default function MapsWorkspace() {
   }
 
   function resetEarth() {
-    mapRef.current?.flyTo({ center: [8.6753, 9.082], zoom: 1.45, pitch: 0, bearing: 0, duration: 1000 });
+    mapRef.current?.flyTo({ center: [8.6753, 9.082], zoom: 0.5, pitch: 0, bearing: 0, duration: 1000 });
     setNotice("Back to the full 3D Earth. Drag to rotate the globe in any direction.");
   }
   const fmtDistance = metres => metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : Math.round(metres) + " m";
