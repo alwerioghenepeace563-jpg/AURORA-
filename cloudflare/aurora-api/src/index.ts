@@ -334,8 +334,8 @@ export default {
       // may issue a 307 normalization redirect before the SPA fallback can
       // run, even when the Worker is configured to run first.
       if (!isFileLikePath && ["GET", "HEAD"].includes(request.method)) {
-        const indexUrl = new URL("/index.html", request.url);
-        const shell = await env.ASSETS.fetch(new Request(indexUrl, request));
+        const shellUrl = new URL("/", request.url);
+        const shell = await env.ASSETS.fetch(new Request(shellUrl, request));
         const headers = new Headers(shell.headers);
         headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         headers.set("Pragma", "no-cache");
