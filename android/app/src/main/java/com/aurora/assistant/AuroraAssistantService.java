@@ -162,14 +162,22 @@ public class AuroraAssistantService extends Service {
             if (normalized.contains("hey aurora") || normalized.contains("hey a urora") || normalized.contains("hey orora")) {
                 wakeDetected = true;
                 setListeningState(false);
-                getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit().putBoolean("wake_detected", true).putBoolean("wake_word_listening", false).apply();
+                String spokenCommand = candidate.replaceFirst("(?i)^\\s*hey\\s+(?:a\\s+)?(?:aurora|orora)\\b[\\s,.:;!?-]*", "").trim();
+                if (spokenCommand.length() > 1200) spokenCommand = spokenCommand.substring(0, 1200).trim();
+                getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
+                    .putBoolean("wake_detected", true)
+                    .putString("wake_command", spokenCommand)
+                    .putLong("wake_command_at", System.currentTimeMillis())
+                    .putBoolean("wake_word_listening", false).apply();
                 releaseRecognizer(true);
-                updateNotification("Wake phrase heard · opening AURORA Pulse");
+                updateNotification(spokenCommand.isEmpty()
+                    ? "Wake phrase heard · opening AURORA Pulse"
+                    : "Wake phrase and request heard · opening AURORA");
                 // Release the wake-word microphone before Pulse starts its conversational listener.
                 try {
                     Intent pulse = new Intent(this, AuroraOverlayService.class);
                     pulse.setAction(AuroraOverlayService.ACTION_SHOW);
-                    pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
+                    pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, spokenCommand.isEmpty());
                     // Start the overlay while this microphone foreground service still
                     // provides Android's foreground-start exemption.
                     androidx.core.content.ContextCompat.startForegroundService(this, pulse);
