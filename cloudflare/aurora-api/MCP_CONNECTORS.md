@@ -57,7 +57,7 @@ For each research response, AURORA summarizes the number of responding connector
 AURORA can retain compact research notes between authenticated chat sessions when an Upstash Redis REST store and Supabase Auth verification are configured on the Worker. Set `UPSTASH_REDIS_REST_URL` as a Worker variable and `UPSTASH_REDIS_REST_TOKEN` as a Worker secret; the existing `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or their supported Vite-prefixed aliases) must also be available so the Worker can verify the signed-in user. The existing `KV_REST_API_URL` and `KV_REST_API_TOKEN` names are accepted as compatibility aliases. The endpoint must use HTTPS. If Redis, Supabase Auth configuration, or a valid Authorization bearer token is unavailable, memory is inactive and normal chat continues.
 
 - Memory keys are derived from a SHA-256 hash of the verified Supabase user ID returned by `/auth/v1/user`, so memory survives access-token refreshes. The bearer token itself is never stored; unverified JWT claims are not trusted.
-- At most 12 compact notes are retained per authenticated token, with a 30-day expiry.
+- At most 12 compact notes are retained per verified Supabase user, with a 30-day expiry.
 - Notes contain the research query, short evidence excerpts and validated source URLs, not complete webpages or conversation transcripts.
 - Prior notes are treated as historical leads, not current proof; AURORA is instructed to re-check time-sensitive claims.
 - Sensitive-topic filters prevent automatic storage for queries involving medical/mental-health matters, self-harm, credentials, politics, religion, sexuality, criminal history and legal advice.
