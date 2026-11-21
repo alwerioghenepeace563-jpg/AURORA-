@@ -23,6 +23,9 @@ assert.match(service, /AuroraActionRequestQueue\.enqueue\(AuroraOverlayService\.
 assert.match(bridge, /consumePulseActionRequest\(\)/, "The TypeScript bridge must expose the shared Pulse handoff.");
 assert.match(panel, /AuroraOverlay\.sendToSharedPulse\(t\)/, "Native Pulse prompts must hand off instead of using a separate chat engine.");
 assert.match(app, /consumePulseActionRequest\(\)/, "The app must consume queued native Pulse requests.");
+assert.match(app, /nativeHandoffPollInFlightRef\.current\) return/, "Native handoff polling must not overlap.");
+assert.match(app, /nativeHandoffPollInFlightRef\.current = false/, "Native handoff polling must always release its in-flight lock.");
+assert.match(app, /typeof pulseDispatchRef\.current === "function"[\s\S]*?consumePulseActionRequest/, "The app must not dequeue requests before the shared dispatcher is ready.");
 assert.match(app, /pulseDispatchRef\.current\?\.\(sharedPulseAction\.query\)/, "Queued requests must enter the current in-app Pulse dispatcher.");
 assert.match(app, /auroraRuntime\.surfaces\.route\(text, \{ surface: "pulse" \}\)/, "In-app Pulse must use the shared AURORA capability gateway.");
 assert.match(plugin, /AuroraOverlayService\.ACTION_HIDE/, "hideOverlay must stop the native overlay service");
