@@ -21,6 +21,7 @@ function value(env: Env, key: string): string {
 function connectors(env: Env): Connector[] {
   const firecrawlToken = value(env, "FIRECRAWL_OAUTH_TOKEN") || value(env, "FIRECRAWL_API_KEY");
   const tavilyToken = value(env, "TAVILY_API_KEY");
+  const cloudflareMcpToken = value(env, "AURORA_CLOUDFLARE_MCP_TOKEN");
   const perplexityToken = value(env, "PERPLEXITY_API_KEY");
   return [
     {
@@ -45,6 +46,14 @@ function connectors(env: Env): Connector[] {
       url: value(env, "AURORA_TAVILY_MCP_URL") || "https://mcp.tavily.com/mcp/",
       token: tavilyToken,
       enabled: Boolean(tavilyToken) && value(env, "AURORA_TAVILY_ENABLED").toLowerCase() !== "false",
+      kind: "research"
+    },
+    {
+      id: "cloudflare-api",
+      label: "Cloudflare Documentation and Read-only API Research",
+      url: value(env, "AURORA_CLOUDFLARE_MCP_URL") || "https://mcp.cloudflare.com/mcp",
+      token: cloudflareMcpToken,
+      enabled: Boolean(cloudflareMcpToken) && value(env, "AURORA_CLOUDFLARE_MCP_ENABLED").toLowerCase() !== "false",
       kind: "research"
     },
     {
