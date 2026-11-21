@@ -169,7 +169,7 @@ export class AuroraCallsDurableObject {
       }));
       const deliveredIds = new Set(due.map(r => r.id));
       await txn.put("reminders", reminders.map(r => deliveredIds.has(r.id) ? { ...r, status: "delivered" as const } : r));
-      await txn.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended").slice(-Math.max(0, 20-created.length)), ...created.map(item => item.call)]);
+      await txn.put("calls", [...calls.filter(c => c.status !== "missed" && c.status !== "ended"), ...created.map(item => item.call)].slice(-20));
       return created;
     });
     for (const item of dueCalls) if (item.call.status === "ringing") await this.push({ event: "incoming_call", call: item.call, reminder: item.reminder });
