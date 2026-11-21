@@ -5,7 +5,7 @@ AURORA's active chat backend runs on the Cloudflare Worker. Configure MCP endpoi
 ## Connector plan
 
 - **Exa** is the default no-key research connector. It is rate-limited and may be unavailable; AURORA keeps its existing /api/search and AI-provider fallbacks.
-- **Firecrawl** is optional. It stays disabled until a Firecrawl API key or OAuth token is configured. Do not enable paid billing just to turn it on.
+- **Firecrawl** is enabled on its hosted keyless free tier for Search, Scrape and Parse within provider rate limits. An API key or OAuth token unlocks additional tools and limits; do not enable paid billing just to turn it on.
 - **Perplexity** is optional and requires both a confirmed MCP endpoint and a server-side API key. It is not part of the zero-cost default.
 - **Playwright / Chrome** is an optional hosted Playwright MCP endpoint. Chrome is the browser engine exposed through Playwright; it is not a separate connector.
 - **Cloudflare Browser Rendering** is an optional URL-to-Markdown reader. Use a dedicated API token with only the required Browser Rendering permission; do not reuse a broad account token.
@@ -28,8 +28,8 @@ npx wrangler secret put CLOUDFLARE_BROWSER_RUN_TOKEN --config cloudflare/aurora-
 Set these variables only when you have the matching service details:
 
 - AURORA_EXA_ENABLED=true (default); optional AURORA_EXA_MCP_URL
-- AURORA_FIRECRAWL_ENABLED=true only after a credential exists; optional AURORA_FIRECRAWL_MCP_URL
-- AURORA_PERPLEXITY_MCP_URL (must be the provider's confirmed MCP URL)
+- AURORA_FIRECRAWL_ENABLED=true (default); optional AURORA_FIRECRAWL_MCP_URL. Keyless hosted mode supports Search, Scrape and Parse within rate limits.
+- AURORA_PERPLEXITY_ENABLED=true (default when the API key exists); optional AURORA_PERPLEXITY_MCP_URL defaults to https://api.perplexity.ai/mcp
 - AURORA_PLAYWRIGHT_MCP_URL (full Streamable HTTP endpoint, usually ending in /mcp)
 - AURORA_GLYPH_MCP_URL only after confirming the exact Glyph implementation
 - CLOUDFLARE_ACCOUNT_ID and AURORA_CLOUDFLARE_BROWSER_ENABLED=true for Browser Rendering
