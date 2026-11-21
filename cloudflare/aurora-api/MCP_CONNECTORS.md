@@ -7,6 +7,7 @@ AURORA's active chat backend runs on the Cloudflare Worker. Configure MCP endpoi
 - **Exa** is the default no-key research connector. It is rate-limited and may be unavailable; AURORA keeps its existing /api/search and AI-provider fallbacks.
 - **Firecrawl** is enabled on its hosted keyless free tier for Search, Scrape and Parse within provider rate limits. An API key or OAuth token unlocks additional tools and limits; do not enable paid billing just to turn it on.
 - **Tavily** is an optional hosted research connector at its official Streamable HTTP endpoint. It requires a server-side Tavily API key; usage is subject to the account allowance and provider terms.
+- **Cloudflare API MCP** is optional and requires a dedicated, least-privilege API token. AURORA only auto-selects read-oriented search/docs tools; the generic API execution tool is not auto-selected.
 - **Perplexity** is optional and requires both a confirmed MCP endpoint and a server-side API key. It is not part of the zero-cost default.
 - **Playwright / Chrome** is an optional hosted Playwright MCP endpoint. Chrome is the browser engine exposed through Playwright; it is not a separate connector.
 - **Cloudflare Browser Rendering** is an optional URL-to-Markdown reader. Use a dedicated API token with only the required Browser Rendering permission; do not reuse a broad account token.
@@ -21,6 +22,7 @@ Secrets can be added with these commands (run from the repository root):
 \`\`\`sh
 npx wrangler secret put FIRECRAWL_API_KEY --config cloudflare/aurora-api/wrangler.jsonc
 npx wrangler secret put TAVILY_API_KEY --config cloudflare/aurora-api/wrangler.jsonc
+npx wrangler secret put AURORA_CLOUDFLARE_MCP_TOKEN --config cloudflare/aurora-api/wrangler.jsonc
 npx wrangler secret put PERPLEXITY_API_KEY --config cloudflare/aurora-api/wrangler.jsonc
 npx wrangler secret put AURORA_PLAYWRIGHT_MCP_TOKEN --config cloudflare/aurora-api/wrangler.jsonc
 npx wrangler secret put AURORA_GLYPH_MCP_TOKEN --config cloudflare/aurora-api/wrangler.jsonc
@@ -32,6 +34,7 @@ Set these variables only when you have the matching service details:
 - AURORA_EXA_ENABLED=true (default); optional AURORA_EXA_MCP_URL
 - AURORA_FIRECRAWL_ENABLED=true (default); optional AURORA_FIRECRAWL_MCP_URL. Keyless hosted mode supports Search, Scrape and Parse within rate limits.
 - AURORA_TAVILY_ENABLED=true (default when TAVILY_API_KEY exists); optional AURORA_TAVILY_MCP_URL defaults to https://mcp.tavily.com/mcp/
+- AURORA_CLOUDFLARE_MCP_ENABLED=true (default when its dedicated token exists); optional AURORA_CLOUDFLARE_MCP_URL defaults to https://mcp.cloudflare.com/mcp
 - AURORA_PERPLEXITY_ENABLED=true (default when the API key exists); optional AURORA_PERPLEXITY_MCP_URL defaults to https://api.perplexity.ai/mcp
 - AURORA_PLAYWRIGHT_MCP_URL (full Streamable HTTP endpoint, usually ending in /mcp)
 - AURORA_GLYPH_MCP_URL only after confirming the exact Glyph implementation
