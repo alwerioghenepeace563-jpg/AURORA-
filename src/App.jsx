@@ -578,6 +578,7 @@ export default function App() {
   const pulseDragRef = useRef(null);
   const pulseDispatchRef = useRef(null);
   const nativeHandoffPollInFlightRef = useRef(false);
+  const nativeHandoffDispatchInFlightRef = useRef(false);
   const pulseRecognitionRef = useRef(null);
   const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
@@ -658,14 +659,21 @@ export default function App() {
         }
 
         // Do not dequeue a native request until the shared Pulse dispatcher is mounted.
-        if (typeof pulseDispatchRef.current === "function") {
+        if (typeof pulseDispatchRef.current === "function" && !nativeHandoffDispatchInFlightRef.current) {
           const sharedPulseAction = await AuroraNative.consumePulseActionRequest();
           if (stopped) return;
           if (sharedPulseAction?.query) {
-          setPulseOpen(true);
-          setNativeNotice("Pulse request received. Running it through AURORA's shared action engine.");
-            window.setTimeout(() => {
-              if (!stopped) void pulseDispatchRef.current?.(sharedPulseAction.query);
+            nativeHandoffDispatchInFlightRef.current = true;
+            setPulseOpen(true);
+            setNativeNotice("Pulse request received. Running it through AURORA's shared action engine.");
+            window.setTimeout(async () => {
+              try {
+                if (!stopped && typeof pulseDispatchRef.current === "function") {
+                  await pulseDispatchRef.current(sharedPulseAction.query);
+                }
+              } finally {
+                nativeHandoffDispatchInFlightRef.current = false;
+              }
             }, 250);
           }
         }
