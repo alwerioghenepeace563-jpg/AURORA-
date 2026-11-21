@@ -14,7 +14,8 @@ interface Env {
   [key: string]: any;
   LEGACY_API_ORIGIN?: string;
   AURORA_BACKEND_STAGE?: string;
-  ASSETS: { fetch(request: Request): Promise<Response> };\n  AURORA_CONNECT_ROOMS: DurableObjectNamespace;
+  ASSETS: { fetch(request: Request): Promise<Response> };
+  AURORA_CONNECT_ROOMS: DurableObjectNamespace;
 }
 
 const JSON_HEADERS = {
