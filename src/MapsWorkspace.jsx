@@ -47,6 +47,8 @@ export default function MapsWorkspace() {
   const destinationMarkerRef = useRef(null);
   const watchIdRef = useRef(null);
   const routeLayerReadyRef = useRef(false);
+  const baseStyleLayerIdsRef = useRef([]);
+  const mapReadyRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
   const [destination, setDestination] = useState("");
@@ -81,11 +83,16 @@ export default function MapsWorkspace() {
     if (map.getLayer("aurora-satellite-layer")) {
       map.setLayoutProperty("aurora-satellite-layer", "visibility", satelliteVisible ? "visible" : "none");
     }
-    const styleLayers = map.getStyle()?.layers || [];
-    for (const layer of styleLayers) {
-      if (layer.type === "symbol" && layer.id !== "aurora-3d-buildings") {
-        map.setLayoutProperty(layer.id, "visibility", nextMode === "satellite" ? "none" : "visible");
-      }
+    // Keep the satellite-only mode genuinely clean: hide every original
+    // basemap layer (roads, boundaries and labels), then restore them for
+    // Street, Hybrid and Terrain. AURORA's own overlays remain untouched.
+    for (const layerId of baseStyleLayerIdsRef.current) {
+      if (!map.getLayer(layerId)) continue;
+      const layer = map.getLayer(layerId);
+      const visibility = nextMode === "satellite" && layer.type !== "background"
+        ? "none"
+        : "visible";
+      map.setLayoutProperty(layerId, "visibility", visibility);
     }
     if (map.getLayer("aurora-hillshade")) {
       map.setLayoutProperty("aurora-hillshade", "visibility", nextMode === "terrain" ? "visible" : "none");
@@ -131,6 +138,9 @@ export default function MapsWorkspace() {
       map.once("load", () => {
         if (cancelled) return;
         try {
+          // Remember only the original basemap layers so layer switching
+          // never accidentally hides AURORA's satellite, route or 3D layers.
+          baseStyleLayerIdsRef.current = (map.getStyle()?.layers || []).map((layer) => layer.id);
           map.setProjection({ type: "globe" });
           map.addSource("aurora-satellite", {
             type: "raster",
@@ -215,6 +225,7 @@ export default function MapsWorkspace() {
           routeLayerReadyRef.current = true;
           map.setTerrain({ source: "aurora-terrain", exaggeration: 1.15 });
           applyLayerMode("hybrid");
+          mapReadyRef.current = true;
           setMapReady(true);
           requestAnimationFrame(() => map.resize());
         } catch (error) {
@@ -222,7 +233,9 @@ export default function MapsWorkspace() {
         }
       });
       map.on("error", (event) => {
-        if (!mapReady && event?.error?.message?.includes("style")) {
+        // Only promote style-loading errors to the blocking error state
+        // before the first successful map initialisation.
+        if (!mapReadyRef.current && event?.error?.message?.toLowerCase?.().includes("style")) {
           setMapError("The map style could not be loaded. Please check your connection and retry.");
         }
       });
@@ -239,6 +252,8 @@ export default function MapsWorkspace() {
       if (mapRef.current === mapInstance) mapRef.current = null;
       mapLibraryRef.current = null;
       routeLayerReadyRef.current = false;
+      baseStyleLayerIdsRef.current = [];
+      mapReadyRef.current = false;
       setMapReady(false);
     };
   }, [applyLayerMode]);
