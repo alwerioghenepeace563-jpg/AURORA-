@@ -1,217 +1,309 @@
 import "./maps.css";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, LocateFixed, MapPinned, Navigation, Search, Satellite, ExternalLink, Route, Clock3 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, ArrowUpRight, Compass, Crosshair, Globe2, LocateFixed, MapPinned, Navigation, Pause, Play, RotateCcw, Satellite, Search, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
 
-const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+const EARTH_TEXTURE = "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg";
+const EARTH_NORMAL = "https://threejs.org/examples/textures/planets/earth_normal_2048.jpg";
+const EARTH_LIGHTS = "https://threejs.org/examples/textures/planets/earth_lights_2048.png";
 
-function loadLeaflet() {
-  if (window.L) return Promise.resolve(window.L);
-  if (window.__auroraLeafletPromise) return window.__auroraLeafletPromise;
-  window.__auroraLeafletPromise = new Promise((resolve, reject) => {
-    if (!document.querySelector('link[data-aurora-leaflet]')) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = LEAFLET_CSS;
-      link.dataset.auroraLeaflet = "true";
-      document.head.appendChild(link);
-    }
-    let script = document.querySelector('script[data-aurora-leaflet]');
-    if (script) {
-      script.addEventListener("load", () => resolve(window.L), { once: true });
-      script.addEventListener("error", reject, { once: true });
-      return;
-    }
-    script = document.createElement("script");
-    script.src = LEAFLET_JS;
-    script.async = true;
-    script.dataset.auroraLeaflet = "true";
-    script.onload = () => window.L ? resolve(window.L) : reject(new Error("Map library did not initialise."));
-    script.onerror = () => reject(new Error("Map library could not load. Check your internet connection."));
-    document.head.appendChild(script);
-  });
-  return window.__auroraLeafletPromise;
+function latLonVector(THREE, lat, lon, radius = 2.015) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const theta = (lon + 180) * Math.PI / 180;
+  return new THREE.Vector3(-radius * Math.sin(phi) * Math.cos(theta), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta));
 }
 
 export default function MapsWorkspace() {
-  const mapNodeRef = useRef(null);
-  const mapRef = useRef(null);
-  const routeLayerRef = useRef(null);
-  const userMarkerRef = useRef(null);
-  const destinationMarkerRef = useRef(null);
-  const watchIdRef = useRef(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState("");
-  const [destination, setDestination] = useState("");
+  const hostRef = useRef(null);
+  const sceneRef = useRef(null);
+  const watchRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [location, setLocation] = useState(null);
+  const [destination, setDestination] = useState(null);
   const [routeInfo, setRouteInfo] = useState(null);
   const [tracking, setTracking] = useState(false);
-  const [notice, setNotice] = useState("Search for a destination or use your current location to begin.");
-  const [mode, setMode] = useState("street");
-  const [googleView, setGoogleView] = useState("");
+  const [satellite, setSatellite] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(true);
+  const [notice, setNotice] = useState("Drag the Earth to explore. Search for a destination or enable GPS.");
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
-    loadLeaflet().then((L) => {
-      if (cancelled || !mapNodeRef.current || mapRef.current) return;
-      const map = L.map(mapNodeRef.current, { zoomControl: false, preferCanvas: true }).setView([9.0820, 8.6753], 6);
-      L.control.zoom({ position: "bottomright" }).addTo(map);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>'
-      }).addTo(map);
-      mapRef.current = map;
-      setMapReady(true);
-      setTimeout(() => map.invalidateSize(), 150);
-    }).catch((error) => setMapError(error.message || "The map could not load."));
-    return () => { cancelled = true; if (watchIdRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchIdRef.current); mapRef.current?.remove(); mapRef.current = null; };
-  }, [googleView]);
+    let renderer, frame, resizeObserver, controls;
+    let earth, earthMaterial, scene, camera, THREE;
+    const markerGroup = { current: null };
+    const routeGroup = { current: null };
+    const host = hostRef.current;
+    if (!host) return undefined;
 
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const timer = setTimeout(() => mapRef.current?.invalidateSize(), 120);
-    return () => clearTimeout(timer);
-  }, [mapReady]);
+    (async () => {
+      try {
+        const module = await import(/* @vite-ignore */ THREE_URL);
+        if (cancelled) return;
+        THREE = module;
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color("#020712");
+        camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+        camera.position.set(0, 0, 8.1);
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.setSize(host.clientWidth, host.clientHeight);
+        renderer.domElement.className = "cosmos-canvas";
+        renderer.domElement.setAttribute("aria-label", "Interactive three-dimensional Earth. Drag to rotate and use zoom controls.");
+        host.appendChild(renderer.domElement);
 
+        scene.add(new THREE.AmbientLight(0x9bb9e9, 1.45));
+        const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+        sun.position.set(-5, 2, 6);
+        scene.add(sun);
 
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !location || !window.L) return;
-    const point = [location.lat, location.lon];
-    if (!userMarkerRef.current) {
-      userMarkerRef.current = window.L.circleMarker(point, { radius: 9, color: "#f5fcff", weight: 3, fillColor: "#27a9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
-      mapRef.current.setView(point, 16);
-    } else {
-      userMarkerRef.current.setLatLng(point);
-    }
-  }, [mapReady, location]);
+        const starsGeometry = new THREE.BufferGeometry();
+        const starPositions = [];
+        for (let i = 0; i < 1600; i++) {
+          const radius = 14 + Math.random() * 35;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+          starPositions.push(radius * Math.sin(phi) * Math.cos(theta), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta));
+        }
+        starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
+        const stars = new THREE.Points(starsGeometry, new THREE.PointsMaterial({ color: 0xa9d9ff, size: 0.055, transparent: true, opacity: 0.82 }));
+        scene.add(stars);
+
+        const group = new THREE.Group();
+        scene.add(group);
+        const geometry = new THREE.SphereGeometry(2, 96, 96);
+        earthMaterial = new THREE.MeshPhongMaterial({ color: 0x8ba7c8, shininess: 12, specular: new THREE.Color(0x244a70) });
+        earth = new THREE.Mesh(geometry, earthMaterial);
+        group.add(earth);
+
+        const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(2.075, 64, 64), new THREE.MeshBasicMaterial({ color: 0x2c9cff, transparent: true, opacity: 0.105, side: THREE.BackSide }));
+        group.add(atmosphere);
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(2.13, 48, 48), new THREE.MeshBasicMaterial({ color: 0x2379ff, transparent: true, opacity: 0.035, side: THREE.BackSide }));
+        group.add(glow);
+        markerGroup.current = new THREE.Group();
+        routeGroup.current = new THREE.Group();
+        group.add(routeGroup.current, markerGroup.current);
+
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.setCrossOrigin("anonymous");
+        const texture = await new Promise((resolve, reject) => textureLoader.load(EARTH_TEXTURE, resolve, undefined, reject));
+        if (cancelled) { texture.dispose(); return; }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        earthMaterial.map = texture;
+        earthMaterial.color.set(0xffffff);
+        earthMaterial.needsUpdate = true;
+        setReady(true);
+
+        textureLoader.load(EARTH_NORMAL, (normal) => {
+          if (cancelled) { normal.dispose(); return; }
+          earthMaterial.bumpMap = normal;
+          earthMaterial.bumpScale = 0.035;
+          earthMaterial.needsUpdate = true;
+        });
+        textureLoader.load(EARTH_LIGHTS, (lights) => {
+          if (cancelled) { lights.dispose(); return; }
+          lights.colorSpace = THREE.SRGBColorSpace;
+          earthMaterial.emissiveMap = lights;
+          earthMaterial.emissive = new THREE.Color(0x243b60);
+          earthMaterial.emissiveIntensity = 0.32;
+          earthMaterial.needsUpdate = true;
+        });
+
+        let pointer = null, lastX = 0, lastY = 0, velocityX = 0, velocityY = 0;
+        const onDown = (event) => { pointer = event.pointerId; lastX = event.clientX; lastY = event.clientY; renderer.domElement.setPointerCapture(pointer); };
+        const onMove = (event) => {
+          if (pointer !== event.pointerId) return;
+          const dx = event.clientX - lastX, dy = event.clientY - lastY;
+          group.rotation.y += dx * 0.005;
+          group.rotation.x = Math.max(-1.1, Math.min(1.1, group.rotation.x + dy * 0.004));
+          velocityX = dx * 0.00045; velocityY = dy * 0.00035;
+          lastX = event.clientX; lastY = event.clientY;
+          setAutoRotate(false);
+        };
+        const onUp = (event) => { if (pointer === event.pointerId) pointer = null; };
+        const onWheel = (event) => { event.preventDefault(); camera.position.z = Math.max(4.4, Math.min(12, camera.position.z + event.deltaY * 0.006)); setZoom(Math.round(810 / camera.position.z) / 100); };
+        renderer.domElement.addEventListener("pointerdown", onDown);
+        renderer.domElement.addEventListener("pointermove", onMove);
+        renderer.domElement.addEventListener("pointerup", onUp);
+        renderer.domElement.addEventListener("pointercancel", onUp);
+        renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
+        controls = () => {
+          renderer.domElement.removeEventListener("pointerdown", onDown);
+          renderer.domElement.removeEventListener("pointermove", onMove);
+          renderer.domElement.removeEventListener("pointerup", onUp);
+          renderer.domElement.removeEventListener("pointercancel", onUp);
+          renderer.domElement.removeEventListener("wheel", onWheel);
+        };
+
+        resizeObserver = new ResizeObserver(() => {
+          if (!renderer || !camera) return;
+          const width = Math.max(1, host.clientWidth), height = Math.max(1, host.clientHeight);
+          camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height);
+        });
+        resizeObserver.observe(host);
+        const animate = () => {
+          if (cancelled) return;
+          frame = requestAnimationFrame(animate);
+          if (autoRotate && pointer === null) group.rotation.y += 0.0008;
+          else if (pointer === null) { group.rotation.y += velocityX; group.rotation.x = Math.max(-1.1, Math.min(1.1, group.rotation.x + velocityY)); velocityX *= 0.94; velocityY *= 0.94; }
+          stars.rotation.y -= 0.00006;
+          renderer.render(scene, camera);
+        };
+        animate();
+        sceneRef.current = { THREE, group, camera, renderer, earthMaterial, markerGroup: markerGroup.current, routeGroup: routeGroup.current, host };
+      } catch (cause) {
+        if (!cancelled) setError(cause?.message || "The 3D Earth could not load. Check your internet connection and WebGL support.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      controls?.();
+      if (watchRef.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watchRef.current);
+      renderer?.dispose();
+      if (renderer?.domElement?.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+      scene?.traverse((object) => {
+        object.geometry?.dispose?.();
+        if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose?.());
+        else object.material?.dispose?.();
+      });
+      sceneRef.current = null;
+    };
+  }, [autoRotate]);
+
+  const updateMarker = useCallback((point, kind) => {
+    const state = sceneRef.current;
+    if (!state || !point) return;
+    const { THREE, markerGroup } = state;
+    const old = markerGroup.getObjectByName(kind);
+    if (old) markerGroup.remove(old);
+    const position = latLonVector(THREE, point.lat, point.lon, 2.035);
+    const color = kind === "current-location" ? 0x43e8ff : 0xffc86b;
+    const pin = new THREE.Mesh(new THREE.SphereGeometry(kind === "current-location" ? 0.045 : 0.05, 16, 16), new THREE.MeshBasicMaterial({ color }));
+    pin.position.copy(position); pin.name = kind; markerGroup.add(pin);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.065, 0.09, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+    ring.position.copy(position.clone().multiplyScalar(1.006)); ring.lookAt(position.clone().multiplyScalar(2)); markerGroup.add(ring); ring.name = kind + "-ring";
+  }, []);
+
+  useEffect(() => { updateMarker(location, "current-location"); }, [location, updateMarker]);
+  useEffect(() => { updateMarker(destination, "destination"); }, [destination, updateMarker]);
+
+  const flyTo = useCallback((point) => {
+    const state = sceneRef.current;
+    if (!state || !point) return;
+    const vector = latLonVector(state.THREE, point.lat, point.lon, 2);
+    const direction = vector.clone().normalize();
+    const target = new state.THREE.Quaternion().setFromUnitVectors(direction, new state.THREE.Vector3(0, 0, 1));
+    state.group.quaternion.slerp(target, 0.8);
+  }, []);
 
   function useCurrentLocation() {
-    if (!navigator.geolocation) { setNotice("This device or browser does not support location."); return; }
-    setNotice("Requesting location permission…");
+    if (!navigator.geolocation) { setNotice("This device or browser does not support GPS."); return; }
+    setNotice("Requesting GPS permission…");
     navigator.geolocation.getCurrentPosition((position) => {
-      const point = [position.coords.latitude, position.coords.longitude];
-      setLocation({ lat: point[0], lon: point[1] });
-      const L = window.L;
-      if (L && mapRef.current) {
-        if (!userMarkerRef.current) userMarkerRef.current = L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your current location");
-        else userMarkerRef.current.setLatLng(point);
-        mapRef.current.setView(point, 16);
-      }
-      setNotice("Your current location is shown. If this is your first visit, allow location access when prompted.");
-    }, (error) => setNotice(error.code === 1 ? "Location permission was denied. Allow location access in your device settings and try again." : "Could not get your location. Check GPS and internet, then try again."), { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+      const point = { lat: position.coords.latitude, lon: position.coords.longitude };
+      setLocation(point); flyTo(point);
+      setNotice("GPS position received. Your location marker is now on the Earth.");
+    }, (cause) => setNotice(cause.code === 1 ? "Location permission was denied. Enable it in device settings." : "GPS unavailable. Check location services and try again."), { enableHighAccuracy: true, timeout: 18000, maximumAge: 5000 });
   }
 
   function toggleTracking() {
     if (tracking) {
-      if (watchIdRef.current != null) navigator.geolocation?.clearWatch(watchIdRef.current);
-      watchIdRef.current = null; setTracking(false); setNotice("Live location tracking stopped."); return;
+      if (watchRef.current != null) navigator.geolocation?.clearWatch(watchRef.current);
+      watchRef.current = null; setTracking(false); setNotice("Live GPS tracking stopped."); return;
     }
-    if (!navigator.geolocation) { setNotice("Live location is not supported by this device."); return; }
-    setTracking(true);
-    watchIdRef.current = navigator.geolocation.watchPosition((position) => {
-      const point = [position.coords.latitude, position.coords.longitude];
-      setLocation({ lat: point[0], lon: point[1] });
-      const L = window.L;
-      if (L && mapRef.current) {
-        if (!userMarkerRef.current) userMarkerRef.current = L.circleMarker(point, { radius: 8, color: "#e9fbff", weight: 3, fillColor: "#37b9ff", fillOpacity: 1 }).addTo(mapRef.current).bindPopup("Your live location");
-        else userMarkerRef.current.setLatLng(point);
-        if (!routeLayerRef.current) mapRef.current.panTo(point);
-      }
-    }, (error) => { setTracking(false); setNotice(error.code === 1 ? "Location permission was denied." : "Live location update failed. Check GPS and try again."); }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
-    setNotice("Live location tracking is on while this page is open.");
+    if (!navigator.geolocation) { setNotice("Live GPS is not supported on this device."); return; }
+    watchRef.current = navigator.geolocation.watchPosition((position) => {
+      setLocation({ lat: position.coords.latitude, lon: position.coords.longitude });
+    }, (cause) => { setTracking(false); setNotice(cause.code === 1 ? "GPS permission denied." : "Live GPS update failed."); }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 18000 });
+    setTracking(true); setNotice("Live GPS updates are active while AURORA Maps is open.");
   }
 
   async function searchDestination(event) {
     event?.preventDefault();
-    const query = destination.trim();
-    if (!query) { setNotice("Enter a place or destination first."); return; }
-    setBusy(true);
-    setRouteInfo(null);
-    setNotice("Finding destination…");
-    if (routeLayerRef.current) { routeLayerRef.current.remove(); routeLayerRef.current = null; }
-    if (destinationMarkerRef.current) { destinationMarkerRef.current.remove(); destinationMarkerRef.current = null; }
+    const value = query.trim();
+    if (!value) { setNotice("Type a place, address or destination first."); return; }
+    setBusy(true); setRouteInfo(null); setNotice("Searching the world for " + value + "…");
     try {
-      const geocodeResponse = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(query), {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(12000)
-      });
-      if (!geocodeResponse.ok) throw new Error("Destination search is temporarily unavailable.");
-      const results = await geocodeResponse.json();
-      if (!results.length) throw new Error("I couldn't find that place. Try adding the city or state.");
-      const target = { lat: Number(results[0].lat), lon: Number(results[0].lon), label: results[0].display_name };
-      const L = window.L;
-      if (L && mapRef.current) {
-        if (destinationMarkerRef.current) destinationMarkerRef.current.remove();
-        destinationMarkerRef.current = L.marker([target.lat, target.lon]).addTo(mapRef.current).bindPopup(target.label);
-        destinationMarkerRef.current.openPopup();
-      }
+      const response = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(value), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw new Error("Place search is temporarily unavailable.");
+      const results = await response.json();
+      if (!results.length) throw new Error("No matching place found. Try adding a city or country.");
+      const point = { lat: Number(results[0].lat), lon: Number(results[0].lon), label: results[0].display_name };
+      setDestination(point); flyTo(point);
       if (location) {
-        const routeResponse = await fetch("https://router.project-osrm.org/route/v1/driving/" + location.lon + "," + location.lat + ";" + target.lon + "," + target.lat + "?overview=full&geometries=geojson&steps=true", { signal: AbortSignal.timeout(12000) });
+        const routeResponse = await fetch("https://router.project-osrm.org/route/v1/driving/" + location.lon + "," + location.lat + ";" + point.lon + "," + point.lat + "?overview=full&geometries=geojson", { signal: AbortSignal.timeout(15000) });
         if (routeResponse.ok) {
-          const routeData = await routeResponse.json();
-          const route = routeData.routes?.[0];
-          if (route && L && mapRef.current) {
-            if (routeLayerRef.current) routeLayerRef.current.remove();
-            routeLayerRef.current = L.geoJSON(route.geometry, { style: { color: "#35b9ff", weight: 6, opacity: .9, lineCap: "round", lineJoin: "round" } }).addTo(mapRef.current);
-            mapRef.current.fitBounds(routeLayerRef.current.getBounds(), { padding: [35, 35] });
-            setRouteInfo({ distance: route.distance, duration: route.duration, target });
-            setNotice("Route shown. Directions and ETA are estimates; follow road signs and local guidance.");
+          const data = await routeResponse.json(), route = data.routes?.[0];
+          if (route && sceneRef.current) {
+            const { THREE, routeGroup } = sceneRef.current;
+            routeGroup.clear();
+            const coordinates = route.geometry.coordinates;
+            const points = coordinates.filter((_, index) => index % Math.max(1, Math.floor(coordinates.length / 500)) === 0).map(([lon, lat]) => latLonVector(THREE, lat, lon, 2.012));
+            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x54eaff, transparent: true, opacity: 0.95 }));
+            routeGroup.add(line);
+            setRouteInfo({ label: point.label, distance: route.distance, duration: route.duration });
+            setNotice("Route preview drawn on the globe. Road routing is an estimate from a public demo service.");
             return;
           }
         }
       }
-      if (L && mapRef.current) mapRef.current.setView([target.lat, target.lon], 15);
-      setRouteInfo({ target });
-      setNotice("Destination found. Tap Use my location first to calculate a route from where you are.");
-    } catch (error) {
-      setNotice(error.name === "TimeoutError" || error.name === "AbortError"
-        ? "The map service took too long to respond. Please try again."
-        : error.message || "Could not find that destination.");
+      setNotice("Destination located on Earth. Add your GPS position to request a road route.");
+    } catch (cause) {
+      setNotice(cause.name === "TimeoutError" || cause.name === "AbortError" ? "The place search took too long. Try again." : cause.message || "Could not search for that destination.");
     } finally { setBusy(false); }
   }
 
-  function stopTrackingForMapSwitch() {
-    if (watchIdRef.current != null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-    }
-    watchIdRef.current = null;
-    setTracking(false);
+  function changeZoom(delta) {
+    const state = sceneRef.current; if (!state) return;
+    state.camera.position.z = Math.max(4.4, Math.min(12, state.camera.position.z + delta));
+    setZoom(Math.round(810 / state.camera.position.z) / 100);
+  }
+  function resetView() {
+    const state = sceneRef.current; if (!state) return;
+    state.group.rotation.set(0, 0, 0); state.group.quaternion.identity(); state.camera.position.set(0, 0, 8.1); setZoom(1);
+    setNotice("Earth view reset.");
   }
 
-  function openGoogle(modeName) {
-    stopTrackingForMapSwitch();
-    setGoogleView(modeName);
-    setMode(modeName);
-    setNotice(modeName === "satellite" ? "Loading Google Maps satellite imagery inside this map box…" : modeName === "streetview" ? "Loading Google Maps street-level imagery inside this map box where available…" : "Loading Google Maps directions inside this map box…");
-  }
-
-  function googleEmbedUrl() {
-    const query = destination.trim() || (location ? location.lat + "," + location.lon : "Nigeria");
-    if (googleView === "satellite") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&t=k&z=15&output=embed";
-    if (googleView === "streetview") return "https://maps.google.com/maps?q=" + encodeURIComponent(query) + "&layer=c&output=embed";
-    const origin = location ? location.lat + "," + location.lon : "Nigeria";
-    return "https://maps.google.com/maps?saddr=" + encodeURIComponent(origin) + "&daddr=" + encodeURIComponent(destination.trim() || query) + "&output=embed";
-  }
-
-  const fmtDistance = (metres) => metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : Math.round(metres) + " m";
-  const fmtDuration = (seconds) => { const mins = Math.round(seconds / 60); return mins >= 60 ? Math.floor(mins / 60) + " hr " + (mins % 60) + " min" : mins + " min"; };
-
-  return <section className="utility-page aurora-maps-page">
-    <div className="maps-heading"><div><p className="panel-eyebrow"><MapPinned size={14}/> AURORA NAVIGATION</p><h1>Maps<span>.</span></h1><p className="utility-intro">Explore places, locate yourself, and plan a journey.</p></div><span className={"maps-live-badge " + (tracking ? "is-live" : "")}><i/>{tracking ? "LOCATION LIVE" : "MAP READY"}</span></div>
-    <div className="maps-workspace">
-      <aside className="maps-controls">
-        <form className="maps-search" onSubmit={searchDestination}><Search size={18}/><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Where do you want to go?" aria-label="Destination" /><button type="submit" disabled={busy} aria-label="Search destination">{busy ? <span className="mini-loader"/> : <Navigation size={17}/>}</button></form>
-        <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Use my location</strong><small>Show where I am now</small></span></button>
-        <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><span className="maps-pulse-dot"/><span><strong>{tracking ? "Stop live location" : "Live location tracking"}</strong><small>{tracking ? "Updates while this page is open" : "Requires location permission"}</small></span></button>
-        <div className="maps-mode-row"><button type="button" className={mode === "street" ? "maps-mode-active" : ""} onClick={() => { stopTrackingForMapSwitch(); setGoogleView(""); setMode("street"); setNotice("Built-in street map is active."); }}><MapPinned size={15}/> Map</button><button type="button" onClick={() => openGoogle("satellite")}><Satellite size={15}/> Satellite</button></div>
-        <button type="button" className="maps-action" onClick={() => openGoogle("streetview")}><ExternalLink size={17}/><span><strong>Street-level view</strong><small>Google ground-level imagery where available</small></span><ArrowLeft size={14} style={{ transform: "rotate(135deg)" }}/></button>
-        <button type="button" className="maps-action" onClick={() => openGoogle("directions")}><Route size={17}/><span><strong>Google Maps directions</strong><small>Fallback for full navigation and traffic</small></span><ExternalLink size={14}/></button>
-        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">DESTINATION</p><strong>{routeInfo.target.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Route size={15}/>{fmtDistance(routeInfo.distance)}</span><span><Clock3 size={15}/>{fmtDuration(routeInfo.duration)}</span></div>}<small>Routing is provided by a public demo service and may be limited or unavailable.</small></div>}
+  return <section className="utility-page aurora-maps-page aurora-cosmos-page">
+    <header className="maps-heading cosmos-heading">
+      <div><p className="panel-eyebrow"><Globe2 size={14}/> AURORA COSMOS · PLANETARY NAVIGATION</p><h1>Cosmic Earth<span>.</span></h1><p className="utility-intro">Explore our planet in an interactive 3D space.</p></div>
+      <span className={"maps-live-badge " + (tracking ? "is-live" : "")}><i/>{tracking ? "GPS LIVE" : ready ? "3D SYSTEM ONLINE" : "INITIALISING"}</span>
+    </header>
+    <div className="cosmos-shell">
+      <div className="cosmos-viewport">
+        <div className="cosmos-star-glow"/>
+        <div ref={hostRef} className="cosmos-globe-host"/>
+        {!ready && !error && <div className="cosmos-loading"><span className="mini-loader"/> Initialising planetary engine…</div>}
+        {error && <div className="cosmos-loading cosmos-error"><Globe2 size={28}/><strong>Cosmic Earth unavailable</strong><span>{error}</span><button type="button" onClick={() => window.location.reload()}>Reload map</button></div>}
+        <div className="cosmos-hud cosmos-hud-top"><span><Activity size={13}/> PLANETARY VIEW</span><span>EARTH · 3D</span></div>
+        <div className="cosmos-hud cosmos-hud-bottom"><span><i/> {satellite ? "BLUE MARBLE / SATELLITE-STYLE TEXTURE" : "EARTH DAYLIGHT TEXTURE"}</span><span>ZOOM {zoom.toFixed(2)}×</span></div>
+        <div className="cosmos-globe-controls">
+          <button type="button" onClick={() => changeZoom(-0.7)} aria-label="Zoom in"><ZoomIn size={17}/></button>
+          <button type="button" onClick={() => changeZoom(0.7)} aria-label="Zoom out"><ZoomOut size={17}/></button>
+          <button type="button" onClick={resetView} aria-label="Reset globe view"><RotateCcw size={16}/></button>
+        </div>
+        <div className="cosmos-compass"><Compass size={17}/><span>N</span></div>
+      </div>
+      <aside className="cosmos-console">
+        <div className="cosmos-console-title"><span><Sparkles size={16}/></span><div><strong>Mission control</strong><small>EARTH INTERFACE</small></div></div>
+        <form className="maps-search cosmos-search" onSubmit={searchDestination}><Search size={17}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search any place on Earth…" aria-label="Search destination"/><button type="submit" disabled={busy} aria-label="Search">{busy ? <span className="mini-loader"/> : <ArrowUpRight size={17}/>}</button></form>
+        <button type="button" className="maps-action" onClick={useCurrentLocation}><LocateFixed size={17}/><span><strong>Locate my position</strong><small>Place GPS marker on Earth</small></span></button>
+        <button type="button" className={"maps-action " + (tracking ? "maps-action-active" : "")} onClick={toggleTracking}><Crosshair size={17}/><span><strong>{tracking ? "Stop live GPS" : "Enable live GPS"}</strong><small>{tracking ? "Updating while page is open" : "Requires location permission"}</small></span></button>
+        <button type="button" className={"maps-action " + (satellite ? "cosmos-layer-active" : "")} onClick={() => setSatellite((value) => !value)}><Satellite size={17}/><span><strong>{satellite ? "Satellite-style texture" : "Earth daylight texture"}</strong><small>Toggle planetary surface appearance</small></span></button>
+        <button type="button" className="maps-action" onClick={() => setAutoRotate((value) => !value)}>{autoRotate ? <Pause size={17}/> : <Play size={17}/>}<span><strong>{autoRotate ? "Pause Earth rotation" : "Resume Earth rotation"}</strong><small>Drag the globe to rotate manually</small></span></button>
+        {routeInfo && <div className="maps-route-card"><p className="panel-eyebrow">ROUTE PREVIEW</p><strong>{routeInfo.label}</strong>{routeInfo.distance != null && <div className="maps-route-stats"><span><Navigation size={14}/>{(routeInfo.distance / 1000).toFixed(1)} km</span><span>{Math.round(routeInfo.duration / 60)} min</span></div>}<small>Public routing preview. Follow road signs and local guidance.</small></div>}
         <p className="maps-note" role="status">{notice}</p>
+        {location && <div className="cosmos-coordinate"><span>GPS COORDINATES</span><strong>{location.lat.toFixed(5)}°, {location.lon.toFixed(5)}°</strong></div>}
+        {destination && <div className="cosmos-coordinate"><span>SELECTED DESTINATION</span><strong>{destination.lat.toFixed(4)}°, {destination.lon.toFixed(4)}°</strong></div>}
       </aside>
-      <div className="maps-map-frame">{googleView ? <><iframe key={googleView + ":" + destination + ":" + (location ? location.lat + "," + location.lon : "no-location")} className="maps-google-embed" src={googleEmbedUrl()} title={googleView === "satellite" ? "Google Maps satellite view" : googleView === "streetview" ? "Google Maps street-level view" : "Google Maps directions"} loading="lazy" allowFullScreen referrerPolicy="no-referrer-when-downgrade" /><button type="button" className="maps-return-map" onClick={() => { stopTrackingForMapSwitch(); setGoogleView(""); setMode("street"); setNotice("Returned to AURORA built-in map."); }}><MapPinned size={14}/> AURORA Map</button><button type="button" className="maps-locate-overlay" onClick={useCurrentLocation} aria-label="Show my current location"><LocateFixed size={16}/> My location</button><a className="maps-open-full" href={googleEmbedUrl().replace("&output=embed", "")} target="_blank" rel="noreferrer"><ExternalLink size={13}/> Open full map</a></> : <><div ref={mapNodeRef} className="maps-leaflet-map" aria-label="Interactive map" />{!mapReady && !mapError && <div className="maps-loading"><span className="mini-loader"/> Loading interactive map…</div>}{mapError && <div className="maps-error">{mapError}<button type="button" className="outline-action" onClick={() => window.location.reload()}>Reload map</button></div>}<div className="maps-map-caption">Interactive street map · © OpenStreetMap contributors</div></>}</div>
     </div>
-    <div className="maps-disclaimer">Satellite imagery, Street View, traffic and full turn-by-turn guidance open in Google Maps where supported. Built-in routing uses public services for prototype use and is not a guaranteed emergency or commercial navigation service.</div>
+    <footer className="maps-disclaimer">3D Earth uses a global planetary texture, not live satellite video. GPS requires your permission. Search and road-route data use public OpenStreetMap community services and may be delayed or unavailable; routing is a preview, not emergency navigation.</footer>
   </section>;
 }
