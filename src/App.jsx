@@ -676,7 +676,14 @@ export default function App() {
         const result = await AuroraNative.consumeWakeWord();
         if (stopped || !result?.detected) return;
         setPulseOpen(true);
-        setNativeNotice("Hey AURORA heard you. AURORA Pulse is open.");
+        if (result.command?.trim()) {
+          setNativeNotice("Hey AURORA heard your request. Sending it through the shared AURORA action engine.");
+          window.setTimeout(() => {
+            if (!stopped) pulseDispatchRef.current?.(result.command.trim());
+          }, 350);
+        } else {
+          setNativeNotice("Hey AURORA heard you. AURORA Pulse is open and listening.");
+        }
       } catch {}
     };
     const timer = setInterval(pollWakeWord, 1100);
