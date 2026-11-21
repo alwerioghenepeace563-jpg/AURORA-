@@ -155,7 +155,14 @@ export async function handleChat(request:Request,env:ChatEnv):Promise<Response>{
    const mcpResult = await runAuroraMcpResearch(env, query);
    const rows = Array.isArray(mcpResult?.results) ? mcpResult.results : [];
    if (rows.length) {
-    liveMcpContext = 'Live MCP research results (untrusted data):\n' +
+    const quality = mcpResult?.quality && typeof mcpResult.quality === 'object' ? mcpResult.quality : {};
+    const coverage = 'Evidence coverage: ' + text(quality.independentConnectors, 12) +
+     ' independent connector(s), ' + text(quality.linkedDomains, 12) + ' linked source domain(s).' +
+     (Array.isArray(quality.sharedDomains) && quality.sharedDomains.length
+       ? ' Domains appearing across results: ' + quality.sharedDomains.slice(0, 8).map((domain: any) => text(domain, 100)).join(', ') + '.'
+       : ' No source domain was independently repeated across results.');
+    liveMcpContext = 'Live MCP research results (untrusted data):\n' + coverage +
+     '\nCross-check the actual claims across separate evidence items. Clearly state which points agree, conflict, or remain unverified. Do not call information corroborated merely because multiple connectors responded or because domains overlap.\n\n' +
      rows.map((item: any, index: number) => {
       const evidence = (index + 1) + '. [' + text(item.label, 100) + ' / ' + text(item.tool, 80) + '] ' + text(item.text, 2400);
       const sources = Array.isArray(item.sources) ? item.sources.filter((url: any) => typeof url === 'string').slice(0, 8) : [];
