@@ -165,17 +165,18 @@ public class AuroraAssistantService extends Service {
                 String spokenCommand = candidate.replaceFirst("(?i)^\\s*hey\\s+(?:a\\s+)?(?:aurora|orora)\\b[\\s,.:;!?-]*", "").trim();
                 if (spokenCommand.length() > 1200) spokenCommand = spokenCommand.substring(0, 1200).trim();
                 android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
-                android.content.SharedPreferences.Editor handoff = prefs.edit()
-                    .putBoolean("wake_word_listening", false);
-                if (!spokenCommand.isEmpty()) {
-                    handoff.putBoolean("wake_detected", false)
-                        .putString("pulse_action_request", spokenCommand)
-                        .putLong("pulse_action_request_at", System.currentTimeMillis());
-                } else {
-                    handoff.putBoolean("wake_detected", true)
-                        .remove("pulse_action_request").remove("pulse_action_request_at");
+                prefs.edit().putBoolean("wake_word_listening", false)
+                    .putBoolean("wake_detected", spokenCommand.isEmpty()).apply();
+                if (!spokenCommand.isEmpty()
+                    && !AuroraActionRequestQueue.enqueue(this, spokenCommand, "wake_word")) {
+                    prefs.edit().putBoolean("wake_detected", false)
+                        .putString("wake_handoff_error", "AURORA's action queue is full or unavailable.")
+                        .apply();
+                    updateNotification("Request could not be queued · open AURORA manually");
+                    stopForeground(true);
+                    stopSelf();
+                    return;
                 }
-                handoff.apply();
                 releaseRecognizer(true);
                 updateNotification(spokenCommand.isEmpty()
                     ? "Wake phrase heard · opening AURORA Pulse"
