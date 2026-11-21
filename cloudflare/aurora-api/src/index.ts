@@ -126,7 +126,7 @@ async function handleMetadata(request: Request, env: Env, route: string): Promis
         sharedProviderState: sharedState, adminCodeEditing: githubCodeEdit,
         remoteMcp: getMcpStatus(env),
         researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) },
-        internalCalling: { durableObjectConfigured: Boolean(env.AURORA_CALLS), pushGatewayConfigured: Boolean(env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN), deliveryMode: env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN ? "push-and-inbox-polling" : "inbox-polling-while-app-open" }
+        internalCalling: { durableObjectConfigured: Boolean(env.AURORA_CALLS), fcmConfigured: Boolean(env.FCM_PROJECT_ID && env.FCM_CLIENT_EMAIL && env.FCM_PRIVATE_KEY), pushGatewayConfigured: Boolean(env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN), deliveryMode: env.FCM_PROJECT_ID && env.FCM_CLIENT_EMAIL && env.FCM_PRIVATE_KEY ? "firebase-cloud-messaging-and-inbox-polling" : env.AURORA_PUSH_GATEWAY_URL && env.AURORA_PUSH_GATEWAY_TOKEN ? "external-push-gateway-and-inbox-polling" : "inbox-polling-while-app-open" }
       }
     }, headers);
   }
