@@ -58,6 +58,7 @@ try {
   assert.equal(health.migration.adminProviderDiagnosticsMoved, true);
   assert.equal(health.migration.versionedChatMoved, true);
   assert.equal(health.migration.adminCodeEditingMoved, true);
+  assert.equal(health.migration.mcpResearchMoved, true);
   assert.equal(health.migration.frontendMoved, false);
   assert.equal(health.migration.frontendHostingConfigured, true);
   assert.equal(health.safeToSwitchClients, false);
@@ -97,6 +98,10 @@ try {
   assert.equal(metadata.ok, true);
   assert.deepEqual(metadata.configuredProviders, []);
   assert.equal(metadata.integrations.userScopedData, false);
+  assert.equal(metadata.integrations.remoteMcp.defaultResearch, 'exa');
+  assert.ok(metadata.integrations.remoteMcp.connectors.some(item => item.id === 'exa' && item.configured));
+  assert.ok(metadata.integrations.remoteMcp.connectors.some(item => item.id === 'firecrawl' && item.configured && !item.authenticationConfigured));
+  assert.equal(metadata.integrations.remoteMcp.cloudflareBrowserRun.configured, false);
   assert.equal(metadataResponse.headers.get('access-control-allow-origin'), allowedOrigin);
 
   await expectStatus('/api/meta?handler=public-config', 503);

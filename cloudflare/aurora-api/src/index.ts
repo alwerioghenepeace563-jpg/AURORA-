@@ -1,4 +1,6 @@
 import { handleChat } from './chat';
+import { getMcpStatus } from './mcp';
+import { researchMemoryConfigured } from './research-memory';
 import { handleResearch } from './research';
 import { handleData } from './data';
 import { handleVoice } from './voice';
@@ -113,11 +115,8 @@ async function handleMetadata(request: Request, env: Env, route: string): Promis
         supabaseAuth: supabase, userScopedData: supabase, imageGeneration: Boolean(env.GEMINI_API_KEY),
         voiceKey, voiceId, voice: voiceKey && voiceId, voiceTextBridge: voiceText,
         sharedProviderState: sharedState, adminCodeEditing: githubCodeEdit,
-        remoteMcp: {
-          exa: env.AURORA_EXA_ENABLED !== "false",
-          firecrawl: Boolean(env.FIRECRAWL_API_KEY || env.FIRECRAWL_ACCESS_TOKEN),
-          cloudflareBrowserRun: Boolean(env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_API_TOKEN && env.AURORA_CLOUDFLARE_BROWSER_ENABLED !== "false")
-        }
+        remoteMcp: getMcpStatus(env),
+        researchMemory: { configured: researchMemoryConfigured(env) && Boolean(env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.VITE_SUPABASE_API) && Boolean(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY) }
       }
     }, headers);
   }
@@ -250,6 +249,7 @@ export default {
           adminProviderDiagnosticsMoved: true,
           versionedChatMoved: true,
           adminCodeEditingMoved: true,
+          mcpResearchMoved: true,
           rowLevelSecurityMode: "supabase-caller-jwt-forwarding",
           rowLevelSecurityVerified: false
         }
