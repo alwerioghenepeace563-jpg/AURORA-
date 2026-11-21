@@ -80,7 +80,7 @@ type AuroraNativePlugin = {
   showOverlay(): Promise<{ requested: boolean; shown: boolean; note?: string }>;
   hideOverlay(): Promise<{ hidden: boolean }>;
   getOverlayStatus(): Promise<{ shown: boolean; note: string }>;
-  consumeWakeWord(): Promise<{ detected: boolean; command?: string }>;
+  consumeWakeWord(): Promise<{ detected: boolean }>;
   consumePulseOpenRequest(): Promise<{ requested: boolean }>;
   startAssistantService(): Promise<{ started: boolean; note?: string }>;
   stopAssistantService(): Promise<{ stopped: boolean }>;
