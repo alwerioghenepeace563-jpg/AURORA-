@@ -22,6 +22,7 @@ assert.match(calling, /MAX_SIGNAL_BYTES/, "WebRTC signaling payloads must be bou
 assert.match(calling, /AURORA_PUSH_GATEWAY_URL/, "Push delivery must use a server-side gateway");
 assert.match(worker, /url\.pathname\.startsWith\("\/api\/calls"\)/, "Worker must route calling API requests");
 assert.ok(worker.includes("fcmConfigured"), "Health must expose FCM readiness");
+assert.ok(worker.includes("export { AuroraCallsDurableObject }"), "Worker entrypoint must export its bound Durable Object class");
 assert.match(wrangler, /"name": "AURORA_CALLS"/, "Worker must bind the calling Durable Object");
 assert.match(wrangler, /"new_sqlite_classes": \["AuroraCallsDurableObject"\]/, "Durable Object migration must be declared");
 assert.match(ui, /Schedule AURORA call/, "The calling workspace must schedule calls");
