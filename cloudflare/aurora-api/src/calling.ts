@@ -175,8 +175,11 @@ export class AuroraCallsDurableObject {
   private async push(payload: any): Promise<void> {
     const devices = await this.state.storage.get<Device[]>("devices") || [];
     if (!devices.length) return;
+    const targetDeviceId = safeText(payload?.targetDeviceId, 80);
+    const recipients = targetDeviceId ? devices.filter(d => d.id === targetDeviceId) : devices;
+    if (!recipients.length) return;
     const projectId = this.env.FCM_PROJECT_ID || "";
-    const androidDevices = devices.filter(d => d.platform === "android" && d.token);
+    const androidDevices = recipients.filter(d => d.platform === "android" && d.token);
     let fcmDelivered = false;
     if (projectId && this.env.FCM_CLIENT_EMAIL && this.env.FCM_PRIVATE_KEY && androidDevices.length) {
       try {
@@ -198,7 +201,7 @@ export class AuroraCallsDurableObject {
     if (!endpoint || !secret) return;
     let parsed: URL;
     try { parsed = new URL(endpoint); if (parsed.protocol !== "https:") return; } catch { return; }
-    const gatewayDevices = fcmDelivered ? devices.filter(d => d.platform === "web" && d.token) : devices;
+    const gatewayDevices = fcmDelivered ? recipients.filter(d => d.platform === "web" && d.token) : recipients;
     if (!gatewayDevices.length) return;
     try { await fetch(parsed.toString(), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret }, body: JSON.stringify({ devices: gatewayDevices.map(({id,token,platform}) => ({ id, token, platform })), payload }), signal: AbortSignal.timeout(10_000) }); } catch { /* pending calls remain available in the authenticated inbox */ }
   }
