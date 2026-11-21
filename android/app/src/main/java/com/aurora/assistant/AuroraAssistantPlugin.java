@@ -90,18 +90,13 @@ public class AuroraAssistantPlugin extends Plugin {
 
     @PluginMethod
     public void consumePulseActionRequest(PluginCall call) {
-        android.content.SharedPreferences prefs = getContext().getSharedPreferences("aurora_assistant", 0);
-        String query = "";
-        synchronized (prefs) {
-            String stored = prefs.getString("pulse_action_request", "");
-            long createdAt = prefs.getLong("pulse_action_request_at", 0L);
-            if (stored != null && !stored.trim().isEmpty()
-                && createdAt > 0L && System.currentTimeMillis() - createdAt <= 10 * 60 * 1000L) {
-                query = stored.trim();
-            }
-            prefs.edit().remove("pulse_action_request").remove("pulse_action_request_at").commit();
-        }
-        call.resolve(new JSObject().put("query", query));
+        org.json.JSONObject request = AuroraActionRequestQueue.dequeue(getContext());
+        JSObject result = new JSObject();
+        result.put("query", request.optString("query", ""));
+        result.put("requestId", request.optString("requestId", ""));
+        result.put("source", request.optString("source", ""));
+        result.put("createdAt", request.optLong("createdAt", 0L));
+        call.resolve(result);
     }
 
     @PluginMethod
