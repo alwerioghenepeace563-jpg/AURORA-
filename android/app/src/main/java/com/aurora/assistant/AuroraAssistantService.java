@@ -164,27 +164,41 @@ public class AuroraAssistantService extends Service {
                 setListeningState(false);
                 String spokenCommand = candidate.replaceFirst("(?i)^\\s*hey\\s+(?:a\\s+)?(?:aurora|orora)\\b[\\s,.:;!?-]*", "").trim();
                 if (spokenCommand.length() > 1200) spokenCommand = spokenCommand.substring(0, 1200).trim();
-                getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
-                    .putBoolean("wake_detected", true)
-                    .putString("wake_command", spokenCommand)
-                    .putLong("wake_command_at", System.currentTimeMillis())
-                    .putBoolean("wake_word_listening", false).apply();
+                android.content.SharedPreferences prefs = getSharedPreferences("aurora_assistant", MODE_PRIVATE);
+                android.content.SharedPreferences.Editor handoff = prefs.edit()
+                    .putBoolean("wake_word_listening", false);
+                if (!spokenCommand.isEmpty()) {
+                    handoff.putBoolean("wake_detected", false)
+                        .putString("pulse_action_request", spokenCommand)
+                        .putLong("pulse_action_request_at", System.currentTimeMillis());
+                } else {
+                    handoff.putBoolean("wake_detected", true)
+                        .remove("pulse_action_request").remove("pulse_action_request_at");
+                }
+                handoff.apply();
                 releaseRecognizer(true);
                 updateNotification(spokenCommand.isEmpty()
                     ? "Wake phrase heard · opening AURORA Pulse"
                     : "Wake phrase and request heard · opening AURORA");
-                // Release the wake-word microphone before Pulse starts its conversational listener.
+                // A full spoken command opens the main app and enters its shared Pulse dispatcher.
+                // A bare wake phrase opens the floating Pulse overlay for a fresh listening turn.
                 try {
-                    Intent pulse = new Intent(this, AuroraOverlayService.class);
-                    pulse.setAction(AuroraOverlayService.ACTION_SHOW);
-                    pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, spokenCommand.isEmpty());
-                    // Start the overlay while this microphone foreground service still
-                    // provides Android's foreground-start exemption.
-                    androidx.core.content.ContextCompat.startForegroundService(this, pulse);
+                    if (!spokenCommand.isEmpty()) {
+                        Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+                        if (launch == null) throw new IllegalStateException("AURORA launch activity is unavailable.");
+                        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        startActivity(launch);
+                    } else {
+                        Intent pulse = new Intent(this, AuroraOverlayService.class);
+                        pulse.setAction(AuroraOverlayService.ACTION_SHOW);
+                        pulse.putExtra(AuroraOverlayService.EXTRA_AUTO_LISTEN, true);
+                        androidx.core.content.ContextCompat.startForegroundService(this, pulse);
+                    }
                 } catch (Exception launchError) {
-                    android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to Pulse.", launchError);
-                    getSharedPreferences("aurora_assistant", MODE_PRIVATE).edit()
-                        .putBoolean("wake_detected", false).putString("wake_handoff_error", launchError.getMessage()).apply();
+                    android.util.Log.e("AURORAAssistant", "Could not hand wake phrase to AURORA.", launchError);
+                    prefs.edit().putBoolean("wake_detected", false)
+                        .remove("pulse_action_request").remove("pulse_action_request_at")
+                        .putString("wake_handoff_error", launchError.getMessage()).apply();
                 }
                 stopForeground(true);
                 stopSelf();
