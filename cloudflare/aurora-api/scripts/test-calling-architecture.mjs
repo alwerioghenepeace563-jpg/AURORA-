@@ -17,6 +17,7 @@ assert.match(calling, /deviceLimit: 10/, "Device registration must be bounded");
 assert.ok(calling.includes("optional push token"), "Devices must register before an FCM token is available");
 assert.ok(calling.includes("getFcmAccessToken"), "Worker must mint server-side FCM OAuth tokens");
 assert.ok(calling.includes("fcm.googleapis.com/v1/projects"), "Worker must deliver Android push through FCM HTTP v1");
+assert.ok(calling.includes("const recipients = targetDeviceId"), "Device-specific signalling push must not notify unrelated devices");
 assert.ok(calling.includes("activeCall.answeredBy"), "Call signalling must be restricted to the device that answered");
 assert.match(calling, /MAX_SIGNAL_BYTES/, "WebRTC signaling payloads must be bounded");
 assert.match(calling, /AURORA_PUSH_GATEWAY_URL/, "Push delivery must use a server-side gateway");
