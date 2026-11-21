@@ -176,3 +176,12 @@ The `POST /api/media-generate` route runs in the Cloudflare Worker when the
 Supabase URL, anon key, and Gemini key are configured. It verifies the caller
 before contacting the provider and returns generated image data to the
 authenticated client. Keep provider credentials in Worker secrets only.
+
+
+## AURORA Connect — early WebRTC calling
+
+AURORA Connect is an authenticated, two-person internet voice calling prototype. The Worker verifies a Supabase access token at `/api/connect/ticket`, then returns a one-use ticket with a 90-second lifetime. The ticket is consumed by the room Durable Object during WebSocket upgrade; the Supabase bearer token is not placed in the WebSocket URL. Room codes are short-lived invitation identifiers, not user identities or access credentials by themselves.
+
+The Durable Object relays only WebRTC offer, answer, ICE-candidate, and hangup signaling. It limits rooms to two connected participants and rejects oversized or unsupported signaling messages. Voice media is not proxied through the Worker; WebRTC negotiates a direct encrypted peer connection.
+
+**Important limitations:** a public STUN service is configured for initial connectivity, but no TURN relay is configured. Some carrier networks, strict NATs, or firewalls will therefore prevent calls from connecting. A production-ready calling service needs a trusted TURN provider or self-hosted TURN infrastructure, abuse controls, call invitations/consent UX, rate limits, and real-device/network testing. This does not call ordinary mobile or landline numbers. The Worker and Durable Object must be deployed before the feature can connect; repository changes alone do not activate it.
