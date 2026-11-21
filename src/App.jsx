@@ -7,7 +7,7 @@ import { auroraRuntime } from "./core/aurora-runtime";
 import { connectAuroraNativeLifecycle } from "./core/aurora-native-lifecycle";
 import { createPortal } from "react-dom";
 import MapsWorkspace from "./MapsWorkspace";
-import AuroraCallsWorkspace from "./components/AuroraCallsWorkspace";
+import AuroraCallsWorkspace from "./components/AuroraCallsWorkspace";\nimport AuroraCallMonitor from "./components/AuroraCallMonitor";
 import KnowledgeUniverseWorkspace from "./components/KnowledgeUniverseWorkspace";
 import CreativeLearningWorkspace from "./components/CreativeLearningWorkspace";
 import PredictiveDashboard from "./components/PredictiveDashboard";
@@ -2912,7 +2912,7 @@ export default function App() {
       </AnimatePresence>,
       document.body
       )}
-      <BottomNav active={page} onNavigate={navigate} />
+      <AuroraCallMonitor authSession={authSession} onReply={(text) => sendMessage(text)} onSpeak={(text) => speak(text)}/>\n      <BottomNav active={page} onNavigate={navigate} />
       <div className="desktop-footer"><span>DESIGNED FOR CLARITY</span><span className="footer-divider" /><span>POWERED BY POSSIBILITY</span></div>
     </div>
   );
