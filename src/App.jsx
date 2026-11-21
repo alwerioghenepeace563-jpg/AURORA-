@@ -576,6 +576,7 @@ export default function App() {
   const [pulseWorkspaceMode, setPulseWorkspaceMode] = useState("conversation");
   const [pulseConversationPosition, setPulseConversationPosition] = useState({ x: 0, y: 0 });
   const pulseDragRef = useRef(null);
+  const pulseDispatchRef = useRef(null);
   const pulseRecognitionRef = useRef(null);
   const pulsePanelRef = useRef(null);
   const pulseNativeSpeechListenersRef = useRef([]);
@@ -651,6 +652,16 @@ export default function App() {
         if (pulseRequest?.requested) {
           setPulseOpen(true);
           setNativeNotice("AURORA Pulse opened from the assistant gesture.");
+        }
+
+        const sharedPulseAction = await AuroraNative.consumePulseActionRequest();
+        if (stopped) return;
+        if (sharedPulseAction?.query) {
+          setPulseOpen(true);
+          setNativeNotice("Pulse request received. Running it through AURORA's shared action engine.");
+          window.setTimeout(() => {
+            if (!stopped) pulseDispatchRef.current?.(sharedPulseAction.query);
+          }, 250);
         }
 
         const sessionQuery = await AuroraNative.consumeAssistantSessionQuery();
@@ -1961,6 +1972,8 @@ export default function App() {
       setPulseMessages(items => items.map(item => item.id === pendingId ? { ...item, content: String(error?.message || "I couldn't connect just now. Please try again.") + "\n\n" + JSON.stringify(statusCard), pending: false } : item));
     } finally { setPulseBusy(false); }
   }
+
+  pulseDispatchRef.current = sendPulseMessage;
 
   function cleanupPulseSpeech() {
     if (pulseInterruptionReleaseRef.current) { pulseInterruptionReleaseRef.current(); pulseInterruptionReleaseRef.current = null; }
