@@ -70,7 +70,7 @@ export class AuroraCallsDurableObject {
       const devices = await this.state.storage.get<Device[]>("devices") || [];
       const reminders = await this.state.storage.get<Reminder[]>("reminders") || [];
       const calls = await this.state.storage.get<ActiveCall[]>("calls") || [];
-      return json({ ok: true, devices: devices.length, scheduled: reminders.filter(r => r.status === "scheduled").length, activeCalls: calls.filter(c => c.status === "ringing" || c.status === "answered").length, pushGatewayConfigured: Boolean(this.env.AURORA_PUSH_GATEWAY_URL && this.env.AURORA_PUSH_GATEWAY_TOKEN) });
+      return json({ ok: true, devices: devices.length, scheduled: reminders.filter(r => r.status === "scheduled").length, activeCalls: calls.filter(c => c.status === "ringing" || c.status === "answered").length, pushGatewayConfigured: Boolean((this.env.FCM_PROJECT_ID && this.env.FCM_CLIENT_EMAIL && this.env.FCM_PRIVATE_KEY) || (this.env.AURORA_PUSH_GATEWAY_URL && this.env.AURORA_PUSH_GATEWAY_TOKEN)) });
     }
     if (path === "/api/calls/devices" && request.method === "POST") return this.registerDevice(request);
     if (path.startsWith("/api/calls/devices/") && request.method === "DELETE") return this.removeDevice(decodeURIComponent(path.split("/").pop() || ""));
