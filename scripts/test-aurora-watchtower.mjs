@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { createAuroraWatchtower, AURORA_WATCHTOWER_KEY } from "../src/core/aurora-watchtower.js";
 class MemoryStorage {
   values = new Map();
@@ -38,4 +40,18 @@ assert.equal(watchtower.remove("watch-test"),true);
 assert.equal(watchtower.list().length,0);
 storage.setItem(AURORA_WATCHTOWER_KEY,"{broken");
 assert.throws(()=>watchtower.list(),/corrupt/i);
+const root=process.cwd();
+const worker=fs.readFileSync(path.join(root,"android/app/src/main/java/com/aurora/assistant/AuroraWatchtowerWorker.java"),"utf8");
+const nativeReminder=fs.readFileSync(path.join(root,"android/app/src/main/java/com/aurora/assistant/AuroraReminderPlugin.java"),"utf8");
+const nativeBridge=fs.readFileSync(path.join(root,"src/lib/aurora-native.ts"),"utf8");
+const panel=fs.readFileSync(path.join(root,"src/components/WatchtowerPanel.jsx"),"utf8");
+assert.match(worker,/PeriodicWorkRequest/,"Android must schedule periodic background checks");
+assert.match(worker,/NetworkType\.CONNECTED/,"background checks must wait for network connectivity");
+assert.match(worker,/\/api\/search/,"background checks must use AURORA Search");
+assert.match(worker,/new search result\(s\)/,"new result notifications must be delivered");
+assert.match(nativeReminder,/scheduleWatchtower/,"native reminder plugin must expose Watchtower scheduling");
+assert.match(nativeReminder,/cancelWatchtower/,"native reminder plugin must expose Watchtower cancellation");
+assert.match(nativeBridge,/AuroraReminderBridge/,"Capacitor bridge must type the Watchtower scheduler");
+assert.match(panel,/scheduleWatchtower/,"Watchtower UI must register Android background checks");
+assert.match(panel,/cancelWatchtower/,"pause and delete must cancel background work");
 console.log("AURORA universal Search Watchtower tests passed.");
