@@ -303,6 +303,29 @@ async function runCloudflareBrowserRun(env: Env, targetUrl: string) {
   } : null;
 }
 
+function summarizeResearchQuality(results: any[]) {
+  const usable = results.filter(item => item && typeof item.text === "string" && item.text.trim());
+  const connectors = [...new Set(usable.map(item => String(item.server || "")).filter(Boolean))];
+  const domainCounts = new Map<string, number>();
+  for (const item of usable) {
+    const domains = new Set((Array.isArray(item.sources) ? item.sources : []).map((source: any) => {
+      try { return new URL(String(source)).hostname.toLowerCase().replace(/^www\\./, ""); }
+      catch { return ""; }
+    }).filter(Boolean));
+    item.sourceDomains = [...domains];
+    for (const domain of domains) domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+  }
+  const sharedDomains = [...domainCounts.entries()].filter(([, count]) => count > 1).map(([domain]) => domain).slice(0, 8);
+  return {
+    evidenceItems: usable.length,
+    independentConnectors: connectors.length,
+    linkedDomains: domainCounts.size,
+    sharedDomains,
+    coverage: connectors.length > 1 ? "multi-connector" : connectors.length === 1 ? "single-connector" : "no-evidence",
+    caution: "Connector count and shared domains measure coverage only; they do not prove that factual claims agree."
+  };
+}
+
 export async function runAuroraMcpResearch(env: Env, query: string) {
   const cleanQuery = String(query || "").trim().slice(0, 500);
   if (!cleanQuery || !wantsResearch(cleanQuery)) return { configured: getMcpStatus(env), results: [] };
@@ -317,8 +340,10 @@ export async function runAuroraMcpResearch(env: Env, query: string) {
       .catch((error: any) => ({ server: "cloudflare-browser-run", label: "Cloudflare Browser Run", error: String(error?.message || "Browser unavailable").slice(0, 120) })));
   }
   const settled = await Promise.all(jobs);
+  const results = settled.filter((item: any) => item && item.text).slice(0, 4);
   return {
     configured: getMcpStatus(env),
-    results: settled.filter((item: any) => item && item.text).slice(0, 4)
+    quality: summarizeResearchQuality(results),
+    results
   };
 }
