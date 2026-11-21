@@ -5,7 +5,8 @@ const plugin = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/A
 const service = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraOverlayService.java", "utf8");
 const bridge = fs.readFileSync("src/lib/aurora-native.ts", "utf8");
 const app = fs.readFileSync("src/App.jsx", "utf8");
-const panel = fs.readFileSync("android/app/src/main/assets/aurora_pulse_panel.html", "utf8");\nconst queue = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraActionRequestQueue.java", "utf8");
+const panel = fs.readFileSync("android/app/src/main/assets/aurora_pulse_panel.html", "utf8");
+const queue = fs.readFileSync("android/app/src/main/java/com/aurora/assistant/AuroraActionRequestQueue.java", "utf8");
 
 for (const method of ["showOverlay", "hideOverlay", "getOverlayStatus"]) {
   assert.match(plugin, new RegExp("public void " + method + "\\(PluginCall call\\)"), "Android plugin must implement " + method);
@@ -13,6 +14,10 @@ for (const method of ["showOverlay", "hideOverlay", "getOverlayStatus"]) {
 }
 assert.match(plugin, /AuroraOverlayService\.ACTION_SHOW/, "showOverlay must start the native overlay service");
 assert.match(plugin, /AuroraActionRequestQueue\.dequeue\(getContext\(\)\)/, "The native plugin must consume requests atomically from the shared queue.");
+assert.match(queue, /MAX_ITEMS = 10/, "The shared native request queue must be bounded.");
+assert.match(queue, /TTL_MS = 10L \* 60L \* 1000L/, "Queued requests must expire after ten minutes.");
+assert.match(queue, /synchronized \(LOCK\)/, "Queue reads and writes must be serialized.");
+assert.match(queue, /requestId/, "Every queued request must have a unique identifier.");
 assert.match(service, /sendToSharedPulse\(String rawQuery\)/, "The overlay must hand requests to the app's shared runtime.");
 assert.match(service, /AuroraActionRequestQueue\.enqueue\(AuroraOverlayService\.this, query, "pulse_overlay"\)/, "Pulse overlay requests must enter the shared bounded queue.");
 assert.match(bridge, /consumePulseActionRequest\(\)/, "The TypeScript bridge must expose the shared Pulse handoff.");
