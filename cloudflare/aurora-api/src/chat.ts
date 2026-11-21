@@ -159,8 +159,8 @@ export async function handleChat(request:Request,env:ChatEnv):Promise<Response>{
      rows.map((item: any, index: number) => {
       const evidence = (index + 1) + '. [' + text(item.label, 100) + ' / ' + text(item.tool, 80) + '] ' + text(item.text, 2400);
       const sources = Array.isArray(item.sources) ? item.sources.filter((url: any) => typeof url === 'string').slice(0, 8) : [];
-      return evidence + (sources.length ? '\\nSources: ' + sources.join(' | ') : '');
-     }).join('\\n\\n').slice(0, 7600);
+      return evidence + (sources.length ? '\nSources: ' + sources.join(' | ') : '');
+     }).join('\n\n').slice(0, 7600);
    }
   }
  } catch (error) {
