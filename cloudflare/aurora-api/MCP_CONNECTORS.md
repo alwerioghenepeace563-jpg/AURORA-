@@ -46,6 +46,8 @@ The connector status is available through GET /api/health under integrations.rem
 
 AURORA ranks eligible read-only MCP tools against the user's request instead of blindly taking the first tool returned by a server. Direct webpage URLs prioritize page extraction and reading tools; general research prioritizes search tools. Tool schemas must still support the required arguments, and side-effecting tools remain excluded.
 
+MCP research output also extracts a small, validated set of public source URLs and passes them into AURORA's evidence context so the model can attribute claims and present source links. URLs are filtered through the same public-target checks; this is not a substitute for full DNS-level SSRF protection.
+
 ## Safety and runtime behavior
 
 - MCP execution happens inside the Cloudflare Worker. Credentials are never returned to the client.
